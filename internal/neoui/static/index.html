@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="color-scheme" content="dark light" />
+	<meta name="referrer" content="no-referrer" />
+	<title>NeoProxy</title>
+	<link rel="icon" href="mark.svg" type="image/svg+xml" />
+	<link rel="stylesheet" href="styles.css" />
+	<script>
+		try {
+			const t = localStorage.getItem("neo-theme");
+			if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+		} catch {}
+	</script>
+</head>
+<body>
+	<div class="shell-ambient"></div>
+	<div id="app"></div>
+	<div class="toasts" id="toasts"></div>
+	<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -22,6 +22,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoui"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	responsesclaude "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/claude/openai/responses"
@@ -135,15 +136,25 @@ func (s *Server) setupRoutes() {
 		v1beta.GET("/models/*action", s.geminiGetHandler(geminiHandlers))
 	}
 
-	// Root endpoint
+	// Root endpoint: browsers get the NeoProxy dashboard, API clients the banner.
+	dashboardEnabled := func() bool {
+		cfg := s.getConfig()
+		return cfg != nil && !cfg.Home.Enabled && !cfg.RemoteManagement.DisableControlPanel
+	}
+	neoui.Register(s.engine, dashboardEnabled)
 	s.engine.GET("/", func(c *gin.Context) {
+		if dashboardEnabled() && neoui.WantsHTML(c.Request) {
+			c.Redirect(http.StatusFound, neoui.Prefix)
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
-			"message": "CLI Proxy API Server",
+			"message": "NeoProxy",
 			"endpoints": []string{
 				"POST /v1/chat/completions",
 				"POST /v1/completions",
 				"GET /v1/models",
 			},
+			"dashboard": neoui.Prefix,
 		})
 	})
 
