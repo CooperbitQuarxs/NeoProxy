@@ -21,7 +21,7 @@ gitstore/*
 objectstore/*
 
 # Static assets
-static/*
+/static/*
 
 # Authentication data
 auths/*
@@ -31,6 +31,8 @@ auths/*
 # Documentation
 docs/*
 !docs/management-api-v8.md
+!docs/design/
+!docs/upstream/
 AGENTS.md
 CLAUDE.md
 GEMINI.md
