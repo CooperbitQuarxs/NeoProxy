@@ -136,7 +136,7 @@ export async function render(ctx) {
 		if (r) open(r);
 	}
 	const esc = (e) => {
-		if (e.key === "Escape" && selectedId && !e.target.closest("input,select,textarea")) {
+		if (e.key === "Escape" && selectedId && !e.target?.closest?.("input,select,textarea")) {
 			selectedId = null;
 			renderTable();
 			ctx.setInspector(null);

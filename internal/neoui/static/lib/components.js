@@ -353,28 +353,32 @@ export function dialog({ title, sub, body, actions, onClose }) {
 }
 
 export function confirm({ title, text, confirmLabel = "Confirm", danger = false }) {
-	return new Promise((resolve) => {
-		dialog({
-			title,
-			sub: text,
-			actions: (close) => [
-				btn("Cancel", {
-					onClick: () => {
-						close();
-						resolve(false);
-					},
-				}),
-				btn(confirmLabel, {
-					cls: danger ? "danger outline" : "primary",
-					onClick: () => {
-						close();
-						resolve(true);
-					},
-				}),
-			],
-			onClose: () => resolve(false),
-		});
+	// Resolve before closing: close() fires onClose, which must only count as a
+	// cancel when nothing has been decided yet.
+	let settled = false;
+	const { promise, resolve } = Promise.withResolvers();
+	const decide = (v, close) => {
+		if (!settled) {
+			settled = true;
+			resolve(v);
+		}
+		close();
+	};
+	dialog({
+		title,
+		sub: text,
+		actions: (close) => [
+			btn("Cancel", { onClick: () => decide(false, close) }),
+			btn(confirmLabel, { cls: danger ? "danger outline" : "primary", onClick: () => decide(true, close) }),
+		],
+		onClose: () => {
+			if (!settled) {
+				settled = true;
+				resolve(false);
+			}
+		},
 	});
+	return promise;
 }
 
 export function spinner(text = "Loading") {

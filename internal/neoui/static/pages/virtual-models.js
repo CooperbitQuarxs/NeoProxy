@@ -165,7 +165,7 @@ async function editor(ctx, id) {
 	root.append(
 		card({
 			title: "Chain",
-			sub: "Left to right: a request arrives, each stage is tried in order, and when every stage is spent the chain ends the way you choose. Click a stage to edit it; drag to reorder.",
+			sub: "Left to right: a request arrives, each stage is tried in order, and when every stage is spent the chain ends the way you choose. Click a stage to edit it; drag it, or press Alt with ← →, to reorder.",
 			body: railHost,
 		}),
 	);
@@ -541,10 +541,24 @@ async function editor(ctx, id) {
 	renderInspector();
 	runSim();
 	const esc = (e) => {
-		if (e.key === "Escape" && selected && !e.target.closest("input,textarea,select")) {
+		if (e.target?.closest?.("input,textarea,select")) return;
+		if (e.key === "Escape" && selected) {
 			selected = null;
 			renderRail();
 			ctx.setInspector(null);
+		}
+		// Alt+←/→ moves the selected stage; the keyboard path for drag-to-reorder.
+		if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight") && selected && selected !== "terminal") {
+			const i = draft.stages.findIndex((x) => x.id === selected);
+			const j = e.key === "ArrowLeft" ? i - 1 : i + 1;
+			if (i === -1 || j < 0 || j >= draft.stages.length) return;
+			e.preventDefault();
+			const next = draft.stages.slice();
+			[next[i], next[j]] = [next[j], next[i]];
+			draft.stages = next;
+			setDirty();
+			renderRail();
+			runSim();
 		}
 	};
 	document.addEventListener("keydown", esc);
