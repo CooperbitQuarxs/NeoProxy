@@ -49,10 +49,11 @@ export async function render(ctx) {
 
 	host.append(h("div", { class: "grid c2-1" }, streamCard(world, ctx), attentionCard(world, ctx)));
 
-	const off = onChange(() => ctx.rerender());
+	const off = onChange((w) => w !== "requests" && ctx.rerender());
 	return () => {
 		off();
 		flow.dispose();
+		streamCard.unsubscribe?.();
 	};
 }
 
@@ -283,6 +284,11 @@ function streamCard(world, ctx) {
 		);
 	};
 	for (const r of world.requests) list.append(rowFor(r));
+	const unsubscribe = neo.subscribeStream((r) => {
+		list.prepend(rowFor(r, true));
+		if (list.children.length > 14) list.lastChild.remove();
+	});
+	streamCard.unsubscribe = unsubscribe;
 	return card({
 		title: h("span", { class: "row" }, h("span", { class: "dot live" }), "Live requests"),
 		sub: "What the proxy is serving right now, and how each request was routed.",

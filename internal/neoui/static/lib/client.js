@@ -123,6 +123,8 @@ function changed(what) {
 	for (const fn of changeListeners) fn(what);
 }
 const clone = (x) => structuredClone(x);
+const streamSubs = new Set();
+let streamTimer = null;
 const latency = () => new Promise((r) => setTimeout(r, 30 + Math.random() * 60));
 
 export const neo = {
@@ -251,6 +253,22 @@ export const neo = {
 	},
 	resolveWith({ asked, user, virtualModels }) {
 		return resolve({ asked, user }, { ...world, virtualModels: virtualModels ?? world.virtualModels });
+	},
+	// Live stream of new requests. Backed by a timer on the fixture; the real
+	// backend is expected to expose SSE at /v8/neo/requests/stream.
+	subscribeStream(fn) {
+		streamSubs.add(fn);
+		if (!streamTimer) streamTimer = setInterval(() => {
+			const r = world.next();
+			for (const f of streamSubs) f(clone(r));
+		}, 7000 + Math.random() * 5000);
+		return () => {
+			streamSubs.delete(fn);
+			if (!streamSubs.size && streamTimer) {
+				clearInterval(streamTimer);
+				streamTimer = null;
+			}
+		};
 	},
 	async localCredentials() {
 		await latency();

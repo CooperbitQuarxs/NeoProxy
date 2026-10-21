@@ -25,14 +25,22 @@ NeoProxy is one of three pieces that are built to work together:
 | **NeoProxy** | Serves that inference as standard API endpoints to any client or SDK. This repository. |
 | **NeoDeck** | The team-facing web deck: inbox, workspaces, automations. Uses NeoProxy as its provider. |
 
-In the NeoProxy dashboard, NeoPi is the default and first provider. The other
-providers the engine supports remain available and are listed under
-"Also supported".
+The dashboard lives at `/neo/`. It is built around NeoPi as the provider of
+everything: the models it serves are named `neoproxy/<provider>/<model>`, and
+the admin shapes **virtual models** (`neoproxy/default`, `neoproxy/heavy`, …)
+as chains of stages that draw from pooled accounts in measured sips, demote,
+and end in a clear limit. Users get a catalogue of those names, an allotment
+each, and their own view of what is left. The engine's own surfaces
+(credentials, keys, logs, routing, config, plugins) stay reachable in a
+demoted group; the upstream control panel remains at `/management.html`.
 
 ## Status
 
-Early. The engine is production-tested upstream; the new dashboard is in active
-development and some of its pages are marked as not implemented yet.
+Early. The engine is production-tested upstream. The dashboard's NeoPi-centred
+pages run on a fixture until the backend described in
+[docs/design/backend-contracts.md](docs/design/backend-contracts.md) exists;
+those pages carry a small `preview data` mark. The design language is
+documented in [docs/design/neo-design-language.md](docs/design/neo-design-language.md).
 
 ## Building
 

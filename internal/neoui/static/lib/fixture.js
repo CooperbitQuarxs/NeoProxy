@@ -331,7 +331,34 @@ export function createFixture() {
 		{ id: "cred-1", provider: "codex", label: "office-2@… (legacy auth file)", state: "disabled", source: "auths/codex-office-2.json", updatedAt: t0 - 30 * 24 * HOUR },
 	];
 
-	return { core, providers, accounts, models, virtualModels, users, usage, requests, localCredentials };
+	// One more request, as the proxy would record it right now. The fixture
+	// stream calls this on a timer so the Overview ticker moves.
+	let seq = 160;
+	const next = () => {
+		const [userId, asked] = pick(askers);
+		const user = users.find((u) => u.id === userId);
+		const decision = resolve({ asked, user }, { models, virtualModels, accounts, usage, providers });
+		if (decision.outcome === "ok" && decision.stageId) bump(userId, decision.virtualModel, decision.stageId, decision.accountId, 0.002);
+		const tin = Math.round(800 + rand() * 30_000);
+		const tout = Math.round(80 + rand() * 4_000);
+		const r = {
+			id: `req_${(0x3f00 + seq++).toString(16)}`,
+			at: now(),
+			userId,
+			keyId: user.keys[0]?.id ?? null,
+			client: user.role === "service" ? "NeoDeck" : pick(clients),
+			asked,
+			decision,
+			tokens: decision.outcome === "ok" ? { in: tin, out: tout, cached: Math.round(tin * rand() * 0.7) } : { in: 0, out: 0, cached: 0 },
+			latencyMs: decision.outcome === "ok" ? Math.round(400 + rand() * 6000) : Math.round(20 + rand() * 80),
+			outcome: decision.outcome,
+			stream: rand() > 0.3,
+		};
+		requests.unshift(r);
+		return r;
+	};
+
+	return { core, providers, accounts, models, virtualModels, users, usage, requests, localCredentials, next };
 }
 
 // Resolve which stage and account would serve a request right now. This is the

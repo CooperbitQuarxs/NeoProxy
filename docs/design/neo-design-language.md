@@ -79,8 +79,9 @@ engine returns HTTP 200 even when every token fails. Clipboard actions show
 "Copied" only after the browser accepts the write; denied writes show
 "Clipboard unavailable".
 
-Run the dashboard's batch-result regression tests with
-`node --test internal/neoui/credentials_test.mjs`.
+The regression test for the previous dashboard's batch-result rendering was
+removed with that dashboard; the new one verifies its pages by driving them in
+Chromium (see `docs/design/backend-contracts.md` for the fixture it runs on).
 
 ### Type
 
@@ -207,14 +208,50 @@ NeoProxy ships the same control.
 - No modal for something that fits in a card.
 - No second accent hue (the violet is reserved for system/custom labels).
 
+## Components NeoProxy adds (shared by name with NeoDeck)
+
+- **Usage ring** (`.neo-ring`): a 3px track with a cyan fill for the used
+  fraction and an optional dashed outer marker for the budget. Turns `--warn`
+  at 80% of the budget and `--bad` at or over it. Sizes 22–40px; the label
+  inside is 11px mono. Used for account windows, stage pools, and allotments.
+- **Chain rail** (`.neo-chain`): a horizontal list of fixed-width nodes
+  (request → stage… → terminal) joined by hairline links with an arrow and a
+  10px mono caption (`demote`, `then`). Nodes are `--card` on `--panel`,
+  12px radius; the selected node gets an accent outline, the node a simulated
+  request lands on gets a cyan outline and a `lands here` caption. `.compact`
+  drops the request node, the served-name line and captions for list use;
+  `.editor` narrows the nodes and puts a round `+` on the last link.
+- **Preview chip** (`.neo-preview`): 20px hairline chip, 11px mono, `--ink-3`,
+  text `preview data`, placed after the page title. It means the page is served
+  by the fixture adapter, not that the page is unfinished. Never a banner.
+- **Flow board** (`.flow`): three fixed columns of 44px rows with an SVG
+  overlay of cubic ribbons between them; ribbon width is usage share, pink for
+  vault → virtual model, cyan for virtual model → user. Selecting a row traces
+  away from it (downstream from a provider, upstream from a user, one hop from
+  a virtual model); everything else dims to 35%.
+- **Docked inspector** (`.inspector`): a 360px right column inside the panel,
+  hairline on the left, with a head, a scrolling body of `.section`s and a
+  foot for actions. It replaces modals for anything that is a detail of a
+  selected row. `Esc` closes it. Below 900px it stacks under the page.
+- **Trail** (`.trail`): the routing explanation for one request: numbered
+  steps, the serving step outlined in cyan, skipped steps at 70%, the end step
+  on `--panel`.
+
 ## How NeoProxy applies it
 
 - Chassis from `/share` (purple-black), structure and components from
-  `/stats`, chips/toasts from `/collab`.
-- NeoPi is the centrepiece: first nav group, first card on Overview, the
-  default provider in every provider picker. The engine's other providers
-  live under one "Also supported" group, demoted in position and weight but
-  not in capability.
-- Under-construction pages are real routes with the standard empty-state
-  card, a short explanation of what will live there, and a link to the
-  closest working thing.
+  `/stats`, chips/toasts from `/collab`. NeoDeck sits on `/stats`' pure black;
+  the two read as one family because every other token is identical.
+- NeoPi is the centre: the first nav group (`NeoPi`: Overview, Core link), the
+  topbar's first chip, and the left column of the Overview flow board. The
+  engine's own surfaces are the last group (`Engine`), reachable, never
+  highlighted.
+- Virtual models are the product. They are the middle column of the flow
+  board, the first card on Models, and the only pages with a bespoke editor.
+  Everything else is a list, a table, or a docked inspector.
+- Members and admins share one app. A member's sidebar is `Activity`, `My
+  models`, `About`; a member never sees account labels, vault internals, or
+  another user's data.
+- Fixture-backed pages carry the preview chip; engine-backed pages do not.
+  The upstream control panel stays at `/management.html` as the escape hatch
+  and is linked from About.
