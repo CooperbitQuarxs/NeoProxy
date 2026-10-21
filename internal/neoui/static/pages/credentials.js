@@ -1,325 +1,182 @@
-import { h, card, body, badge, btn, table, stat, fmtInt, fmtPct, fmtAgo, fmtDate, empty, toast, status, modal, confirm, seg, icon, kv, field, sparkline, copyLine } from "../ui.js";
-import { pageHead, providerLabel, statusKind, statusText, PROVIDERS, groupBy } from "./shared.js";
+import { h, fmtAgo, fmtInt, mask } from "../lib/dom.js";
+import { engine, invalidate } from "../lib/client.js";
+import { pageHead, card, btn, badge, status, search, seg, table, empty, kv, copyLine, inspector, section, toast, dialog, confirm, spinner, errorState, field, input, select } from "../lib/components.js";
 
-const OAUTH_PROVIDERS = ["codex", "claude", "antigravity", "kimi", "kimi-ai", "xai", "devin", "meta"];
+const providers = ["codex", "anthropic", "gemini", "antigravity", "qwen", "iflow", "kimi", "devin", "xai"];
+const nameOf = (entry) => entry.name || entry.id;
 
-function credName(e) {
-	return e.label || e.email || e.account || e.name || e.id;
+function stateOf(entry) {
+	if (entry.disabled || entry.status === "disabled") return { id: "disabled", kind: "", label: "Disabled", text: "This credential is excluded from routing until you enable it." };
+	if (entry.status === "expired" || /token expired/i.test(entry.status_message || "")) return { id: "expired", kind: "bad", label: "Expired", text: "The token has expired. Refresh it or sign in again to use this credential." };
+	if (entry.unavailable || ["error", "invalid", "cooling", "cooldown"].includes(entry.status) || entry.next_retry_after) return { id: "error", kind: "bad", label: "Error", text: "The engine cannot use this credential right now. Check its status details before refreshing it." };
+	return { id: "healthy", kind: "ok", label: "Healthy", text: "This credential is enabled and available to serve requests." };
 }
 
-function detail(e, { api, invalidate, reload, navigate }) {
-	const kind = statusKind(e);
-	const total = (e.success ?? 0) + (e.failed ?? 0);
-	const act = async (label, fn, { ok = `${label} done` } = {}) => {
+// The engine returns the whole auth record. Show what an admin acts on, in
+// plain words; everything secret-looking stays out.
+function detailRows(entry) {
+	const cooldowns = Array.isArray(entry.cooldowns) ? entry.cooldowns.length : 0;
+	const file = typeof entry.path === "string" ? entry.path.split("/").pop() : null;
+	return [
+		["Provider", entry.provider || entry.type || "–"],
+		["Account", entry.email || (entry.account_type === "api_key" ? mask(entry.account) : entry.account) || "–"],
+		["Type", entry.account_type === "api_key" ? "API key" : entry.account_type === "oauth" ? "OAuth login" : entry.account_type || "–"],
+		file ? ["File", h("code", { title: entry.path }, file)] : null,
+		entry.runtime_only ? ["Source", "runtime only (not on disk)"] : null,
+		entry.created_at ? ["Created", fmtAgo(entry.created_at)] : null,
+		entry.modtime ? ["Modified", fmtAgo(entry.modtime)] : null,
+		entry.last_refresh ? ["Last refreshed", fmtAgo(entry.last_refresh)] : null,
+		entry.expired ? ["Expires", entry.expired] : null,
+		["Failures", fmtInt(entry.failed ?? 0)],
+		["Cooldowns", cooldowns ? `${cooldowns} active` : "none"],
+		entry.next_retry_after ? ["Next retry", fmtAgo(entry.next_retry_after)] : null,
+		entry.siwc_bind_supported ? ["Sign-in-with-Claude", entry.siwc_bound ? "bound" : "not bound"] : null,
+		entry.auth_index ? ["Index", h("code", null, String(entry.auth_index))] : null,
+	];
+}
+
+export async function render(ctx) {
+	const { root } = ctx;
+	let entries = [], models = new Map(), selected = ctx.params[0] ?? null, query = "", filter = "all", disposed = false, activeDialog;
+	const add = () => {
+		activeDialog?.close();
+		activeDialog = addCredential(reload);
+	};
+	const addButton = () => btn("Add credential", { icon: "plus", cls: "primary", onClick: add });
+	const refreshAll = btn("Refresh all", { icon: "refresh", cls: "outline", onClick: async () => {
+		refreshAll.disabled = true;
 		try {
-			await fn();
-			invalidate("credentials");
-			toast(ok, "ok");
-			reload();
-		} catch (ex) {
-			toast(`${label} failed: ${ex.message}`, "bad");
-		}
-	};
-	const actions = h(
-		"div",
-		{ class: "row wrap" },
-		btn(e.disabled ? "Enable" : "Disable", {
-			icon: "power",
-			cls: "outline sm",
-			onClick: () => act(e.disabled ? "Enable" : "Disable", () => api.patch("credentials/status", { name: e.name, auth_index: e.auth_index, disabled: !e.disabled })),
-		}),
-		btn("Refresh token", { icon: "refresh", cls: "outline sm", onClick: () => act("Refresh", () => api.post("credentials/refresh", { name: e.name, auth_index: e.auth_index })) }),
-		e.name && !e.runtime_only
-			? btn("Download", {
-					icon: "download",
-					cls: "outline sm",
-					onClick: async () => {
-						try {
-							const res = await api.raw("GET", "credentials/download", { query: { name: e.name } });
-							if (!res.ok) throw new Error(`${res.status}`);
-							const blob = await res.blob();
-							const a = h("a", { href: URL.createObjectURL(blob), download: e.name });
-							a.click();
-						} catch (ex) {
-							toast(`Download failed: ${ex.message}`, "bad");
-						}
-					},
-				})
-			: null,
-		e.name && !e.runtime_only
-			? btn("Delete", {
-					icon: "trash",
-					cls: "danger sm",
-					onClick: async () => {
-						if (!(await confirm({ title: `Delete ${e.name}?`, text: "The credential file is removed from the auth directory. Logins can be redone; API keys live in the configuration and are unaffected.", confirmLabel: "Delete", danger: true }))) return;
-						await act("Delete", () => api.del("credentials", { query: { name: e.name } }));
-						navigate("credentials");
-					},
-				})
-			: null,
-	);
-	const buckets = e.recent_requests ?? [];
-	return card({
-		title: [credName(e), badge(statusText(e), kind === "muted" ? "" : kind)],
-		sub: `${providerLabel(e.provider)} · ${e.type || e.account_type || "credential"}`,
-		actions: btn("", { icon: "x", cls: "icon sm", title: "Close", onClick: () => navigate("credentials") }),
-		body: body([
-			h(
-				"div",
-				{ class: "grid cols-2-even", style: { gap: "20px" } },
-				kv([
-					["File", e.name ? h("span", { class: "mono" }, e.name) : h("span", { style: { color: "var(--ink-3)" } }, "runtime only")],
-					e.email ? ["Account", e.email] : null,
-					e.account && e.account !== e.email ? ["Account id", h("span", { class: "mono" }, e.account)] : null,
-					e.project_id ? ["Project", h("span", { class: "mono" }, e.project_id)] : null,
-					["Priority", String(e.priority ?? 0)],
-					["Source", e.source || "file"],
-					e.status_message ? ["Status", e.status_message] : null,
-					e.next_retry_after ? ["Retry after", fmtDate(e.next_retry_after)] : null,
-					["Last refresh", fmtAgo(e.last_refresh)],
-					["Updated", fmtDate(e.updated_at || e.modtime)],
-				]),
-				h(
-					"div",
-					{ class: "stack", style: { gap: "10px" } },
-					h("div", { class: "stats small" }, stat({ label: "Requests", value: fmtInt(total) }), stat({ label: "Failed", value: fmtInt(e.failed ?? 0) }), stat({ label: "Error rate", value: fmtPct(e.failed ?? 0, total) })),
-					buckets.length ? sparkline(buckets.map((b) => (b.success ?? 0) + (b.failed ?? 0))) : null,
-					e.cooldowns && Object.keys(e.cooldowns).length ? h("div", { class: "callout warn" }, "Cooling down: ", h("code", null, JSON.stringify(e.cooldowns))) : null,
-				),
-			),
-			h("div", { style: { marginTop: "14px" } }, actions),
-		]),
-	});
+			const response = await engine.post("credentials/refresh", { all: true });
+			const results = response.results ?? [];
+			const refreshed = results.filter((result) => result.success).length;
+			const failed = results.filter((result) => !result.success).length;
+			toast(`Refreshed ${fmtInt(refreshed)} credentials; ${fmtInt(failed)} failed`, failed ? "warn" : "ok");
+			await reload();
+		} catch (error) { toast(`Refresh failed: ${error.message}`, "bad"); }
+		finally { refreshAll.disabled = false; }
+	} });
+	root.append(pageHead({ title: "Credentials", desc: "The engine's own auth files under auths/. Kept for proxies that run without a NeoPi core; while a core is linked these are the fallback, not the source.", actions: [refreshAll, addButton()] }));
+	const host = h("div");
+	root.append(h("div", { class: "row wrap", style: { marginBottom: "14px" } },
+		search("Search name, email or provider", (value) => { query = value.toLowerCase(); renderTable(); }),
+		seg([{ value: "all", label: "All" }, { value: "healthy", label: "Healthy" }, { value: "disabled", label: "Disabled" }, { value: "failed", label: "Expired or error" }], filter, (value) => { filter = value; renderTable(); })),
+		card({ flush: true, body: host }));
+
+	function close() {
+		selected = null;
+		ctx.setInspector(null);
+		renderTable();
+	}
+	function renderTable() {
+		const rows = entries.filter((entry) => {
+			const state = stateOf(entry).id;
+			return (filter === "all" || filter === state || filter === "failed" && ["expired", "error"].includes(state)) && (!query || [entry.name, entry.id, entry.email, entry.account, entry.label, entry.provider].some((value) => String(value ?? "").toLowerCase().includes(query)));
+		});
+		host.replaceChildren(table([
+			{ key: "provider", label: "Provider", render: (entry) => badge(entry.provider || entry.type || "unknown"), sortBy: (entry) => entry.provider || "" },
+			{ key: "name", label: "Name", clip: true, width: "26%", render: (entry) => h("code", { title: nameOf(entry) }, nameOf(entry)), sortBy: nameOf },
+			{ key: "account", label: "Account/email", clip: true, render: (entry) => h("span", { class: "ink-2" }, entry.email || (entry.account_type === "api_key" ? mask(entry.account) : entry.account) || "–") },
+			{ key: "state", label: "State", render: (entry) => { const state = stateOf(entry); return status(state.kind, state.label); } },
+			{ key: "refresh", label: "Last refreshed", num: true, render: (entry) => fmtAgo(entry.last_refresh), sortBy: (entry) => new Date(entry.last_refresh || 0).getTime() },
+			{ key: "models", label: "Models served", num: true, render: (entry) => fmtInt(models.get(nameOf(entry))?.models?.length) },
+		], rows, { onRow: open, keyOf: nameOf, selectedKey: selected, emptyState: entries.length
+			? empty({ icon: "search", title: "No matching credentials", hint: "Try another name, email or state." })
+			: empty({ icon: "shield", title: "No local credential files", hint: "Sign in to a provider or upload an auth file. With a NeoPi core linked you usually do not need any.", action: addButton() }) }));
+	}
+	async function act(entry, operation, message) {
+		try { await operation(); toast(message, "ok"); await reload(); }
+		catch (error) { toast(error.message, "bad"); }
+	}
+	function open(entry) {
+		selected = nameOf(entry);
+		renderTable();
+		const state = stateOf(entry);
+		const modelData = models.get(selected);
+		ctx.setInspector(inspector({ title: selected, sub: entry.provider || entry.type, onClose: close,
+			body: [section("State", status(state.kind, state.label), h("p", { class: "ink-2" }, state.text)),
+				section("Details", kv(detailRows(entry))),
+				modelData?.models ? section("Models", modelData.models.length ? h("div", { class: "list" }, modelData.models.map((model) => h("div", { class: "li" }, h("code", { style: { overflow: "auto", whiteSpace: "nowrap" } }, model.id)))) : h("p", { class: "ink-2" }, "No models are registered for this credential.")) : null,
+				modelData?.error ? section("Models", errorState(modelData.error, reload)) : null],
+			foot: h("div", { class: "row wrap" }, btn("Refresh token", { icon: "refresh", cls: "outline", onClick: () => act(entry, () => engine.post("credentials/refresh", { name: entry.name, auth_index: entry.auth_index }), `Refreshed ${nameOf(entry)}`) }),
+				btn(entry.disabled ? "Enable" : "Disable", { icon: "power", cls: "outline", onClick: () => act(entry, () => engine.patch("credentials/status", { name: entry.name, auth_index: entry.auth_index, disabled: !entry.disabled }), `${entry.disabled ? "Enabled" : "Disabled"} ${nameOf(entry)}`) }),
+				!entry.runtime_only ? btn("Download", { icon: "download", cls: "outline", onClick: () => act(entry, async () => {
+					const response = await engine.raw("GET", "credentials/download", { query: { name: entry.name } });
+					if (!response.ok) throw new Error("Download failed");
+					const url = URL.createObjectURL(await response.blob());
+					const link = h("a", { href: url, download: entry.name });
+					document.body.append(link); link.click(); link.remove();
+					setTimeout(() => URL.revokeObjectURL(url), 1000);
+				}, `Downloaded ${nameOf(entry)}`) }) : null,
+				!entry.runtime_only ? btn("Delete", { icon: "trash", cls: "danger", onClick: async () => {
+					if (await confirm({ title: `Delete ${nameOf(entry)}?`, text: "This removes the local auth file. Sign in again or upload a file to restore it.", confirmLabel: "Delete", danger: true })) await act(entry, () => engine.del("credentials", { query: { name: entry.name } }), `Deleted ${nameOf(entry)}`);
+				} }) : null) }));
+	}
+	async function reload() {
+		invalidate("credentials");
+		try {
+			const data = await engine.credentials();
+			const next = data.files ?? [];
+			const nextModels = await Promise.all(next.map(async (entry) => {
+				try { return [nameOf(entry), await engine.get("credentials/models", { query: { name: nameOf(entry) } })]; }
+				catch (error) { return [nameOf(entry), { error }]; }
+			}));
+			if (disposed) return;
+			entries = next; models = new Map(nextModels);
+			renderTable();
+			if (selected) { const entry = entries.find((item) => nameOf(item) === selected); if (entry) open(entry); else close(); }
+		} catch (error) { if (!disposed) host.replaceChildren(errorState(error, reload)); }
+	}
+	host.append(spinner());
+	await reload();
+	const escape = (event) => { if (event.key === "Escape" && !document.querySelector("[role=dialog]")) close(); };
+	document.addEventListener("keydown", escape);
+	return () => { disposed = true; activeDialog?.close(); document.removeEventListener("keydown", escape); ctx.setInspector(null); };
 }
 
-function addDialog({ api, invalidate, reload, load }) {
-	let provider = "codex";
-	let mode = "login";
-	let poll = 0;
-	const statusLine = h("div", { class: "callout", hidden: true });
-	const providerSel = h("select", { class: "select", style: { width: "100%" } }, OAUTH_PROVIDERS.map((p) => h("option", { value: p }, providerLabel(p))));
-	providerSel.addEventListener("change", () => (provider = providerSel.value));
-	const fileInput = h("input", { class: "input", type: "file", accept: ".json,application/json", multiple: true, style: { paddingTop: "5px" } });
-	const loginPane = h("div", { class: "stack", style: { gap: "10px" } }, field("Provider", providerSel, "Opens the provider's login in a new tab; the proxy waits for the callback."), statusLine);
-	const uploadPane = h("div", { class: "stack", style: { gap: "10px" }, hidden: true }, field("Credential files", fileInput, "JSON files produced by a previous login (on any machine)."));
-	const segHost = h("div");
-	const renderSeg = () => {
-		segHost.replaceChildren(
-			seg(
-				[
-					{ label: "Sign in", value: "login" },
-					{ label: "Upload file", value: "upload" },
-				],
-				mode,
-				(v) => {
-					mode = v;
-					loginPane.hidden = v !== "login";
-					uploadPane.hidden = v !== "upload";
-					renderSeg();
-				},
-			),
-		);
-	};
-	renderSeg();
-	const dlg = modal({
-		title: "Add credential",
-		sub: "A login or an uploaded credential file. API keys are configured under Also supported → Providers.",
-		body: [segHost, loginPane, uploadPane],
-		actions: [
-			btn("Cancel", { onClick: () => dlg.close() }),
-			btn("Continue", {
-				cls: "primary",
-				onClick: async () => {
-					if (mode === "upload") {
-						if (!fileInput.files.length) return toast("Choose a file first", "warn");
-						const fd = new FormData();
-						for (const f of fileInput.files) fd.append("file", f, f.name);
-						try {
-							await api.post("credentials", undefined, { body: fd });
-							invalidate("credentials");
-							toast("Uploaded", "ok");
-							dlg.close();
-							reload();
-						} catch (ex) {
-							toast(`Upload failed: ${ex.message}`, "bad");
-						}
-						return;
-					}
+function addCredential(reload) {
+	let mode = "login", provider = "codex", poll = 0, timeout = 0, generation = 0, closed = false;
+	const stop = () => { generation++; clearTimeout(poll); clearTimeout(timeout); };
+	const result = h("div");
+	const file = input({ type: "file", accept: ".json,application/json", multiple: true });
+	const login = h("div", null, field("Provider", select(providers.map((name) => ({ value: name, label: name })), provider, (value) => { provider = value; stop(); result.replaceChildren(); })), result);
+	const upload = h("div", { hidden: true }, field("Credential files", file, "Upload JSON auth files from a previous sign-in."));
+	const chooser = seg([{ value: "login", label: "Sign in" }, { value: "upload", label: "Upload file" }], mode, (value) => { mode = value; login.hidden = value !== "login"; upload.hidden = value !== "upload"; stop(); result.replaceChildren(); });
+	const dlg = dialog({ title: "Add credential", body: [field("Method", chooser), login, upload], onClose: () => { closed = true; stop(); },
+		actions: (close) => [btn("Cancel", { onClick: close }), btn("Continue", { cls: "primary", onClick: async (event) => {
+			const button = event.currentTarget;
+			button.disabled = true;
+			stop(); const current = generation;
+			try {
+				if (mode === "upload") {
+					if (!file.files.length) { toast("Choose a file first", "warn"); return; }
+					const body = new FormData();
+					for (const item of file.files) body.append("file", item, item.name);
+					const response = await engine.post("credentials", undefined, { body });
+					const failed = response.failed?.length ?? 0;
+					toast(failed ? `Uploaded ${fmtInt(response.uploaded ?? 0)} credential files; ${fmtInt(failed)} failed` : "Uploaded credential files", failed ? "warn" : "ok");
+					close(); await reload(); return;
+				}
+				result.replaceChildren(spinner("Starting sign-in"));
+				const response = await engine.get("oauth/auth-url", { query: { provider } });
+				if (closed || current !== generation) return;
+				if (!response.url || !response.state) throw new Error("The engine did not return a sign-in URL and state");
+				const urlLine = copyLine(response.url, "sign-in URL");
+				urlLine.querySelector("code").style.cssText = "overflow:auto;white-space:nowrap;min-width:0";
+				result.replaceChildren(section("Sign in", urlLine, h("a", { class: "btn outline", href: response.url, target: "_blank", rel: "noopener noreferrer" }, "Open"), response.user_code ? field("Device code", copyLine(response.user_code, "device code")) : null, h("p", { class: "ink-2" }, "Complete sign-in in the provider's window. Waiting for up to three minutes.")));
+				const fail = (message) => { stop(); result.replaceChildren(h("p", { class: "error" }, message)); toast(message, "bad"); };
+				timeout = setTimeout(() => fail("Sign-in timed out. Start again to get a new link."), 180000);
+				const check = async () => {
 					try {
-						statusLine.hidden = false;
-						statusLine.textContent = "Starting login…";
-						const r = await api.get("oauth/auth-url", { query: { provider } });
-						if (r.url) window.open(r.url, "_blank", "noopener");
-						statusLine.replaceChildren("Waiting for ", h("strong", null, providerLabel(provider)), " to call back… ", r.url ? h("a", { href: r.url, target: "_blank", rel: "noreferrer" }, "reopen login") : null);
-						if (r.flow === "device" && r.user_code) statusLine.append(h("div", null, "Enter code ", h("code", null, r.user_code)));
-						const state = r.state;
-						clearInterval(poll);
-						poll = setInterval(async () => {
-							try {
-								const s = await api.get("oauth/status", { query: { state } });
-								if (s.status === "ok") {
-									clearInterval(poll);
-									invalidate("credentials");
-									toast(`${providerLabel(provider)} signed in`, "ok");
-									dlg.close();
-									reload();
-								} else if (s.status === "error") {
-									clearInterval(poll);
-									statusLine.className = "callout bad";
-									statusLine.textContent = `Login failed: ${s.error || "unknown error"}`;
-								}
-							} catch {}
-						}, 2000);
-					} catch (ex) {
-						statusLine.className = "callout bad";
-						statusLine.textContent = `Could not start login: ${ex.message}`;
-					}
-				},
-			}),
-		],
-		onClose: () => clearInterval(poll),
-	});
+						const state = await engine.get("oauth/status", { query: { state: response.state } });
+						if (closed || current !== generation) return;
+						if (state.status === "ok") { toast(`Signed in to ${provider}`, "ok"); close(); await reload(); }
+						else if (state.status === "error") fail(`Sign-in failed: ${state.error || "Provider rejected sign-in"}`);
+						else poll = setTimeout(check, 2000);
+					} catch (error) { if (!closed && current === generation) fail(`Sign-in failed: ${error.message}`); }
+				};
+				poll = setTimeout(check, 2000);
+			} catch (error) { if (!closed && current === generation) { result.replaceChildren(h("p", { class: "error" }, error.message)); toast(error.message, "bad"); } }
+			finally { button.disabled = false; }
+		} })] });
 	return dlg;
 }
-
-// The batch endpoint returns HTTP 200 even when individual refreshes fail.
-export function refreshSummary(results) {
-	const failed = results.filter((r) => !r.success).length;
-	const succeeded = results.length - failed;
-	if (!results.length) return { text: "No credentials to refresh", kind: "warn" };
-	return {
-		text: `Refresh finished: ${succeeded} refreshed, ${failed} failed`,
-		kind: failed ? (succeeded ? "warn" : "bad") : "ok",
-	};
-}
-
-export const credentials = {
-	id: "credentials",
-	title: "Credentials",
-	icon: "shield",
-	key: "c",
-	async render(ctx) {
-		const { load, route, navigate, api } = ctx;
-		const creds = await load.credentials();
-		const entries = creds?.files ?? [];
-		const q = route.query;
-		const filterProvider = q.get("provider") || "";
-		const filterState = q.get("state") || "all";
-		const search = q.get("q") || "";
-		const selectedName = q.get("select") || "";
-		const setQuery = (patch) => {
-			const next = new URLSearchParams(q);
-			for (const [k, v] of Object.entries(patch)) (v ? next.set(k, v) : next.delete(k));
-			navigate(`credentials?${next}`);
-		};
-		if (q.get("add")) {
-			setTimeout(() => {
-				setQuery({ add: "" });
-				addDialog(ctx);
-			}, 0);
-		}
-
-		const byProvider = groupBy(entries, (e) => e.provider || "unknown");
-		let rows = entries;
-		if (filterProvider) rows = rows.filter((e) => (e.provider || "unknown") === filterProvider);
-		if (filterState !== "all") rows = rows.filter((e) => (filterState === "off" ? e.disabled : statusKind(e) === filterState));
-		if (search) {
-			const s = search.toLowerCase();
-			rows = rows.filter((e) => [credName(e), e.name, e.provider, e.email, e.type].filter(Boolean).some((v) => String(v).toLowerCase().includes(s)));
-		}
-		const selected = entries.find((e) => e.name === selectedName || e.id === selectedName);
-		const counts = { all: entries.length, ok: 0, warn: 0, bad: 0, off: 0 };
-		for (const e of entries) {
-			if (e.disabled) counts.off++;
-			else counts[statusKind(e)]++;
-		}
-
-		const searchInput = h("input", { class: "input", placeholder: "Filter by name, account, provider", value: search });
-		searchInput.addEventListener("change", () => setQuery({ q: searchInput.value }));
-		searchInput.addEventListener("keydown", (e) => {
-			if (e.key === "Enter") setQuery({ q: searchInput.value });
-		});
-
-		const providerSeg = h(
-			"select",
-			{ class: "select", onChange: (e) => setQuery({ provider: e.target.value }) },
-			h("option", { value: "" }, "All providers"),
-			[...byProvider.keys()].sort().map((id) => h("option", { value: id, selected: id === filterProvider || null }, `${providerLabel(id)} (${byProvider.get(id).length})`)),
-		);
-
-		const tbl = table(
-			[
-				{ label: "Credential", render: (e) => h("div", { class: "cell-stack" }, h("span", null, credName(e)), h("span", { class: "sub" }, e.name || "runtime")) },
-				{ label: "Provider", render: (e) => h("div", { class: "cell-stack" }, h("span", null, providerLabel(e.provider)), h("span", { class: "sub" }, e.type || e.account_type || "")) },
-				{ label: "Status", render: (e) => status(statusKind(e), statusText(e), e.next_retry_after ? `retry ${fmtAgo(e.next_retry_after).replace(" ago", "")}` : e.status_message ? e.status_message.slice(0, 40) : undefined) },
-				{ label: "Requests", cls: "num", render: (e) => fmtInt((e.success ?? 0) + (e.failed ?? 0)) },
-				{ label: "Error rate", cls: "num", render: (e) => badge(fmtPct(e.failed ?? 0, (e.success ?? 0) + (e.failed ?? 0)), (e.failed ?? 0) / Math.max(1, (e.success ?? 0) + (e.failed ?? 0)) > 0.05 ? "bad" : "ok") },
-				{ label: "Priority", cls: "num", render: (e) => String(e.priority ?? 0) },
-				{ label: "Refreshed", cls: "dim", render: (e) => fmtAgo(e.last_refresh || e.updated_at || e.modtime) },
-				{ label: "", cls: "actions", render: (e) => btn("", { icon: "arrowRight", cls: "icon sm", title: "Details", onClick: () => setQuery({ select: e.name || e.id }) }) },
-			],
-			rows,
-			{
-				onRow: (e) => setQuery({ select: e.name || e.id }),
-				keyOf: (e) => e.name || e.id,
-				selectedKey: selected ? selected.name || selected.id : undefined,
-				emptyState: empty({
-					title: entries.length ? "Nothing matches" : "No credentials yet",
-					hint: entries.length ? "Loosen the filters above." : "Sign in to a provider or upload a credential file. API keys go under Providers.",
-					action: entries.length ? btn("Clear filters", { cls: "outline sm", onClick: () => navigate("credentials") }) : btn("Add credential", { cls: "outline sm", icon: "plus", onClick: () => addDialog(ctx) }),
-				}),
-			},
-		);
-
-		return [
-			pageHead("Credentials", "Every login and credential file this proxy can route through, with its health.", [
-				btn("Refresh all", {
-					icon: "refresh",
-					cls: "outline",
-					onClick: async () => {
-						try {
-							const response = await api.post("credentials/refresh", { all: true });
-							const summary = refreshSummary(response.results ?? []);
-							ctx.invalidate("credentials");
-							toast(summary.text, summary.kind);
-							ctx.reload();
-						} catch (ex) {
-							toast(`Refresh failed: ${ex.message}`, "bad");
-						}
-					},
-				}),
-				btn("Add credential", { icon: "plus", cls: "primary", onClick: () => addDialog(ctx) }),
-			]),
-			h(
-				"div",
-				{ class: "stats" },
-				stat({ label: "Total", value: fmtInt(counts.all), sub: `${byProvider.size} provider${byProvider.size === 1 ? "" : "s"}` }),
-				stat({ label: "Healthy", value: fmtInt(counts.ok), bar: "ok" }),
-				stat({ label: "Cooling", value: fmtInt(counts.warn), sub: "waiting on a retry window", bar: counts.warn ? "warn" : "muted" }),
-				stat({ label: "Failing", value: fmtInt(counts.bad), sub: "needs a new login", bar: counts.bad ? "bad" : "muted" }),
-				stat({ label: "Disabled", value: fmtInt(counts.off), bar: "muted" }),
-			),
-			selected ? detail(selected, ctx) : null,
-			card({
-				title: "All credentials",
-				sub: `${rows.length} of ${entries.length} shown · observed ${fmtAgo(creds?.observed_at)}`,
-				actions: [
-					h("div", { class: "search" }, icon("search", 14), searchInput),
-					providerSeg,
-					seg(
-						[
-							{ label: "All", value: "all", count: counts.all },
-							{ label: "Healthy", value: "ok", count: counts.ok },
-							{ label: "Cooling", value: "warn", count: counts.warn },
-							{ label: "Failing", value: "bad", count: counts.bad },
-							{ label: "Off", value: "off", count: counts.off },
-						],
-						filterState,
-						(v) => setQuery({ state: v === "all" ? "" : v }),
-					),
-				],
-				body: h("div", { class: "card-body flush" }, tbl),
-			}),
-		];
-	},
-};

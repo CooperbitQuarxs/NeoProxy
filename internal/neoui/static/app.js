@@ -1,269 +1,303 @@
-import { api, auth, onUnauthorized, invalidate, load } from "./api.js";
-import { h, clear, icon, btn, toast, card, body, field, toggle, svg } from "./ui.js";
+import { h, clear, icon, svg } from "./lib/dom.js";
+import { session, neo, engine, onUnauthorized, invalidate, ApiError } from "./lib/client.js";
+import { btn, toast, field, input, toggle, iconBtn, card, dialog } from "./lib/components.js";
 import { pages, groups } from "./pages/index.js";
 
 const root = document.getElementById("app");
 
 // ---------- theme ----------
 const THEME_KEY = "neo-theme";
-function applyTheme(mode) {
-	if (mode === "light" || mode === "dark") document.documentElement.dataset.theme = mode;
-	else delete document.documentElement.dataset.theme;
-}
 function themeMode() {
 	return localStorage.getItem(THEME_KEY) || "auto";
 }
+function applyTheme(mode) {
+	if (mode === "auto") delete document.documentElement.dataset.theme;
+	else document.documentElement.dataset.theme = mode;
+}
 function cycleTheme() {
-	const order = ["auto", "dark", "light"];
-	const next = order[(order.indexOf(themeMode()) + 1) % order.length];
-	if (next === "auto") localStorage.removeItem(THEME_KEY);
-	else localStorage.setItem(THEME_KEY, next);
+	const next = { auto: "light", light: "dark", dark: "auto" }[themeMode()];
+	localStorage.setItem(THEME_KEY, next);
 	applyTheme(next);
+	toast(`Theme: ${next}`);
 	render();
 }
 
 // ---------- routing ----------
 export function route() {
 	const hash = location.hash.replace(/^#\/?/, "");
-	const [path, qs] = hash.split("?");
-	const parts = path.split("/").filter(Boolean);
-	return { page: parts[0] || "overview", parts: parts.slice(1), query: new URLSearchParams(qs || "") };
+	const [path, query = ""] = hash.split("?");
+	const segs = path.split("/").filter(Boolean);
+	return { id: segs[0] || "overview", params: segs.slice(1), query: new URLSearchParams(query) };
 }
 export function navigate(to) {
 	location.hash = `#/${to.replace(/^\/+/, "")}`;
 }
 window.addEventListener("hashchange", () => render());
 
-// ---------- shell ----------
+// ---------- session ----------
 let unauthorized = false;
 onUnauthorized(() => {
-	if (!unauthorized) {
-		unauthorized = true;
-		render();
-	}
+	if (unauthorized) return;
+	unauthorized = true;
+	toast("The engine refused the key; sign in again", "bad");
+	session.clear();
+	render();
 });
 
-const mark = () => {
-	const el = svg(
-		'<defs><linearGradient id="neo-mark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ed4abf"/><stop offset=".5" stop-color="#945ff9"/><stop offset="1" stop-color="#5ad8e6"/></linearGradient></defs><path fill="url(#neo-mark)" stroke="none" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z"/>',
-		22,
-		{ viewBox: "0 0 64 64", class: "topbar-mark" },
-	);
-	el.removeAttribute("stroke");
-	return el;
-};
+function signOut() {
+	session.clear();
+	invalidate();
+	render();
+}
 
-function topbar(current, sidebarToggle) {
-	const theme = themeMode();
+export function currentSession() {
+	return session.get();
+}
+
+function allowed(page, s) {
+	if (!page.roles) return true;
+	return page.roles.includes(s.role);
+}
+
+// ---------- chrome ----------
+const mark = () => h("img", { class: "mark", src: "mark.svg", alt: "" });
+
+function topbar(page, s, onMenu) {
 	return h(
 		"header",
 		{ class: "topbar" },
-		btn("", { icon: "menu", cls: "icon topbar-menu", title: "Navigation", onClick: sidebarToggle }),
-		h("div", { class: "topbar-brand" }, mark(), h("span", null, "NeoProxy"), h("span", { class: "topbar-slash" }, "/"), h("span", { class: "topbar-title" }, current?.title ?? "")),
-		h("div", { class: "topbar-spacer" }),
-		h(
-			"div",
-			{ class: "topbar-actions" },
-			h("span", { class: "chip", id: "health-chip", title: "Proxy health" }, h("span", { class: "dot" }), h("strong", null, "checking")),
-			btn("", {
-				icon: theme === "light" ? "sun" : theme === "dark" ? "moon" : "monitor",
-				cls: "icon",
-				title: `Theme: ${theme} (click to change)`,
-				onClick: cycleTheme,
-			}),
-			btn("", { icon: "external", cls: "icon", title: "Legacy console (upstream management panel)", href: "/management.html" }),
-			auth.key ? btn("", { icon: "logout", cls: "icon", title: "Forget management key", onClick: signOut }) : null,
-		),
+		h("button", { class: "btn icon menu-btn", onClick: onMenu, "aria-label": "Menu", style: { display: "none" } }, icon("menu")),
+		h("a", { class: "brand", href: "#/overview" }, mark(), "NeoProxy", h("span", { class: "crumb" }, "/"), h("span", { class: "crumb-page" }, page.title)),
+		h("span", { class: "spacer" }),
+		h("span", { class: "chip", id: "core-chip" }, h("span", { class: "dot" }), "NeoPi core", h("span", { class: "mono" }, "checking")),
+		h("span", { class: "chip", id: "proxy-chip" }, h("span", { class: "dot" }), "Proxy", h("span", { class: "mono" }, "checking")),
+		iconBtn({ auto: "monitor", light: "sun", dark: "moon" }[themeMode()], `Theme: ${themeMode()}`, cycleTheme),
+		iconBtn("logout", `Sign out ${s.handle}`, signOut),
 	);
 }
 
-function sidebar(current) {
+async function refreshChips() {
+	const core = document.getElementById("core-chip");
+	const proxy = document.getElementById("proxy-chip");
+	try {
+		const c = await neo.core();
+		if (core) {
+			core.querySelector(".dot").className = `dot ${c.linked ? "live" : "warn"}`;
+			core.querySelector(".mono").textContent = c.linked ? c.host : "not linked";
+			core.title = c.linked ? `Linked to ${c.endpoint} as ${c.identity}` : "No NeoPi core configured";
+		}
+	} catch {}
+	try {
+		const ok = await engine.health();
+		if (proxy) {
+			proxy.querySelector(".dot").className = `dot ${ok ? "ok" : "bad"}`;
+			proxy.querySelector(".mono").textContent = ok ? location.host : "down";
+		}
+	} catch {
+		if (proxy) {
+			proxy.querySelector(".dot").className = "dot bad";
+			proxy.querySelector(".mono").textContent = "unreachable";
+		}
+	}
+}
+
+function sidebar(current, s) {
 	const el = h("nav", { class: "sidebar", "aria-label": "Sections" });
 	for (const g of groups) {
-		const group = h("div", { class: "nav-group" }, h("div", { class: `nav-group-label ${g.centre ? "centre" : ""}` }, g.label));
-		for (const id of g.pages) {
-			const p = pages[id];
-			group.append(
-				h(
-					"a",
-					{ class: "nav-row", href: `#/${id}`, "aria-current": current?.id === id ? "page" : null, title: p.title },
-					icon(p.icon),
-					h("span", { class: "nav-label" }, p.title),
-					p.wip ? h("span", { class: "nav-wip" }, "wip") : null,
-					h("span", { class: "nav-kbd" }, h("kbd", null, "G"), " ", h("kbd", null, p.key.toUpperCase())),
+		const items = pages.filter((p) => p.group === g.id && !p.hidden && allowed(p, s));
+		if (!items.length) continue;
+		el.append(
+			h(
+				"div",
+				{ class: "group" },
+				h("div", { class: `group-label ${g.id === "core" ? "core" : ""}` }, g.label),
+				items.map((p) =>
+					h(
+						"a",
+						{ class: "nav-row", href: `#/${p.id}`, "aria-current": p.id === current.id ? "page" : null },
+						icon(p.icon, 16),
+						h("span", { class: "label" }, p.title),
+						p.chord ? h("kbd", null, p.chord.toUpperCase()) : null,
+					),
 				),
-			);
-		}
-		el.append(group);
+			),
+		);
 	}
 	el.append(
 		h(
 			"div",
-			{ class: "sidebar-foot" },
-			h("div", { class: "kbd-row" }, h("kbd", null, "G"), " then letter to jump"),
-			h("div", { class: "kbd-row" }, h("kbd", null, "."), " reload page data"),
-			h("div", { class: "kbd-row" }, h("kbd", null, "?"), " all shortcuts"),
+			{ class: "foot" },
+			h("div", null, h("kbd", null, "G"), " then a letter to jump"),
+			h("div", null, h("kbd", null, "/"), " search on the page"),
+			h("div", null, h("kbd", null, "?"), " all shortcuts"),
 		),
 	);
 	return el;
 }
 
-async function healthCheck() {
-	const chip = document.getElementById("health-chip");
-	if (!chip) return;
-	try {
-		const res = await fetch("/healthz", { cache: "no-store" });
-		const ok = res.ok;
-		clear(chip).append(h("span", { class: `dot ${ok ? "live" : "bad"}` }), h("strong", null, ok ? "Proxy up" : "Proxy down"), h("span", { class: "mono" }, location.host));
-	} catch {
-		clear(chip).append(h("span", { class: "dot bad" }), h("strong", null, "Unreachable"));
-	}
-}
-
-function signOut() {
-	auth.clear();
-	invalidate();
-	unauthorized = true;
-	render();
-}
-
 // ---------- gate ----------
 function gate(reason) {
-	const input = h("input", { class: "input mono", type: "password", placeholder: "management key", autocomplete: "current-password", autofocus: true, style: { width: "100%" } });
+	clear(root);
+	let secret = "";
 	let remember = false;
-	const err = h("div", { class: "callout bad", hidden: true });
-	const form = h(
-		"form",
-		{
-			onSubmit: async (e) => {
-				e.preventDefault();
-				const key = input.value.trim();
-				if (!key) return;
-				auth.set(key, remember);
-				try {
-					await api.get("config");
-					unauthorized = false;
-					invalidate();
-					render();
-				} catch (ex) {
-					err.hidden = false;
-					err.textContent = ex.status === 401 || ex.status === 403 ? "That key was rejected. If you are not on localhost, remote management must be allowed in the configuration." : `Could not reach the management API: ${ex.message}`;
-					auth.clear();
-				}
-			},
-		},
-		field("Management key", input, "The secret from management.secret-key in config.yaml."),
-		toggle(false, (v) => (remember = v), "Remember on this browser"),
-		err,
-		h("div", { class: "row", style: { justifyContent: "flex-end", marginTop: "4px" } }, btn("Open dashboard", { cls: "primary", type: "submit" })),
-	);
-	return h(
-		"div",
-		{ class: "gate" },
-		card({
-			body: body([
-				h("div", { style: { padding: "6px 0 14px" } }, h("div", { class: "gate-mark" }, mark()), h("h1", null, "NeoProxy"), h("p", { class: "card-sub", style: { marginTop: "4px" } }, reason || "The dashboard talks to the management API in your browser. Enter the key to continue.")),
-				form,
-			]),
-		}),
+	let busy = false;
+	const err = h("div", { class: "error hidden" });
+	const submit = async (e) => {
+		e?.preventDefault();
+		if (busy || !secret) return;
+		busy = true;
+		err.classList.add("hidden");
+		try {
+			const s = await neo.signIn(secret.trim(), remember);
+			unauthorized = false;
+			toast(`Signed in as ${s.handle}`);
+			navigate(s.role === "admin" ? "overview" : "mine");
+			render();
+		} catch (ex) {
+			err.textContent = ex instanceof ApiError ? ex.message : "Could not reach the proxy";
+			err.classList.remove("hidden");
+		} finally {
+			busy = false;
+		}
+	};
+	root.append(
+		h(
+			"div",
+			{ class: "gate" },
+			card({
+				rise: true,
+				body: h(
+					"form",
+					{ onSubmit: submit },
+					h("div", { class: "brand" }, mark(), "NeoProxy"),
+					h("h1", null, "Sign in"),
+					h("p", { class: "lead" }, reason ?? "Use the management key for the admin view, or one of your NeoProxy keys to see your own models and usage."),
+					field("Key", input({ type: "password", mono: true, placeholder: "management key or nk_…", autocomplete: "off", onInput: (e) => (secret = e.target.value), autofocus: true })),
+					err,
+					h("div", { class: "row" }, toggle(false, (v) => (remember = v), "Remember on this browser"), h("span", { class: "spacer" }), btn("Sign in", { cls: "primary", type: "submit" })),
+					h("div", { class: "foot" }, "The management key is ", h("code", null, "management.secret-key"), " in the engine config. User keys are issued on the Users page."),
+				),
+			}),
+		),
 	);
 }
 
 // ---------- render ----------
-let currentCleanup = null;
-let lastPageId = null;
+let cleanup = null;
+let lastId = null;
+let sidebarEl = null;
 
 export async function render() {
+	const s = session.get();
+	if (!s) return gate();
 	const r = route();
-	const current = pages[r.page] ?? pages.overview;
-	const needsAuth = !auth.key || unauthorized;
-	document.title = `${current.title} · NeoProxy`;
+	let page = pages.find((p) => p.id === r.id);
+	if (!page || !allowed(page, s)) page = pages.find((p) => p.id === (s.role === "admin" ? "overview" : "mine"));
+	document.title = `${page.title} · NeoProxy`;
 
-	currentCleanup?.();
-	currentCleanup = null;
-
+	if (cleanup) {
+		try {
+			cleanup();
+		} catch {}
+		cleanup = null;
+	}
 	clear(root);
-	let sidebarEl = null;
-	const toggleSidebar = () => {
-		if (!sidebarEl) return;
-		sidebarEl.dataset.open = sidebarEl.dataset.open === "true" ? "false" : "true";
+	sidebarEl = sidebar(page, s);
+	const pageEl = h("div", { class: "page", id: "page" });
+	const panel = h("div", { class: "panel" }, pageEl);
+	const shell = h(
+		"div",
+		{ class: "shell" },
+		topbar(page, s, () => sidebarEl.classList.toggle("open")),
+		sidebarEl,
+		h("main", { class: "shell-main" }, panel),
+	);
+	root.append(shell);
+	if (window.innerWidth <= 900) shell.querySelector(".menu-btn").style.display = "";
+	refreshChips();
+
+	const ctx = {
+		root: pageEl,
+		params: r.params,
+		query: r.query,
+		session: s,
+		navigate,
+		setInspector(el) {
+			panel.querySelector(".inspector")?.remove();
+			if (el) panel.append(el);
+		},
+		rerender: () => render(),
 	};
-	root.append(topbar(current, toggleSidebar));
-	healthCheck();
-
-	if (needsAuth) {
-		root.append(gate(unauthorized && auth.key ? "The management API rejected the stored key." : undefined));
-		if (unauthorized) auth.clear();
-		return;
-	}
-
-	sidebarEl = sidebar(current);
-	const panel = h("main", { class: "shell-panel", id: "panel", tabindex: -1 });
-	root.append(h("div", { class: "shell" }, sidebarEl, panel));
-
-	const ctx = { h, route: r, navigate, toast, reload: () => render(), load, api, invalidate };
 	try {
-		const result = await current.render(ctx);
-		if (result instanceof Node) panel.append(result);
-		else if (Array.isArray(result)) panel.append(...result.filter(Boolean));
-		if (typeof current.cleanup === "function") currentCleanup = current.cleanup;
-		if (result && typeof result.cleanup === "function") currentCleanup = result.cleanup;
-	} catch (ex) {
-		panel.append(
-			h("div", { class: "page-head" }, h("div", null, h("h1", { class: "page-title" }, current.title))),
-			h("div", { class: "callout bad" }, "This page failed to load: ", ex.message),
-		);
-		console.error(ex);
+		cleanup = (await page.render(ctx)) ?? null;
+	} catch (e) {
+		clear(pageEl);
+		pageEl.append(h("div", { class: "empty" }, icon("info", 22), h("div", { class: "title" }, "This page failed to render"), h("div", { class: "hint" }, e?.message ?? String(e))));
+		console.error(e);
 	}
-	if (lastPageId !== current.id) {
-		window.scrollTo(0, 0);
-		lastPageId = current.id;
-	}
+	lastId = page.id;
 }
 
 // ---------- keyboard ----------
 let chord = null;
 let chordTimer = 0;
 document.addEventListener("keydown", (e) => {
-	if (e.target.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
-	if (document.querySelector("dialog[open]")) return;
+	const t = e.target;
+	const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+	if (e.key === "Escape" && typing) {
+		t.blur();
+		return;
+	}
+	if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
 	if (chord === "g") {
 		chord = null;
 		clearTimeout(chordTimer);
-		const hit = Object.values(pages).find((p) => p.key === e.key.toLowerCase());
-		if (hit) {
+		const p = pages.find((x) => x.chord && x.chord[1] === e.key.toLowerCase());
+		if (p) {
 			e.preventDefault();
-			navigate(hit.id);
+			navigate(p.id);
 		}
 		return;
 	}
-	if (e.key === "g" || e.key === "G") {
+	if (e.key === "g") {
 		chord = "g";
 		chordTimer = setTimeout(() => (chord = null), 1200);
 		return;
 	}
+	if (e.key === "/") {
+		const s = document.querySelector("#page input[type=search]");
+		if (s) {
+			e.preventDefault();
+			s.focus();
+		}
+		return;
+	}
 	if (e.key === ".") {
+		e.preventDefault();
 		invalidate();
 		render();
-		toast("Reloaded");
 		return;
 	}
 	if (e.key === "?") {
-		import("./pages/index.js").then(() => showShortcuts());
+		e.preventDefault();
+		showShortcuts();
 	}
 });
 
 function showShortcuts() {
-	import("./ui.js").then(({ modal, kv }) => {
-		const dlg = modal({
-			title: "Keyboard shortcuts",
-			body: kv([
-				...Object.values(pages).map((p) => [h("span", null, h("kbd", null, "G"), " ", h("kbd", null, p.key.toUpperCase())), p.title]),
-				[h("kbd", null, "."), "Reload the current page's data"],
-				[h("kbd", null, "Esc"), "Close dialogs"],
-			]),
-			actions: [btn("Close", { cls: "primary", onClick: () => dlg.close() })],
-		});
+	const s = session.get();
+	const rows = pages.filter((p) => p.chord && allowed(p, s)).map((p) => h("div", { class: "row", style: { padding: "4px 0" } }, h("kbd", null, "G"), h("kbd", null, p.chord[1].toUpperCase()), h("span", null, p.title)));
+	dialog({
+		title: "Keyboard",
+		body: h(
+			"div",
+			null,
+			rows,
+			h("div", { class: "row", style: { padding: "4px 0", marginTop: "8px" } }, h("kbd", null, "/"), h("span", null, "Focus the page search")),
+			h("div", { class: "row", style: { padding: "4px 0" } }, h("kbd", null, "."), h("span", null, "Reload page data")),
+			h("div", { class: "row", style: { padding: "4px 0" } }, h("kbd", null, "Esc"), h("span", null, "Close the inspector or leave a field")),
+		),
+		actions: (close) => [btn("Close", { cls: "primary", onClick: close })],
 	});
 }
 

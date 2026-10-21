@@ -1,26 +1,44 @@
-import { overview } from "./overview.js";
-import { neopi } from "./neopi.js";
-import { usage } from "./usage.js";
-import { accounts } from "./accounts.js";
-import { credentials } from "./credentials.js";
-import { access } from "./access.js";
-import { traffic } from "./traffic.js";
-import { logs } from "./logs.js";
-import { routing } from "./routing.js";
-import { providers } from "./providers.js";
-import { plugins } from "./plugins.js";
-import { configuration } from "./configuration.js";
-import { about } from "./about.js";
+// Page registry. Order here is the sidebar order. The first group is NeoPi,
+// because the proxy exists to serve what the core holds; the engine's own
+// surfaces come last, reachable but demoted.
 
-export const pages = Object.fromEntries(
-	[overview, neopi, usage, accounts, credentials, access, traffic, logs, routing, providers, plugins, configuration, about].map((p) => [p.id, p]),
-);
+import * as overview from "./overview.js";
+import * as core from "./core.js";
+import * as models from "./models.js";
+import * as virtualModels from "./virtual-models.js";
+import * as users from "./users.js";
+import * as activity from "./activity.js";
+import * as mine from "./mine.js";
+import * as credentials from "./credentials.js";
+import * as keys from "./keys.js";
+import * as logs from "./logs.js";
+import * as routing from "./routing.js";
+import * as config from "./config.js";
+import * as plugins from "./plugins.js";
+import * as about from "./about.js";
 
-// Information architecture. NeoPi is the centrepiece: first group, first page.
-// The engine's own providers are kept, but demoted to "Also supported".
 export const groups = [
-	{ label: "NeoPi", centre: true, pages: ["overview", "neopi", "usage", "accounts"] },
-	{ label: "Proxy", pages: ["credentials", "access", "traffic", "logs", "routing"] },
-	{ label: "Also supported", pages: ["providers", "plugins"] },
-	{ label: "System", pages: ["configuration", "about"] },
+	{ id: "core", label: "NeoPi" },
+	{ id: "serving", label: "Serving" },
+	{ id: "you", label: "You" },
+	{ id: "engine", label: "Engine" },
+];
+
+const ADMIN = ["admin"];
+
+export const pages = [
+	{ id: "overview", title: "Overview", group: "core", icon: "overview", chord: "go", roles: ADMIN, render: overview.render },
+	{ id: "core", title: "Core link", group: "core", icon: "core", chord: "gn", roles: ADMIN, render: core.render },
+	{ id: "models", title: "Models", group: "serving", icon: "box", chord: "gm", roles: ADMIN, render: models.render },
+	{ id: "virtual-models", title: "Virtual models", group: "serving", icon: "route", chord: "gv", roles: ADMIN, render: virtualModels.render },
+	{ id: "users", title: "Users", group: "serving", icon: "users", chord: "gu", roles: ADMIN, render: users.render },
+	{ id: "activity", title: "Activity", group: "serving", icon: "activity", chord: "ga", render: activity.render },
+	{ id: "mine", title: "My models", group: "you", icon: "user", chord: "gy", roles: ["user"], render: mine.render },
+	{ id: "credentials", title: "Credentials", group: "engine", icon: "shield", chord: "gc", roles: ADMIN, render: credentials.render },
+	{ id: "keys", title: "Access keys", group: "engine", icon: "key", chord: "gk", roles: ADMIN, render: keys.render },
+	{ id: "logs", title: "Logs", group: "engine", icon: "scroll", chord: "gl", roles: ADMIN, render: logs.render },
+	{ id: "routing", title: "Routing", group: "engine", icon: "shuffle", chord: "gr", roles: ADMIN, render: routing.render },
+	{ id: "config", title: "Configuration", group: "engine", icon: "settings", chord: "gf", roles: ADMIN, render: config.render },
+	{ id: "plugins", title: "Plugins", group: "engine", icon: "plug", chord: "gp", roles: ADMIN, render: plugins.render },
+	{ id: "about", title: "About", group: "engine", icon: "info", chord: "gi", render: about.render },
 ];
