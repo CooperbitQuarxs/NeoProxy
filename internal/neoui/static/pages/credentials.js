@@ -4,7 +4,6 @@ import { pageHead, card, btn, badge, status, search, seg, table, empty, kv, copy
 
 const providers = ["codex", "anthropic", "gemini", "antigravity", "qwen", "iflow", "kimi", "devin", "xai"];
 const nameOf = (entry) => entry.name || entry.id;
-const secretField = /token|secret|password|api[-_]?key|authorization|cookie|credential/i;
 
 function stateOf(entry) {
 	if (entry.disabled || entry.status === "disabled") return { id: "disabled", kind: "", label: "Disabled", text: "This credential is excluded from routing until you enable it." };
@@ -13,12 +12,27 @@ function stateOf(entry) {
 	return { id: "healthy", kind: "ok", label: "Healthy", text: "This credential is enabled and available to serve requests." };
 }
 
-function safeValue(key, value) {
-	if (value === null || value === undefined) return "–";
-	if (secretField.test(key)) return mask(typeof value === "string" ? value : JSON.stringify(value));
-	if (Array.isArray(value)) return value.map((item) => safeValue("", item));
-	if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, safeValue(k, v)]));
-	return value;
+// The engine returns the whole auth record. Show what an admin acts on, in
+// plain words; everything secret-looking stays out.
+function detailRows(entry) {
+	const cooldowns = Array.isArray(entry.cooldowns) ? entry.cooldowns.length : 0;
+	const file = typeof entry.path === "string" ? entry.path.split("/").pop() : null;
+	return [
+		["Provider", entry.provider || entry.type || "–"],
+		["Account", entry.email || (entry.account_type === "api_key" ? mask(entry.account) : entry.account) || "–"],
+		["Type", entry.account_type === "api_key" ? "API key" : entry.account_type === "oauth" ? "OAuth login" : entry.account_type || "–"],
+		file ? ["File", h("code", { title: entry.path }, file)] : null,
+		entry.runtime_only ? ["Source", "runtime only (not on disk)"] : null,
+		entry.created_at ? ["Created", fmtAgo(entry.created_at)] : null,
+		entry.modtime ? ["Modified", fmtAgo(entry.modtime)] : null,
+		entry.last_refresh ? ["Last refreshed", fmtAgo(entry.last_refresh)] : null,
+		entry.expired ? ["Expires", entry.expired] : null,
+		["Failures", fmtInt(entry.failed ?? 0)],
+		["Cooldowns", cooldowns ? `${cooldowns} active` : "none"],
+		entry.next_retry_after ? ["Next retry", fmtAgo(entry.next_retry_after)] : null,
+		entry.siwc_bind_supported ? ["Sign-in-with-Claude", entry.siwc_bound ? "bound" : "not bound"] : null,
+		entry.auth_index ? ["Index", h("code", null, String(entry.auth_index))] : null,
+	];
 }
 
 export async function render(ctx) {
@@ -60,7 +74,7 @@ export async function render(ctx) {
 		});
 		host.replaceChildren(table([
 			{ key: "provider", label: "Provider", render: (entry) => badge(entry.provider || entry.type || "unknown"), sortBy: (entry) => entry.provider || "" },
-			{ key: "name", label: "Name", clip: true, render: (entry) => h("code", { title: nameOf(entry) }, nameOf(entry)), sortBy: nameOf },
+			{ key: "name", label: "Name", clip: true, width: "26%", render: (entry) => h("code", { title: nameOf(entry) }, nameOf(entry)), sortBy: nameOf },
 			{ key: "account", label: "Account/email", clip: true, render: (entry) => h("span", { class: "ink-2" }, entry.email || (entry.account_type === "api_key" ? mask(entry.account) : entry.account) || "–") },
 			{ key: "state", label: "State", render: (entry) => { const state = stateOf(entry); return status(state.kind, state.label); } },
 			{ key: "refresh", label: "Last refreshed", num: true, render: (entry) => fmtAgo(entry.last_refresh), sortBy: (entry) => new Date(entry.last_refresh || 0).getTime() },
@@ -80,10 +94,7 @@ export async function render(ctx) {
 		const modelData = models.get(selected);
 		ctx.setInspector(inspector({ title: selected, sub: entry.provider || entry.type, onClose: close,
 			body: [section("State", status(state.kind, state.label), h("p", { class: "ink-2" }, state.text)),
-				section("Details", kv(Object.entries(entry).map(([key, value]) => {
-					const safe = safeValue(key === "account" && entry.account_type === "api_key" ? "api_key" : key, value);
-					return [key, h("code", { style: { display: "block", overflow: "auto", whiteSpace: "pre" } }, typeof safe === "object" ? JSON.stringify(safe) : String(safe))];
-				}))),
+				section("Details", kv(detailRows(entry))),
 				modelData?.models ? section("Models", modelData.models.length ? h("div", { class: "list" }, modelData.models.map((model) => h("div", { class: "li" }, h("code", { style: { overflow: "auto", whiteSpace: "nowrap" } }, model.id)))) : h("p", { class: "ink-2" }, "No models are registered for this credential.")) : null,
 				modelData?.error ? section("Models", errorState(modelData.error, reload)) : null],
 			foot: h("div", { class: "row wrap" }, btn("Refresh token", { icon: "refresh", cls: "outline", onClick: () => act(entry, () => engine.post("credentials/refresh", { name: entry.name, auth_index: entry.auth_index }), `Refreshed ${nameOf(entry)}`) }),
