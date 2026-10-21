@@ -32,7 +32,7 @@ export const accounts = {
 				items: [
 					"Per-person client keys, issued and revoked here, with the usage they generate attributed to them.",
 					"Scopes: which providers and models an account may call, and whether it may touch the management API.",
-					"Shared identity with NeoDeck, so a team member on Utopia has the same account everywhere.",
+					"Shared identity with NeoDeck, so a team member on the office server has the same account everywhere.",
 					"An audit trail of who changed what in this proxy.",
 				],
 				links: [btn("NeoPi link", { cls: "sm outline", onClick: () => navigate("neopi") }), btn("Access keys", { cls: "sm outline", onClick: () => navigate("access") })],
