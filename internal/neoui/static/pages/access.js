@@ -1,4 +1,4 @@
-import { h, card, body, badge, btn, table, stat, fmtInt, empty, toast, confirm, modal, field, mask, copyLine } from "../ui.js";
+import { h, card, body, badge, btn, table, stat, fmtInt, empty, toast, confirm, modal, field, mask, copyLine, copyText } from "../ui.js";
 import { pageHead } from "./shared.js";
 
 function randomKey() {
@@ -87,10 +87,7 @@ export const access = {
 								icon: "copy",
 								cls: "icon sm",
 								title: "Copy",
-								onClick: async () => {
-									await navigator.clipboard.writeText(r.key).catch(() => {});
-									toast("Copied", "ok");
-								},
+								onClick: () => copyText(r.key),
 							}),
 							btn("", {
 								icon: "trash",

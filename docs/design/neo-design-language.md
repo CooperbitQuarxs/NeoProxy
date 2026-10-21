@@ -73,6 +73,15 @@ gradient is for hero marks and the KPI underline; it is not a button fill.
 fill. `--live: #3ecf8e` is reserved for the real-time presence dot. Every
 status reads as a colored dot + word, never color alone.
 
+Action feedback describes the completed operation, not merely its HTTP status.
+Credential batch refreshes report the refreshed and failed counts because the
+engine returns HTTP 200 even when every token fails. Clipboard actions show
+"Copied" only after the browser accepts the write; denied writes show
+"Clipboard unavailable".
+
+Run the dashboard's batch-result regression tests with
+`node --test internal/neoui/credentials_test.mjs`.
+
 ### Type
 
 - Sans: `"Inter var", Inter, ui-sans-serif, system-ui`. Mono: `ui-monospace,
