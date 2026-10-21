@@ -277,6 +277,15 @@ export function toggle(checked, onChange, label) {
 	return h("label", { class: "toggle" }, input, label ? h("span", null, label) : null);
 }
 
+export async function copyText(text) {
+	try {
+		await navigator.clipboard.writeText(text);
+		toast("Copied", "ok");
+	} catch {
+		toast("Clipboard unavailable", "warn");
+	}
+}
+
 export function copyLine(text, label) {
 	const code = h("code", { title: text }, text);
 	return h(
@@ -288,14 +297,7 @@ export function copyLine(text, label) {
 			icon: "copy",
 			cls: "icon sm",
 			title: "Copy",
-			onClick: async () => {
-				try {
-					await navigator.clipboard.writeText(text);
-					toast("Copied", "ok");
-				} catch {
-					toast("Clipboard unavailable", "warn");
-				}
-			},
+			onClick: () => copyText(text),
 		}),
 	);
 }

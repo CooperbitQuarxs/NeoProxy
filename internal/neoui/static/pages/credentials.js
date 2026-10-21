@@ -182,6 +182,17 @@ function addDialog({ api, invalidate, reload, load }) {
 	return dlg;
 }
 
+// The batch endpoint returns HTTP 200 even when individual refreshes fail.
+export function refreshSummary(results) {
+	const failed = results.filter((r) => !r.success).length;
+	const succeeded = results.length - failed;
+	if (!results.length) return { text: "No credentials to refresh", kind: "warn" };
+	return {
+		text: `Refresh finished: ${succeeded} refreshed, ${failed} failed`,
+		kind: failed ? (succeeded ? "warn" : "bad") : "ok",
+	};
+}
+
 export const credentials = {
 	id: "credentials",
 	title: "Credentials",
@@ -267,9 +278,10 @@ export const credentials = {
 					cls: "outline",
 					onClick: async () => {
 						try {
-							await api.post("credentials/refresh", { all: true });
+							const response = await api.post("credentials/refresh", { all: true });
+							const summary = refreshSummary(response.results ?? []);
 							ctx.invalidate("credentials");
-							toast("Refresh requested", "ok");
+							toast(summary.text, summary.kind);
 							ctx.reload();
 						} catch (ex) {
 							toast(`Refresh failed: ${ex.message}`, "bad");
