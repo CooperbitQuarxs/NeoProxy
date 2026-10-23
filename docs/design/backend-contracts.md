@@ -192,7 +192,7 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 5. No stage served → the terminal:
    - `limit` → HTTP 429, body `{ error: { message: terminal.message, code: "neoproxy_limit", virtualModel, resetsAt } }`. Outcome `limited`.
    - `queue` → hold the request until some stage can serve (bounded by the client's timeout; the backend should send keep-alive on streaming responses). Outcome `queued`.
-   - `passthrough` → serve `terminal.model` as in step 2 but without the direct-access check. Outcome `ok`.
+   - `passthrough` → serve `terminal.model` as in step 2 but without the direct-access check. Outcome `ok` retains `virtualModel`, `model` and `accountId`, but has no `stageId`, `stageIndex` or `direct` flag. It does not draw a stage budget. A missing or hidden target returns `error` with `reason: "unknown-model"`; a target without a healthy account returns `error` with `reason: "no-healthy-account"`. The simulator highlights the terminal and explains the selected model/account or the failure instead of reporting a limit.
 6. User-level `limits.rpm` and `limits.tokensPerDay` are hard ceilings checked before step 4; exceeding them is a 429 with `code: "neoproxy_user_limit"`.
 
 The decision **must** be recorded on the request (see Requests › `decision`), including the `trail`, so the Activity page can explain it.
