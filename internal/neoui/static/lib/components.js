@@ -481,7 +481,7 @@ export function modelPicker({ providers, models, accounts, value, onPick, onlyEx
 export function chainRail(vm, { models, accounts, usageFor, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1, accountLabel = (a) => a.label } = {}) {
 	const rail = h("div", { class: `neo-chain ${compact ? "compact" : ""} ${editor ? "editor" : ""}`, role: "list" });
 	const link = (text) => h("div", { class: "link" }, icon("arrowRight", 14), text ? h("span", { class: "demote" }, text) : null);
-	const litIdx = lit && lit.outcome === "ok" ? lit.stageIndex : lit ? vm.stages.length : null;
+	const litIdx = lit ? (lit.stageIndex ?? vm.stages.length) : null;
 	if (!compact) rail.append(
 		h(
 			"div",
@@ -624,7 +624,10 @@ export function trail(decision, { models, accounts, users }) {
 			else why = "skipped";
 			steps.push(h("div", { class: `step ${cls}` }, h("div", { class: "n" }, `${t.index + 1}`), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, why))));
 		} else if (t.kind === "terminal") {
-			steps.push(h("div", { class: "step end" }, h("div", { class: "n" }, "end"), h("div", null, h("div", { class: "what" }, t.terminal.kind === "queue" ? "Queued" : "Limit error"), h("div", { class: "why" }, t.terminal.message))));
+			const passthrough = t.terminal.kind === "passthrough";
+			const title = passthrough ? "Fall through" : t.terminal.kind === "queue" ? "Queued" : "Limit error";
+			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · served without a budget from ${accName(decision.accountId)}` : decision.message) : t.terminal.message;
+			steps.push(h("div", { class: `step ${passthrough && decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "end"), h("div", null, h("div", { class: "what" }, title), h("div", { class: "why" }, detail))));
 		} else if (t.kind === "direct") {
 			steps.push(h("div", { class: "step served" }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}`))));
 		} else if (t.kind === "denied") {

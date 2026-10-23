@@ -246,7 +246,7 @@ async function editor(ctx, id) {
 		simResult = neo.resolveWith({ asked: `neoproxy/${probe.name}`, user: probeUser, virtualModels: [probe] });
 		const granted = user.grants.some((g) => g.virtualModel === draft.id);
 		simHost.append(
-			h("div", { class: "grid c1-2", style: { paddingTop: "4px" } }, h("div", null, h("div", { class: "row", style: { marginBottom: "8px" } }, avatar(user), h("div", null, h("div", { style: { fontWeight: 500 } }, user.handle), h("div", { class: "ink-3", style: { fontSize: "12px" } }, granted || isNew ? (granted ? `granted, allotment ${fmtPct(user.grants.find((g) => g.virtualModel === draft.id).allotment)}` : "not granted yet; simulated at 100%") : "not granted; simulated at 100%"))), h("div", { class: "row" }, simResult.outcome === "ok" ? badge("would be served", "ok") : simResult.outcome === "queued" ? badge("would queue", "cyan") : badge("would get a limit error", "warn"))), trail(simResult, { models, accounts: vault.accounts, users })),
+			h("div", { class: "grid c1-2", style: { paddingTop: "4px" } }, h("div", null, h("div", { class: "row", style: { marginBottom: "8px" } }, avatar(user), h("div", null, h("div", { style: { fontWeight: 500 } }, user.handle), h("div", { class: "ink-3", style: { fontSize: "12px" } }, granted || isNew ? (granted ? `granted, allotment ${fmtPct(user.grants.find((g) => g.virtualModel === draft.id).allotment)}` : "not granted yet; simulated at 100%") : "not granted; simulated at 100%"))), h("div", { class: "row" }, simResult.outcome === "ok" ? badge("would be served", "ok") : simResult.outcome === "queued" ? badge("would queue", "cyan") : simResult.outcome === "limited" ? badge("would get a limit error", "warn") : badge("would fail", "bad"))), trail(simResult, { models, accounts: vault.accounts, users })),
 		);
 		renderRail();
 	}
@@ -463,9 +463,10 @@ async function editor(ctx, id) {
 							t.model = m.id;
 							setDirty();
 							renderRail();
+							runSim();
 						},
 					}),
-					"Served without a budget; the user's direct provider access still applies.",
+					"Served without a budget or a separate direct-access grant; the model must be exposed and have a healthy account.",
 				),
 			);
 		};

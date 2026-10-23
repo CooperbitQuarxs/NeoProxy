@@ -91,7 +91,7 @@ export async function render(ctx) {
 		if (d.outcome !== "ok") return h("span", { class: "ink-3" }, d.outcome === "limited" ? "limit reached, nothing served" : d.outcome === "queued" ? "queued for the next window" : d.reason);
 		const m = models.find((x) => x.id === d.model);
 		const a = vault.accounts.find((x) => x.id === d.accountId);
-		return h("span", null, m?.display ?? d.model, d.stageIndex !== undefined ? h("span", { class: "ink-3" }, ` · stage ${d.stageIndex + 1}`) : h("span", { class: "ink-3" }, " · direct"), a && !mine ? h("span", { class: "ink-3" }, ` · ${a.label}`) : null);
+		return h("span", null, m?.display ?? d.model, d.stageIndex !== undefined ? h("span", { class: "ink-3" }, ` · stage ${d.stageIndex + 1}`) : h("span", { class: "ink-3" }, d.virtualModel ? " · fall through" : " · direct"), a && !mine ? h("span", { class: "ink-3" }, ` · ${a.label}`) : null);
 	}
 	function open(r) {
 		selectedId = r.id;

@@ -366,7 +366,7 @@ export function createFixture() {
 // › Resolution); the dashboard runs it locally for the simulator and the
 // fixture stream.
 export function resolve({ asked, user, at = now() }, world) {
-	const { models, virtualModels, accounts, usage } = world;
+	const { models, virtualModels, accounts, usage, providers } = world;
 	const trail = [];
 	const bare = asked.replace(/^neoproxy\//, "");
 	const vm = virtualModels.find((v) => v.name === bare);
@@ -415,6 +415,18 @@ export function resolve({ asked, user, at = now() }, world) {
 		return { outcome: "ok", virtualModel: vm.id, stageIndex: i, stageId: s.id, model: s.model, accountId: chosen.id, effort: s.effort, trail };
 	}
 	trail.push({ kind: "terminal", terminal: vm.terminal });
+	if (vm.terminal.kind === "passthrough") {
+		const model = models.find((m) => m.id === vm.terminal.model);
+		const provider = model && providers.find((p) => p.id === model.providerId);
+		if (!model?.exposed || !provider?.exposed) {
+			return { outcome: "error", reason: "unknown-model", virtualModel: vm.id, message: "The fall-through model is not served.", trail };
+		}
+		const account = accounts.find((a) => a.providerId === model.providerId && a.state === "healthy");
+		if (!account) {
+			return { outcome: "error", reason: "no-healthy-account", virtualModel: vm.id, model: model.id, message: "No healthy account can serve the fall-through model.", trail };
+		}
+		return { outcome: "ok", virtualModel: vm.id, model: model.id, accountId: account.id, trail };
+	}
 	return { outcome: vm.terminal.kind === "queue" ? "queued" : "limited", virtualModel: vm.id, reason: vm.terminal.kind, message: vm.terminal.message, trail };
 }
 
