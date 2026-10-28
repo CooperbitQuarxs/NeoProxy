@@ -115,8 +115,11 @@ export function search(placeholder, onInput, attrs = {}) {
 	return h("div", { class: "search" }, icon("search", 15), input({ type: "search", placeholder, onInput: (e) => onInput(e.target.value), ...attrs }));
 }
 
+let fieldSerial = 0;
 export function field(label, control, hint, error) {
-	return h("div", { class: "field" }, h("label", null, label), control, error ? h("div", { class: "error" }, error) : hint ? h("div", { class: "hint" }, hint) : null);
+	const target = control?.matches?.("input,textarea,select") ? control : control?.querySelector?.("input,textarea,select");
+	if (target && !target.id) target.id = `neo-field-${++fieldSerial}`;
+	return h("div", { class: "field" }, h("label", { for: target?.id }, label), control, error ? h("div", { class: "error" }, error) : hint ? h("div", { class: "hint" }, hint) : null);
 }
 
 export function seg(options, value, onChange) {
