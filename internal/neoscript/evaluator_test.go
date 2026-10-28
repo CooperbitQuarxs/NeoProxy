@@ -4,6 +4,7 @@ package neoscript
 
 import (
  "context"
+ "encoding/json"
  "errors"
  "os"
  "strings"
@@ -43,6 +44,38 @@ func TestDecisionReadsRequestAndUsage(t *testing.T) {
  if decision.StageID!="stage-second" || decision.AccountID!="account-b" {t.Fatalf("least-used decision = %+v",decision)}
  // A child never receives a pointer back into authoritative caller state.
  if input.Stages[1].Candidates[0].Used!=0.18 || input.VirtualModel.Script!=input.Source {t.Fatal("script altered caller snapshot")}
+}
+
+func TestBusinessPayloadChangesDecisionAcrossProtocols(t *testing.T) {
+ evaluator:=New()
+ source:=`
+ assert(input.authorization==nil and input.headers==nil and input.cookies==nil)
+ local text
+ if input.protocol=="openai-response" then text=input.request.input
+ else text=input.request.messages[1].content end
+ local chosen="account-a"
+ if string.find(text,"prefer-b",1,true) then chosen="account-b" end
+ return {stageId="stage-second",accountId=chosen}
+ `
+ for _,protocol:=range []string{"openai","openai-response","claude"} {
+  t.Run(protocol,func(t *testing.T){
+   for _,text:=range []string{"prefer-b","ordinary question"} {
+    input:=exampleInput(source)
+    input.Protocol=protocol
+    var body any=map[string]any{"model":"neoproxy/heavy","messages":[]any{map[string]any{"role":"user","content":text}},"max_tokens":64}
+    if protocol=="openai-response" {body=map[string]any{"model":"neoproxy/heavy","input":text,"max_output_tokens":64}}
+    input.Request,_=json.Marshal(body)
+    decision,err:=evaluator.Evaluate(context.Background(),input)
+    if err!=nil {t.Fatal(err)}
+    want:="account-a";if text=="prefer-b" {want="account-b"}
+    if decision.AccountID!=want {t.Fatalf("payload-dependent %s route = %+v, want %s",protocol,decision,want)}
+   }
+  })
+ }
+ input:=exampleInput(`input.request.messages[1].content="changed"; return {stageId="stage-second",accountId="account-b"}`)
+ input.Request=json.RawMessage(`{"messages":[{"role":"user","content":"immutable"}]}`)
+ if _,err:=evaluator.Evaluate(context.Background(),input);err==nil || !strings.Contains(err.Error(),"read-only") {t.Fatalf("request body was mutable: %v",err)}
+ if string(input.Request)!=`{"messages":[{"role":"user","content":"immutable"}]}` {t.Fatal("authoritative request mutated")}
 }
 
 func TestDecisionReadsHealthWithoutInventingUnknownQuota(t *testing.T) {
@@ -166,6 +199,9 @@ func TestInputAndOutputAreBounded(t *testing.T) {
  input:=exampleInput(`return {stageId="stage-second",accountId="account-a"}`)
  input.Asked=strings.Repeat("x",MaxInput)
  if _,err:=evaluator.Evaluate(context.Background(),input);err==nil || !strings.Contains(err.Error(),"bound") {t.Fatalf("oversized input = %v",err)}
+ input=exampleInput(`return {stageId="stage-second",accountId="account-a"}`)
+ input.Request=json.RawMessage(`{"input":"`+strings.Repeat("x",MaxInput)+`"}`)
+ if _,err:=evaluator.Evaluate(context.Background(),input);err==nil || !strings.Contains(err.Error(),"bound") {t.Fatalf("oversized business request = %v",err)}
  _,err:=evaluator.Evaluate(context.Background(),exampleInput(`error(string.rep("x",100000))`))
  if err==nil || len(err.Error())>MaxOutput {t.Fatalf("runtime output not bounded: %v",err)}
  var output cappedBuffer

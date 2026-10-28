@@ -117,6 +117,10 @@ func boundedValue(v reflect.Value, remaining *int, depth int) bool {
  if depth > 16 { return false }
  *remaining -= 32
  if *remaining < 0 { return false }
+ if v.Type() == reflect.TypeFor[json.RawMessage]() {
+  *remaining -= v.Len()
+  return *remaining >= 0
+ }
  switch v.Kind() {
  case reflect.String:
   if v.Len() > *remaining/6 { return false }
