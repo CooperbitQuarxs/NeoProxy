@@ -99,8 +99,11 @@ type ScriptInput struct {
  UserID string `json:"userId"`
  VirtualModel VirtualModel `json:"virtualModel"`
  Stages []ScriptStage `json:"stages"`
+ Accounts []ScriptAccount `json:"accounts"`
 }
 type ScriptStage struct { StageID string `json:"stageId"`; Model string `json:"model"`; Candidates []Candidate `json:"candidates"`; Total float64 `json:"total"`; Cap float64 `json:"cap"`; Skipped string `json:"skipped,omitempty"` }
+type ScriptAccount struct { AccountID string `json:"accountId"`; ProviderID string `json:"providerId"`; State string `json:"state"`; Windows []ScriptWindow `json:"windows"` }
+type ScriptWindow struct { Kind string `json:"kind"`; Known bool `json:"known"`; Used float64 `json:"used"`; ResetsAt int64 `json:"resetsAt"` }
 type ScriptProposal struct { StageID string `json:"stageId"`; AccountID string `json:"accountId"` }
 
 // Error carries the stable HTTP status/code and full authorized decision.
