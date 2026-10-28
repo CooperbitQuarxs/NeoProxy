@@ -12,15 +12,20 @@ All implementation uses independent m2 topic worktrees created from `origin/nigh
 
 | Slice | Deliverable | Status | PR / merge receipt |
 |---|---|---|---|
-| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Contract reconciled; documentation PR being prepared | Pending |
-| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Ready for implementation | Pending |
-| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Ready for implementation, consumes A's persistence and principal interface | Pending |
-| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Ready for implementation; account inventory/ledger integration consumes B | Pending |
-| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Ready for implementation against the reconciled HTTP contract | Pending |
-| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Preparation can run in parallel; execution requires integrated A/B/C | Pending |
-| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Design can run in parallel; implementation consumes C's resolver interface | Pending |
+| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Merged | PR #7; `e99cb4a8de8073db31594cb8b2c619bae89927cb` |
+| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Merged; focused persistence/security/API/middleware checks and actual server build passed | PR #8; `d49b40b37652ba0b0216c613674cb657598d961e` |
+| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Merged; focused ledger/ownership checks, actual localhost API authority smoke and server build passed | PR #9; `bfa0717b9fa899fd42cce66e308e80f2519fe03c` |
+| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Merged; corrected context-zero bounds, versioned migration, real three-protocol HTTP, cursor/queue/authority checks and executable smoke passed | PR #12; `b9c242a0d7432eafbf64b05fae7a33d8d80d206c` |
+| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Real Chromium verification in progress; actual plaintext/TLS provenance defect corrected with real-mux HTTP/HTTPS session regression | Draft PR #13; transport fix `942fc3ba`; final browser pass pending |
+| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Runner and all 16 focused isolation/verifier checks passed; genuine role-selected turns await final integrated binary | Draft PR #11; E has not passed |
+| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Merged; actual subprocess/kernel/resource recovery and installed-server request-dependent Lua inference passed across all three protocols | PR #10; `e886c6f531014fdcc80ba31bb0b9c2f5828c8b9c` |
 
 A status is not a completion claim. Replace pending receipts only with observed commits, commands and results. A passing mocked upstream is not the E proof.
+
+The shipping batch is not complete until D's actual browser acceptance and E's
+genuine-provider role-selected proof pass, the final nightly binary is built and
+installed with the previous binary retained, and launch is checked. Local synthetic
+upstream tests are not E evidence. Utopia remains untouched.
 
 ## Shared implementation contracts
 
