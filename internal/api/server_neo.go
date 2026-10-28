@@ -56,6 +56,7 @@ func neoCredential(c *gin.Context) string {
 		authorization = strings.TrimSpace(parts[1])
 	}
 	for _, candidate := range []string{authorization, c.GetHeader("X-Api-Key"), c.GetHeader("X-Goog-Api-Key"), c.GetHeader("X-Management-Key"), c.Query("key"), c.Query("auth_token")} {
+		candidate = strings.TrimSpace(candidate)
 		if strings.HasPrefix(candidate, "nk_") {
 			return candidate
 		}

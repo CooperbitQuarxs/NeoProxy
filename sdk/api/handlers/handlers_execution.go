@@ -45,10 +45,16 @@ func (h *BaseAPIHandler) executeWithAuthManager(ctx context.Context, handlerType
 }
 
 func (h *BaseAPIHandler) executeWithAuthManagerFormats(ctx context.Context, entryProtocol, exitProtocol, modelName string, rawJSON []byte, alt string, allowImageModel bool, execOptions modelExecutionOptions) ([]byte, http.Header, *interfaces.ErrorMessage) {
-	originalRequestedModel := modelName
+	if h.shouldNeoRoute(ctx) {
+		return h.executeNeo(ctx, entryProtocol, exitProtocol, modelName, rawJSON, alt, execOptions)
+	}
+	originalRequestedModel := neoAsked(ctx, modelName)
 	// Speech-only models are reachable solely through the speech entry protocol.
 	execOptions.AllowSpeechModel = isModelExecutionSpeechProtocol(entryProtocol)
-	routeDecision := h.applyModelRouter(ctx, entryProtocol, modelName, rawJSON, false, execOptions)
+	var routeDecision modelRouteDecision
+	if _, selected := neoSelectionFromContext(ctx); !selected {
+		routeDecision = h.applyModelRouter(ctx, entryProtocol, modelName, rawJSON, false, execOptions)
+	}
 	responseProtocol := modelExecutionResponseProtocol(entryProtocol, exitProtocol)
 	if errMsg := validateNativeInteractionsExecution(entryProtocol, execOptions, routeDecision); errMsg != nil {
 		return nil, nil, errMsg
@@ -102,6 +108,7 @@ func (h *BaseAPIHandler) executeWithAuthManagerFormats(ctx context.Context, entr
 		return nil, nil, interceptErr
 	}
 	ctx = enrichContextWithSessionHierarchy(ctx, opts.Headers, req.Payload, opts.Metadata)
+	enforceNeoPin(ctx, &opts)
 	resp, err := h.AuthManager.Execute(ctx, providers, req, opts)
 	if err != nil {
 		err = enrichAuthSelectionError(err, providers, normalizedModel)

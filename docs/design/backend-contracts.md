@@ -173,6 +173,7 @@ VirtualModel {
   description: string,     // one sentence shown to users
   stages: Stage[],         // ordered; at least one
   terminal: Terminal,
+  script?: string,         // optional admin-authored routing source; absent = standard chain
   updatedAt: number,
   updatedBy: string        // handle
 }
@@ -238,6 +239,36 @@ POST /v8/neo/simulate   { asked: string, userId: string }
 
 Pure: runs the algorithm against current usage without recording anything. The dashboard runs it locally today; the backend route exists so the two cannot drift.
 
+Execution reserves a conservative token upper bound against explicitly configured
+metered windows before dispatch, then replaces that reservation with the existing
+engine reporter's actual account-attributed input/output usage. Text requests use
+an explicit protocol output maximum plus input bytes; requests without a usable
+bound require a known catalogue context ceiling. Unknown provider quota remains
+unknown. An executed attempt with no trustworthy usage report retains an explicitly
+estimated upper-bound debit rather than inventing zero usage. Cached tokens are a
+subset of input tokens and are not counted twice.
+
+The alternate cursor and ledger reservation commit in one SQLite transaction.
+Simulation reads the cursor, current grants and current-window usage, but never
+advances the cursor, admits a request, reserves usage or records an activity row.
+Queue waits wake on current authority, inventory or ledger changes and reset
+boundaries; cancellation is inherited from the client. Queued streams emit SSE
+comments while waiting, without replaying any delivered answer.
+
+Actual upstream failure records `skipped: "upstream-error"` and `failureStatus`
+on the failed stage and demotes to a later eligible stage before output. Once an
+answer chunk is delivered, subsequent errors terminate that stream; they do not
+restart the chain. `X-NeoProxy-Request-ID` identifies the persisted request record.
+
+A configured `script` is limited to 16 KiB, requires an installed evaluator, and
+cannot silently fall back to the ordinary chain on an evaluator error. Scripts
+receive credential-free value snapshots and may propose only a stage/account pair.
+The resolver reloads current authority after evaluation and validates the proposal
+against current grants, account/key scope, exposure, health and budgets before
+the same transactional reservation. Saving scripts requires an organization-admin
+dashboard session; ordinary member views do not expose the source.
+
+
 ## Users
 
 ```
@@ -245,7 +276,8 @@ GET    /v8/neo/users                → User[]
 GET    /v8/neo/users/:id            → User            (member: own id only)
 POST   /v8/neo/users                User (without id, keys) → 201 User
 PUT    /v8/neo/users/:id            User → User     (keys are not editable here)
-POST   /v8/neo/users/:id/keys       { label, accountIds?: string[] } → 201 { key: Key, secret: string }   // secret shown once
+DELETE /v8/neo/users/:id            → 204            // admin; last active admin is protected
+POST   /v8/neo/users/:id/keys       { label, accountIds?: string[], expiresAt?: number } → 201 { key: Key, secret: string }   // secret shown once
 DELETE /v8/neo/users/:id/keys/:keyId → 204
 
 User {
@@ -260,7 +292,7 @@ User {
   limits: { rpm: number | null, tokensPerDay: number | null },
   createdAt: number
 }
-Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null }
+Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null, expiresAt?: number }
 Grant { virtualModel: string /*VirtualModel.id*/, allotment: number /*0..1*/ }
 ```
 
@@ -298,7 +330,7 @@ Decision {
   trail: TrailStep[]
 }
 TrailStep =
-  | { kind: "stage", index, stageId, model, total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" }
+  | { kind: "stage", index, stageId, model, total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" | "upstream-error" | "script", failureStatus?: number }
   | { kind: "terminal", terminal: Terminal }
   | { kind: "direct", model, accountId }
   | { kind: "denied", providerId? , virtualModel? }
