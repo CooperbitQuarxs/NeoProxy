@@ -221,6 +221,47 @@ func TestAtomicReservationRollsBackCursor(t *testing.T) {
 		t.Fatal("rejected reservations persisted", count)
 	}
 }
+
+func TestConcurrentRoutersReserveAndAdvanceOneDurableCursor(t *testing.T) {
+	f := newRouteFixture(t, "alternate")
+	other, err := New(f.identity, f.pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const requests = 8
+	results := make(chan error, requests)
+	start := make(chan struct{})
+	for i := 0; i < requests; i++ {
+		router := f.route
+		if i%2 != 0 {
+			router = other
+		}
+		go func() {
+			<-start
+			_, err := router.Run(f.ctx, boundedRequest(false), successful)
+			results <- err
+		}()
+	}
+	close(start)
+	for i := 0; i < requests; i++ {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	cursor, err := f.route.cursor(t.Context(), f.vm.ID, "s0")
+	if err != nil || cursor != requests {
+		t.Fatalf("committed cursor=%d expected=%d error=%v", cursor, requests, err)
+	}
+	rows, err := f.pool.Usage(t.Context(), f.user.ID)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("usage rows=%+v error=%v", rows, err)
+	}
+	for _, row := range rows {
+		if row.Tokens != requests/2*15 || row.Reserved != 0 {
+			t.Fatalf("alternate draw lost a reservation or cursor update: %+v", row)
+		}
+	}
+}
 func TestBudgetFreePassthroughStillScopedAndAttributed(t *testing.T) {
 	f := newRouteFixture(t, "fill")
 	f.vm.Stages[0].Cap = 0
