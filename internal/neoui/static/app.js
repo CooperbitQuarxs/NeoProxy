@@ -160,8 +160,9 @@ function gate(reason, bootstrap = false) {
 			password = operatorSecret = "";
 			unauthorized = false;
 			toast(`Signed in as ${s.handle}`);
-			navigate(s.role === "admin" ? "overview" : s.role === "owner" ? "accounts" : "mine");
-			render();
+			const destination = s.role === "admin" ? "overview" : s.role === "owner" ? "accounts" : "mine";
+			if (route().id === destination) render();
+			else navigate(destination);
 		} catch (ex) {
 			err.textContent = ex instanceof ApiError ? ex.message : "Could not reach the proxy";
 			err.classList.remove("hidden");

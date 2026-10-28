@@ -536,7 +536,7 @@ async function editor(ctx, id) {
 			return;
 		}
 		try {
-			const saved = await neo.saveVirtualModel(draft, ctx.session.handle);
+			const saved = await neo.saveVirtualModel(draft);
 			toast(`Saved neoproxy/${saved.name}`);
 			if (isNew) ctx.navigate(`virtual-models/${saved.id}`);
 			else {

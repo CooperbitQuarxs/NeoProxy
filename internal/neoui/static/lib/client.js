@@ -92,11 +92,17 @@ export const neo = {
 	setModelExposed: (model, exposed) => mutate("PATCH", `models/${id(model)}`, { exposed }, "models"),
 	virtualModels: () => request("GET", path("virtual-models")),
 	virtualModel: (model) => request("GET", path(`virtual-models/${id(model)}`)),
-	saveVirtualModel: (vm) => mutate(vm.id ? "PUT" : "POST", `virtual-models${vm.id ? `/${id(vm.id)}` : ""}`, vm, "virtual-models"),
+	saveVirtualModel: (vm) => {
+		const { name, description, stages, terminal, script } = vm;
+		return mutate(vm.id ? "PUT" : "POST", `virtual-models${vm.id ? `/${id(vm.id)}` : ""}`, { name, description, stages, terminal, script }, "virtual-models");
+	},
 	deleteVirtualModel: (model) => mutate("DELETE", `virtual-models/${id(model)}`, undefined, "virtual-models"),
 	users: () => request("GET", path("users")),
 	user: (user) => request("GET", path(`users/${id(user)}`)),
-	saveUser: (user) => mutate(user.id ? "PUT" : "POST", `users${user.id ? `/${id(user.id)}` : ""}`, user, "users"),
+	saveUser: (user) => {
+		const { handle, name, password, role, state, providerAccess, grants, limits } = user;
+		return mutate(user.id ? "PUT" : "POST", `users${user.id ? `/${id(user.id)}` : ""}`, { handle, name, password, role, state, providerAccess, grants, limits }, "users");
+	},
 	createKey: (user, label, accountIds) => mutate("POST", `users/${id(user)}/keys`, { label, ...(accountIds ? { accountIds } : {}) }, "users"),
 	revokeKey: (user, key) => mutate("DELETE", `users/${id(user)}/keys/${id(key)}`, undefined, "users"),
 	usage: () => request("GET", path("usage")),
