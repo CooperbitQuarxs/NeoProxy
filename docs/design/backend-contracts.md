@@ -276,7 +276,8 @@ GET    /v8/neo/users                → User[]
 GET    /v8/neo/users/:id            → User            (member: own id only)
 POST   /v8/neo/users                User (without id, keys) → 201 User
 PUT    /v8/neo/users/:id            User → User     (keys are not editable here)
-POST   /v8/neo/users/:id/keys       { label, accountIds?: string[] } → 201 { key: Key, secret: string }   // secret shown once
+DELETE /v8/neo/users/:id            → 204            // admin; last active admin is protected
+POST   /v8/neo/users/:id/keys       { label, accountIds?: string[], expiresAt?: number } → 201 { key: Key, secret: string }   // secret shown once
 DELETE /v8/neo/users/:id/keys/:keyId → 204
 
 User {
@@ -291,7 +292,7 @@ User {
   limits: { rpm: number | null, tokensPerDay: number | null },
   createdAt: number
 }
-Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null }
+Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null, expiresAt?: number }
 Grant { virtualModel: string /*VirtualModel.id*/, allotment: number /*0..1*/ }
 ```
 
@@ -359,6 +360,17 @@ directories. Empty-config SDK construction does not create a database unless the
 environment explicitly selects one or the caller injects `api.WithNeoStore`.
 Injected stores remain the caller's responsibility to close. Normal servers
 close their own store on shutdown and report initialization errors from `Start`.
+
+Server attachment authenticates reserved `nk_` credentials before dynamic routes.
+Only the three day-one inference endpoints and `/v1/models` accept these consumer
+principals. Until the scoped catalogue and routing implementation is attached,
+they return `503 neoproxy_unavailable`; they never fall through to legacy raw-model
+execution or an unfiltered catalogue. Integration calls
+`Server.EnableNeoInference()` only after both real scoped paths are installed.
+Existing configured engine keys keep their existing inference authority, separate
+from dashboard sessions. `Store.Changes()` broadcasts committed identity-policy
+changes so queued resolvers can wake and recheck `RefreshPrincipal`; extensions
+may call `NotifyChanges()` after committing ownership changes.
 
 Identity uses `github.com/mattn/go-sqlite3 v1.14.52`, requiring `CGO_ENABLED=1`
 and a C compiler. The module is pinned to upstream commit
