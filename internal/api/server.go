@@ -25,6 +25,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/githubauth"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/managementasset"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/redisqueue"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v8/sdk/access"
@@ -106,6 +107,12 @@ type Server struct {
 
 	exampleAPIKeySafeModeEnabled bool
 	exampleAPIKeySafeModeActive  atomic.Bool
+
+	neoStore          *neo.Store
+	neoHTTP           *neo.HTTP
+	neoOwnStore       bool
+	neoErr            error
+	neoInferenceReady atomic.Bool
 }
 
 // NewServer creates and initializes a new API server instance.
@@ -231,6 +238,9 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 		s.mgmt.SetPostAuthPersistHook(optionState.postAuthPersistHook)
 	}
 	s.localPassword = optionState.localPassword
+	s.initNeo(optionState.neoStore)
+	engine.Use(s.neoInferenceMiddleware())
+	s.neoHTTP.RegisterRoutes(engine, s.mgmt.Middleware())
 
 	// Home heartbeat gate: when home is enabled, block all endpoints with 503 until the
 	// subscribe-config heartbeat connection is healthy.
@@ -250,7 +260,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	hasManagementSecret := cfg.RemoteManagement.SecretKey != "" || envManagementSecret || s.localPassword != ""
 	s.managementRoutesEnabled.Store(hasManagementSecret)
 	redisqueue.SetEnabled(hasManagementSecret || (cfg != nil && cfg.Home.Enabled))
-	if hasManagementSecret {
+	if hasManagementSecret || s.neoStore != nil {
 		s.registerManagementRoutes()
 	}
 	s.refreshPluginManagementRoutes()
@@ -294,6 +304,9 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) Start() error {
 	if s == nil || s.server == nil {
 		return fmt.Errorf("failed to start HTTP server: server not initialized")
+	}
+	if err := s.neoStartupError(); err != nil {
+		return err
 	}
 
 	addr := s.server.Addr
@@ -448,6 +461,11 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	if s.codexLiveHandler != nil {
 		s.codexLiveHandler.Close()
+	}
+	if s.neoOwnStore && s.neoStore != nil {
+		if errClose := s.neoStore.Close(); errClose != nil {
+			errCloseServer = errors.Join(errCloseServer, errClose)
+		}
 	}
 	if errCloseServer != nil {
 		return fmt.Errorf("failed to shutdown HTTP server: %v", errCloseServer)

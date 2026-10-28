@@ -12,13 +12,13 @@ All implementation uses independent m2 topic worktrees created from `origin/nigh
 
 | Slice | Deliverable | Status | PR / merge receipt |
 |---|---|---|---|
-| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Contract reconciled; documentation PR being prepared | Pending |
-| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Ready for implementation | Pending |
-| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Ready for implementation, consumes A's persistence and principal interface | Pending |
-| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Ready for implementation; account inventory/ledger integration consumes B | Pending |
-| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Ready for implementation against the reconciled HTTP contract | Pending |
-| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Preparation can run in parallel; execution requires integrated A/B/C | Pending |
-| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Design can run in parallel; implementation consumes C's resolver interface | Pending |
+| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Reconciled and merged | PR #7; merge `e99cb4a8de8073db31594cb8b2c619bae89927cb` |
+| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Implemented; focused verification passing | PR #8; implementation `90149239`; identity, focused API/middleware checks and actual server build passed |
+| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Implementation published; Neptune attaching server startup and HTTP routes before final verification | PR #9; implementation checkpoint `ea0323ad` |
+| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Implementation published; shared server attachment and focused protocol checks in progress | PR #12; implementation checkpoint `e6c37482` |
+| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Adapter published; actual Chromium verification awaits executable A/B/C/F chain | Draft PR #13; no browser pass claimed |
+| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Runner prepared; all 16 focused isolation/verifier checks passed; real role turns await integrated backend binary | Draft PR #11; `48b87019`, `91f56b18`; E has not passed |
+| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Signed design and evaluator published; actual hook attachment and final subprocess verification in progress | Draft PR #10; design `7f4f45c3`; early worker dispatch `aa4743ee` |
 
 A status is not a completion claim. Replace pending receipts only with observed commits, commands and results. A passing mocked upstream is not the E proof.
 
