@@ -20,6 +20,8 @@ An owner or admin can explicitly configure a local token-capacity meter. It is r
 
 The ledger debits canonical engine token accounting, including Anthropic cache-read/write input. Cached tokens are a subset of total input, not an extra charge. Actual executor AuthID is checked against the pinned account. A reservation uses a conservative caller-supplied upper bound; missing output/input bounds must not be fabricated by B. Failed attempts with reported usage settle those exact tokens. Dispatched work with missing/partial usage, including cancellation, retains the reservation bound as explicitly estimated consumption. `unknownAttempts` remains visible even for budget-free work with no bound. `Release` is only for attempts never dispatched. Duplicate reservation/settlement identities are idempotent only when their complete contents agree. Retried execution uses a distinct attempt ID under the same request ID and is charged separately.
 
+`tokens.cached` and owner `cachedTokens` project the canonical input cache-read bucket, including an explicit zero. The legacy `Detail.CachedTokens` display field is not independent usage and cannot override a canonical breakdown. Real executor parsers populate the canonical cache-read bucket. The regression test supplies that bucket explicitly, then carries captured usage through settlement, current-window usage and owner statistics: 10 input plus 3 output with 4 cached input debits 13 tokens, not 17. Anthropic's separate upstream input/cache buckets are normalized by the existing canonical accounting layer before this projection.
+
 ## Additional HTTP operations
 
 All paths below are under `/v8/neo`, use A's cookie session middleware and CSRF/same-origin protection, and never grant management-secret authority to owners. Standard vault/catalogue/exposure routes follow `backend-contracts.md`.
@@ -45,3 +47,20 @@ Vault reads use SQL-owned account IDs for owners. Member inventory uses C's curr
 `ReserveAndAdvance(ctx, reservation, func(*sql.Tx) error)` owns the immediate SQLite transaction for both budget admission and C's durable cursor CAS. The callback uses only the supplied transaction; it never opens another Store operation, runs a script, waits, or performs network I/O. A duplicate attempt does not advance a cursor twice. Callback failure rolls back the reservation. Reservation/settlement changes broadcast through `Changes`; reset boundaries come from snapshots. C polls engine eligibility on its queue wake path because engine runtime health changes independently of SQLite.
 
 `WithAttempt(ctx,id)` installs a synchronous usage observer before the existing asynchronous usage-sink queue. At completion C obtains `capture.Settlement(accountID)` and settles using a non-cancelled accounting context. C owns virtual model validation, current-grant checks, `/usage` stage/window projection, final exposure/health checks and actual execution/fallback. A missing or inconsistent actual-account report is not permission to substitute the resolver's guess.
+
+## B verification receipt — 2026-10-28
+
+The actual server constructor now initializes this pool through `server_neo_pool.go` on the shared identity database, installs current ownership validation and registers cookie-authenticated pool routes. `TestNeoPoolAttachedServerHTTP` starts that constructor behind a real localhost HTTP listener, logs admin and owner sessions in through `/v8/session`, and exercises anonymous rejection, unowned inventory, admin assignment, owner metering, secret redaction, no claim-by-ID and no owner management/exposure authority.
+
+Final focused commands, run from the B worktree, passed:
+
+```sh
+gofmt -w internal/neopool/attempt_test.go internal/api/server_neo_pool_test.go sdk/cliproxy/usage/observer.go
+flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-b-final-pools-20261028 -- env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-b/tmp go test ./internal/neopool ./sdk/cliproxy/usage ./internal/api/handlers/management -run 'Test(Attempt|Inventory|Owner|ConcurrentBudget|CursorAndReservation|ResetsRetries|UnknownMeter|HTTPEnforces|Credential|AccountOwnership|PluginCompletion|Owned|EnsureTokenBreakdown)' -count=1
+flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-b-final-api-20261028 -- env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-b/tmp go test ./internal/api ./internal/neopool -run 'TestNeoPoolAttachedServerHTTP|TestElapsedEngineCooldownBecomesEligibleWithoutRefreshLoop' -count=1
+flock /run/user/1000/npi-afk-heavy.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-b-final-build-20261028 -- env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-b/tmp go build -buildvcs=false -o /mnt/alias/m2/agents/scratch/neoproxy-b/cli-proxy-api ./cmd/server
+```
+
+The first test command passed all three selected packages; the second passed both selected packages, including the real HTTP attachment smoke and elapsed-cooldown regression. The actual `cmd/server` build exited successfully. The cached-projection failure was an incomplete synthetic usage record, not an extra-debit production path: the test now supplies the canonical cache-read field used by real parsers, while additional regression coverage proves canonical-zero precedence and a 13-token ledger debit with cached input.
+
+B is recommended for integration at 90% confidence. Live OAuth/provider enrollment was not performed against external accounts; deterministic existing-flow tests cover initiator retention, ownership checks before persistence and append-only API-key registration. C owns real scoped inference, routing and member catalogue visibility; E owns real provider fallback proof. No deployment or nightly installation was performed by B.
