@@ -6,6 +6,7 @@ import (
  "fmt"
  "os"
  "os/exec"
+ "runtime"
  "syscall"
  "unsafe"
 
@@ -17,6 +18,10 @@ func configureChild(command *exec.Cmd) {
 }
 
 func confine() error {
+ // no_new_privs is thread-local until seccomp synchronizes the filter. Do not
+ // let the Go scheduler migrate between setting it and installing TSYNC.
+ runtime.LockOSThread()
+ defer runtime.UnlockOSThread()
  for _,limit:=range []struct{resource int;value uint64}{
   {unix.RLIMIT_DATA,192<<20},
   {unix.RLIMIT_AS,4<<30},
