@@ -55,7 +55,7 @@ func containsMedia(value gjson.Result) bool {
 		switch value.Get("type").String() {
 		case "image", "image_url", "input_image", "image_file",
 			"audio", "input_audio", "output_audio",
-			"video", "input_video", "file", "input_file":
+			"video", "input_video", "file", "input_file", "document":
 			return true
 		}
 	}

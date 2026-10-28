@@ -156,6 +156,7 @@ func TestUpperBoundRequiresCatalogueCeilingForStructuredMedia(t *testing.T) {
 		`{"input":[{"role":"user","content":[{"type":"input_image","image_url":"https://example.invalid/image"}]}],"max_output_tokens":32}`,
 		`{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"audio-bytes","format":"wav"}}]}],"max_tokens":32}`,
 		`{"input":[{"role":"user","content":[{"type":"input_file","file_data":"file-bytes"}]}],"max_output_tokens":32}`,
+		`{"messages":[{"role":"user","content":[{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"pdf-bytes"}}]}],"max_tokens":32}`,
 	} {
 		if _, err := upperBound(Request{Body: []byte(body)}, neopool.Model{}); err == nil {
 			t.Fatalf("media request accepted a byte-only bound: %s", body)
