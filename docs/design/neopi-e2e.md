@@ -2,6 +2,32 @@
 
 `scripts/neopi_e2e.py` drives a local, private NeoProxy instance and the installed NeoPi executable. It does not change NeoPi source or read, copy, edit, or launch against an existing NeoPi profile. This is slice E of the backend contract, not a provider simulator.
 
+## Observed real run: 2026-10-28
+
+**Passed: all three role-selected real turns.** The reviewed, credential-redacted machine receipt is [`neopi-e2e-receipt-20261028.json`](neopi-e2e-receipt-20261028.json). It contains the complete commands, discovered selectors, role/provider definitions, wire observations, persisted trails, replies and usage.
+
+The exercised integrated candidate was source `942fc3ba03d02aae54e8017cfebfaee54b88f7be`, binary SHA-256 `1ea16494433bdf1ae65d682842616cbfab77664df148c5453e0f83e4f2e716a4`. Neptune supplied the actual build command and A/B/C delivery pins recorded in the receipt. This proves that candidate, **not an unexercised later nightly binary**; the subsequent C PDF-only change was not in this build.
+
+| Client protocol / actual role | Discovered selector | Proxy request correlation | Actual tokens in / out |
+| --- | --- | --- | --- |
+| OpenAI Chat Completions / `@proof-chat` | `neoproxy/proof-chat` | `req_bbcd42c9-ad83-4054-9fb3-c1af4ab51a89` | 85 / 109 |
+| OpenAI Responses / `@proof-responses` | `neoproxy/proof-responses` | `req_6e824686-282e-40b4-9c85-5243dddd50c4` | 85 / 189 |
+| Anthropic Messages / `@proof-messages` | `neoproxy/proof-messages` | `req_2147ec34-e5de-46d4-a6ef-3f05e31ea483` | 85 / 74 |
+
+For every row, the first-stage upstream was actually called, returned the injected HTTP 503, and appeared in the persisted trail as `upstream-error`. Stage `s1` then served genuine official Groq `openai/gpt-oss-20b` inference through concrete proxy model `openai-compatible-proof-real/fallback`, account `acct_762dec8551accd17f8e24a5526de0c4c`. Each NeoPi process emitted a completed assistant message, and each transport observation matched its persisted request ID. There were no client-side retries or model fallbacks.
+
+Actual replies, in table order:
+
+- “Venus is the hottest planet in the Solar System.”
+- “Mars has the tallest volcano in the solar system.”
+- “Jupiter’s Great Red Spot is a giant storm that has raged for at least 350 years.”
+
+Usage is actual provider-reported token usage; output includes reasoning tokens where the transport exposes them. `--thinking off` was requested, not a claim that the remote model did no internal reasoning. NeoPi's zero-valued custom-provider cost metadata is not a billing measurement or a claim of free upstream inference.
+
+Private state stayed under `/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01`; every client used its own scratch `HOME`, `XDG_*`, `TMPDIR` and `PI_CODING_AGENT_DIR`. A post-run comparison of 11 receipt/capture files found zero matches for the known real upstream/operator/password credentials or raw `nk_` inference-key pattern. The owner's profile was not read for this comparison or used as an account source. No NeoPi code, owner settings, installation or Utopia state was changed.
+
+The 16 focused tooling/isolation/redaction tests passed separately through the shared light lock and polite relay. They are not the evidence for real inference; the three observed turns above are.
+
 ## Prerequisites and authority
 
 - The integrated A/B/C implementation must have been explicitly delivered: sessions/bootstrap/users/keys/grants, owned accounts with configured metered windows, and virtual-model execution with recorded fallback decisions.
