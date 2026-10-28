@@ -621,21 +621,24 @@ export function trail(decision, { models, accounts, users }) {
 	const accName = (id) => accounts.find((a) => a.id === id)?.label ?? "an account in the pool";
 	(decision.trail ?? []).forEach((t, i) => {
 		if (t.kind === "stage") {
-			const cls = t.chosen ? "served" : "skipped";
+			const cls = t.chosen && !t.skipped && decision.outcome === "ok" ? "served" : "skipped";
 			let why;
-			if (t.chosen) why = `served from ${accName(t.chosen)} · ${fmtPct(t.total, 1)} of ${fmtPct(t.cap)} cap used`;
+			if (t.skipped === "upstream-error") why = `attempt${t.chosen ? ` from ${accName(t.chosen)}` : ""} failed${t.failureStatus ? ` (status ${t.failureStatus})` : ""}; the chain continued`;
 			else if (t.skipped === "cap") why = `skipped: stage cap reached (${fmtPct(t.total, 1)} of ${fmtPct(t.cap)})`;
 			else if (t.skipped === "per-account") why = "skipped: every account at its per-account budget";
-			else if (t.skipped === "unhealthy") why = "skipped: no healthy account in the pool";
-			else why = "skipped";
+			else if (t.skipped === "unhealthy") why = "skipped: no eligible healthy, metered account in the pool";
+			else if (t.skipped === "script") why = "skipped: the routing script selected another stage";
+			else if (t.skipped) why = `skipped: ${t.skipped}`;
+			else if (t.chosen) why = `selected ${accName(t.chosen)} · ${fmtPct(t.total, 1)} of ${fmtPct(t.cap)} cap used${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`;
+			else why = "no account selected";
 			steps.push(h("div", { class: `step ${cls}` }, h("div", { class: "n" }, `${t.index + 1}`), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, why))));
 		} else if (t.kind === "terminal") {
 			const passthrough = t.terminal.kind === "passthrough";
 			const title = passthrough ? "Fall through" : t.terminal.kind === "queue" ? "Queued" : "Limit error";
-			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · served without a budget from ${accName(decision.accountId)}` : decision.message) : t.terminal.message;
+			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · selected without a budget from ${accName(decision.accountId)}` : decision.message ?? decision.reason) : t.terminal.message || (t.terminal.kind === "queue" ? "Waiting for a stage that can serve." : "No stage could serve; returned a limit error.");
 			steps.push(h("div", { class: `step ${passthrough && decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "end"), h("div", null, h("div", { class: "what" }, title), h("div", { class: "why" }, detail))));
 		} else if (t.kind === "direct") {
-			steps.push(h("div", { class: "step served" }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}`))));
+			steps.push(h("div", { class: `step ${decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`))));
 		} else if (t.kind === "denied") {
 			steps.push(h("div", { class: "step end" }, h("div", { class: "n" }, "✕"), h("div", null, h("div", { class: "what" }, "Denied"), h("div", { class: "why" }, t.virtualModel ? "This user is not granted that virtual model" : `This user has no direct access to ${t.providerId}`))));
 		} else {

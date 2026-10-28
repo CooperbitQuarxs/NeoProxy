@@ -118,7 +118,7 @@ export async function render(ctx) {
 							["User", u ? h("span", { class: "row" }, avatar(u, "sm"), u.handle) : r.userId],
 							key ? ["Key", h("code", null, `${key.prefix} · ${key.label}`)] : null,
 							["Client", r.client],
-							["Tokens", r.outcome === "ok" ? `${fmtCompact(r.tokens.in)} in · ${fmtCompact(r.tokens.out)} out · ${fmtCompact(r.tokens.cached)} cached` : "none"],
+							["Tokens", r.outcome === "ok" ? `${fmtCompact(r.tokens.in)} in · ${fmtCompact(r.tokens.out)} out · ${fmtCompact(r.tokens.cached)} cached` : "not reported"],
 							["Latency", fmtDuration(r.latencyMs)],
 						]),
 					),
