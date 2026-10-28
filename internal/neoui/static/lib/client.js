@@ -108,7 +108,7 @@ export const neo = {
 	usage: () => request("GET", path("usage")),
 	requests: (query = {}) => request("GET", path("requests"), { query: { limit: 100, ...query } }),
 	request: (requestId) => request("GET", path(`requests/${id(requestId)}`)),
-	simulate: ({ asked, userId }) => request("POST", path("simulate"), { json: { asked, userId } }),
+	simulate: ({ asked, userId, protocol, request: payload }) => request("POST", path("simulate"), { json: { asked, userId, protocol, request: payload } }),
 	async restore() {
 		try { const s = await request("GET", "/v8/session", { auth: false }); session.set(s); return s; }
 		catch (e) { session.clear(); if (e.status === 401) return null; throw e; }

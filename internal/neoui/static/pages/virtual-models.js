@@ -162,7 +162,7 @@ async function editor(ctx, id) {
 	if (ctx.session.role === "admin") {
 		root.append(card({
 			title: "Routing script · optional",
-			sub: "Lua source (maximum 16 KiB). Empty uses the standard chain. Read-only global input contains asked, protocol, userId, virtualModel, stages and account health. Return exactly {stageId='s', accountId='a'} to propose an eligible candidate.",
+			sub: "Lua source (maximum 16 KiB). Empty uses the standard chain. Read-only global input contains asked, protocol, userId, request, virtualModel, stages and account health. Inspect input.request.messages or input.request.input for the client's payload. Return exactly {stageId='s', accountId='a'} to propose an eligible candidate.",
 			body: field("Lua source", h("textarea", {
 				class: "textarea mono", rows: 9, spellcheck: "false", "aria-label": "Lua routing script",
 				placeholder: "Leave empty for standard routing",
@@ -228,6 +228,23 @@ async function editor(ctx, id) {
 
 	// ----- simulator -----
 	const simHost = h("div");
+	let simProtocol = "openai", simPayload = "";
+	const simProtocolSel = select([
+		{ value: "openai", label: "OpenAI Chat Completions" },
+		{ value: "openai-response", label: "OpenAI Responses" },
+		{ value: "claude", label: "Anthropic Messages" },
+	], simProtocol, (value) => { simProtocol = value; runSim(); }, { "aria-label": "Simulation protocol" });
+	const payloadInput = h("textarea", {
+		class: "textarea mono", rows: 6, spellcheck: "false", "aria-label": "Simulation request JSON",
+		placeholder: 'Optional client JSON, e.g. {"messages":[{"role":"user","content":"Example request"}]}',
+		onInput: (e) => {
+			simPayload = e.target.value;
+			++simGeneration;
+			simResult = null;
+			simHost.replaceChildren(h("div", { class: "ink-3" }, "Request changed. Run simulation to evaluate this payload."));
+			renderRail();
+		},
+	});
 	const simUserSel = select(
 		users.map((u) => ({ value: u.id, label: `${u.handle} · ${u.role}` })),
 		simUser,
@@ -240,8 +257,15 @@ async function editor(ctx, id) {
 		card({
 			title: "Try it",
 			sub: "Uses the saved model, the selected user's actual grants and current ledger. Save changes first; simulation never grants access or records usage.",
-			actions: [h("div", { style: { width: "220px" } }, simUserSel)],
-			body: simHost,
+			actions: [h("div", { style: { width: "220px" } }, simUserSel), btn("Run simulation", { icon: "refresh", cls: "outline sm", onClick: runSim })],
+			body: [
+				h("details", { style: { marginBottom: "14px" } },
+					h("summary", null, "Protocol & request payload"),
+					field("Protocol", simProtocolSel),
+					field("Client request JSON · optional", payloadInput, "Read-only script input.request. Use messages for Chat/Anthropic or input for Responses. The selected saved model and actual grants remain authoritative. Nothing is sent upstream or recorded."),
+				),
+				simHost,
+			],
 		}),
 	);
 	let simGeneration = 0;
@@ -262,7 +286,13 @@ async function editor(ctx, id) {
 		}
 		simHost.append(spinner());
 		try {
-			const result = await neo.simulate({ asked: vm.served, userId: simUser });
+			let payload;
+			if (simPayload.trim()) {
+				try { payload = JSON.parse(simPayload); }
+				catch (e) { throw new Error(`Invalid simulation request JSON: ${e.message}`); }
+				if (!payload || Array.isArray(payload) || typeof payload !== "object") throw new Error("Simulation request JSON must be an object.");
+			}
+			const result = await neo.simulate({ asked: vm.served, userId: simUser, protocol: simProtocol, request: payload });
 			if (generation !== simGeneration || !simHost.isConnected) return;
 			simResult = result;
 			simHost.replaceChildren(trail(result, { models, accounts: vault.accounts, users }));
