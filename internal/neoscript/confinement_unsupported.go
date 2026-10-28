@@ -3,9 +3,11 @@
 package neoscript
 
 import (
- "errors"
- "os/exec"
+	"errors"
+	"os/exec"
 )
 
 func configureChild(command *exec.Cmd) {}
-func confine() error {return errors.New("routing scripts require Linux amd64 kernel resource and syscall confinement")}
+func confine() error {
+	return errors.New("routing scripts require Linux amd64 kernel resource and syscall confinement")
+}
