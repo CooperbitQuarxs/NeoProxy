@@ -329,6 +329,17 @@ environment explicitly selects one or the caller injects `api.WithNeoStore`.
 Injected stores remain the caller's responsibility to close. Normal servers
 close their own store on shutdown and report initialization errors from `Start`.
 
+Server attachment authenticates reserved `nk_` credentials before dynamic routes.
+Only the three day-one inference endpoints and `/v1/models` accept these consumer
+principals. Until the scoped catalogue and routing implementation is attached,
+they return `503 neoproxy_unavailable`; they never fall through to legacy raw-model
+execution or an unfiltered catalogue. Integration calls
+`Server.EnableNeoInference()` only after both real scoped paths are installed.
+Existing configured engine keys keep their existing inference authority, separate
+from dashboard sessions. `Store.Changes()` broadcasts committed identity-policy
+changes so queued resolvers can wake and recheck `RefreshPrincipal`; extensions
+may call `NotifyChanges()` after committing ownership changes.
+
 Identity uses `github.com/mattn/go-sqlite3 v1.14.52`, requiring `CGO_ENABLED=1`
 and a C compiler. The module is pinned to upstream commit
 `b0be46fa28d17ee0b65c79774ac0dad84b6db068` (2026-09-05), with Go sum
