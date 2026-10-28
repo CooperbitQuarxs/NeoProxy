@@ -58,7 +58,7 @@ func TestNeoAttachedServerThreeProtocolFallbackAndScope(t *testing.T) {
 		if _, err := manager.Register(ctx, &coreauth.Auth{ID: id, Provider: "neo-http-test", Status: coreauth.StatusActive, Metadata: map[string]any{"disable_cooling": true}, Attributes: map[string]string{"api_key": "private-fixture", "base_url": endpoint}}); err != nil {
 			t.Fatal(err)
 		}
-		registry.GetGlobalRegistry().RegisterClient(id, "neo-http-test", []*registry.ModelInfo{{ID: model, Object: "model", ContextLength: 10000}})
+		registry.GetGlobalRegistry().RegisterClient(id, "neo-http-test", []*registry.ModelInfo{{ID: model, Object: "model"}})
 		t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(id) })
 	}
 	if _, err := server.neoPool.Snapshot(ctx); err != nil {

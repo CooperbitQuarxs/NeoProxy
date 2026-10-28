@@ -134,6 +134,39 @@ func (f *routeFixture) save(t *testing.T) {
 	}
 }
 
+func TestUpperBoundAcceptsExplicitTextMaximumWithoutCatalogueContext(t *testing.T) {
+	for _, body := range []string{
+		`{"messages":[{"role":"user","content":"choose-a"}],"max_tokens":32}`,
+		`{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"max_completion_tokens":32}`,
+		`{"input":"hello","max_output_tokens":32}`,
+		`{"input":[{"role":"user","content":[{"type":"input_text","text":"hello"}]}],"max_output_tokens":32}`,
+		`{"messages":[{"role":"user","content":"images and audio are ordinary words"}],"max_tokens":32}`,
+	} {
+		bound, err := upperBound(Request{Body: []byte(body)}, neopool.Model{})
+		if err != nil || bound != int64(len(body))+32 {
+			t.Fatalf("explicit text bound=%d error=%v body=%s", bound, err, body)
+		}
+	}
+}
+
+func TestUpperBoundRequiresCatalogueCeilingForStructuredMedia(t *testing.T) {
+	for _, body := range []string{
+		`{"messages":[{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://example.invalid/image"}}]}],"max_tokens":32}`,
+		`{"messages":[{"role":"user","content":[{"type":"image","source":{"type":"base64","data":"image-bytes"}}]}],"max_tokens":32}`,
+		`{"input":[{"role":"user","content":[{"type":"input_image","image_url":"https://example.invalid/image"}]}],"max_output_tokens":32}`,
+		`{"messages":[{"role":"user","content":[{"type":"input_audio","input_audio":{"data":"audio-bytes","format":"wav"}}]}],"max_tokens":32}`,
+		`{"input":[{"role":"user","content":[{"type":"input_file","file_data":"file-bytes"}]}],"max_output_tokens":32}`,
+	} {
+		if _, err := upperBound(Request{Body: []byte(body)}, neopool.Model{}); err == nil {
+			t.Fatalf("media request accepted a byte-only bound: %s", body)
+		}
+		bound, err := upperBound(Request{Body: []byte(body)}, neopool.Model{Context: 4096})
+		if err != nil || bound != 4096 {
+			t.Fatalf("media context bound=%d error=%v body=%s", bound, err, body)
+		}
+	}
+}
+
 func TestDurableCursorAndReadOnlySimulation(t *testing.T) {
 	f := newRouteFixture(t, "alternate")
 	for i := 0; i < 2; i++ {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +45,42 @@ type runState struct {
 	finished bool
 }
 
+// containsMedia inspects structured media blocks rather than searching text or
+// treating an empty gjson projection as a present non-text message.
+func containsMedia(value gjson.Result) bool {
+	if !value.IsObject() && !value.IsArray() {
+		return false
+	}
+	if value.IsObject() {
+		switch value.Get("type").String() {
+		case "image", "image_url", "input_image", "image_file",
+			"audio", "input_audio", "output_audio",
+			"video", "input_video", "file", "input_file":
+			return true
+		}
+	}
+	found := false
+	value.ForEach(func(key, child gjson.Result) bool {
+		switch key.String() {
+		case "image_url", "input_audio", "audio", "video_url", "file_data":
+			if child.Exists() && child.Type != gjson.Null {
+				found = true
+				return false
+			}
+		case "modalities":
+			for _, modality := range child.Array() {
+				if modality.String() != "text" {
+					found = true
+					return false
+				}
+			}
+		}
+		found = containsMedia(child)
+		return !found
+	})
+	return found
+}
+
 // upperBound reserves a conservative token bound, never a request-count quota.
 // Text bytes bound tokenizer input; media needs the catalogue context ceiling.
 func upperBound(req Request, model neopool.Model) (int64, error) {
@@ -62,7 +97,7 @@ func upperBound(req Request, model neopool.Model) (int64, error) {
 			}
 		}
 	}
-	if maximum > 0 && !gjson.GetBytes(req.Body, "messages.#.content.#(type!=text)").Exists() && !strings.Contains(string(req.Body), `"image`) && !strings.Contains(string(req.Body), `"audio`) {
+	if maximum > 0 && !containsMedia(gjson.ParseBytes(req.Body)) {
 		if maximum > math.MaxInt64-int64(len(req.Body)) {
 			return 0, fmt.Errorf("token bound overflow")
 		}
