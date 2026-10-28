@@ -40,6 +40,7 @@ type oauthSession struct {
 	Status         string
 	Source         string
 	Metadata       map[string]any
+	AccountOwnerID string
 	SIWC           *siwcBindSession
 	SIWCCommitting bool
 	Completed      bool
