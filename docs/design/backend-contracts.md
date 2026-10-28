@@ -83,6 +83,11 @@ The first organization admin is provisioned through an explicit bootstrap operat
 
 A user inference key has format `nk_<48 hex>`. The dashboard displays `nk_xxxx…xxxx`; the server stores only its hash and rejects revocation immediately. Every request and `/v1/models` listing is restricted to that user's current grants and any narrower account scope on the key. Owners may mint keys over their own account pools, never another owner's pool.
 
+An owner key must name only accounts currently owned by that user. A foreign,
+missing, mixed-ownership or unrestricted scope is rejected with HTTP 403
+`neoproxy_forbidden`, without creating a key. Unexpected database errors remain
+server errors rather than being mislabeled as authorization denials.
+
 Organization admins manage users and organization-wide policy. Account owners manage their own provider accounts and pool-scoped keys, and see only statistics for their owned accounts. Ownership is not organization-admin authority. Member/service access is scoped to their grants, own user and requests regardless of supplied query parameters.
 
 All routes below live under `/v8/neo/` unless stated. Errors are `{ error: { message: string, code?: string } }` with the appropriate status. Timestamps are epoch milliseconds. Fractions are `0..1` floats.
