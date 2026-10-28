@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoroute"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoscript"
 )
 
 func (s *Server) initNeoRouting() {
@@ -18,6 +19,7 @@ func (s *Server) initNeoRouting() {
 		s.neoErr = fmt.Errorf("initialize virtual-model routing: %w", err)
 		return
 	}
+	route.SetScriptHook(neoscript.New())
 	s.neoRoute = route
 	s.handlers.SetNeoResolver(route)
 	route.RegisterRoutes(s.engine.Group("/v8/neo", s.neoHTTP.SessionMiddleware()))
