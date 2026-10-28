@@ -2,7 +2,7 @@
 // members see their own. Selecting a row docks the routing trail on the right.
 
 import { h, icon, fmtTime, fmtDate, fmtCompact, fmtDuration, clear } from "../lib/dom.js";
-import { neo, sources, onChange } from "../lib/client.js";
+import { neo } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, servedName, search, select, seg, table, inspector, section, kv, trail, outcomeBadge, empty, spinner, errorState } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -12,7 +12,6 @@ export async function render(ctx) {
 		pageHead({
 			title: "Activity",
 			desc: mine ? "Your requests and how each one was answered." : "Every request through the proxy, who asked, what they asked for, and which stage and account answered.",
-			preview: sources.activity === "fixture",
 		}),
 	);
 	const host = h("div");

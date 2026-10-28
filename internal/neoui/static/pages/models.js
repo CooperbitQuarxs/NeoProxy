@@ -3,7 +3,7 @@
 // for; provider models follow, grouped and collapsible, each with a switch.
 
 import { h, icon, fmtCompact, plural, clear } from "../lib/dom.js";
-import { neo, sources, onChange } from "../lib/client.js";
+import { neo, onChange } from "../lib/client.js";
 import { pageHead, card, btn, badge, tag, toggle, search, seg, servedName, chainRail, empty, spinner, errorState, toast, avatar } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -12,7 +12,6 @@ export async function render(ctx) {
 		pageHead({
 			title: "Models",
 			desc: "Everything this proxy answers to, by provider. A switch here changes what every user sees; a user's own access is set on their page.",
-			preview: sources.models === "fixture",
 		}),
 	);
 	const host = h("div");

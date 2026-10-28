@@ -5,7 +5,7 @@
 // stage and a simulator that shows where a user's request would land.
 
 import { h, icon, fmtPct, fmtAgo, plural, clear } from "../lib/dom.js";
-import { neo, sources, onChange, ApiError } from "../lib/client.js";
+import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, servedName, chainRail, inspector, section, field, input, select, seg, toggle, modelPicker, trail, ring, kv, confirm, toast, empty, spinner, errorState, drawLabel } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -21,7 +21,6 @@ async function catalogue(ctx) {
 		pageHead({
 			title: "Virtual models",
 			desc: "Names you serve that are not any provider's model. Each is a chain: stages that draw from pooled accounts in measured sips, a demotion when a stage is spent, and a clear end.",
-			preview: sources["virtual-models"] === "fixture",
 			actions: [btn("New virtual model", { icon: "plus", cls: "primary", onClick: () => ctx.navigate("virtual-models/new") })],
 		}),
 	);
@@ -110,7 +109,6 @@ async function editor(ctx, id) {
 		back: { href: "#/virtual-models", label: "Virtual models" },
 		title: h("span", { class: "row", id: "vm-title" }, isNew ? "New virtual model" : servedName(draft.served, { virtual: true })),
 		desc: isNew ? "Name it, add stages, and try it against a user before saving." : null,
-		preview: sources["virtual-models"] === "fixture",
 		actions: [
 			isNew ? null : btn("Delete", { icon: "trash", cls: "danger", onClick: remove }),
 			btn("Discard", { cls: "outline", onClick: () => (dirty ? discard() : ctx.navigate("virtual-models")) }),
@@ -118,11 +116,13 @@ async function editor(ctx, id) {
 		],
 	});
 	root.append(head);
+	let resetSimulation = () => {};
 	const setDirty = (v = true) => {
 		dirty = v;
 		saveBtn.textContent = "";
 		saveBtn.append(icon("save", 15), dirty ? "Save changes" : "Saved");
 		saveBtn.disabled = !dirty;
+		if (v) resetSimulation();
 	};
 
 	// ----- identity -----
@@ -245,6 +245,12 @@ async function editor(ctx, id) {
 		}),
 	);
 	let simGeneration = 0;
+	resetSimulation = () => {
+		++simGeneration;
+		simResult = null;
+		simHost.replaceChildren(h("div", { class: "ink-3" }, "Save changes before running a real simulation."));
+		renderRail();
+	};
 	async function runSim() {
 		const generation = ++simGeneration;
 		simResult = null;

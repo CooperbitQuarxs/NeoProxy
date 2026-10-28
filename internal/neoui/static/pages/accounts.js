@@ -9,7 +9,7 @@ const accountPath = (id) => `${base}/vault/accounts/${encodeURIComponent(id)}`;
 export async function render(ctx) {
 	const admin = ctx.session.role === "admin";
 	const host = h("div");
-	ctx.root.append(pageHead({ title: "Account pools", desc: admin ? "Assign account owners and configure explicit metered capacities. Credentials remain in this proxy's provider manager." : "Your provider accounts, measured usage and pool-scoped inference keys. Ownership does not grant organization administration.", actions: [btn("Sign in provider", { icon: "plus", cls: "primary", onClick: () => login(ctx) })] }), host, spinner());
+	ctx.root.append(pageHead({ title: "Account pools", desc: admin ? "Assign account owners and configure explicit metered capacities. Credentials remain in this proxy's provider manager." : "Your provider accounts, measured usage and pool-scoped inference keys. Ownership does not grant organization administration.", actions: [btn("Add API key", { cls: "outline", onClick: () => addAPIKey(ctx) }), btn("Sign in provider", { icon: "plus", cls: "primary", onClick: () => login(ctx) })] }), host, spinner());
 	let vault, user, users;
 	try {
 		[vault, user, users] = await Promise.all([neo.vault(), neo.user(ctx.session.userId), admin ? neo.users() : Promise.resolve([])]);
@@ -38,7 +38,7 @@ export async function render(ctx) {
 			const result = await engine.get(`${base}/owner/stats`);
 			statsHost.replaceChildren();
 			if (!result.accounts.length) statsHost.append(empty({ title: "No measured activity", hint: "Actual account attempts and token usage will appear here." }));
-			for (const row of result.accounts) statsHost.append(card({ title: vault.accounts.find((a) => a.id === row.accountId)?.label ?? row.accountId, rise: false, body: kv([["Input tokens", fmtCompact(row.inputTokens)], ["Output tokens", fmtCompact(row.outputTokens)], ["Cached tokens", fmtCompact(row.cachedTokens)], ["Estimated tokens", fmtCompact(row.estimatedTokens)], ["Attempts", fmtCompact(row.attempts)]]) }));
+			for (const row of result.accounts) statsHost.append(card({ title: vault.accounts.find((a) => a.id === row.accountId)?.label ?? row.accountId, rise: false, body: kv([["Input tokens", fmtCompact(row.inputTokens)], ["Output tokens", fmtCompact(row.outputTokens)], ["Cached tokens", fmtCompact(row.cachedTokens)], ["Estimated tokens", fmtCompact(row.estimatedTokens)], ["Reserved tokens", fmtCompact(row.reservedTokens)], ["Attempts", fmtCompact(row.attempts)], ["Attempts with unknown usage", fmtCompact(row.unknownAttempts)]]) }));
 		} catch (e) { statsHost.replaceChildren(errorState(e, loadStats)); }
 	}
 	await loadStats();
@@ -85,29 +85,78 @@ function issueScopedKey(user, accounts, after) {
 }
 
 function login(ctx) {
-	let provider = "codex", stopped = false, timer;
+	let provider = "codex", closed = false, timer, generation = 0;
 	const result = h("div");
-	const stop = () => { stopped = true; clearTimeout(timer); };
-	dialog({ title: "Sign in provider", sub: "The provider login is initiated by your session. Only credentials created by this flow enter your owned pool.", body: [field("Provider", select(["codex", "anthropic", "gemini", "antigravity", "qwen", "iflow", "kimi", "devin", "xai"].map((v) => ({ value: v, label: v })), provider, (v) => { provider = v; })), result], onClose: stop, actions: (close) => [btn("Close", { onClick: close }), btn("Start sign-in", { cls: "primary", onClick: async (e) => {
-		const button = e.currentTarget;
-		button.disabled = true;
-		clearTimeout(timer);
-		try {
-			const response = await engine.post(`${base}/vault/login/${encodeURIComponent(provider)}`, {});
-			if (stopped) return;
-			if (!response.url || !response.state) throw new Error("Provider did not return a sign-in URL and state.");
-			result.replaceChildren(copyLine(response.url, "sign-in URL"), h("a", { class: "btn outline", href: response.url, target: "_blank", rel: "noopener noreferrer" }, "Open provider sign-in"), response.user_code ? field("Device code", copyLine(response.user_code)) : null, h("p", { class: "ink-3" }, "Waiting for provider sign-in. Closing this dialog stops polling."));
-			async function check() {
+	const stop = () => { generation++; clearTimeout(timer); };
+	const providerSelect = select(["codex", "anthropic", "gemini", "antigravity", "qwen", "iflow", "kimi", "kimi-ai", "devin", "xai", "meta"].map((v) => ({ value: v, label: v })), provider, (v) => { provider = v; stop(); result.replaceChildren(); });
+	dialog({
+		title: "Sign in provider",
+		sub: "Initiated by your session. Only credentials created by this flow enter your owned pool.",
+		body: [field("Provider", providerSelect), result],
+		onClose: () => { closed = true; stop(); },
+		actions: (close) => [btn("Close", { onClick: close }), btn("Start sign-in", {
+			cls: "primary",
+			onClick: async (e) => {
+				const button = e.currentTarget;
+				button.disabled = true;
+				providerSelect.disabled = true;
+				stop();
+				const current = generation, selectedProvider = provider;
 				try {
-					const status = await engine.get(`${base}/vault/login/status`, { query: { state: response.state } });
-					if (stopped) return;
-					if (status.status === "ok") { close(); toast("Provider account connected"); ctx.rerender(); }
-					else if (status.status === "error") { result.replaceChildren(h("p", { class: "error" }, status.error || "Provider sign-in failed")); }
-					else timer = setTimeout(check, 2000);
-				} catch (error) { if (!stopped) result.replaceChildren(errorState(error)); }
-			}
-			timer = setTimeout(check, 2000);
-		} catch (error) { if (!stopped) result.replaceChildren(errorState(error)); }
-		finally { button.disabled = false; }
-	} })] });
+					const response = await engine.post(`${base}/vault/login/${encodeURIComponent(selectedProvider)}`, {});
+					if (closed || current !== generation) return;
+					if (!response.url || !response.state) throw new Error("Provider did not return a sign-in URL and state.");
+					let code = "";
+					const callbackError = h("div", { class: "error", role: "alert" });
+					const callback = h("details", null, h("summary", null, "Provider asks you to paste an authorization code?"),
+						field("Authorization code", input({ autocomplete: "off", onInput: (event) => { code = event.target.value; } })),
+						btn("Submit code", { cls: "outline sm", onClick: async () => {
+							try {
+								await engine.post(`${base}/vault/login/callback`, { provider: selectedProvider, state: response.state, code: code.trim() });
+								callbackError.textContent = "Code submitted. Waiting for provider confirmation.";
+							} catch (error) { callbackError.textContent = error.message; }
+						} }), callbackError,
+					);
+					result.replaceChildren(copyLine(response.url, "sign-in URL"), h("a", { class: "btn outline", href: response.url, target: "_blank", rel: "noopener noreferrer" }, "Open provider sign-in"), response.user_code ? field("Device code", copyLine(response.user_code)) : null, h("p", { class: "ink-3" }, "Waiting for provider sign-in. Closing stops polling."), callback);
+					async function check() {
+						try {
+							const status = await engine.get(`${base}/vault/login/status`, { query: { state: response.state } });
+							if (closed || current !== generation) return;
+							if (status.status === "ok") { close(); toast("Provider account connected"); ctx.rerender(); }
+							else if (status.status === "error") { result.replaceChildren(h("p", { class: "error" }, status.error || "Provider sign-in failed")); }
+							else timer = setTimeout(check, 2000);
+						} catch (error) { if (!closed && current === generation) result.replaceChildren(errorState(error)); }
+					}
+					timer = setTimeout(check, 2000);
+				} catch (error) { if (!closed && current === generation) result.replaceChildren(errorState(error)); }
+				finally { button.disabled = false; providerSelect.disabled = false; }
+			},
+		})],
+	});
+}
+
+function addAPIKey(ctx) {
+	let providerId = "codex", apiKey = "";
+	const err = h("div", { class: "error", role: "alert" });
+	dialog({
+		title: "Add provider API key",
+		sub: "Stored by this proxy's credential manager and owned by your user. Existing credentials cannot be claimed by submitting them again. Provider endpoints are fixed by the engine.",
+		body: [
+			field("Provider", select(["claude", "codex", "gemini", "xai", "meta"].map((v) => ({ value: v, label: v })), providerId, (v) => { providerId = v; })),
+			field("Provider API key", input({ type: "password", autocomplete: "off", onInput: (e) => { apiKey = e.target.value; } }), "Not a dashboard password or a NeoProxy inference key."), err,
+		],
+		actions: (close) => [btn("Cancel", { onClick: close }), btn("Add account", {
+			cls: "primary",
+			onClick: async (e) => {
+				const button = e.currentTarget;
+				button.disabled = true;
+				try {
+					if (!apiKey.trim()) throw new Error("Enter the provider API key.");
+					await engine.post(`${base}/vault/api-keys`, { providerId, apiKey: apiKey.trim() });
+					apiKey = ""; close(); toast("Provider account added"); ctx.rerender();
+				} catch (error) { err.textContent = error.message; }
+				finally { button.disabled = false; }
+			},
+		})],
+	});
 }

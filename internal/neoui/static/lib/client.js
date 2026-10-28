@@ -24,6 +24,7 @@ async function request(method, path, { json, body, headers = {}, raw = false, qu
 	}
 	const init = { method, credentials: "same-origin", cache: "no-store", headers: { ...headers } };
 	const owner = identity;
+	if (!["GET", "HEAD", "OPTIONS"].includes(method)) init.headers["X-Neoproxy-CSRF"] = "1";
 	if (json !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(json); }
 	else if (body !== undefined) init.body = body;
 	const res = await fetch(url, init);
@@ -116,10 +117,10 @@ export const neo = {
 	},
 	async signOut() { await request("DELETE", "/v8/session", { auth: false }); session.clear(); },
 	// Poll the durable request ledger; never synthesize traffic on an idle server.
-	subscribeStream(fn, onError = () => {}) {
+	subscribeStream(fn, onError = () => {}, initial) {
 		let stopped = false, timer;
-		const seen = new Set();
-		let initialized = false;
+		const seen = new Set((initial ?? []).map((r) => r.id));
+		let initialized = Array.isArray(initial);
 		async function poll() {
 			try {
 				const rows = await neo.requests({ limit: 14 });
@@ -135,4 +136,3 @@ export const neo = {
 		return () => { stopped = true; clearTimeout(timer); };
 	},
 };
-export const sources = Object.fromEntries(["overview", "core", "models", "virtual-models", "users", "activity", "credentials", "keys", "logs", "routing", "config", "plugins", "about"].map((name) => [name, "engine"]));

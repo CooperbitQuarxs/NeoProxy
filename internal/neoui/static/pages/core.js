@@ -3,8 +3,8 @@
 // and which virtual models draw from them.
 
 import { h, icon, fmtAgo, fmtPct, fmtIn, plural } from "../lib/dom.js";
-import { neo, sources, onChange } from "../lib/client.js";
-import { pageHead, card, kv, badge, status, toggle, btn, ring, windowsRow, accountState, inspector, section, servedName, spinner, errorState, toast } from "../lib/components.js";
+import { neo, onChange } from "../lib/client.js";
+import { pageHead, card, kv, badge, status, toggle, btn, ring, windowsRow, accountState, inspector, section, servedName, spinner, errorState, toast, empty } from "../lib/components.js";
 
 export async function render(ctx) {
 	const { root } = ctx;
@@ -12,7 +12,6 @@ export async function render(ctx) {
 		pageHead({
 			title: "Core & vault",
 			desc: "This NeoProxy engine owns provider accounts, credentials and refresh. Exposure controls what is served to users.",
-			preview: sources.core === "fixture",
 		}),
 	);
 	const host = h("div");
@@ -74,6 +73,7 @@ export async function render(ctx) {
 	const renderList = () => {
 		listHost.replaceChildren();
 		const tree = h("div", { class: "list" });
+		if (!vault.providers.length) { listHost.append(empty({ icon: "shield", title: "No providers configured", hint: "Add a provider credential in this proxy to populate its vault and catalogue." })); return; }
 		for (const p of vault.providers) {
 			const accs = vault.accounts.filter((a) => a.providerId === p.id);
 			tree.append(

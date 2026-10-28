@@ -1,6 +1,6 @@
 import { h, clear, icon, svg } from "./lib/dom.js";
 import { session, neo, engine, onUnauthorized, invalidate, ApiError } from "./lib/client.js";
-import { btn, toast, field, input, toggle, iconBtn, card, dialog } from "./lib/components.js";
+import { btn, toast, field, input, iconBtn, card, dialog, dismissDialogs } from "./lib/components.js";
 import { pages, groups } from "./pages/index.js";
 
 const root = document.getElementById("app");
@@ -47,7 +47,7 @@ onUnauthorized(() => {
 async function signOut() {
 	try {
 		await neo.signOut();
-		document.querySelectorAll(".dialog-backdrop").forEach((el) => el.remove());
+		dismissDialogs();
 		render();
 	} catch (e) {
 		toast(`Sign out failed: ${e.message}. Your session may still be active.`, "bad");
@@ -144,6 +144,7 @@ function sidebar(current, s) {
 
 // ---------- gate ----------
 function gate(reason, bootstrap = false) {
+	dismissDialogs();
 	clear(root);
 	let handle = "", password = "", operatorSecret = "", busy = false;
 	const err = h("div", { class: "error hidden", role: "alert" });

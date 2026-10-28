@@ -4,7 +4,7 @@
 // live request stream and the things that need the admin's attention.
 
 import { h, svgEl, clear, icon, fmtPct, fmtAgo, fmtIn, fmtTime, fmtCompact, plural } from "../lib/dom.js";
-import { neo, sources, onChange } from "../lib/client.js";
+import { neo, onChange } from "../lib/client.js";
 import { pageHead, card, strip, btn, avatar, ring, servedName, outcomeBadge, status, empty, spinner, errorState } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -13,7 +13,6 @@ export async function render(ctx) {
 		pageHead({
 			title: "Overview",
 			desc: "Who draws what from where. Proxy-managed accounts on the left, virtual models in the middle, and the people and services drawing from them on the right.",
-			preview: sources.overview === "fixture",
 			actions: [btn("New virtual model", { icon: "plus", cls: "primary", onClick: () => ctx.navigate("virtual-models/new") })],
 		}),
 	);
@@ -47,13 +46,14 @@ export async function render(ctx) {
 		}),
 	);
 
-	host.append(h("div", { class: "grid c2-1" }, streamCard(world, ctx), attentionCard(world, ctx)));
+	const recent = streamCard(world, ctx);
+	host.append(h("div", { class: "grid c2-1" }, recent.el, attentionCard(world, ctx)));
 
 	const off = onChange((w) => w !== "requests" && ctx.rerender());
 	return () => {
 		off();
 		flow.dispose();
-		streamCard.unsubscribe?.();
+		recent.dispose();
 	};
 }
 
@@ -293,15 +293,15 @@ function streamCard(world, ctx) {
 	}, (error) => {
 		pollState.textContent = error ? `Polling failed: ${error.message}` : "Polling every 5s";
 		pollState.className = error ? "error" : "ink-3";
-	});
-	streamCard.unsubscribe = unsubscribe;
-	return card({
+	}, world.requests);
+	const el = card({
 		title: h("span", { class: "row" }, "Recent requests"),
 		sub: "Durable server activity, refreshed from the real request ledger.",
 		actions: [pollState, btn("All activity", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("activity") })],
 		flush: true,
 		body: list,
 	});
+	return { el, dispose: unsubscribe };
 }
 
 // ---------- attention ----------

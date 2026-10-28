@@ -1,12 +1,11 @@
 // Shared widgets. Every page composes these; pages never write raw markup for
-// a card, table, ring, chain or chip. Names shared with NeoDeck: .neo-ring,
-// .neo-chain, .neo-preview.
+// a card, table, ring, chain or chip.
 
 import { h, svgEl, icon, append, clear, fmtPct, copyText } from "./dom.js";
 
 // ---------- page chrome ----------
 
-export function pageHead({ title, desc, actions = [], preview = false, back }) {
+export function pageHead({ title, desc, actions = [], back }) {
 	return h(
 		"div",
 		{ class: "page-head" },
@@ -14,15 +13,11 @@ export function pageHead({ title, desc, actions = [], preview = false, back }) {
 			"div",
 			{ class: "titles" },
 			back ? h("a", { class: "back", href: back.href }, icon("arrowLeft", 14), back.label) : null,
-			h("h1", null, title, preview ? previewChip() : null),
+			h("h1", null, title),
 			desc ? h("p", { class: "desc" }, desc) : null,
 		),
 		actions.length ? h("div", { class: "actions" }, actions) : null,
 	);
-}
-
-export function previewChip(text = "preview data") {
-	return h("span", { class: "neo-preview", title: "Served by the dashboard's fixture adapter until the backend contract lands" }, text);
 }
 
 export function card({ title, sub, actions, body, foot, cls = "", flush = false, rise = true }) {
@@ -338,14 +333,21 @@ export function toast(text, kind = "ok", ms = 2800) {
 	return el;
 }
 
+const openDialogs = new Set();
+export function dismissDialogs() {
+	for (const close of [...openDialogs]) close();
+}
+
 export function dialog({ title, sub, body, actions, onClose }) {
 	const backdrop = h("div", { class: "dialog-backdrop", onClick: (e) => e.target === backdrop && close() });
 	const close = () => {
+		if (!openDialogs.delete(close)) return;
 		backdrop.remove();
 		document.removeEventListener("keydown", esc);
 		onClose?.();
 	};
 	const esc = (e) => e.key === "Escape" && close();
+	openDialogs.add(close);
 	document.addEventListener("keydown", esc);
 	backdrop.append(h("div", { class: "dialog", role: "dialog", "aria-modal": "true", "aria-label": title }, h("h2", null, title), sub ? h("div", { class: "sub" }, sub) : null, body, actions ? h("div", { class: "actions" }, actions(close)) : null));
 	document.body.append(backdrop);

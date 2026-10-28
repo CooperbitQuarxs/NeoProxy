@@ -3,7 +3,7 @@
 // provider access), their limits, their keys, and what they did recently.
 
 import { h, icon, fmtPct, fmtAgo, fmtTime, fmtCompact, plural, clear, copyText } from "../lib/dom.js";
-import { neo, sources, onChange, ApiError } from "../lib/client.js";
+import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, status, servedName, ring, ringRow, field, input, select, seg, toggle, dialog, confirm, toast, empty, spinner, errorState, outcomeBadge, kv, table } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -20,7 +20,6 @@ async function list(ctx) {
 		pageHead({
 			title: "Users",
 			desc: "People sign in with username/password; services use inference keys. Grants and direct provider access control what each user's keys can serve.",
-			preview: sources.users === "fixture",
 			actions: [btn("Create user", { icon: "plus", cls: "primary", onClick: () => invite(ctx) })],
 		}),
 	);
@@ -154,7 +153,6 @@ async function detail(ctx, id) {
 			back: { href: "#/users", label: "Users" },
 			title: h("span", { class: "row" }, avatar(user), user.handle, roleBadge(user), stateStatus(user)),
 			desc: `${user.name} · joined ${fmtAgo(user.createdAt)}`,
-			preview: sources.users === "fixture",
 			actions: [suspendBtn, saveBtn],
 		}),
 	);
@@ -264,7 +262,7 @@ async function detail(ctx, id) {
 					"div",
 					{ class: "li" },
 					icon("key", 15),
-					h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, k.prefix), " ", h("span", { class: "ink-2", style: { fontWeight: 400 } }, k.label)), h("div", { class: "sub" }, `issued ${fmtAgo(k.createdAt)} · ${k.lastUsedAt ? `last used ${fmtAgo(k.lastUsedAt)}` : "never used"}`)),
+					h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, k.prefix), " ", h("span", { class: "ink-2", style: { fontWeight: 400 } }, k.label)), h("div", { class: "sub" }, `issued ${fmtAgo(k.createdAt)} · ${k.lastUsedAt ? `last used ${fmtAgo(k.lastUsedAt)}` : "never used"} · ${k.accountIds?.length ? `scoped to ${k.accountIds.length} accounts` : "all currently authorized accounts"}`)),
 					btn("Revoke", {
 						cls: "danger sm",
 						onClick: async () => {
@@ -297,7 +295,7 @@ async function detail(ctx, id) {
 			card({
 				title: "Keys",
 				sub: "Bearer tokens this user sends. Each key is a separate line in Activity.",
-				actions: [btn("Issue key", { icon: "plus", cls: "outline sm", onClick: () => issueKey(user, renderKeys) })],
+				actions: [btn("Issue key", { icon: "plus", cls: "outline sm", onClick: () => issueKey(user, renderKeys, user.role === "owner" ? vault.accounts.filter((a) => a.ownerId === user.id) : vault.accounts) })],
 				flush: true,
 				body: keysHost,
 			}),
@@ -328,19 +326,26 @@ async function detail(ctx, id) {
 	setDirty(false);
 }
 
-function issueKey(user, after) {
+function issueKey(user, after, accounts) {
 	let label = "";
+	const scope = new Set();
+	const err = h("div", { class: "error", role: "alert" });
 	dialog({
 		title: `Issue a key for ${user.handle}`,
-		sub: "Name it after the thing that will use it.",
-		body: field("Label", input({ placeholder: "Client or deployment name", autofocus: true, onInput: (e) => (label = e.target.value) })),
+		sub: "Inference only; this key never signs in to the dashboard. A scope narrows current grants, never expands them.",
+		body: [
+			field("Label", input({ placeholder: "Client or deployment name", autofocus: true, onInput: (e) => (label = e.target.value) })),
+			field("Account scope", h("div", { class: "row wrap" }, accounts.map((a) => toggle(false, (enabled) => enabled ? scope.add(a.id) : scope.delete(a.id), `${a.providerId} · ${a.label}`))), user.role === "owner" ? "An owner key requires at least one owned account." : "Optional. No selection means all currently authorized accounts."),
+			err,
+		],
 		actions: (close) => [
 			btn("Cancel", { onClick: close }),
 			btn("Issue", {
 				cls: "primary",
 				onClick: async () => {
 					try {
-						const { key, secret } = await neo.createKey(user.id, label || "unnamed");
+						if (user.role === "owner" && !scope.size) throw new Error("Select at least one owned account for this owner key.");
+						const { key, secret } = await neo.createKey(user.id, label || "unnamed", scope.size ? [...scope] : undefined);
 						user.keys.push(key);
 						close();
 						after();
@@ -350,7 +355,7 @@ function issueKey(user, after) {
 							body: h("div", { class: "row" }, h("code", { style: { flex: 1, padding: "8px 10px", background: "var(--panel)", border: "1px solid var(--line-2)", borderRadius: "8px", overflowWrap: "anywhere" } }, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => toast((await copyText(secret)) ? "Copied" : "Clipboard unavailable", "warn") })),
 							actions: (close2) => [btn("Done", { cls: "primary", onClick: close2 })],
 						});
-					} catch (e) { toast(e.message, "bad"); }
+					} catch (e) { err.textContent = e.message; }
 				},
 			}),
 		],

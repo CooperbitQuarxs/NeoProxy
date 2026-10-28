@@ -3,7 +3,7 @@
 // No admin surfaces; no provider internals beyond what their chain reveals.
 
 import { h, icon, fmtPct, fmtAgo, fmtIn, copyText } from "../lib/dom.js";
-import { neo, engine, sources } from "../lib/client.js";
+import { neo, engine } from "../lib/client.js";
 import { pageHead, card, btn, badge, servedName, ring, kv, chainRail, trail, toast, empty, spinner, errorState, field, input, dialog } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -12,7 +12,6 @@ export async function render(ctx) {
 		pageHead({
 			title: "My models",
 			desc: "What you can ask this proxy for, and how much of each allotment is left. Everything is served under the neoproxy/ name; which provider answers is decided for you.",
-			preview: sources.users === "fixture",
 		}),
 	);
 	const host = h("div");
@@ -97,9 +96,9 @@ export async function render(ctx) {
 		actions: [btn("Change password", { cls: "outline", onClick: () => {
 			let currentPassword = "", password = "";
 			const err = h("div", { class: "error", role: "alert" });
-			dialog({ title: "Change password", sub: "Existing dashboard sessions will be revoked. Sign in again after saving.", body: [
+			dialog({ title: "Change password", sub: "All existing dashboard sessions and inference keys will be revoked. Sign in again and issue replacement keys after saving.", body: [
 				field("Current password", input({ type: "password", autocomplete: "current-password", onInput: (e) => { currentPassword = e.target.value; } })),
-				field("New password", input({ type: "password", autocomplete: "new-password", onInput: (e) => { password = e.target.value; } })), err,
+				field("New password", input({ type: "password", autocomplete: "new-password", minlength: 12, onInput: (e) => { password = e.target.value; } }), "12–72 UTF-8 bytes."), err,
 			], actions: (close) => [btn("Cancel", { onClick: close }), btn("Save password", { cls: "primary", onClick: async () => {
 				try { await engine.post(`/v8/neo/users/${encodeURIComponent(user.id)}/password`, { currentPassword, password }); close(); toast("Password changed. Sign in again."); ctx.rerender(); }
 				catch (e) { err.textContent = e.message; }

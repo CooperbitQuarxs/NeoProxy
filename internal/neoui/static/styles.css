@@ -2,7 +2,7 @@
    page → panel → card nesting and components from /stats, chips and toasts from
    /collab. Tokens are the ones in docs/design/neo-design-language.md; the
    components past "Rings" are NeoProxy's own and are shared by name with NeoDeck
-   (.neo-ring, .neo-chain, .neo-preview). */
+   (.neo-ring, .neo-chain). */
 
 :root,
 [data-theme="dark"] {
@@ -874,20 +874,6 @@ kbd {
 .chip .mono {
 	color: var(--ink-3);
 	font-size: 11px;
-}
-.neo-preview {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	height: 20px;
-	padding: 0 7px;
-	border: 1px solid var(--line-2);
-	border-radius: var(--r-chip);
-	font-family: var(--font-mono);
-	font-size: 11px;
-	color: var(--ink-3);
-	font-weight: 400;
-	letter-spacing: 0;
 }
 .tag {
 	display: inline-flex;
