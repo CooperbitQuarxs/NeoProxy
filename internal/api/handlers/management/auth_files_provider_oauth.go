@@ -1075,6 +1075,7 @@ func (h *Handler) rollbackSavedTokenRecords(ctx context.Context, savedPaths []st
 
 // PopulateAuthContext extracts request info and adds it to the context
 func PopulateAuthContext(ctx context.Context, c *gin.Context) context.Context {
+	ctx = inheritAccountLoginOwner(ctx, c.Request.Context())
 	info := &coreauth.RequestInfo{
 		Query:   c.Request.URL.Query(),
 		Headers: c.Request.Header,
