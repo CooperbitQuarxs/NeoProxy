@@ -23,6 +23,8 @@ python scripts/neopi_e2e.py prepare \
 
 Preparation writes a private JSON-encoded YAML proxy config and a non-secret `setup.json`. It configures three independent first-stage fault accounts, so the previous protocol's cooldown cannot turn the next protocol into an unobserved skip. Each fault-only upstream returns HTTP 503. The one shared fallback account points at the actual remote Groq model. No successful local inference response exists in the tool.
 
+Compatibility group names are not engine provider IDs: the `proof-real` group is registered as `openai-compatible-proof-real`, so its routed concrete selector is `openai-compatible-proof-real/fallback`. Fault groups use the corresponding `openai-compatible-proof-fault-<wire>` IDs. The runner uses these authoritative IDs for account inventory and stages, not the display/group names.
+
 The local ports are selected during preparation and bound only to `127.0.0.1` at run time. A port collision is an operational failure; prepare a new run instead of pointing the client at an unrelated listener.
 
 ## Execute after explicit A/B/C delivery
@@ -61,7 +63,7 @@ Every client has a separate scratch `HOME`, `XDG_*`, `TMPDIR`, `PI_CODING_AGENT_
 
 The private `receipt.json` records actual commands, scratch profiles, discovered selectors, role assignments, observed wire protocol, request IDs, failed upstream calls, persisted decisions, fallback account/model, assistant reply and usage. It also records the proxy binary hash, supplied source SHA and explicit A/B/C interface deliveries.
 
-Only three successfully validated protocol receipts produce `status: passed`. A missing credential, failed authentication, unavailable backend, unsupported protocol, failed real inference or missing evidence leaves `status: not-passed` with a precise blocker; it must never be described as E passing. Raw proxy logs and NeoPi stdout/stderr remain private scratch files. Commit only a reviewed redacted receipt, never these raw captures or scratch configuration.
+Only three successfully validated protocol receipts produce `status: passed`. A missing credential, failed authentication, unavailable backend, unsupported protocol, failed real inference or missing evidence leaves `status: not-passed` with a precise blocker; it must never be described as E passing. Debug/request logging is explicitly disabled. Known operator, login, API and inference-key values are removed before subprocess logs, client captures or receipts are written. These captures still remain private scratch files. Commit only a reviewed redacted receipt, never the captures or scratch configuration.
 
 Focused verifier/isolation tests (not a real-inference substitute):
 
@@ -69,7 +71,7 @@ Focused verifier/isolation tests (not a real-inference substitute):
 flock /run/user/1000/npi-afk-light.lock \
   /home/shayna/.local/share/polite-relay/polite --mem \
   --label neoproxy-e-tool-tests -- \
-  python -m unittest discover -s scripts -p test_neopi_e2e.py -v
+  python -B -m unittest discover -s scripts -p test_neopi_e2e.py -v
 ```
 
 The unit tests exercise receipt rejection, authenticated-discovery shape and environment isolation. They make no claim about provider inference. The committed run receipt is the place to look for the real-turn result.

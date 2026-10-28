@@ -17,7 +17,7 @@ class ProofEvidenceTest(unittest.TestCase):
         self.request = {'id': 'req-one', 'asked': self.selector, 'outcome': 'ok',
                         'tokens': {'in': 10, 'out': 8},
                         'decision': {'stageIndex': 1, 'accountId': 'real-account',
-                                     'model': 'proof-real/fallback',
+                                     'model': proof.REAL_PROVIDER + '/fallback',
                                      'trail': [{'kind': 'stage', 'index': 0,
                                                 'skipped': 'upstream-error'}]}}
         self.assistant = {'model': self.selector, 'usage': {'input': 10, 'output': 8}}
@@ -70,6 +70,18 @@ class ProofEvidenceTest(unittest.TestCase):
 
 
 class IsolationAndDiscoveryTest(unittest.TestCase):
+    def test_known_credentials_are_redacted_before_capture(self):
+        raw = b'Authorization: Bearer example-test-key\\nreply: public fact\\n'
+        captured = proof.redact_bytes(raw, ['example-test-key', ''])
+        self.assertNotIn(b'example-test-key', captured)
+        self.assertIn(b'[REDACTED]', captured)
+        self.assertIn(b'public fact', captured)
+
+    def test_receipt_redaction_preserves_nonsecret_evidence(self):
+        receipt = {'reply': 'a public fact', 'detail': 'example-test-token', 'usage': 5}
+        redacted = proof.redact_json(receipt, ['example-test-token'])
+        self.assertEqual(redacted, {'reply': 'a public fact', 'detail': '[REDACTED]', 'usage': 5})
+
     def test_environment_is_an_allowlist(self):
         environment = proof.safe_environment(Path('/scratch/client'))
         self.assertEqual(environment['HOME'], '/scratch/client')
@@ -85,7 +97,7 @@ class IsolationAndDiscoveryTest(unittest.TestCase):
                 proof.scratch_path(path)
 
     def test_direct_model_does_not_count_as_virtual_discovery(self):
-        models = {'data': [{'id': 'neoproxy/proof-real/fallback'}]}
+        models = {'data': [{'id': 'neoproxy/' + proof.REAL_PROVIDER + '/fallback'}]}
         with self.assertRaisesRegex(proof.ProofError, 'not discovered'):
             proof.discover_virtual(models, 'neoproxy/proof-chat')
 

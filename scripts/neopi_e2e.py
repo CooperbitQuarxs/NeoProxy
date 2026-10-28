@@ -32,6 +32,8 @@ WIRES = {
     'responses': ('openai-responses', '/v1/responses'),
     'messages': ('anthropic-messages', '/v1/messages'),
 }
+REAL_PROVIDER = 'openai-compatible-proof-real'
+FAULT_PROVIDER_PREFIX = 'openai-compatible-proof-fault-'
 HOP_HEADERS = {'connection', 'keep-alive', 'proxy-authenticate',
                'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade'}
 
@@ -46,6 +48,24 @@ def private_json(path, value):
         os.chmod(path, 0o600)
         json.dump(value, output, indent=2)
         output.write('\n')
+
+
+def redact_bytes(raw, sensitive):
+    for value in sensitive:
+        if value:
+            raw = raw.replace(value.encode(), b'[REDACTED]')
+    return raw
+
+
+def redact_json(value, sensitive):
+    return json.loads(redact_bytes(json.dumps(value).encode(), sensitive))
+
+
+def capture_log(source, destination, sensitive):
+    with source:
+        for line in source:
+            destination.write(redact_bytes(line, sensitive))
+            destination.flush()
 
 
 def scratch_path(value):
@@ -83,7 +103,7 @@ class API:
             urllib.request.ProxyHandler({}), urllib.request.HTTPCookieProcessor(self.cookies))
 
     def call(self, method, route, body=None, operator=False, key=None):
-        headers = {'Content-Type': 'application/json', 'Origin': self.base}
+        headers = {'Content-Type': 'application/json', 'Origin': self.base, 'X-Neoproxy-CSRF': '1'}
         if operator or key:
             headers['Authorization'] = 'Bearer ' + (self.operator if operator else key)
         request = urllib.request.Request(
@@ -146,6 +166,7 @@ def prepare(args):
         'oauth': {'auth-dir': str(root / 'proxy-auth')},
         'api-keys': {'openai-compatibility': providers},
         'routing': {'retry': {'request-retry': 0, 'max-retry-interval': 0}},
+        'observability': {'logs': {'debug': False, 'logging-to-file': False, 'request-log': False}},
     }
     private_json(root / 'proxy-config.yml', config)  # JSON is valid YAML.
     private_json(root / 'private.json', {'operator': operator, 'password': secrets.token_hex(24)})
@@ -276,7 +297,7 @@ def validate_evidence(wire, selector, observed, fault, request, assistant, fallb
         raise ProofError(f'{protocol}: first-stage upstream was not actually called and failed')
     if decision.get('stageIndex') != 1 or decision.get('accountId') != fallback_account:
         raise ProofError(f'{protocol}: fallback stage/account was not selected')
-    if decision.get('model') != 'proof-real/fallback' or request.get('outcome') != 'ok':
+    if decision.get('model') != REAL_PROVIDER + '/fallback' or request.get('outcome') != 'ok':
         raise ProofError(f'{protocol}: no real configured fallback success')
     tokens = request.get('tokens', {})
     if tokens.get('in', 0) <= 0 or tokens.get('out', 0) <= 0 or not assistant.get('usage'):
@@ -301,7 +322,8 @@ def profile(root, wire, protocol, selector, port, key):
     settings = {'modelRoles': {role: provider + '/' + selector},
                 'enabledModels': [provider + '/' + selector],
                 'providers': {'openaiWebsockets': 'off'},
-                'retry': {'enabled': False, 'fallbackChains': {role: []}},
+                'retry': {'enabled': False, 'modelFallback': False,
+                          'fallbackChains': {role: [], 'default': []}},
                 'includeWorkspaceTree': False, 'memory': {'backend': 'off'},
                 'disabledProviders': ['native', 'claude', 'codex', 'gemini', 'github',
                                       'opencode', 'cursor', 'agents-md']}
@@ -318,20 +340,20 @@ def bootstrap(api, manifest, password):
     vault = api.call('GET', '/v8/neo/vault')
     accounts = {}
     for account in vault['accounts']:
-        if account['providerId'].startswith('proof-'):
+        if account['providerId'].startswith('openai-compatible-proof-'):
             accounts[account['providerId']] = account['id']
             api.call('PATCH', '/v8/neo/vault/accounts/' + urllib.parse.quote(account['id'], safe=''),
                      {'ownerId': admin['userId']})
             api.call('PUT', '/v8/neo/vault/accounts/' + urllib.parse.quote(account['id'], safe='') + '/windows/day',
                      {'capacityTokens': 1000000, 'startsAt': int(time.time() * 1000)})
-    expected = {'proof-real'} | {'proof-fault-' + wire for wire in WIRES}
+    expected = {REAL_PROVIDER} | {FAULT_PROVIDER_PREFIX + wire for wire in WIRES}
     if set(accounts) != expected:
         raise ProofError('proxy account inventory did not register all isolated configured upstreams')
     grants, virtuals = [], {}
     for wire in WIRES:
         stages = []
-        for index, provider, model in [(0, 'proof-fault-' + wire, 'fail-' + wire),
-                                       (1, 'proof-real', 'fallback')]:
+        for index, provider, model in [(0, FAULT_PROVIDER_PREFIX + wire, 'fail-' + wire),
+                                       (1, REAL_PROVIDER, 'fallback')]:
             stages.append({'id': 's' + str(index), 'model': provider + '/' + model,
                            'accounts': [accounts[provider]], 'draw': 'fill',
                            'perAccount': 1, 'cap': 1, 'window': 'day', 'per': 'user', 'effort': None})
@@ -353,12 +375,20 @@ def run(args):
     root = scratch_path(args.scratch)
     manifest = json.loads((root / 'setup.json').read_text())
     credentials = json.loads((root / 'private.json').read_text())
+    configuration = json.loads((root / 'proxy-config.yml').read_text())
+    sensitive = [credentials['operator'], credentials['password']]
+    sensitive.extend(configuration['access']['api-keys'])
+    sensitive.extend(entry['api-key']
+                     for group in configuration['api-keys']['openai-compatibility']
+                     for entry in group['keys'])
     if (root / 'receipt.json').exists():
         raise ProofError('run already attempted; prepare a fresh directory instead of reusing proof state')
     binary = Path(args.proxy_binary).resolve(strict=True)
     npi = Path(args.npi).resolve(strict=True)
+    with binary.open('rb') as executable:
+        binary_sha256 = hashlib.file_digest(executable, 'sha256').hexdigest()
     receipt = {'status': 'not-passed', 'proxy_build_sha': args.proxy_sha,
-               'proxy_binary_sha256': hashlib.file_digest(binary.open('rb'), 'sha256').hexdigest(),
+               'proxy_binary_sha256': binary_sha256,
                'interface_deliveries': {'A': args.a_sha, 'B': args.b_sha, 'C': args.c_sha},
                'scratch': str(root), 'upstream': {'base': manifest['upstream_base'],
                'model': manifest['upstream_model'], 'credential_source': manifest['credential_source']},
@@ -377,7 +407,10 @@ def run(args):
                              proxy_port=manifest['proxy_port']) as observer, \
                 (root / 'proxy.log').open('wb') as proxy_log:
             process = subprocess.Popen(command, cwd=root, env=environment,
-                                       stdout=proxy_log, stderr=subprocess.STDOUT)
+                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            log_thread = threading.Thread(target=capture_log,
+                                          args=(process.stdout, proxy_log, sensitive), daemon=True)
+            log_thread.start()
             try:
                 for _ in range(300):
                     if process.poll() is not None:
@@ -390,6 +423,8 @@ def run(args):
                 else:
                     raise ProofError('isolated proxy did not open its listener')
                 accounts, virtuals, key = bootstrap(api, manifest, credentials['password'])
+                sensitive.append(key)
+                sensitive.extend(cookie.value for cookie in api.cookies)
                 models = api.call('GET', '/v1/models', key=key)
                 receipt['discovered_models'] = models
                 for wire, (protocol, _) in WIRES.items():
@@ -403,8 +438,8 @@ def run(args):
                                       'Reply with one short sentence naming a planet and one fact about it.']
                     turn = subprocess.run(client_command, cwd=client_home / 'workspace',
                                           env=client_env, input=b'', capture_output=True)
-                    (client_home / 'stdout.jsonl').write_bytes(turn.stdout)
-                    (client_home / 'stderr.log').write_bytes(turn.stderr)
+                    (client_home / 'stdout.jsonl').write_bytes(redact_bytes(turn.stdout, sensitive))
+                    (client_home / 'stderr.log').write_bytes(redact_bytes(turn.stderr, sensitive))
                     if turn.returncode:
                         raise ProofError(f'{protocol}: actual NeoPi turn exited {turn.returncode}; private captures retained')
                     assistant = assistant_result(turn.stdout.decode())
@@ -413,7 +448,7 @@ def run(args):
                         raise ProofError(f'{protocol}: expected one role-selected inference request, observed {len(observed)}')
                     record = api.call('GET', '/v8/neo/requests/' + urllib.parse.quote(observed[0]['request_id'] or '', safe=''))
                     validate_evidence(wire, selector, observed[0], faults.records, record,
-                                      assistant, accounts['proof-real'])
+                                      assistant, accounts[REAL_PROVIDER])
                     receipt['protocols'].append({
                         'protocol': protocol, 'selector': selector, 'role': role,
                         'role_configuration': settings['modelRoles'],
@@ -422,20 +457,21 @@ def run(args):
                         'first_stage_failure': [item for item in faults.records if item['model'] == 'fail-' + wire],
                         'fallback_concrete_upstream_model': manifest['upstream_model'],
                         'fallback_proxy_model': record['decision']['model'],
-                        'fallback_account': accounts['proof-real'],
+                        'fallback_account': accounts[REAL_PROVIDER],
                         'request': record, 'actual_assistant': assistant})
-                    private_json(root / 'receipt.json', receipt)
+                    private_json(root / 'receipt.json', redact_json(receipt, sensitive))
                 receipt['status'] = 'passed'
             finally:
                 process.terminate()
                 process.wait()
+                log_thread.join()
                 private_json(root / 'fault-observations.json', faults.records)
                 private_json(root / 'transport-observations.json', observer.records)
     except Exception as error:
         receipt['blocker'] = str(error) if isinstance(error, ProofError) else type(error).__name__
         raise
     finally:
-        private_json(root / 'receipt.json', receipt)
+        private_json(root / 'receipt.json', redact_json(receipt, sensitive))
     print(json.dumps({'status': receipt['status'], 'receipt': str(root / 'receipt.json'),
                       'protocols_passed': len(receipt['protocols'])}))
 
