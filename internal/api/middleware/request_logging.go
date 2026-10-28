@@ -475,6 +475,9 @@ func decodeCapturedZstdRequestBodyWithLimit(raw []byte, limit int64) ([]byte, bo
 // It skips management endpoints to avoid leaking secrets but allows
 // all other routes, including module-provided ones, to honor request-log.
 func shouldLogRequest(path string) bool {
+	if path == "/v8/session" || strings.HasPrefix(path, "/v8/session/") || path == "/v8/neo" || strings.HasPrefix(path, "/v8/neo/") {
+		return false
+	}
 	if strings.HasPrefix(path, "/v0/management") || strings.HasPrefix(path, "/v8/management") || strings.HasPrefix(path, "/management") {
 		return false
 	}

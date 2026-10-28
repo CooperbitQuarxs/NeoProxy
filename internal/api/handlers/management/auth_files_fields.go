@@ -1003,11 +1003,21 @@ func (h *Handler) saveTokenRecord(ctx context.Context, record *coreauth.Auth) (s
 		return "", errLegacy
 	}
 	if legacyClaudeCredential != nil {
+		if h.accountOwnershipHook != nil {
+			if err := h.accountOwnershipHook(ctx, legacyClaudeCredential); err != nil {
+				return "", fmt.Errorf("legacy account ownership check failed: %w", err)
+			}
+		}
 		coreauth.MergeExistingAuthMetadata(record, legacyClaudeCredential.Metadata)
 	}
 	if h.postAuthHook != nil {
 		if err := h.postAuthHook(ctx, record); err != nil {
 			return "", fmt.Errorf("post-auth hook failed: %w", err)
+		}
+	}
+	if h.accountOwnershipHook != nil {
+		if err := h.accountOwnershipHook(ctx, record); err != nil {
+			return "", fmt.Errorf("account ownership check failed: %w", err)
 		}
 	}
 	savedPath, errSave := store.Save(coreauth.WithAuthCreationIntent(ctx), record)

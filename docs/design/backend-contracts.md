@@ -58,6 +58,22 @@ POST /v8/session/bootstrap
 
 Password verifiers and session-token hashes are stored in SQLite; plaintext passwords and session tokens are never returned in user records or logs. Sessions expire and are revoked on logout. Password changes and suspension invalidate existing access. The cookie is `Secure` when HTTPS is used. Initial local HTTP operation must not pretend to provide transport confidentiality; HTTPS deployment is a later task. State-changing cookie-authenticated requests must enforce same-origin/CSRF protection.
 
+Sessions last 12 hours without sliding renewal. A `service` principal cannot sign
+into the dashboard. Session responses map `member` to the dashboard role `user`;
+user records retain `member`. Passwords are 12–72 UTF-8 bytes. Organization-admin
+user creation/update accepts a write-only `password` field. Self-service password
+changes use `POST /v8/neo/users/:id/password { currentPassword, password }`;
+administrators may reset another user's password without its current value.
+Changing a password revokes all existing sessions and inference keys. Suspension
+revokes sessions but retains keys, which are rejected while the user is suspended.
+
+Every dashboard mutation, including login/bootstrap/logout, requires an exact
+same-origin `Origin` header or, for clients omitting `Origin`,
+`X-Neoproxy-CSRF: 1`. Cross-site fetch metadata is rejected. The header is not an
+authentication credential; cookie authority and current server-side roles are
+still checked. An inference key cannot register a `/v1/ws` backend worker, mint a
+realtime client secret, or enter management/plugin administration.
+
 The first organization admin is provisioned through an explicit bootstrap operation guarded by the existing operator management authority, not open registration or a default password. Bootstrap must not permit creation of another organization admin once setup has completed. Username/password sessions are the only ordinary dashboard login; an inference key does not become a dashboard session.
 
 A user inference key has format `nk_<48 hex>`. The dashboard displays `nk_xxxx…xxxx`; the server stores only its hash and rejects revocation immediately. Every request and `/v1/models` listing is restricted to that user's current grants and any narrower account scope on the key. Owners may mint keys over their own account pools, never another owner's pool.
@@ -157,6 +173,7 @@ VirtualModel {
   description: string,     // one sentence shown to users
   stages: Stage[],         // ordered; at least one
   terminal: Terminal,
+  script?: string,         // optional admin-authored routing source; absent = standard chain
   updatedAt: number,
   updatedBy: string        // handle
 }
@@ -222,6 +239,36 @@ POST /v8/neo/simulate   { asked: string, userId: string }
 
 Pure: runs the algorithm against current usage without recording anything. The dashboard runs it locally today; the backend route exists so the two cannot drift.
 
+Execution reserves a conservative token upper bound against explicitly configured
+metered windows before dispatch, then replaces that reservation with the existing
+engine reporter's actual account-attributed input/output usage. Text requests use
+an explicit protocol output maximum plus input bytes; requests without a usable
+bound require a known catalogue context ceiling. Unknown provider quota remains
+unknown. An executed attempt with no trustworthy usage report retains an explicitly
+estimated upper-bound debit rather than inventing zero usage. Cached tokens are a
+subset of input tokens and are not counted twice.
+
+The alternate cursor and ledger reservation commit in one SQLite transaction.
+Simulation reads the cursor, current grants and current-window usage, but never
+advances the cursor, admits a request, reserves usage or records an activity row.
+Queue waits wake on current authority, inventory or ledger changes and reset
+boundaries; cancellation is inherited from the client. Queued streams emit SSE
+comments while waiting, without replaying any delivered answer.
+
+Actual upstream failure records `skipped: "upstream-error"` and `failureStatus`
+on the failed stage and demotes to a later eligible stage before output. Once an
+answer chunk is delivered, subsequent errors terminate that stream; they do not
+restart the chain. `X-NeoProxy-Request-ID` identifies the persisted request record.
+
+A configured `script` is limited to 16 KiB, requires an installed evaluator, and
+cannot silently fall back to the ordinary chain on an evaluator error. Scripts
+receive credential-free value snapshots and may propose only a stage/account pair.
+The resolver reloads current authority after evaluation and validates the proposal
+against current grants, account/key scope, exposure, health and budgets before
+the same transactional reservation. Saving scripts requires an organization-admin
+dashboard session; ordinary member views do not expose the source.
+
+
 ## Users
 
 ```
@@ -229,7 +276,8 @@ GET    /v8/neo/users                → User[]
 GET    /v8/neo/users/:id            → User            (member: own id only)
 POST   /v8/neo/users                User (without id, keys) → 201 User
 PUT    /v8/neo/users/:id            User → User     (keys are not editable here)
-POST   /v8/neo/users/:id/keys       { label, accountIds?: string[] } → 201 { key: Key, secret: string }   // secret shown once
+DELETE /v8/neo/users/:id            → 204            // admin; last active admin is protected
+POST   /v8/neo/users/:id/keys       { label, accountIds?: string[], expiresAt?: number } → 201 { key: Key, secret: string }   // secret shown once
 DELETE /v8/neo/users/:id/keys/:keyId → 204
 
 User {
@@ -244,7 +292,7 @@ User {
   limits: { rpm: number | null, tokensPerDay: number | null },
   createdAt: number
 }
-Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null }
+Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null, expiresAt?: number }
 Grant { virtualModel: string /*VirtualModel.id*/, allotment: number /*0..1*/ }
 ```
 
@@ -282,7 +330,7 @@ Decision {
   trail: TrailStep[]
 }
 TrailStep =
-  | { kind: "stage", index, stageId, model, total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" }
+  | { kind: "stage", index, stageId, model, total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" | "upstream-error" | "script", failureStatus?: number }
   | { kind: "terminal", terminal: Terminal }
   | { kind: "direct", model, accountId }
   | { kind: "denied", providerId? , virtualModel? }
@@ -302,3 +350,46 @@ A live stream for the Overview ticker is wanted but not assumed: `GET /v8/neo/re
 NeoProxy is the account, credential and refresh authority. Users log provider accounts into the existing Go engine directly through its provider login flows or API-key configuration. NeoPi connects as an inference client with a scoped user API key and discovers `neoproxy/<name>` entries from `/v1/models`. A NeoPi model role may select one of those virtual models; that client-side role is separate from the proxy's admin/owner/member roles and from the server-side virtual-model chain.
 
 The Go engine is retained for this delivery; there is no rewrite into NeoPi and no dependency on a NeoPi core socket, vault export or credential broker. Proxy-owned state is persisted in SQLite under the engine's data directory. The local end-to-end proof uses a scratch `PI_CODING_AGENT_DIR`, assigns a scratch NeoPi role to a discovered virtual model and proves a real role-selected turn with first-stage failure and fallback success over all three day-one protocols. It must never alter the owner's NeoPi profile.
+
+## Identity persistence and build requirements
+
+`NEOPROXY_DATA_DIR` selects the engine-owned application data directory. Otherwise
+an engine with a config file uses `data/neoproxy.sqlite` beside the absolute
+config-file path. Provider credential/auth directories are not application state
+directories. Empty-config SDK construction does not create a database unless the
+environment explicitly selects one or the caller injects `api.WithNeoStore`.
+Injected stores remain the caller's responsibility to close. Normal servers
+close their own store on shutdown and report initialization errors from `Start`.
+
+Server attachment authenticates reserved `nk_` credentials before dynamic routes.
+Only the three day-one inference endpoints and `/v1/models` accept these consumer
+principals. Until the scoped catalogue and routing implementation is attached,
+they return `503 neoproxy_unavailable`; they never fall through to legacy raw-model
+execution or an unfiltered catalogue. Integration calls
+`Server.EnableNeoInference()` only after both real scoped paths are installed.
+Existing configured engine keys keep their existing inference authority, separate
+from dashboard sessions. `Store.Changes()` broadcasts committed identity-policy
+changes so queued resolvers can wake and recheck `RefreshPrincipal`; extensions
+may call `NotifyChanges()` after committing ownership changes.
+
+Identity uses `github.com/mattn/go-sqlite3 v1.14.52`, requiring `CGO_ENABLED=1`
+and a C compiler. The module is pinned to upstream commit
+`b0be46fa28d17ee0b65c79774ac0dad84b6db068` (2026-09-05), with Go sum
+`h1:wVbm2Qnf4OXkqhBTSPuCRZDRnxfbVrrmiCEroVdog8U=`. Its bundled SQLite is
+3.53.4, matching the 2026-07-24 source ID published in SQLite's
+[release history](https://www.sqlite.org/changes.html). This includes the
+WAL-reset corruption fix absent from the initially inspected 3.50.4 bundle.
+The [upstream advisory page](https://github.com/mattn/go-sqlite3/security/advisories)
+listed no published advisories at intake.
+
+Before compiling the dependency, inspection covered its module manifest
+(no dependency graph or install hooks), CGO build directives, driver registration,
+connection initialization/DSN handling, statement preparation/execution, and
+extension loading. No process/network execution was found in the inspected Go
+surfaces. This is targeted source vetting, not a line-by-line audit of the bundled
+SQLite amalgamation or a claim that it has no defects. Application SQL is fixed
+and parameterized; callers cannot supply DSNs, SQL, extensions or database files.
+The driver is registered without extension loaders or connection hooks. The
+database is mode `0600`, newly created data directories are `0700`, foreign keys
+are enabled on every connection, and migrations run in immediate transactions.
+Account inventory and routing extend this same `neo.Store.DB()` database.

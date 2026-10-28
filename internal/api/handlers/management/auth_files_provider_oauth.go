@@ -978,6 +978,7 @@ func (h *Handler) GetAuthStatus(c *gin.Context) {
 	h.mu.Unlock()
 	if isPlugin && host != nil && host.HasAuthProvider(provider) {
 		ctx := PopulateAuthContext(context.Background(), c)
+		ctx = oauthInitiatingOwner(ctx, state)
 		resp, handled, errPoll := host.PollLogin(ctx, provider, state, metadata)
 		if handled {
 			if errPoll != nil {
@@ -1075,6 +1076,7 @@ func (h *Handler) rollbackSavedTokenRecords(ctx context.Context, savedPaths []st
 
 // PopulateAuthContext extracts request info and adds it to the context
 func PopulateAuthContext(ctx context.Context, c *gin.Context) context.Context {
+	ctx = inheritAccountLoginOwner(ctx, c.Request.Context())
 	info := &coreauth.RequestInfo{
 		Query:   c.Request.URL.Query(),
 		Headers: c.Request.Header,
