@@ -220,7 +220,8 @@ func (s *Server) managementAvailable(c *gin.Context) bool {
 		c.AbortWithStatus(http.StatusNotFound)
 		return false
 	}
-	if !s.managementRoutesEnabled.Load() && s.neoStore == nil {
+	sessionSurface := s.neoStore != nil && (c.Request.URL.Path == "/v8/management" || strings.HasPrefix(c.Request.URL.Path, "/v8/management/"))
+	if !s.managementRoutesEnabled.Load() && !sessionSurface {
 		c.AbortWithStatus(http.StatusNotFound)
 		return false
 	}

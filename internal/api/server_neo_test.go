@@ -109,6 +109,9 @@ func TestNeoAdminSessionsUseRealEngineManagementWithoutSecret(t *testing.T) {
 	t.Setenv("MANAGEMENT_PASSWORD", "operator-secret")
 	store, admin, token, _ := neoTestIdentity(t)
 	server := newTestServerWithOptions(t, WithNeoStore(store), WithRequestLoggerFactory(nil))
+	if err := os.WriteFile(server.configFilePath, []byte("port: 0\napi-keys: [test-key]\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	request := func(token, secret string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", "/v8/management/config", nil)
 		req.RemoteAddr = "127.0.0.1:3000"
@@ -267,5 +270,30 @@ func TestNeoReadinessDoesNotBypassKeyRevocation(t *testing.T) {
 	}
 	if status := call(); status != 401 || called != 1 {
 		t.Fatal("readiness bypassed revocation", status, called)
+	}
+}
+
+func TestNeoSessionDoesNotEnableDeprecatedManagement(t *testing.T) {
+	t.Setenv("NEOPROXY_DATA_DIR", "")
+	t.Setenv("MANAGEMENT_PASSWORD", "")
+	store, _, token, _ := neoTestIdentity(t)
+	server := newTestServerWithOptions(t, WithNeoStore(store), WithRequestLoggerFactory(nil))
+	if err := os.WriteFile(server.configFilePath, []byte("port: 0\napi-keys: [test-key]\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		path string
+		want int
+	}{
+		{"/v8/management/config", 200},
+		{"/v0/management/config", 404},
+	} {
+		req := httptest.NewRequest("GET", tc.path, nil)
+		req.AddCookie(&http.Cookie{Name: neo.SessionCookie, Value: token})
+		out := httptest.NewRecorder()
+		server.engine.ServeHTTP(out, req)
+		if out.Code != tc.want {
+			t.Fatalf("%s: %d want %d: %s", tc.path, out.Code, tc.want, out.Body.String())
+		}
 	}
 }
