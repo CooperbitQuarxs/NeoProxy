@@ -45,18 +45,47 @@ func New(identity *neo.Store, pools Pool) (*Store, error) {
 		return nil, fmt.Errorf("routing requires shared identity store and pool ledger")
 	}
 	s := &Store{identity: identity, db: identity.DB(), pools: pools, changed: make(chan struct{}), now: time.Now}
-	_, err := s.db.Exec(`
+	if err := s.migrate(context.Background()); err != nil {
+		return nil, fmt.Errorf("migrate routing: %w", err)
+	}
+	return s, nil
+}
+
+func (s *Store) migrate(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `
+ CREATE TABLE IF NOT EXISTS neoroute_schema(version INTEGER NOT NULL);
+ INSERT INTO neoroute_schema(version) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM neoroute_schema);
+ `); err != nil {
+		return err
+	}
+	var version int
+	if err = tx.QueryRowContext(ctx, `SELECT version FROM neoroute_schema`).Scan(&version); err != nil {
+		return err
+	}
+	if version != 0 && version != 1 {
+		return fmt.Errorf("unsupported routing schema version %d", version)
+	}
+	if version == 0 {
+		// IF NOT EXISTS adopts the initial unversioned C schema without changing
+		// existing data. The version and all DDL commit or roll back together.
+		if _, err = tx.ExecContext(ctx, `
  CREATE TABLE IF NOT EXISTS neoroute_virtual_models(id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE,body BLOB NOT NULL);
  CREATE TABLE IF NOT EXISTS neoroute_cursors(vm_id TEXT NOT NULL,stage_id TEXT NOT NULL,cursor INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(vm_id,stage_id),FOREIGN KEY(vm_id) REFERENCES neoroute_virtual_models(id) ON DELETE CASCADE);
  CREATE TABLE IF NOT EXISTS neoroute_requests(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,key_id TEXT NOT NULL,at INTEGER NOT NULL,outcome TEXT NOT NULL,asked TEXT NOT NULL,body BLOB NOT NULL);
  CREATE INDEX IF NOT EXISTS neoroute_requests_user_at ON neoroute_requests(user_id,at DESC);
  CREATE TABLE IF NOT EXISTS neoroute_admissions(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,at INTEGER NOT NULL,day INTEGER NOT NULL,tokens INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS neoroute_admissions_user_at ON neoroute_admissions(user_id,at);
- `)
-	if err != nil {
-		return nil, fmt.Errorf("migrate routing: %w", err)
+ UPDATE neoroute_schema SET version=1;
+ `); err != nil {
+			return err
+		}
 	}
-	return s, nil
+	return tx.Commit()
 }
 
 func (s *Store) SetScriptHook(h ScriptHook) {

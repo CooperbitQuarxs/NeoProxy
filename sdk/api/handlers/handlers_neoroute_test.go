@@ -64,12 +64,12 @@ func TestNeoRouteThreeProtocolExecutionAndPinnedFallback(t *testing.T) {
 			ids := []string{"fault-" + uuid.NewString(), "good-" + uuid.NewString(), "rogue-" + uuid.NewString()}
 			urls := []string{fault.URL, good.URL, forbidden.URL}
 			for i, id := range ids {
-				models := []*registry.ModelInfo{{ID: "model", Object: "model", ContextLength: 10000}}
+				models := []*registry.ModelInfo{{ID: "model", Object: "model"}}
 				if i == 0 {
-					models = []*registry.ModelInfo{{ID: "fail", Object: "model", ContextLength: 10000}}
+					models = []*registry.ModelInfo{{ID: "fail", Object: "model"}}
 				}
 				if i == 2 {
-					models = append(models, &registry.ModelInfo{ID: "fail", Object: "model", ContextLength: 10000})
+					models = append(models, &registry.ModelInfo{ID: "fail", Object: "model"})
 				}
 				_, err = manager.Register(ctx, &coreauth.Auth{ID: id, Provider: "neo-test", Status: coreauth.StatusActive, Attributes: map[string]string{"api_key": "test-only", "base_url": urls[i]}})
 				if err != nil {
