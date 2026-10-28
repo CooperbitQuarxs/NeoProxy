@@ -108,7 +108,7 @@ async function editor(ctx, id) {
 	const head = pageHead({
 		back: { href: "#/virtual-models", label: "Virtual models" },
 		title: h("span", { class: "row", id: "vm-title" }, isNew ? "New virtual model" : servedName(draft.served, { virtual: true })),
-		desc: isNew ? "Name it, add stages, and try it against a user before saving." : null,
+		desc: isNew ? "Name it, add stages and save. Then try it against a user's actual grants." : null,
 		actions: [
 			isNew ? null : btn("Delete", { icon: "trash", cls: "danger", onClick: remove }),
 			btn("Discard", { cls: "outline", onClick: () => (dirty ? discard() : ctx.navigate("virtual-models")) }),
@@ -252,6 +252,7 @@ async function editor(ctx, id) {
 			simUser = v;
 			runSim();
 		},
+		{ "aria-label": "Simulate as user" },
 	);
 	root.append(
 		card({

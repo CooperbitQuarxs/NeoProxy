@@ -18,7 +18,7 @@ export async function render(ctx) {
 	root.append(host, spinner());
 	let models, vault, vms, users, requests;
 	try {
-		[models, vault, vms, users, requests] = await Promise.all([neo.models(), neo.vault(), neo.virtualModels(), neo.users(), neo.requests({ limit: 400 })]);
+		[models, vault, vms, users, requests] = await Promise.all([neo.models(), neo.vault(), neo.virtualModels(), neo.users(), neo.requests({ limit: 200 })]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;

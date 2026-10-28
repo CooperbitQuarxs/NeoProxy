@@ -27,7 +27,7 @@ async function list(ctx) {
 	root.append(host, spinner());
 	let users, vms, usage, requests;
 	try {
-		[users, vms, usage, requests] = await Promise.all([neo.users(), neo.virtualModels(), neo.usage(), neo.requests({ limit: 400 })]);
+		[users, vms, usage, requests] = await Promise.all([neo.users(), neo.virtualModels(), neo.usage(), neo.requests({ limit: 200 })]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;

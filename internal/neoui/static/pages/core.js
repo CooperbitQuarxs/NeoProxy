@@ -137,7 +137,7 @@ export async function render(ctx) {
 								)
 							: h("div", { class: "ink-3" }, "No virtual model includes this account. Direct-access users can still reach it."),
 					),
-					section("Account", kv([["Provider", p.name], ["Kind", p.kind === "oauth" ? "Proxy-managed OAuth login" : "Proxy-managed API key"], ["Owner", users.find((u) => u.id === a.ownerId)?.handle ?? a.ownerId ?? "unassigned"], ["Id", h("code", null, a.id)]])),
+					section("Account", kv([["Provider", p.name], ["Kind", p.kind === "oauth" ? "Proxy-managed OAuth login" : "Proxy-managed API key"], ["Owner", users.find((u) => u.id === a.ownerId)?.handle || a.ownerId || "unassigned"], ["Id", h("code", null, a.id)]])),
 				],
 				foot: [btn("Open in Virtual models", { icon: "arrowRight", cls: "outline", onClick: () => ctx.navigate("virtual-models") })],
 			}),

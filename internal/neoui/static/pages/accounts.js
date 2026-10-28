@@ -19,7 +19,7 @@ export async function render(ctx) {
 	for (const account of vault.accounts) {
 		const provider = vault.providers.find((p) => p.id === account.providerId);
 		const body = h("div", null,
-			kv([["Account", h("code", null, account.id)], ["Owner", admin ? (users.find((u) => u.id === account.ownerId)?.handle ?? account.ownerId ?? "unassigned") : ctx.session.handle], ["Plan", account.plan || "unknown"]]),
+			kv([["Account", h("code", null, account.id)], ["Owner", admin ? (users.find((u) => u.id === account.ownerId)?.handle || account.ownerId || "unassigned") : ctx.session.handle], ["Plan", account.plan || "unknown"]]),
 			windowsRow(account.windows),
 			h("p", { class: "ink-3" }, "Configured token capacity is a local routing budget, not an upstream quota or monetary cost. Without a trustworthy window, quota remains unknown."),
 		);
