@@ -27,6 +27,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/managementasset"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopool"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoroute"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/redisqueue"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v8/sdk/access"
@@ -116,6 +117,7 @@ type Server struct {
 	neoOwnStore       bool
 	neoErr            error
 	neoInferenceReady atomic.Bool
+	neoRoute          *neoroute.Store
 }
 
 // NewServer creates and initializes a new API server instance.
@@ -245,6 +247,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	engine.Use(s.neoInferenceMiddleware())
 	s.neoHTTP.RegisterRoutes(engine, s.mgmt.Middleware())
 	s.initNeoPool(authManager)
+	s.initNeoRouting()
 
 	// Home heartbeat gate: when home is enabled, block all endpoints with 503 until the
 	// subscribe-config heartbeat connection is healthy.

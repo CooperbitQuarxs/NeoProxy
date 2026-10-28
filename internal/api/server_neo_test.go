@@ -79,31 +79,6 @@ func TestNeoConsumerKeysCannotRegisterWorkersOrEnterOperatorRoutes(t *testing.T)
 		t.Fatal("legacy worker path changed", out.Code)
 	}
 }
-func TestNeoConsumerKeysFailClosedBeforeScopedRoutingCutover(t *testing.T) {
-	t.Setenv("NEOPROXY_DATA_DIR", "")
-	store, _, _, secret := neoTestIdentity(t)
-	server := newTestServerWithOptions(t, WithNeoStore(store), WithRequestLoggerFactory(nil))
-	for _, path := range []string{"/v1/models", "/v1/chat/completions", "/v1/responses", "/v1/messages"} {
-		method := "POST"
-		if path == "/v1/models" {
-			method = "GET"
-		}
-		req := httptest.NewRequest(method, path, strings.NewReader(`{"model":"raw-unscoped-provider-model"}`))
-		req.Header.Set("Authorization", "Bearer "+secret)
-		out := httptest.NewRecorder()
-		server.engine.ServeHTTP(out, req)
-		if out.Code != 503 || !strings.Contains(out.Body.String(), "scoped inference") {
-			t.Fatalf("unscoped fallthrough %s: %d %s", path, out.Code, out.Body.String())
-		}
-	}
-	req := httptest.NewRequest("GET", "/v1/models", nil)
-	req.Header.Set("Authorization", "Bearer test-key")
-	out := httptest.NewRecorder()
-	server.engine.ServeHTTP(out, req)
-	if out.Code != 200 {
-		t.Fatalf("legacy inference broke: %d %s", out.Code, out.Body.String())
-	}
-}
 func TestNeoAdminSessionsUseRealEngineManagementWithoutSecret(t *testing.T) {
 	t.Setenv("NEOPROXY_DATA_DIR", "")
 	t.Setenv("MANAGEMENT_PASSWORD", "operator-secret")
