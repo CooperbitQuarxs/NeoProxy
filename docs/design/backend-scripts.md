@@ -24,7 +24,7 @@ Run every validation/evaluation in a fresh **Linux amd64 subprocess**, re-execut
 Before decoding or compiling untrusted input the child installs all controls below, or exits with a confinement error:
 
 1. Linux hard `RLIMIT_DATA` of **192 MiB** bounds writable data/anonymous mapping growth; Linux applies this to mmap as well as brk. Hard `RLIMIT_AS` of **4 GiB** bounds virtual address reservations (Go's reserved address space is not physical RSS). These are OS allocation failures, not a Go `GOMEMLIMIT` promise. `GOMEMLIMIT=64MiB` assists collection only. The hard limit can produce an unrecoverable Go runtime OOM; only the disposable child dies. File-backed executable/runtime pages and kernel overhead are not a 192 MiB RSS guarantee; the address-space ceiling remains the outer virtual limit.
-2. Hard CPU limit **1 second** and zero core/file-size limits. The parent independently kills/reaps the child on cancellation or a **500 ms** wall deadline, including parse/library calls. VM context cancellation is an additional cooperative optimization only. Parent output handling remains bounded even if the child misbehaves.
+2. Hard CPU limit **1 second** and zero core/file-size limits. The parent independently kills/reaps the child on cancellation or a **500 ms** wall deadline, including parse/library calls. VM context cancellation would be cooperative only; execution does not rely on it. Parent output handling remains bounded even if the child misbehaves.
 3. `PR_SET_NO_NEW_PRIVS` and a seccomp filter synchronized across all child threads. A small allowlist permits only Go runtime memory/thread/signal/timing primitives and reads/writes of the supplied protocol pipes. Filesystem opens, sockets/network, process exec/fork, ptrace, kernel keyrings, mount, and other syscalls are denied. Runtime `clone` is restricted to threads in the worker's own group; `clone3` is unavailable. No filesystem, credentials, provider files, processes or host sockets become Lua capabilities. Unsupported OS/architecture or a rejected kernel filter fails closed.
 4. At most **two active children** per evaluator; additional callers fail with a resource-busy error rather than queueing unbounded work. There is no retry framework. Each finished or killed worker is waited/reaped before releasing its slot.
 
@@ -39,6 +39,28 @@ The Lua chunk sees a fresh deeply read-only `input` table (nested arrays use Lua
 Return exactly one plain table: `{stageId = "configured-stage", accountId = "eligible-account"}`. Keys must be exactly those two; values must be nonempty bounded strings. No metatable-dependent conversion, executable values, unknown keys, model override, terminal override or budget override is accepted. C proposed the smaller stage/account-only form; we retain it instead of inventing another terminal policy surface. If no authorized stage is eligible, C's configured terminal policy remains authoritative.
 
 F validates syntax, result shape and membership in the supplied eligible candidates. C must still check current grants, account-owner/key scope, provider/model exposure, health, budget and transactional reservations against its authoritative store. Script output is only a preference among valid candidates, never a privileged decision. Simulation uses the same optional evaluator without usage writes. Administrator-only virtual-model persistence runs bounded syntax validation on save; runtime and invalid-output errors remain visible in simulation/inference, with no secret-bearing dumps. D uses the same optional `script` field and displays errors from real endpoints.
+
+## Administrator and embedding interface
+
+Save Lua source in the optional `script` field using the existing administrator-only virtual-model create/update endpoints. An empty string disables the hook. Saving checks syntax without executing the chunk. Runtime behavior is checked by the real simulation endpoint; a successful save does not claim every possible request will produce a valid decision. For example:
+
+```lua
+for _, stage in ipairs(input.stages) do
+  if stage.skipped == nil then
+    local best = nil
+    for _, candidate in ipairs(stage.candidates) do
+      if best == nil or candidate.used < best.used then best = candidate end
+    end
+    if best ~= nil then return {stageId = stage.stageId, accountId = best.accountId} end
+  end
+end
+error("no eligible stage candidate")
+```
+
+The snapshot's `accounts` list supplies only scoped `{accountId, providerId, state, windows}` records; each window has `{kind, known, used, resetsAt}`. Check `known` before interpreting `used`: unknown quota is not zero. `stages` supplies `{stageId, model, total, cap, candidates, skipped?}`; candidates have `{accountId, used, budget}`. Array indexes start at one. Available helpers are `assert`, `error`, `tonumber`, `tostring`, `type`, `select`, `next`, `pairs`, `ipairs`, math excluding random/randomseed, string excluding dump, and the table helpers. Input tables reject assignment and mutation through table helpers; local tables remain writable. Table iteration order is not a routing guarantee; use ordered `ipairs` arrays when order matters.
+
+The server command dispatches `neoscript.WorkerMain()` at the start of `main`, then attaches `neoscript.New()` through C's `SetScriptHook`. An SDK embedding executable must perform the same early worker dispatch before opening its own credential/configuration stores, and attach one shared evaluator to its routing store. Without worker dispatch, re-execution fails closed instead of silently taking an unscripted route. Do not execute `WorkerMain` in a goroutine or a resident server; its kernel restrictions apply to the entire disposable process.
+
 
 ## Verification intent
 

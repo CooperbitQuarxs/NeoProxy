@@ -45,6 +45,32 @@ func TestDecisionReadsRequestAndUsage(t *testing.T) {
  if input.Stages[1].Candidates[0].Used!=0.18 || input.VirtualModel.Script!=input.Source {t.Fatal("script altered caller snapshot")}
 }
 
+func TestDecisionReadsHealthWithoutInventingUnknownQuota(t *testing.T) {
+ evaluator:=New()
+ input:=exampleInput(`
+ for _, account in ipairs(input.accounts) do
+   assert(account.ownerId==nil and account.credentials==nil and account.authId==nil)
+   if account.state=="healthy" and account.windows[1].known and account.windows[1].used < 0.9 then
+     return {stageId="stage-second",accountId=account.accountId}
+   end
+ end
+ error("no measured healthy account")
+ `)
+ input.Accounts=[]neoroute.ScriptAccount{
+  {AccountID:"account-a",ProviderID:"codex",State:"healthy",Windows:[]neoroute.ScriptWindow{{Kind:"day",Known:false}}},
+  {AccountID:"account-b",ProviderID:"codex",State:"healthy",Windows:[]neoroute.ScriptWindow{{Kind:"day",Known:true,Used:0.3,ResetsAt:123456}}},
+ }
+ decision,err:=evaluator.Evaluate(context.Background(),input)
+ if err!=nil || decision.AccountID!="account-b" {t.Fatalf("unknown quota was treated as unused: %+v %v",decision,err)}
+ input.Accounts[0].Windows[0].Known=true
+ input.Accounts[0].Windows[0].Used=0.2
+ input.Accounts[1].State="cooldown"
+ decision,err=evaluator.Evaluate(context.Background(),input)
+ if err!=nil || decision.AccountID!="account-a" {t.Fatalf("health/measurement change ignored: %+v %v",decision,err)}
+ input.Accounts[0].State="disabled"
+ if _,err=evaluator.Evaluate(context.Background(),input);err==nil || !strings.Contains(err.Error(),"no measured healthy account") {t.Fatalf("unhealthy accounts used silently: %v",err)}
+}
+
 func TestReadOnlyNestedInputAndSafeTableHelpers(t *testing.T) {
  evaluator:=New()
  for _,mutation:=range []string{

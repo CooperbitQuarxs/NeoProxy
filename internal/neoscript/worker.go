@@ -6,17 +6,25 @@ import (
  "math"
  "os"
  "strings"
+ "unicode/utf8"
 
  "github.com/router-for-me/CLIProxyAPI/v8/internal/neoroute"
  lua "github.com/yuin/gopher-lua"
 )
+
+// Decode the snapshot once, directly to Lua's plain-value representation.
+type workerWireRequest struct {
+ Source string `json:"source"`
+ Validate bool `json:"validate,omitempty"`
+ Input json.RawMessage `json:"input"`
+}
 
 // WorkerMain must be called before configuration/auth initialization in the host
 // main (and in test TestMain). It never runs unless given the exact private mode.
 func WorkerMain() (handled bool, code int) {
  if len(os.Args)!=2 || os.Args[1]!=workerArgument { return false,0 }
  if err:=confine();err!=nil { writeResponse(workerResponse{Error:"confinement unavailable: "+err.Error()});return true,1 }
- var request workerRequest
+ var request workerWireRequest
  decoder:=json.NewDecoder(io.LimitReader(os.Stdin,MaxInput+6*MaxSource+129))
  decoder.DisallowUnknownFields()
  if err:=decoder.Decode(&request);err!=nil { writeResponse(workerResponse{Error:"invalid worker input"});return true,1 }
@@ -33,11 +41,11 @@ func writeResponse(response workerResponse) {
  _,_=os.Stdout.Write(data)
 }
 
-func evaluateWorker(request workerRequest) (response workerResponse) {
+func evaluateWorker(request workerWireRequest) (response workerResponse) {
  // Ordinary interpreter panics become errors. Fatal Go OOM remains confined to
  // this process; the parent catches its exit and reaps it before releasing a slot.
  defer func(){if recovered:=recover();recovered!=nil {response=workerResponse{Error:"interpreter panic"}}}()
- if len(request.Source)==0 || len(request.Source)>MaxSource {return workerResponse{Error:"invalid source size"}}
+ if len(request.Source)==0 || len(request.Source)>MaxSource || !utf8.ValidString(request.Source) {return workerResponse{Error:"invalid source size or encoding"}}
  state:=lua.NewState(lua.Options{SkipOpenLibs:true,CallStackSize:128,RegistrySize:256,RegistryMaxSize:4096,RegistryGrowStep:256,MinimizeStackMemory:true})
  defer state.Close()
  fn,err:=state.Load(strings.NewReader(request.Source),"routing-script")
@@ -45,9 +53,7 @@ func evaluateWorker(request workerRequest) (response workerResponse) {
  if request.Validate {return workerResponse{}}
  configureLibraries(state)
  var snapshot any
- data,err:=json.Marshal(request.Input)
- if err!=nil {return workerResponse{Error:"invalid snapshot"}}
- if err=json.Unmarshal(data,&snapshot);err!=nil {return workerResponse{Error:"invalid snapshot"}}
+ if err=json.Unmarshal(request.Input,&snapshot);err!=nil {return workerResponse{Error:"invalid snapshot"}}
  readonly:=make(map[*lua.LTable]*lua.LTable)
  state.SetGlobal("input",toLua(state,snapshot,readonly))
  configureIteration(state,readonly)
@@ -67,7 +73,6 @@ func evaluateWorker(request workerRequest) (response workerResponse) {
   switch string(name) {case "stageId":proposal.StageID=string(text);case "accountId":proposal.AccountID=string(text);default:invalid=true}
  })
  if invalid || fields!=2 || proposal.StageID=="" || proposal.AccountID=="" {return workerResponse{Error:"invalid output: exactly nonempty string stageId/accountId are required"}}
- if err=validateProposal(proposal,request.Input);err!=nil {return workerResponse{Error:err.Error()}}
  return workerResponse{Proposal:proposal}
 }
 
