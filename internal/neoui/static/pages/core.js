@@ -1,4 +1,4 @@
-// Core link: the NeoPi core the proxy serves from, and the vault it holds.
+// Proxy engine status and its authoritative provider credential vault.
 // Providers can be hidden from users here; accounts show their quota windows
 // and which virtual models draw from them.
 
@@ -10,8 +10,8 @@ export async function render(ctx) {
 	const { root } = ctx;
 	root.append(
 		pageHead({
-			title: "Core link",
-			desc: "The NeoPi core this proxy serves from. Every credential below is held by NeoPi; the proxy borrows it per request and never stores a token of its own.",
+			title: "Core & vault",
+			desc: "This NeoProxy engine owns provider accounts, credentials and refresh. Exposure controls what is served to users.",
 			preview: sources.core === "fixture",
 		}),
 	);
@@ -28,28 +28,28 @@ export async function render(ctx) {
 
 	host.append(
 		card({
-			title: h("span", { class: "row" }, "Link", core.linked ? badge("linked", "ok") : badge("not linked", "warn")),
-			sub: core.linked ? `Heartbeat ${fmtAgo(core.heartbeatAt)} · NeoPi ${core.version} on ${core.host}` : "No NeoPi core is configured. The proxy is serving from its own credential files.",
-			actions: [btn("Re-link", { icon: "refresh", cls: "outline", onClick: () => toast("Re-link is handled by the core; nothing to do while linked") })],
+			title: h("span", { class: "row" }, "Engine", core.linked ? badge("connected", "ok") : badge("not connected", "warn")),
+			sub: core.linked ? `Heartbeat ${fmtAgo(core.heartbeatAt)} · NeoProxy ${core.version} on ${core.host}` : "The engine could not report a live connection.",
+			actions: [btn("Refresh", { icon: "refresh", cls: "outline", onClick: () => ctx.rerender() })],
 			body: h(
 				"div",
 				{ class: "grid c2", style: { paddingTop: "4px" } },
 				kv([
-					["Socket", h("code", null, core.endpoint)],
+					["Endpoint", h("code", null, core.endpoint)],
 					["Identity", h("code", null, core.identity)],
 					["Scopes", h("span", { class: "row wrap" }, core.scopes.map((s) => badge(s)))],
 				]),
 				h(
 					"p",
 					{ class: "ink-2", style: { margin: 0 } },
-					"The core decides which providers exist and keeps their tokens fresh. This proxy decides who may use them and how much. If the core goes away, every virtual model falls to its terminal step until it is back.",
+					"The engine manages provider credentials and refresh. NeoPi, NeoDeck and other clients use their own scoped inference keys; they are not credential brokers.",
 				),
 			),
 		}),
 	);
 
 	const selected = { id: ctx.params[0] ?? null };
-	const vaultCard = card({ title: "Vault", sub: `${plural(vault.providers.length, "provider")}, ${plural(vault.accounts.length, "account")} signed in on the core. Hiding a provider removes every one of its models from every user, including direct access.`, flush: true, body: h("div") });
+	const vaultCard = card({ title: "Vault", sub: `${plural(vault.providers.length, "provider")}, ${plural(vault.accounts.length, "account")} managed by this proxy. Hiding a provider removes its models from every user, including direct access.`, actions: [btn("Manage pools", { cls: "outline", onClick: () => ctx.navigate("accounts") })], flush: true, body: h("div") });
 	host.append(vaultCard);
 	const listHost = vaultCard.querySelector(".card-body");
 
@@ -120,9 +120,9 @@ export async function render(ctx) {
 				body: [
 					section(
 						"Quota windows",
-						a.windows.map((w) => h("div", { class: "ring-row", style: { marginBottom: "8px" } }, ring({ used: w.used, size: 40 }), h("div", { class: "ring-text" }, h("div", { class: "main" }, `${w.kind} window`), h("div", { class: "sub" }, `${fmtPct(w.used)} used · resets in ${fmtIn(w.resetsAt)}`)))),
+						a.windows.length ? a.windows.map((w) => h("div", { class: "ring-row", style: { marginBottom: "8px" } }, ring({ used: w.used, size: 40 }), h("div", { class: "ring-text" }, h("div", { class: "main" }, `${w.kind} window`), h("div", { class: "sub" }, `${fmtPct(w.used)} used · resets in ${fmtIn(w.resetsAt)} · ${w.source || "provider measurement"}`)))) : h("div", { class: "ink-3" }, "Quota unknown. Configure an explicit metered capacity in Account pools before using budgeted routes."),
 						a.state === "cooldown" ? h("div", { class: "ink-2", style: { fontSize: "12.5px" } }, `Cooling down after a rate limit; back in ${fmtIn(a.cooldownUntil)}.`) : null,
-						a.state === "expired" ? h("div", { class: "ink-2", style: { fontSize: "12.5px" } }, "The refresh token was rejected. Sign in again from NeoPi (", h("code", null, "npi auth"), ") and the core will pick it up.") : null,
+						a.state === "expired" ? h("div", { class: "ink-2", style: { fontSize: "12.5px" } }, "The credential expired. Re-authenticate through this proxy's provider login flow.") : null,
 					),
 					section(
 						"Drawn by",
@@ -137,7 +137,7 @@ export async function render(ctx) {
 								)
 							: h("div", { class: "ink-3" }, "No virtual model includes this account. Direct-access users can still reach it."),
 					),
-					section("Account", kv([["Provider", p.name], ["Kind", p.kind === "oauth" ? "OAuth login held by NeoPi" : "API key held by NeoPi"], ["Id", h("code", null, a.id)]])),
+					section("Account", kv([["Provider", p.name], ["Kind", p.kind === "oauth" ? "Proxy-managed OAuth login" : "Proxy-managed API key"], ["Owner", users.find((u) => u.id === a.ownerId)?.handle ?? a.ownerId ?? "unassigned"], ["Id", h("code", null, a.id)]])),
 				],
 				foot: [btn("Open in Virtual models", { icon: "arrowRight", cls: "outline", onClick: () => ctx.navigate("virtual-models") })],
 			}),
@@ -152,13 +152,13 @@ export async function render(ctx) {
 
 	host.append(
 		card({
-			title: "Local credential files",
-			sub: "The engine's own auth directory. Kept for proxies that run without a core; demoted while one is linked.",
+			title: "Credential administration",
+			sub: "The proxy's existing credential manager owns storage, refresh and provider login.",
 			actions: [btn("Credentials", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("credentials") })],
-			body: h("p", { class: "ink-2", style: { margin: "4px 0 0" } }, "Files under ", h("code", null, "auths/"), " are still watched and still work, but a linked core takes precedence for any provider it holds."),
+			body: h("p", { class: "ink-2", style: { margin: "4px 0 0" } }, "Organization admins may manage engine credentials here. Owners manage their own accounts through Account pools."),
 		}),
 	);
 
-	const off = onChange((what) => what === "vault" && renderList());
+	const off = onChange((what) => what === "vault" && ctx.rerender());
 	return () => off();
 }

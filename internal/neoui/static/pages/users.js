@@ -19,9 +19,9 @@ async function list(ctx) {
 	root.append(
 		pageHead({
 			title: "Users",
-			desc: "People and services that sign in with a NeoProxy key. A member only ever sees neoproxy/… names; direct provider access is a deliberate grant.",
+			desc: "People sign in with username/password; services use inference keys. Grants and direct provider access control what each user's keys can serve.",
 			preview: sources.users === "fixture",
-			actions: [btn("Invite user", { icon: "plus", cls: "primary", onClick: () => invite(ctx) })],
+			actions: [btn("Create user", { icon: "plus", cls: "primary", onClick: () => invite(ctx) })],
 		}),
 	);
 	const host = h("div");
@@ -63,38 +63,40 @@ async function list(ctx) {
 }
 
 function invite(ctx) {
-	const draft = { handle: "", name: "", role: "member", state: "invited", grants: [], providerAccess: [], limits: { rpm: 60, tokensPerDay: 2_000_000 }, keys: [] };
+	const draft = { handle: "", name: "", password: "", role: "member", state: "active", grants: [], providerAccess: [], limits: { rpm: null, tokensPerDay: null }, keys: [] };
 	const err = h("div", { class: "error hidden" });
 	dialog({
-		title: "Invite a user",
-		sub: "They get an invited account with no key. Issue a key from their page when they are ready.",
+		title: "Create a user",
+		sub: "Set a password for a dashboard identity. A service uses inference keys and cannot sign in to this dashboard.",
 		body: [
 			field("Handle", input({ mono: true, placeholder: "lena", onInput: (e) => (draft.handle = e.target.value.trim().toLowerCase()) }), "Lowercase, what appears in logs."),
 			field("Name", input({ placeholder: "Lena", onInput: (e) => (draft.name = e.target.value) })),
+			field("Initial password", input({ type: "password", autocomplete: "new-password", onInput: (e) => (draft.password = e.target.value) }), "Required for human dashboard login. Never returned in user records."),
 			field(
 				"Role",
 				seg(
 					[
 						{ value: "member", label: "Member" },
+						{ value: "owner", label: "Owner" },
 						{ value: "service", label: "Service" },
 						{ value: "admin", label: "Admin" },
 					],
 					draft.role,
 					(v) => (draft.role = v),
 				),
-				"Services are machines (NeoDeck, CI); admins see this dashboard.",
+				"Owners manage their own accounts, not organization policy. Services are machines; admins manage this organization.",
 			),
 			err,
 		],
 		actions: (close) => [
 			btn("Cancel", { onClick: close }),
-			btn("Invite", {
+			btn("Create", {
 				cls: "primary",
 				onClick: async () => {
 					try {
 						const u = await neo.saveUser(draft);
 						close();
-						toast(`Invited ${u.handle}`);
+						toast(`Created ${u.handle}`);
 						ctx.navigate(`users/${u.id}`);
 					} catch (e) {
 						err.textContent = e.message;
@@ -129,6 +131,7 @@ async function detail(ctx, id) {
 		try {
 			const saved = await neo.saveUser(draft);
 			Object.assign(user, saved);
+			delete draft.password;
 			toast(`Saved ${user.handle}`);
 			setDirty(false);
 		} catch (e) {
@@ -155,6 +158,15 @@ async function detail(ctx, id) {
 			actions: [suspendBtn, saveBtn],
 		}),
 	);
+	root.append(card({
+		title: "Identity & access",
+		body: h("div", { class: "grid c2" },
+			field("Name", input({ value: draft.name, onInput: (e) => { draft.name = e.target.value; setDirty(); } })),
+			field("Role", select(["admin", "owner", "member", "service"].map((role) => ({ value: role, label: role })), draft.role, (v) => { draft.role = v; setDirty(); }), "Owner does not grant organization administration."),
+			field("State", select(["active", "invited", "suspended"].map((state) => ({ value: state, label: state })), draft.state, (v) => { draft.state = v; setDirty(); }), "Suspension revokes access immediately."),
+			field("Reset password", input({ type: "password", autocomplete: "new-password", placeholder: "Leave empty to keep current password", onInput: (e) => { if (e.target.value) draft.password = e.target.value; else delete draft.password; setDirty(); } }), "Changing a password revokes existing sessions."),
+		),
+	}));
 
 	// ----- catalogue -----
 	const catHost = h("div", { class: "list" });
@@ -257,10 +269,12 @@ async function detail(ctx, id) {
 						cls: "danger sm",
 						onClick: async () => {
 							if (!(await confirm({ title: `Revoke ${k.prefix}?`, text: `Anything using "${k.label}" stops working now.`, confirmLabel: "Revoke", danger: true }))) return;
-							await neo.revokeKey(user.id, k.id);
-							user.keys = user.keys.filter((x) => x.id !== k.id);
-							toast("Key revoked");
-							renderKeys();
+							try {
+								await neo.revokeKey(user.id, k.id);
+								user.keys = user.keys.filter((x) => x.id !== k.id);
+								toast("Key revoked");
+								renderKeys();
+							} catch (e) { toast(e.message, "bad"); }
 						},
 					}),
 				),
@@ -319,22 +333,24 @@ function issueKey(user, after) {
 	dialog({
 		title: `Issue a key for ${user.handle}`,
 		sub: "Name it after the thing that will use it.",
-		body: field("Label", input({ placeholder: "NeoDeck on Utopia", autofocus: true, onInput: (e) => (label = e.target.value) })),
+		body: field("Label", input({ placeholder: "Client or deployment name", autofocus: true, onInput: (e) => (label = e.target.value) })),
 		actions: (close) => [
 			btn("Cancel", { onClick: close }),
 			btn("Issue", {
 				cls: "primary",
 				onClick: async () => {
-					const { key, secret } = await neo.createKey(user.id, label || "unnamed");
-					user.keys.push(key);
-					close();
-					after();
-					dialog({
-						title: "Copy the key now",
-						sub: "It is shown once. NeoProxy keeps only a hash.",
-						body: h("div", { class: "row" }, h("code", { style: { flex: 1, padding: "8px 10px", background: "var(--panel)", border: "1px solid var(--line-2)", borderRadius: "8px", overflowWrap: "anywhere" } }, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => toast((await copyText(secret)) ? "Copied" : "Clipboard unavailable", "warn") })),
-						actions: (close2) => [btn("Done", { cls: "primary", onClick: close2 })],
-					});
+					try {
+						const { key, secret } = await neo.createKey(user.id, label || "unnamed");
+						user.keys.push(key);
+						close();
+						after();
+						dialog({
+							title: "Copy the key now",
+							sub: "It is shown once. NeoProxy keeps only a hash.",
+							body: h("div", { class: "row" }, h("code", { style: { flex: 1, padding: "8px 10px", background: "var(--panel)", border: "1px solid var(--line-2)", borderRadius: "8px", overflowWrap: "anywhere" } }, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => toast((await copyText(secret)) ? "Copied" : "Clipboard unavailable", "warn") })),
+							actions: (close2) => [btn("Done", { cls: "primary", onClick: close2 })],
+						});
+					} catch (e) { toast(e.message, "bad"); }
 				},
 			}),
 		],

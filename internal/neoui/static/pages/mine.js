@@ -3,8 +3,8 @@
 // No admin surfaces; no provider internals beyond what their chain reveals.
 
 import { h, icon, fmtPct, fmtAgo, fmtIn, copyText } from "../lib/dom.js";
-import { neo, sources } from "../lib/client.js";
-import { pageHead, card, btn, badge, servedName, ring, kv, chainRail, trail, toast, empty, spinner, errorState } from "../lib/components.js";
+import { neo, engine, sources } from "../lib/client.js";
+import { pageHead, card, btn, badge, servedName, ring, kv, chainRail, trail, toast, empty, spinner, errorState, field, input, dialog } from "../lib/components.js";
 
 export async function render(ctx) {
 	const { root, session } = ctx;
@@ -30,11 +30,11 @@ export async function render(ctx) {
 	host.append(
 		card({
 			title: "Point a client here",
-			sub: "Any OpenAI-, Anthropic- or Gemini-shaped client works. Use your key as the bearer token and one of the names below as the model.",
+			sub: "Use your inference key as the bearer token and one of the names below as the model. Dashboard session cookies are not inference keys.",
 			body: kv([
-				["OpenAI", h("code", null, `${base}/v1`)],
-				["Anthropic", h("code", null, `${base}/v1/messages`)],
-				["Gemini", h("code", null, `${base}/v1beta`)],
+				["OpenAI Chat", h("code", null, `${base}/v1/chat/completions`)],
+				["OpenAI Responses", h("code", null, `${base}/v1/responses`)],
+				["Anthropic Messages", h("code", null, `${base}/v1/messages`)],
 				["Model", h("code", null, user.grants.length ? `neoproxy/${vms.find((v) => v.id === user.grants[0].virtualModel)?.name}` : "ask your admin for a grant")],
 			]),
 		}),
@@ -47,7 +47,12 @@ export async function render(ctx) {
 		const vm = vms.find((v) => v.id === g.virtualModel);
 		if (!vm) continue;
 		const usageFor = (s, a) => usage[user.id]?.[vm.id]?.[s.id]?.[a.id] ?? 0;
-		const sim = neo.resolveWith({ asked: vm.served, user, virtualModels: [vm] });
+		let sim;
+		try { sim = await neo.simulate({ asked: vm.served, userId: user.id }); }
+		catch (e) {
+			host.append(card({ title: servedName(vm.served, { virtual: true }), body: errorState(e, () => ctx.rerender()) }));
+			continue;
+		}
 		let drawn = 0;
 		for (const st of Object.values(usage[user.id]?.[vm.id] ?? {})) for (const v of Object.values(st)) drawn += v;
 		const total = g.allotment * vm.stages.reduce((n, s) => n + s.cap, 0);
@@ -86,4 +91,19 @@ export async function render(ctx) {
 			),
 		}),
 	);
+	host.append(card({
+		title: "Dashboard password",
+		sub: "Your password is separate from provider credentials and inference keys.",
+		actions: [btn("Change password", { cls: "outline", onClick: () => {
+			let currentPassword = "", password = "";
+			const err = h("div", { class: "error", role: "alert" });
+			dialog({ title: "Change password", sub: "Existing dashboard sessions will be revoked. Sign in again after saving.", body: [
+				field("Current password", input({ type: "password", autocomplete: "current-password", onInput: (e) => { currentPassword = e.target.value; } })),
+				field("New password", input({ type: "password", autocomplete: "new-password", onInput: (e) => { password = e.target.value; } })), err,
+			], actions: (close) => [btn("Cancel", { onClick: close }), btn("Save password", { cls: "primary", onClick: async () => {
+				try { await engine.post(`/v8/neo/users/${encodeURIComponent(user.id)}/password`, { currentPassword, password }); close(); toast("Password changed. Sign in again."); ctx.rerender(); }
+				catch (e) { err.textContent = e.message; }
+			} })] });
+		} })],
+	}));
 }

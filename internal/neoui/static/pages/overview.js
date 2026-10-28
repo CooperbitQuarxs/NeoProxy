@@ -1,4 +1,4 @@
-// Overview: the flow board. Three fixed columns, NeoPi's vault → virtual
+// Overview: the flow board. Three fixed columns, proxy vault → virtual
 // models → users, joined by ribbons whose weight is how much each pair has
 // drawn this window. Select any row to see what it touches. Under it, the
 // live request stream and the things that need the admin's attention.
@@ -12,7 +12,7 @@ export async function render(ctx) {
 	root.append(
 		pageHead({
 			title: "Overview",
-			desc: "Who draws what from where. NeoPi's vault on the left, the virtual models you shaped in the middle, the people and services drawing from them on the right.",
+			desc: "Who draws what from where. Proxy-managed accounts on the left, virtual models in the middle, and the people and services drawing from them on the right.",
 			preview: sources.overview === "fixture",
 			actions: [btn("New virtual model", { icon: "plus", cls: "primary", onClick: () => ctx.navigate("virtual-models/new") })],
 		}),
@@ -41,7 +41,7 @@ export async function render(ctx) {
 				{ label: "Served models", value: String(world.models.filter((m) => m.exposed && world.providers.find((p) => p.id === m.providerId)?.exposed).length), sub: `${world.vms.length} virtual · ${world.providers.filter((p) => p.exposed).length} providers exposed` },
 				{ label: "Accounts in the vault", value: String(world.accounts.length), sub: `${world.accounts.filter((a) => a.state === "healthy").length} healthy` },
 				{ label: "Users", value: String(world.users.length), sub: `${world.users.filter((u) => u.state === "active").length} active · ${world.users.filter((u) => u.role === "service").length} services` },
-				{ label: "Requests, last hour", value: String(lastHour.length), sub: `${lastHour.filter((r) => r.outcome !== "ok").length} not served` },
+				{ label: "Recent requests, last hour", value: String(lastHour.length), sub: `within the latest ${world.requests.length} ledger records · ${lastHour.filter((r) => r.outcome !== "ok").length} not served` },
 				{ label: "Held back by limits", value: String(limited.length), sub: "recent, see Activity" },
 			]),
 		}),
@@ -106,17 +106,17 @@ function flowBoard(world, ctx) {
 		return el;
 	};
 
-	const provCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "NeoPi vault", h("span", { class: "count" }, `${accounts.length} accounts`)));
+	const provCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Proxy vault", h("span", { class: "count" }, `${accounts.length} accounts`)));
 	for (const p of providers) {
 		const accs = accounts.filter((a) => a.providerId === p.id);
-		const week = accs.map((a) => a.windows.find((w) => w.kind === "week" || w.kind === "month" || w.kind === "day")?.used ?? 0);
-		const avg = week.length ? week.reduce((a, b) => a + b, 0) / week.length : 0;
+		const week = accs.map((a) => a.windows.find((w) => w.kind === "week" || w.kind === "month" || w.kind === "day")?.used);
+		const avg = week.length && week.every(Number.isFinite) ? week.reduce((a, b) => a + b, 0) / week.length : null;
 		const unhealthy = accs.filter((a) => a.state !== "healthy").length;
 		provCol.append(
 			frow(`p:${p.id}`, {
-				lead: ring({ used: avg, size: 30, label: false, title: `${fmtPct(avg)} of the ${accs[0]?.windows.at(-1)?.kind ?? ""} window, averaged` }),
+				lead: ring({ used: avg, size: 30, label: false, title: avg === null ? "Quota unknown" : `${fmtPct(avg)} of the ${accs[0]?.windows.at(-1)?.kind ?? ""} window, averaged` }),
 				main: p.name,
-				sub: !p.exposed ? "hidden from users" : unhealthy ? `${plural(accs.length, "account")} · ${unhealthy} need attention` : `${plural(accs.length, "account")} · ${fmtPct(avg)} used`,
+				sub: !p.exposed ? "hidden from users" : unhealthy ? `${plural(accs.length, "account")} · ${unhealthy} need attention` : `${plural(accs.length, "account")} · ${avg === null ? "quota unknown" : `${fmtPct(avg)} used`}`,
 				trail: p.exposed ? null : icon("eyeOff", 14),
 				href: "core",
 			}),
@@ -272,7 +272,7 @@ function streamCard(world, ctx) {
 			"div",
 			{ class: `srow ${isNew ? "new" : ""}`, onClick: () => ctx.navigate(`activity/${r.id}`), tabindex: 0, role: "link" },
 			h("span", { class: "t" }, fmtTime(r.at)),
-			h("span", { class: "who row" }, avatar(u, "sm"), u.handle),
+			h("span", { class: "who row" }, avatar(u ?? { handle: "?" }, "sm"), u?.handle ?? r.userId),
 			h("span", { class: "route" }, servedName(r.asked, { virtual: !r.asked.split("/").slice(1).includes("/") && r.asked.split("/").length === 2 })),
 			h(
 				"span",
@@ -284,15 +284,21 @@ function streamCard(world, ctx) {
 		);
 	};
 	for (const r of world.requests) list.append(rowFor(r));
+	const pollState = h("span", { class: "ink-3" }, "Polling every 5s");
+	if (!world.requests.length) list.append(empty({ icon: "activity", title: "No requests yet", hint: "Real requests appear here after clients use this proxy." }));
 	const unsubscribe = neo.subscribeStream((r) => {
+		list.querySelector(".empty")?.remove();
 		list.prepend(rowFor(r, true));
 		if (list.children.length > 14) list.lastChild.remove();
+	}, (error) => {
+		pollState.textContent = error ? `Polling failed: ${error.message}` : "Polling every 5s";
+		pollState.className = error ? "error" : "ink-3";
 	});
 	streamCard.unsubscribe = unsubscribe;
 	return card({
-		title: h("span", { class: "row" }, h("span", { class: "dot live" }), "Live requests"),
-		sub: "What the proxy is serving right now, and how each request was routed.",
-		actions: [btn("All activity", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("activity") })],
+		title: h("span", { class: "row" }, "Recent requests"),
+		sub: "Durable server activity, refreshed from the real request ledger.",
+		actions: [pollState, btn("All activity", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("activity") })],
 		flush: true,
 		body: list,
 	});
@@ -304,7 +310,7 @@ function attentionCard(world, ctx) {
 	const items = [];
 	for (const a of world.accounts) {
 		const p = world.providers.find((x) => x.id === a.providerId);
-		if (a.state === "expired") items.push({ kind: "bad", text: `${p.name} · ${a.label}: token expired, re-authenticate in NeoPi`, href: "core" });
+		if (a.state === "expired") items.push({ kind: "bad", text: `${p.name} · ${a.label}: token expired, re-authenticate through NeoProxy`, href: "accounts" });
 		if (a.state === "cooldown") items.push({ kind: "warn", text: `${p.name} · ${a.label}: cooling down, back in ${fmtIn(a.cooldownUntil)}`, href: "core" });
 		for (const w of a.windows) if (w.used >= 0.9 && a.state === "healthy") items.push({ kind: "warn", text: `${p.name} · ${a.label}: ${w.kind} window at ${fmtPct(w.used)}`, href: "core" });
 	}
@@ -316,9 +322,9 @@ function attentionCard(world, ctx) {
 	for (const r of world.requests) if (r.outcome === "limited") limitedUsers.set(r.userId, (limitedUsers.get(r.userId) ?? 0) + 1);
 	for (const [uid, n] of limitedUsers) {
 		const u = world.users.find((x) => x.id === uid);
-		items.push({ kind: "warn", text: `${u.handle} hit a limit ${n} ${n === 1 ? "time" : "times"} recently`, href: `activity?user=${uid}&outcome=limited` });
+		items.push({ kind: "warn", text: `${u?.handle ?? uid} hit a limit ${n} ${n === 1 ? "time" : "times"} recently`, href: `activity?user=${uid}&outcome=limited` });
 	}
-	if (!world.core.linked) items.unshift({ kind: "bad", text: "No NeoPi core linked; the proxy is running on local credential files", href: "core" });
+	if (!world.core.linked) items.unshift({ kind: "bad", text: "Engine connection unavailable; inspect core status", href: "core" });
 	const body = items.length
 		? h(
 				"div",

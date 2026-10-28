@@ -19,7 +19,7 @@ export async function render(ctx) {
 	root.append(host, spinner());
 	let users, models, vault, vms;
 	try {
-		[users, models, vault, vms] = await Promise.all([neo.users(), neo.models(), neo.vault(), neo.virtualModels()]);
+		[users, models, vault, vms] = await Promise.all([mine ? neo.user(session.userId).then((u) => [u]) : neo.users(), neo.models(), neo.vault(), neo.virtualModels()]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;
@@ -64,8 +64,10 @@ export async function render(ctx) {
 	host.append(toolbar, card({ flush: true, body: tableHost }));
 
 	async function load() {
-		rows = await neo.requests({ limit: 200, userId: filters.userId || undefined, outcome: filters.outcome || undefined, asked: filters.asked || undefined });
-		renderTable();
+		try {
+			rows = await neo.requests({ limit: 200, userId: filters.userId || undefined, outcome: filters.outcome || undefined, asked: filters.asked || undefined });
+			renderTable();
+		} catch (e) { tableHost.replaceChildren(errorState(e, load)); }
 	}
 	function renderTable() {
 		clear(tableHost);
@@ -73,7 +75,7 @@ export async function render(ctx) {
 			table(
 				[
 					{ key: "t", label: "Time", render: (r) => h("span", { class: "mono ink-3" }, fmtTime(r.at)), sortBy: (r) => r.at },
-					...(mine ? [] : [{ key: "who", label: "User", render: (r) => { const u = users.find((x) => x.id === r.userId); return h("span", { class: "row" }, avatar(u, "sm"), u.handle); }, sortBy: (r) => r.userId }]),
+					...(mine ? [] : [{ key: "who", label: "User", render: (r) => { const u = users.find((x) => x.id === r.userId); return h("span", { class: "row" }, avatar(u ?? { handle: "?" }, "sm"), u?.handle ?? r.userId); }, sortBy: (r) => r.userId }]),
 					{ key: "client", label: "Client", render: (r) => h("span", { class: "ink-2" }, r.client) },
 					{ key: "asked", label: "Asked for", clip: true, width: "26%", render: (r) => servedName(r.asked, { virtual: r.asked.split("/").length === 2 }), sortBy: (r) => r.asked },
 					{ key: "served", label: "Answered by", clip: true, width: "34%", render: (r) => answeredBy(r) },
@@ -123,7 +125,7 @@ export async function render(ctx) {
 					),
 				],
 				foot: [
-					vm ? btn("Open chain", { icon: "route", cls: "outline", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) }) : null,
+					vm && !mine ? btn("Open chain", { icon: "route", cls: "outline", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) }) : null,
 					mine ? null : btn("Open user", { icon: "user", cls: "outline", onClick: () => ctx.navigate(`users/${r.userId}`) }),
 				],
 			}),

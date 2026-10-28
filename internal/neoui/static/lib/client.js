@@ -1,71 +1,39 @@
-// One client, two adapters. `engine` talks to the management API that exists
-// today (/v8/management). `neo` is the contract the dashboard assumes for the
-// NeoPi-centred surfaces (core link, vault, catalogue, virtual models, users,
-// request stream); it is served by the fixture until the backend lands.
-// `sources` says which one each surface uses, so pages can mark preview data
-// honestly without each page guessing.
-
-import { createFixture, resolve } from "./fixture.js";
-
-const KEY = "neo-session";
-
+// Cookie-authenticated dashboard transport. Inference keys and operator secrets
+// are not dashboard identities; only the explicit one-time bootstrap uses a secret.
+let identity = null;
+// Remove credentials left by the pre-session dashboard, never migrate them.
+for (const storage of [sessionStorage, localStorage]) storage.removeItem("neo-session");
 export const session = {
-	get() {
-		try {
-			return JSON.parse(sessionStorage.getItem(KEY) || localStorage.getItem(KEY) || "null");
-		} catch {
-			return null;
-		}
-	},
-	set(value, remember) {
-		sessionStorage.removeItem(KEY);
-		localStorage.removeItem(KEY);
-		(remember ? localStorage : sessionStorage).setItem(KEY, JSON.stringify(value));
-	},
-	clear() {
-		sessionStorage.removeItem(KEY);
-		localStorage.removeItem(KEY);
-	},
+	get: () => identity,
+	set(value) { identity = value; invalidate(); },
+	clear() { identity = null; invalidate(); },
 };
 
 export class ApiError extends Error {
-	constructor(status, message, body) {
-		super(message);
-		this.status = status;
-		this.body = body;
-	}
+	constructor(status, message, body) { super(message); this.status = status; this.body = body; }
 }
-
 const unauthorizedListeners = new Set();
-export function onUnauthorized(fn) {
-	unauthorizedListeners.add(fn);
-	return () => unauthorizedListeners.delete(fn);
-}
+export function onUnauthorized(fn) { unauthorizedListeners.add(fn); return () => unauthorizedListeners.delete(fn); }
 
-async function request(method, path, { json, body, headers = {}, raw = false, query } = {}) {
+async function request(method, path, { json, body, headers = {}, raw = false, query, auth = true } = {}) {
 	let url = path.startsWith("/") ? path : `/v8/management/${path}`;
 	if (query) {
 		const q = new URLSearchParams();
 		for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null && v !== "") q.set(k, String(v));
-		const s = q.toString();
-		if (s) url += (url.includes("?") ? "&" : "?") + s;
+		if (q.size) url += (url.includes("?") ? "&" : "?") + q;
 	}
-	const init = { method, headers: { ...headers } };
-	const s = session.get();
-	if (s?.token) init.headers.Authorization = `Bearer ${s.token}`;
-	if (json !== undefined) {
-		init.headers["Content-Type"] = "application/json";
-		init.body = JSON.stringify(json);
-	} else if (body !== undefined) init.body = body;
+	const init = { method, credentials: "same-origin", cache: "no-store", headers: { ...headers } };
+	const owner = identity;
+	if (json !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(json); }
+	else if (body !== undefined) init.body = body;
 	const res = await fetch(url, init);
-	if (res.status === 401 || res.status === 403) for (const fn of unauthorizedListeners) fn(res.status);
-	if (raw) return res;
+	// A forbidden operation is not an expired identity. Leave the session intact.
+	if (res.status === 401 && auth && owner && owner === identity) for (const fn of unauthorizedListeners) fn();
+	if (raw && res.ok) return res;
 	const text = await res.text();
 	let data = text;
 	if ((res.headers.get("content-type") || "").includes("application/json") && text) {
-		try {
-			data = JSON.parse(text);
-		} catch {}
+		try { data = JSON.parse(text); } catch {}
 	}
 	if (!res.ok) {
 		const msg = (data && typeof data === "object" && (data.error?.message || data.error || data.message)) || `${res.status} ${res.statusText}`;
@@ -74,20 +42,16 @@ async function request(method, path, { json, body, headers = {}, raw = false, qu
 	return data;
 }
 
-// ---------- engine: the management API that exists ----------
-
 const cache = new Map();
 async function cached(key, loader, ttl = 15_000) {
 	const hit = cache.get(key);
 	if (hit && Date.now() - hit.at < ttl) return hit.value;
+	const owner = identity;
 	const value = await loader();
-	cache.set(key, { at: Date.now(), value });
+	if (identity === owner) cache.set(key, { at: Date.now(), value });
 	return value;
 }
-export function invalidate(prefix) {
-	for (const k of [...cache.keys()]) if (!prefix || k.startsWith(prefix)) cache.delete(k);
-}
-
+export function invalidate(prefix) { for (const k of cache.keys()) if (!prefix || k.startsWith(prefix)) cache.delete(k); }
 export const engine = {
 	get: (p, o) => request("GET", p, o),
 	put: (p, json, o) => request("PUT", p, { ...o, json }),
@@ -105,214 +69,70 @@ export const engine = {
 	latestVersion: () => cached("latest-version", () => request("GET", "server/latest-version"), 300_000),
 	logs: (lines) => request("GET", "observability/logs", { query: { lines } }),
 	errorLogs: () => request("GET", "observability/logs/errors"),
-	health: async () => {
-		const res = await fetch("/healthz", { cache: "no-store" });
-		return res.ok;
-	},
+	health: async () => (await fetch("/healthz", { cache: "no-store" })).ok,
 };
 
-// ---------- neo: the NeoPi-centred contract, fixture-backed ----------
-
-const world = createFixture();
 const changeListeners = new Set();
-export function onChange(fn) {
-	changeListeners.add(fn);
-	return () => changeListeners.delete(fn);
+export function onChange(fn) { changeListeners.add(fn); return () => changeListeners.delete(fn); }
+function changed(what) { for (const fn of changeListeners) fn(what); }
+const path = (p) => `/v8/neo/${p}`;
+const id = encodeURIComponent;
+async function mutate(method, route, json, what) {
+	const value = await request(method, path(route), { json });
+	// Notify after the caller has consumed the returned entity.
+	setTimeout(() => changed(what), 0);
+	return value;
 }
-function changed(what) {
-	for (const fn of changeListeners) fn(what);
-}
-const clone = (x) => structuredClone(x);
-const streamSubs = new Set();
-let streamTimer = null;
-const latency = () => new Promise((r) => setTimeout(r, 30 + Math.random() * 60));
-
 export const neo = {
-	world, // exposed for the simulator and tests; pages must go through the methods below
-	async core() {
-		await latency();
-		return clone(world.core);
+	core: () => request("GET", path("core")),
+	vault: () => request("GET", path("vault")),
+	models: () => request("GET", path("models")),
+	setProviderExposed: (provider, exposed) => mutate("PATCH", `vault/providers/${id(provider)}`, { exposed }, "vault"),
+	setModelExposed: (model, exposed) => mutate("PATCH", `models/${id(model)}`, { exposed }, "models"),
+	virtualModels: () => request("GET", path("virtual-models")),
+	virtualModel: (model) => request("GET", path(`virtual-models/${id(model)}`)),
+	saveVirtualModel: (vm) => mutate(vm.id ? "PUT" : "POST", `virtual-models${vm.id ? `/${id(vm.id)}` : ""}`, vm, "virtual-models"),
+	deleteVirtualModel: (model) => mutate("DELETE", `virtual-models/${id(model)}`, undefined, "virtual-models"),
+	users: () => request("GET", path("users")),
+	user: (user) => request("GET", path(`users/${id(user)}`)),
+	saveUser: (user) => mutate(user.id ? "PUT" : "POST", `users${user.id ? `/${id(user.id)}` : ""}`, user, "users"),
+	createKey: (user, label, accountIds) => mutate("POST", `users/${id(user)}/keys`, { label, ...(accountIds ? { accountIds } : {}) }, "users"),
+	revokeKey: (user, key) => mutate("DELETE", `users/${id(user)}/keys/${id(key)}`, undefined, "users"),
+	usage: () => request("GET", path("usage")),
+	requests: (query = {}) => request("GET", path("requests"), { query: { limit: 100, ...query } }),
+	request: (requestId) => request("GET", path(`requests/${id(requestId)}`)),
+	simulate: ({ asked, userId }) => request("POST", path("simulate"), { json: { asked, userId } }),
+	async restore() {
+		try { const s = await request("GET", "/v8/session", { auth: false }); session.set(s); return s; }
+		catch (e) { session.clear(); if (e.status === 401) return null; throw e; }
 	},
-	async vault() {
-		await latency();
-		return { providers: clone(world.providers), accounts: clone(world.accounts) };
+	async signIn(handle, password) {
+		const s = await request("POST", "/v8/session", { json: { handle, password }, auth: false });
+		session.set(s); return s;
 	},
-	async setProviderExposed(id, exposed) {
-		const p = world.providers.find((x) => x.id === id);
-		if (!p) throw new ApiError(404, "provider not found");
-		p.exposed = exposed;
-		changed("vault");
+	async bootstrap(handle, password, secret, name) {
+		const s = await request("POST", "/v8/session/bootstrap", { json: { handle, password, name }, headers: { Authorization: `Bearer ${secret}` }, auth: false });
+		session.set(s); return s;
 	},
-	async models() {
-		await latency();
-		return clone(world.models);
-	},
-	async setModelExposed(id, exposed) {
-		const m = world.models.find((x) => x.id === id);
-		if (!m) throw new ApiError(404, "model not found");
-		m.exposed = exposed;
-		changed("models");
-	},
-	async virtualModels() {
-		await latency();
-		return clone(world.virtualModels);
-	},
-	async virtualModel(id) {
-		await latency();
-		const v = world.virtualModels.find((x) => x.id === id || x.name === id);
-		if (!v) throw new ApiError(404, "virtual model not found");
-		return clone(v);
-	},
-	async saveVirtualModel(vm, actor = "shayna") {
-		await latency();
-		if (!/^[a-z][a-z0-9-]{0,31}$/.test(vm.name)) throw new ApiError(422, "Name must be lowercase letters, digits or dashes, up to 32 characters");
-		if (world.models.some((m) => m.id === vm.name)) throw new ApiError(409, `"${vm.name}" collides with a served model`);
-		const dup = world.virtualModels.find((x) => x.name === vm.name && x.id !== vm.id);
-		if (dup) throw new ApiError(409, `A virtual model named "${vm.name}" already exists`);
-		if (!vm.stages.length) throw new ApiError(422, "A virtual model needs at least one stage");
-		const next = { ...clone(vm), served: `neoproxy/${vm.name}`, updatedAt: Date.now(), updatedBy: actor };
-		const i = world.virtualModels.findIndex((x) => x.id === vm.id);
-		if (i === -1) {
-			next.id = vm.id || `vm-${vm.name}`;
-			world.virtualModels.push(next);
-		} else world.virtualModels[i] = next;
-		changed("virtual-models");
-		return clone(next);
-	},
-	async deleteVirtualModel(id) {
-		await latency();
-		const i = world.virtualModels.findIndex((x) => x.id === id);
-		if (i === -1) throw new ApiError(404, "virtual model not found");
-		world.virtualModels.splice(i, 1);
-		for (const u of world.users) u.grants = u.grants.filter((g) => g.virtualModel !== id);
-		changed("virtual-models");
-	},
-	async users() {
-		await latency();
-		return clone(world.users);
-	},
-	async user(id) {
-		await latency();
-		const u = world.users.find((x) => x.id === id || x.handle === id);
-		if (!u) throw new ApiError(404, "user not found");
-		return clone(u);
-	},
-	async saveUser(user) {
-		await latency();
-		if (!/^[a-z][a-z0-9-]{1,31}$/.test(user.handle)) throw new ApiError(422, "Handle must be lowercase letters, digits or dashes");
-		const i = world.users.findIndex((x) => x.id === user.id);
-		const next = clone(user);
-		if (i === -1) {
-			next.id = `u-${user.handle}`;
-			next.createdAt = Date.now();
-			next.keys ??= [];
-			world.users.push(next);
-		} else world.users[i] = { ...world.users[i], ...next };
-		changed("users");
-		return clone(next);
-	},
-	async createKey(userId, label) {
-		await latency();
-		const u = world.users.find((x) => x.id === userId);
-		if (!u) throw new ApiError(404, "user not found");
-		const raw = Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join("");
-		const k = { id: raw.slice(0, 12), prefix: `nk_${raw.slice(0, 4)}…${raw.slice(-4)}`, label, createdAt: Date.now(), lastUsedAt: null };
-		u.keys.push(k);
-		changed("users");
-		return { key: k, secret: `nk_${raw}` };
-	},
-	async revokeKey(userId, keyId) {
-		await latency();
-		const u = world.users.find((x) => x.id === userId);
-		if (!u) throw new ApiError(404, "user not found");
-		u.keys = u.keys.filter((k) => k.id !== keyId);
-		changed("users");
-	},
-	async usage() {
-		await latency();
-		return clone(world.usage);
-	},
-	async requests({ limit = 100, userId, outcome, asked } = {}) {
-		await latency();
-		let list = world.requests;
-		if (userId) list = list.filter((r) => r.userId === userId);
-		if (outcome) list = list.filter((r) => r.outcome === outcome);
-		if (asked) list = list.filter((r) => r.asked.includes(asked));
-		return clone(list.slice(0, limit));
-	},
-	async request(id) {
-		await latency();
-		const r = world.requests.find((x) => x.id === id);
-		if (!r) throw new ApiError(404, "request not found");
-		return clone(r);
-	},
-	simulate({ asked, userId, at }) {
-		const user = world.users.find((x) => x.id === userId);
-		if (!user) throw new ApiError(404, "user not found");
-		return resolve({ asked, user, at }, world);
-	},
-	resolveWith({ asked, user, virtualModels }) {
-		return resolve({ asked, user }, { ...world, virtualModels: virtualModels ?? world.virtualModels });
-	},
-	// Live stream of new requests. Backed by a timer on the fixture; the real
-	// backend is expected to expose SSE at /v8/neo/requests/stream.
-	subscribeStream(fn) {
-		streamSubs.add(fn);
-		if (!streamTimer) streamTimer = setInterval(() => {
-			const r = world.next();
-			for (const f of streamSubs) f(clone(r));
-		}, 7000 + Math.random() * 5000);
-		return () => {
-			streamSubs.delete(fn);
-			if (!streamSubs.size && streamTimer) {
-				clearInterval(streamTimer);
-				streamTimer = null;
-			}
-		};
-	},
-	async localCredentials() {
-		await latency();
-		return clone(world.localCredentials);
-	},
-	// Session: admin signs in with the management secret (checked against the
-	// engine); a user signs in with one of their NeoProxy keys (fixture lookup).
-	async signIn(secret, remember) {
-		if (secret.startsWith("nk_")) {
-			await latency();
-			const tail = secret.slice(-4);
-			const user = world.users.find((u) => u.keys.some((k) => k.prefix.endsWith(tail)));
-			if (!user) throw new ApiError(401, "That key is not recognised");
-			if (user.state !== "active") throw new ApiError(403, `This account is ${user.state}`);
-			const s = { role: user.role === "admin" ? "admin" : "user", userId: user.id, handle: user.handle, token: secret, source: "fixture" };
-			session.set(s, remember);
-			return s;
+	async signOut() { await request("DELETE", "/v8/session", { auth: false }); session.clear(); },
+	// Poll the durable request ledger; never synthesize traffic on an idle server.
+	subscribeStream(fn, onError = () => {}) {
+		let stopped = false, timer;
+		const seen = new Set();
+		let initialized = false;
+		async function poll() {
+			try {
+				const rows = await neo.requests({ limit: 14 });
+				if (stopped) return;
+				for (const r of [...rows].reverse()) { if (initialized && !seen.has(r.id)) fn(r); seen.add(r.id); }
+				if (seen.size > 1000) { seen.clear(); for (const r of rows) seen.add(r.id); }
+				initialized = true;
+				onError(null);
+			} catch (e) { if (!stopped) onError(e); }
+			if (!stopped) timer = setTimeout(poll, 5000);
 		}
-		const probe = { role: "admin", userId: "u-shayna", handle: "shayna", token: secret, source: "engine" };
-		session.set(probe, remember);
-		try {
-			await request("GET", "config");
-		} catch (e) {
-			session.clear();
-			if (e instanceof ApiError && (e.status === 401 || e.status === 403)) throw new ApiError(401, "That management key was refused");
-			throw e;
-		}
-		return probe;
+		poll();
+		return () => { stopped = true; clearTimeout(timer); };
 	},
 };
-
-// Which adapter backs each surface. Pages use this for the preview marker.
-export const sources = {
-	overview: "fixture",
-	core: "fixture",
-	models: "fixture",
-	"virtual-models": "fixture",
-	users: "fixture",
-	activity: "fixture",
-	credentials: "engine",
-	keys: "engine",
-	logs: "engine",
-	routing: "engine",
-	config: "engine",
-	plugins: "engine",
-	about: "engine",
-};
+export const sources = Object.fromEntries(["overview", "core", "models", "virtual-models", "users", "activity", "credentials", "keys", "logs", "routing", "config", "plugins", "about"].map((name) => [name, "engine"]));

@@ -178,9 +178,10 @@ export function toggle(checked, onChange, label, { disabled = false, showLabel =
 
 // A ring whose fill is `used` (0..1 of the account window) and whose dashed
 // marker is `budget` (0..1). Size in px. The label shows the used percentage.
-export function ring({ used = 0, budget = null, size = 36, label = true, large = false, title }) {
+export function ring({ used = null, budget = null, size = 36, label = true, large = false, title }) {
 	const r = size / 2 - 3;
 	const c = 2 * Math.PI * r;
+	if (!Number.isFinite(used)) return h("span", { class: `neo-ring ${large ? "lg" : ""}`, title: title ?? "Usage unknown", role: "img", "aria-label": "Usage unknown", style: { width: `${size}px`, height: `${size}px` } }, h("span", { class: "ring-label" }, "?"));
 	const u = Math.max(0, Math.min(1, used));
 	const kind = budget !== null && u >= budget ? "bad" : budget !== null && u >= budget * 0.8 ? "warn" : u >= 0.9 ? "bad" : u >= 0.7 ? "warn" : "";
 	const el = h("span", { class: `neo-ring ${kind} ${large ? "lg" : ""}`, title, role: "img", "aria-label": `${fmtPct(u)} used${budget !== null ? ` of ${fmtPct(budget)} allowed` : ""}` });
@@ -653,7 +654,8 @@ export function accountState(a) {
 	return status("", "Disabled");
 }
 
-export function windowsRow(windows, { now = Date.now() } = {}) {
+export function windowsRow(windows = [], { now = Date.now() } = {}) {
+	if (!windows.length) return h("span", { class: "ink-3" }, "Quota unknown");
 	return h(
 		"div",
 		{ class: "windows" },
