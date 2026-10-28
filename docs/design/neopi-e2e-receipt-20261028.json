@@ -1,0 +1,539 @@
+{
+  "status": "passed",
+  "proxy_build_sha": "942fc3ba03d02aae54e8017cfebfaee54b88f7be",
+  "proxy_binary_sha256": "1ea16494433bdf1ae65d682842616cbfab77664df148c5453e0f83e4f2e716a4",
+  "interface_deliveries": {
+    "A": "90149239da7bd9cf80bce135b36604e21b3cd291",
+    "B": "b90aead03fd0f4168acb7afb8c152ebc4b19ee9c",
+    "C": "828864c03d8ce731fc1a5cef73cac8ab8749e3f3"
+  },
+  "scratch": "/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01",
+  "upstream": {
+    "base": "https://api.groq.com/openai/v1",
+    "model": "openai/gpt-oss-20b",
+    "credential_source": "inherited environment GROQ_API_KEY"
+  },
+  "isolation": "fresh HOME/XDG/TMPDIR/PI_CODING_AGENT_DIR and allowlisted environment; no owner profile read",
+  "protocols": [
+    {
+      "protocol": "openai-completions",
+      "selector": "neoproxy/proof-chat",
+      "role": "proof-chat",
+      "role_configuration": {
+        "proof-chat": "neoproxy-proof-chat/neoproxy/proof-chat"
+      },
+      "scratch_profile": "/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01/client-chat/agent",
+      "command": [
+        "/home/shayna/.local/bin/npi",
+        "--print",
+        "--mode",
+        "json",
+        "--no-session",
+        "--no-title",
+        "--no-tools",
+        "--no-lsp",
+        "--no-extensions",
+        "--no-skills",
+        "--no-mcp",
+        "--no-rules",
+        "--chat=raw",
+        "--model",
+        "@proof-chat",
+        "--thinking",
+        "off",
+        "Reply with one short sentence naming a planet and one fact about it."
+      ],
+      "request_correlation": {
+        "path": "/v1/chat/completions",
+        "model": "neoproxy/proof-chat",
+        "client": "neoproxy-e2e-chat",
+        "status": 200,
+        "request_id": "req_bbcd42c9-ad83-4054-9fb3-c1af4ab51a89"
+      },
+      "first_stage_failure": [
+        {
+          "at": 1793214511188171803,
+          "path": "/v1/chat/completions",
+          "model": "fail-chat",
+          "status": 503,
+          "reason": "deliberate first-stage upstream failure"
+        }
+      ],
+      "fallback_concrete_upstream_model": "openai/gpt-oss-20b",
+      "fallback_proxy_model": "openai-compatible-proof-real/fallback",
+      "fallback_account": "acct_762dec8551accd17f8e24a5526de0c4c",
+      "request": {
+        "id": "req_bbcd42c9-ad83-4054-9fb3-c1af4ab51a89",
+        "at": 1793214511182,
+        "userId": "u_fc525f4987fd97fb9c8b6d6a",
+        "keyId": "key_ba5dc01258fc8dba55f1b33e",
+        "client": "neoproxy-e2e-chat",
+        "asked": "neoproxy/proof-chat",
+        "decision": {
+          "outcome": "ok",
+          "virtualModel": "vm_c9229061-55c4-4700-b8fe-3fd5b68e0d1a",
+          "stageIndex": 1,
+          "stageId": "s1",
+          "model": "openai-compatible-proof-real/fallback",
+          "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+          "trail": [
+            {
+              "kind": "stage",
+              "stageId": "s0",
+              "model": "openai-compatible-proof-fault-chat/fail-chat",
+              "chosen": "acct_7212a55ea094b3cf093cc31adcacb5c1",
+              "skipped": "upstream-error",
+              "failureStatus": 503,
+              "index": 0,
+              "total": 0,
+              "cap": 0,
+              "candidates": []
+            },
+            {
+              "kind": "stage",
+              "stageId": "s1",
+              "model": "openai-compatible-proof-real/fallback",
+              "chosen": "acct_762dec8551accd17f8e24a5526de0c4c",
+              "index": 1,
+              "total": 0,
+              "cap": 1,
+              "candidates": [
+                {
+                  "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+                  "used": 0,
+                  "budget": 1
+                }
+              ]
+            }
+          ]
+        },
+        "tokens": {
+          "in": 85,
+          "out": 109,
+          "cached": 0
+        },
+        "latencyMs": 675,
+        "outcome": "ok",
+        "stream": true
+      },
+      "actual_assistant": {
+        "text": "Venus is the hottest planet in the Solar System.",
+        "usage": {
+          "input": 85,
+          "output": 109,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 194,
+          "reasoningTokens": 89,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "provider": "neoproxy-proof-chat",
+        "model": "neoproxy/proof-chat",
+        "stop_reason": "stop"
+      }
+    },
+    {
+      "protocol": "openai-responses",
+      "selector": "neoproxy/proof-responses",
+      "role": "proof-responses",
+      "role_configuration": {
+        "proof-responses": "neoproxy-proof-responses/neoproxy/proof-responses"
+      },
+      "scratch_profile": "/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01/client-responses/agent",
+      "command": [
+        "/home/shayna/.local/bin/npi",
+        "--print",
+        "--mode",
+        "json",
+        "--no-session",
+        "--no-title",
+        "--no-tools",
+        "--no-lsp",
+        "--no-extensions",
+        "--no-skills",
+        "--no-mcp",
+        "--no-rules",
+        "--chat=raw",
+        "--model",
+        "@proof-responses",
+        "--thinking",
+        "off",
+        "Reply with one short sentence naming a planet and one fact about it."
+      ],
+      "request_correlation": {
+        "path": "/v1/responses",
+        "model": "neoproxy/proof-responses",
+        "client": "neoproxy-e2e-responses",
+        "status": 200,
+        "request_id": "req_6e824686-282e-40b4-9c85-5243dddd50c4"
+      },
+      "first_stage_failure": [
+        {
+          "at": 1793214514425319570,
+          "path": "/v1/chat/completions",
+          "model": "fail-responses",
+          "status": 503,
+          "reason": "deliberate first-stage upstream failure"
+        }
+      ],
+      "fallback_concrete_upstream_model": "openai/gpt-oss-20b",
+      "fallback_proxy_model": "openai-compatible-proof-real/fallback",
+      "fallback_account": "acct_762dec8551accd17f8e24a5526de0c4c",
+      "request": {
+        "id": "req_6e824686-282e-40b4-9c85-5243dddd50c4",
+        "at": 1793214514420,
+        "userId": "u_fc525f4987fd97fb9c8b6d6a",
+        "keyId": "key_ba5dc01258fc8dba55f1b33e",
+        "client": "neoproxy-e2e-responses",
+        "asked": "neoproxy/proof-responses",
+        "decision": {
+          "outcome": "ok",
+          "virtualModel": "vm_a5c5f75c-6cbe-4abd-8fe4-be4ba5f8ce46",
+          "stageIndex": 1,
+          "stageId": "s1",
+          "model": "openai-compatible-proof-real/fallback",
+          "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+          "trail": [
+            {
+              "kind": "stage",
+              "stageId": "s0",
+              "model": "openai-compatible-proof-fault-responses/fail-responses",
+              "chosen": "acct_4e65b51ad7a87484fbbe1e3ffeb8c6c7",
+              "skipped": "upstream-error",
+              "failureStatus": 503,
+              "index": 0,
+              "total": 0,
+              "cap": 0,
+              "candidates": []
+            },
+            {
+              "kind": "stage",
+              "stageId": "s1",
+              "model": "openai-compatible-proof-real/fallback",
+              "chosen": "acct_762dec8551accd17f8e24a5526de0c4c",
+              "index": 1,
+              "total": 0,
+              "cap": 1,
+              "candidates": [
+                {
+                  "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+                  "used": 0,
+                  "budget": 1
+                }
+              ]
+            }
+          ]
+        },
+        "tokens": {
+          "in": 85,
+          "out": 189,
+          "cached": 0
+        },
+        "latencyMs": 512,
+        "outcome": "ok",
+        "stream": true
+      },
+      "actual_assistant": {
+        "text": "Mars has the tallest volcano in the solar system.",
+        "usage": {
+          "input": 85,
+          "output": 189,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 274,
+          "reasoningTokens": 170,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "provider": "neoproxy-proof-responses",
+        "model": "neoproxy/proof-responses",
+        "stop_reason": "stop"
+      }
+    },
+    {
+      "protocol": "anthropic-messages",
+      "selector": "neoproxy/proof-messages",
+      "role": "proof-messages",
+      "role_configuration": {
+        "proof-messages": "neoproxy-proof-messages/neoproxy/proof-messages"
+      },
+      "scratch_profile": "/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01/client-messages/agent",
+      "command": [
+        "/home/shayna/.local/bin/npi",
+        "--print",
+        "--mode",
+        "json",
+        "--no-session",
+        "--no-title",
+        "--no-tools",
+        "--no-lsp",
+        "--no-extensions",
+        "--no-skills",
+        "--no-mcp",
+        "--no-rules",
+        "--chat=raw",
+        "--model",
+        "@proof-messages",
+        "--thinking",
+        "off",
+        "Reply with one short sentence naming a planet and one fact about it."
+      ],
+      "request_correlation": {
+        "path": "/v1/messages",
+        "model": "neoproxy/proof-messages",
+        "client": "neoproxy-e2e-messages",
+        "status": 200,
+        "request_id": "req_2147ec34-e5de-46d4-a6ef-3f05e31ea483"
+      },
+      "first_stage_failure": [
+        {
+          "at": 1793214517563605849,
+          "path": "/v1/chat/completions",
+          "model": "fail-messages",
+          "status": 503,
+          "reason": "deliberate first-stage upstream failure"
+        }
+      ],
+      "fallback_concrete_upstream_model": "openai/gpt-oss-20b",
+      "fallback_proxy_model": "openai-compatible-proof-real/fallback",
+      "fallback_account": "acct_762dec8551accd17f8e24a5526de0c4c",
+      "request": {
+        "id": "req_2147ec34-e5de-46d4-a6ef-3f05e31ea483",
+        "at": 1793214517559,
+        "userId": "u_fc525f4987fd97fb9c8b6d6a",
+        "keyId": "key_ba5dc01258fc8dba55f1b33e",
+        "client": "neoproxy-e2e-messages",
+        "asked": "neoproxy/proof-messages",
+        "decision": {
+          "outcome": "ok",
+          "virtualModel": "vm_5acbeb75-fe48-4b4b-82be-41134aea6180",
+          "stageIndex": 1,
+          "stageId": "s1",
+          "model": "openai-compatible-proof-real/fallback",
+          "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+          "trail": [
+            {
+              "kind": "stage",
+              "stageId": "s0",
+              "model": "openai-compatible-proof-fault-messages/fail-messages",
+              "chosen": "acct_b9722273904dcbbe3c49341dd4c7f799",
+              "skipped": "upstream-error",
+              "failureStatus": 503,
+              "index": 0,
+              "total": 0,
+              "cap": 0,
+              "candidates": []
+            },
+            {
+              "kind": "stage",
+              "stageId": "s1",
+              "model": "openai-compatible-proof-real/fallback",
+              "chosen": "acct_762dec8551accd17f8e24a5526de0c4c",
+              "index": 1,
+              "total": 0,
+              "cap": 1,
+              "candidates": [
+                {
+                  "accountId": "acct_762dec8551accd17f8e24a5526de0c4c",
+                  "used": 0,
+                  "budget": 1
+                }
+              ]
+            }
+          ]
+        },
+        "tokens": {
+          "in": 85,
+          "out": 74,
+          "cached": 0
+        },
+        "latencyMs": 464,
+        "outcome": "ok",
+        "stream": true
+      },
+      "actual_assistant": {
+        "text": "Jupiter’s Great Red Spot is a giant storm that has raged for at least 350 years.",
+        "usage": {
+          "input": 85,
+          "output": 74,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 159,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0
+          }
+        },
+        "provider": "neoproxy-proof-messages",
+        "model": "neoproxy/proof-messages",
+        "stop_reason": "stop"
+      }
+    }
+  ],
+  "proxy_command": [
+    "/mnt/alias/m2/agents/scratch/neoproxy-d/neoproxy-server-fixed",
+    "--config",
+    "/mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01/proxy-config.yml",
+    "--local-model"
+  ],
+  "discovered_models": {
+    "data": [
+      {
+        "id": "neoproxy/proof-chat",
+        "object": "model",
+        "owned_by": "neoproxy"
+      },
+      {
+        "id": "neoproxy/proof-messages",
+        "object": "model",
+        "owned_by": "neoproxy"
+      },
+      {
+        "id": "neoproxy/proof-responses",
+        "object": "model",
+        "owned_by": "neoproxy"
+      }
+    ],
+    "object": "list"
+  },
+  "build_provenance": {
+    "provided_by": "Neptune integration owner",
+    "source_tree": "/mnt/alias/m2/agents/worktrees/neoproxy-backend-d",
+    "actual_successful_build_command": "flock /run/user/1000/npi-afk-heavy.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-mux-origin-build -- env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-d go build -buildvcs=false -o /mnt/alias/m2/agents/scratch/neoproxy-d/neoproxy-server-fixed ./cmd/server",
+    "candidate_is_final_nightly": false,
+    "scope": "Integrated A/B/C candidate with F evaluator installed; later C PDF-only commit db009 is not included. The receipt does not claim a subsequent nightly binary was exercised."
+  },
+  "actual_proof_command": "flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-e-real-turns -- python scripts/neopi_e2e.py run --scratch /mnt/alias/m2/agents/scratch/neoproxy-backend-e/attempt-20261028-01 --proxy-binary /mnt/alias/m2/agents/scratch/neoproxy-d/neoproxy-server-fixed --proxy-sha 942fc3ba03d02aae54e8017cfebfaee54b88f7be --a-sha 90149239da7bd9cf80bce135b36604e21b3cd291 --b-sha b90aead03fd0f4168acb7afb8c152ebc4b19ee9c --c-sha 828864c03d8ce731fc1a5cef73cac8ab8749e3f3 --npi /home/shayna/.local/bin/npi",
+  "client_provider_definitions": {
+    "chat": {
+      "providers": {
+        "neoproxy-proof-chat": {
+          "baseUrl": "http://127.0.0.1:49545/v1",
+          "apiKey": "NEOPROXY_PROOF_KEY",
+          "api": "openai-completions",
+          "auth": "apiKey",
+          "authHeader": true,
+          "headers": {
+            "X-Client": "neoproxy-e2e-chat"
+          },
+          "models": [
+            {
+              "id": "neoproxy/proof-chat",
+              "name": "NeoProxy isolated proof",
+              "reasoning": false,
+              "input": [
+                "text"
+              ],
+              "contextWindow": 32768,
+              "maxTokens": 512,
+              "compat": {
+                "supportsReasoningEffort": false,
+                "supportsDeveloperRole": false
+              }
+            }
+          ]
+        }
+      }
+    },
+    "responses": {
+      "providers": {
+        "neoproxy-proof-responses": {
+          "baseUrl": "http://127.0.0.1:49545/v1",
+          "apiKey": "NEOPROXY_PROOF_KEY",
+          "api": "openai-responses",
+          "auth": "apiKey",
+          "authHeader": true,
+          "headers": {
+            "X-Client": "neoproxy-e2e-responses"
+          },
+          "models": [
+            {
+              "id": "neoproxy/proof-responses",
+              "name": "NeoProxy isolated proof",
+              "reasoning": false,
+              "input": [
+                "text"
+              ],
+              "contextWindow": 32768,
+              "maxTokens": 512,
+              "compat": {
+                "supportsReasoningEffort": false,
+                "supportsDeveloperRole": false
+              }
+            }
+          ]
+        }
+      }
+    },
+    "messages": {
+      "providers": {
+        "neoproxy-proof-messages": {
+          "baseUrl": "http://127.0.0.1:49545/v1",
+          "apiKey": "NEOPROXY_PROOF_KEY",
+          "api": "anthropic-messages",
+          "auth": "apiKey",
+          "authHeader": true,
+          "headers": {
+            "X-Client": "neoproxy-e2e-messages"
+          },
+          "models": [
+            {
+              "id": "neoproxy/proof-messages",
+              "name": "NeoProxy isolated proof",
+              "reasoning": false,
+              "input": [
+                "text"
+              ],
+              "contextWindow": 32768,
+              "maxTokens": 512,
+              "compat": {
+                "supportsReasoningEffort": false,
+                "supportsDeveloperRole": false
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "metered_windows": {
+    "kind": "day",
+    "capacity_tokens_per_account": 1000000,
+    "measurement_source": "configured-metered",
+    "is_upstream_quota_claim": false
+  },
+  "redaction_review": {
+    "capture_files_checked": 11,
+    "known_upstream_operator_password_or_inference_key_matches": 0,
+    "owner_profile_read": false,
+    "excluded": [
+      "proxy-config.yml",
+      "private.json",
+      "cookies",
+      "credential files",
+      "SQLite state",
+      "raw subprocess captures"
+    ]
+  },
+  "interpretation": [
+    "All three actual NeoPi turns used their configured @proof-* roles after authenticated virtual-selector discovery; each observer saw exactly one client request and a matching persisted proxy request ID.",
+    "Every s0 upstream was actually called and returned injected HTTP 503 before s1 served real official Groq inference. The successful fallback was not a fixture, echo, or local provider.",
+    "Token counts are actual reported usage, including provider reasoning tokens where exposed. --thinking off is the requested client setting, not a claim that the remote model performed no internal reasoning.",
+    "NeoPi cost fields are unpriced custom-provider metadata, not verified billing or a claim of zero upstream monetary cost.",
+    "The isolation proof is the fresh allowlisted process environment, HOME/XDG/TMPDIR/PI_CODING_AGENT_DIR and scratch working directories. The owner profile was not read to compare its contents."
+  ]
+}

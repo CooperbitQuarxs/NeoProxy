@@ -12,15 +12,51 @@ All implementation uses independent m2 topic worktrees created from `origin/nigh
 
 | Slice | Deliverable | Status | PR / merge receipt |
 |---|---|---|---|
-| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Reconciled and merged | PR #7; merge `e99cb4a8de8073db31594cb8b2c619bae89927cb` |
-| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Implemented; focused verification passing | PR #8; implementation `90149239`; identity, focused API/middleware checks and actual server build passed |
-| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Implementation published; Neptune attaching server startup and HTTP routes before final verification | PR #9; implementation checkpoint `ea0323ad` |
-| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Implementation published; shared server attachment and focused protocol checks in progress | PR #12; implementation checkpoint `e6c37482` |
-| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Adapter published; actual Chromium verification awaits executable A/B/C/F chain | Draft PR #13; no browser pass claimed |
-| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Runner prepared; all 16 focused isolation/verifier checks passed; real role turns await integrated backend binary | Draft PR #11; `48b87019`, `91f56b18`; E has not passed |
-| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Signed design and evaluator published; actual hook attachment and final subprocess verification in progress | Draft PR #10; design `7f4f45c3`; early worker dispatch `aa4743ee` |
+| Contract | Reconcile proxy authority, username/password sessions and role meanings; publish this plan before A/B/D consume the contract | Merged | PR #7; `e99cb4a8de8073db31594cb8b2c619bae89927cb` |
+| A | Users, login/logout/session restore, org-admin versus account-owner/member/service authority, per-user keys, grants, SQLite lifecycle | Merged; focused persistence/security/API/middleware checks and actual server build passed | PR #8; `d49b40b37652ba0b0216c613674cb657598d961e` |
+| B | Proxy-owned provider accounts, owner assignment, pooled credential inventory, per-user/account/window attribution, owner statistics and owner-scoped keys | Merged; focused ledger/ownership checks, actual localhost API authority smoke and server build passed | PR #9; `bfa0717b9fa899fd42cce66e308e80f2519fe03c` |
+| C | Persisted virtual models, strict validation, ordered routing and draw cursors, budgets/windows/effort, all terminals, usage, authorized `/v1/models` and real execution | Merged; corrected context-zero bounds, versioned migration, real three-protocol HTTP, cursor/queue/authority checks and executable smoke passed | PR #12; `b9c242a0d7432eafbf64b05fae7a33d8d80d206c` |
+| D | Dashboard login and every product endpoint switched to real backend; honest empty/error/unknown states; retain reference fixture resolver for C tests | Merged; actual Chromium sessions/roles/pools/CRUD/scripts/ledger/expiry/offline acceptance passed, with 9/9 oracle checks and focused mux/owner-denial regressions | PR #13; `f57e8655f06171aa2f32349f520d223111f86803`; tested candidate `ffb72b4a` |
+| E | Scratch NeoPi provider and role selecting a virtual model discovered through `/v1/models`; real first-stage failure then fallback success over all three protocols | Passed all three genuine Groq fallback turns through discovered selectors and scratch roles; no client retries/fallback or owner-profile use | PR #11; receipt `b5c878bc`, candidate `942fc3ba`; `neopi-e2e-receipt-20261028.json` |
+| F | Script design note first, then optional per-virtual-model routing scripts with read-only request/usage/health input and validated decision output | Merged; actual subprocess/kernel/resource recovery and installed-server request-dependent Lua inference passed across all three protocols | PR #10; `e886c6f531014fdcc80ba31bb0b9c2f5828c8b9c` |
 
 A status is not a completion claim. Replace pending receipts only with observed commits, commands and results. A passing mocked upstream is not the E proof.
+
+D's real browser acceptance and E's genuine-provider role-selected proof have
+passed. The merged runtime batch was built and installed locally from nightly
+`f57e8655f06171aa2f32349f520d223111f86803`. This proof/tooling PR records the
+completed delivery; its merge adds no code embedded in the server binary.
+
+### Installed nightly receipt
+
+- Build passed in 20.48 seconds:
+  `flock /run/user/1000/npi-afk-heavy.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-backend-nightly -- env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-d go build -buildvcs=false -o /mnt/alias/m2/agents/scratch/neoproxy-d/neoproxy-nightly-final ./cmd/server`.
+- Installed executable:
+  `/home/shayna/.cache/npi-canary/neoproxy-nightly/neoproxy`,
+  SHA-256 `5528ee89e1264b040b5ec2c48cb54bfa15420a37b1d2c657e031f66504593453`.
+- Prior executable retained alongside it as `neoproxy.previous`,
+  SHA-256 `bc804616b04a23d41e8e5e586cd041b3c80b01bc3fad6f5d1742fbd7242529fa`.
+- Restarted `neoproxy-nightly.service`: active. `/healthz` and `/neo/` returned
+  HTTP 200. The first readiness connection was refused during startup; the bounded
+  readiness retry then succeeded.
+- Existing configured legacy client `/v1/models` access returned HTTP 200 before
+  and after installation. Unauthenticated `/v8/session` returned 401.
+- Actual Chromium opened the installed `/neo/` username/password gate with
+  First-time setup, no page overflow and an empty diagnostic error list. The
+  managed verification tab was closed. No production user was bootstrapped.
+- D's full browser acceptance pinned `ffb72b4a` and artifact SHA-256
+  `e46a22e058b488e68aea513ff66d43457a77bb4b2ddb720738fe4b21525a6048`;
+  64 recorded observations and 23 screenshots remain private under m2. All seven
+  cumulative network failures were deliberate offline-injection observations,
+  not uncaught JavaScript errors. Successful external OAuth completion was not
+  exercised; real owner API-key enrollment and honest OAuth error presentation were.
+- E's three real role-selected turns pin candidate `942fc3ba` and its recorded
+  binary hash, not the later installed bytes. Full commands, correlations, usage
+  and replies are in `neopi-e2e-receipt-20261028.json`. Local synthetic upstream
+  checks are not E evidence.
+- No owner NeoPi profile, runtime configuration, provider credentials or Utopia
+  deployment was changed. Local initial setup remains available through the
+  existing operator-authorized bootstrap flow; HTTPS deployment is still later.
 
 ## Shared implementation contracts
 
