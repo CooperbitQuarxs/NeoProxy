@@ -215,6 +215,7 @@ func (h *Handler) ServePluginAuthURL(c *gin.Context) bool {
 		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to generate authorization url"})
 		return true
 	}
+	bindPluginLoginOwner(ctx, state)
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "url": resp.URL, "state": state})
 	return true
 }
