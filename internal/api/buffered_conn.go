@@ -21,12 +21,12 @@ func (c *bufferedConn) Read(p []byte) (int, error) {
 	return c.reader.Read(p)
 }
 
-func (c *bufferedConn) ConnectionState() tls.ConnectionState {
-	if c == nil || c.Conn == nil {
-		return tls.ConnectionState{}
-	}
-	if stater, ok := c.Conn.(interface{ ConnectionState() tls.ConnectionState }); ok {
-		return stater.ConnectionState()
-	}
-	return tls.ConnectionState{}
+// net/http treats ConnectionState's presence as TLS, even for a zero state.
+// Plain buffered connections must not expose it.
+type bufferedTLSConn struct {
+	bufferedConn
+}
+
+func (c *bufferedTLSConn) ConnectionState() tls.ConnectionState {
+	return c.Conn.(*tls.Conn).ConnectionState()
 }

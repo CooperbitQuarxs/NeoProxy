@@ -58,6 +58,11 @@ POST /v8/session/bootstrap
 
 Password verifiers and session-token hashes are stored in SQLite; plaintext passwords and session tokens are never returned in user records or logs. Sessions expire and are revoked on logout. Password changes and suspension invalidate existing access. The cookie is `Secure` when HTTPS is used. Initial local HTTP operation must not pretend to provide transport confidentiality; HTTPS deployment is a later task. State-changing cookie-authenticated requests must enforce same-origin/CSRF protection.
 
+Session origin, cookie security and the core endpoint scheme use the actual
+accepted transport. The shared HTTP/RESP multiplexer exposes TLS connection state
+only for encrypted connections; plaintext wrappers must not advertise an empty
+TLS state to Go's HTTP server. Same-origin checks remain strict for both schemes.
+
 Sessions last 12 hours without sliding renewal. A `service` principal cannot sign
 into the dashboard. Session responses map `member` to the dashboard role `user`;
 user records retain `member`. Passwords are 12–72 UTF-8 bytes. Organization-admin
