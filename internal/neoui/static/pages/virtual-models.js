@@ -262,7 +262,7 @@ async function editor(ctx, id) {
 				h("details", { style: { marginBottom: "14px" } },
 					h("summary", null, "Protocol & request payload"),
 					field("Protocol", simProtocolSel),
-					field("Client request JSON · optional", payloadInput, "Read-only script input.request. Use messages for Chat/Anthropic or input for Responses. The selected saved model and actual grants remain authoritative. Nothing is sent upstream or recorded."),
+					field("Client request JSON · optional", payloadInput, "Read-only script input.request. Use messages for Chat/Anthropic or input for Responses. The saved model and actual grants remain authoritative. Nothing is sent upstream or recorded. Script request bodies are capped at 256 KiB; the combined request/usage/health snapshot has its own 256 KiB cap and can reject smaller bodies."),
 				),
 				simHost,
 			],
