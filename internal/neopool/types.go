@@ -29,9 +29,9 @@ type Usage struct { UserID string `json:"userId"`; VirtualModelID string `json:"
 // Reservation.ID is a globally unique execution-attempt identity. Repeated IDs
 // are idempotent only when all fields match. Tokens is a conservative upper bound.
 // BudgetFree direct/passthrough attempts do not reserve a budget.
-type Reservation struct { ID string; RequestID string; UserID string; VirtualModelID string; StageID string; AccountID string; AccountIDs []string; Window string; Tokens int64; PerAccount float64; Cap float64; Shared bool; BudgetFree bool }
+type Reservation struct { ID string; RequestID string; UserID string; VirtualModelID string; StageID string; AccountID string; AccountIDs []string; ScopeOwnerID string; Window string; Tokens int64; PerAccount float64; Cap float64; Shared bool; BudgetFree bool }
 // Settlement is final. Known usage replaces the reservation; missing usage
 // conservatively charges its upper bound, separately marked as estimated.
 // CachedTokens is a subset of InputTokens, not an additional billable token count.
 type Settlement struct { ID string; AccountID string; InputTokens int64; OutputTokens int64; CachedTokens int64; UsageKnown bool }
-type AccountStats struct { AccountID string `json:"accountId"`; OwnerID string `json:"ownerId"`; InputTokens int64 `json:"inputTokens"`; OutputTokens int64 `json:"outputTokens"`; CachedTokens int64 `json:"cachedTokens"`; EstimatedTokens int64 `json:"estimatedTokens"`; Attempts int64 `json:"attempts"` }
+type AccountStats struct { AccountID string `json:"accountId"`; OwnerID string `json:"ownerId"`; InputTokens int64 `json:"inputTokens"`; OutputTokens int64 `json:"outputTokens"`; CachedTokens int64 `json:"cachedTokens"`; EstimatedTokens int64 `json:"estimatedTokens"`; ReservedTokens int64 `json:"reservedTokens"`; UnknownAttempts int64 `json:"unknownAttempts"`; Attempts int64 `json:"attempts"` }

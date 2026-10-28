@@ -532,6 +532,7 @@ func (m *Manager) Publish(ctx context.Context, record Record) {
 			record.IsNativeKey = IsNativeAccessProvider(record.AccessProvider)
 		}
 	}
+	observe(ctx, record)
 	// ensure worker is running even if Start was not called explicitly
 	m.Start(context.Background())
 	m.mu.Lock()
