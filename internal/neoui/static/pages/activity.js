@@ -75,7 +75,7 @@ export async function render(ctx) {
 				[
 					{ key: "t", label: "Time", render: (r) => h("span", { class: "mono ink-3" }, fmtTime(r.at)), sortBy: (r) => r.at },
 					...(mine ? [] : [{ key: "who", label: "User", render: (r) => { const u = users.find((x) => x.id === r.userId); return h("span", { class: "row" }, avatar(u ?? { handle: "?" }, "sm"), u?.handle ?? r.userId); }, sortBy: (r) => r.userId }]),
-					{ key: "client", label: "Client", render: (r) => h("span", { class: "ink-2" }, r.client) },
+					{ key: "client", label: "Client", clip: true, width: "12%", render: (r) => h("span", { class: "ink-2", title: r.client }, r.client) },
 					{ key: "asked", label: "Asked for", clip: true, width: "26%", render: (r) => servedName(r.asked, { virtual: r.asked.split("/").length === 2 }), sortBy: (r) => r.asked },
 					{ key: "served", label: "Answered by", clip: true, width: "34%", render: (r) => answeredBy(r) },
 					{ key: "tok", label: "Tokens", num: true, render: (r) => (r.outcome === "ok" ? fmtCompact(r.tokens.in + r.tokens.out) : "–"), sortBy: (r) => r.tokens.in + r.tokens.out },

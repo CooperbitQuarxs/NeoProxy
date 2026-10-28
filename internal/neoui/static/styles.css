@@ -1451,13 +1451,15 @@ kbd {
 }
 .trail .step {
 	display: grid;
-	grid-template-columns: 22px 1fr;
+	grid-template-columns: 22px minmax(0, 1fr);
 	gap: 10px;
 	padding: 8px 10px;
 	border: 1px solid var(--line-1);
 	border-radius: var(--r-control);
 	background: var(--card);
 	font-size: 12.5px;
+	white-space: normal;
+	overflow-wrap: anywhere;
 }
 .trail .step .n {
 	font-family: var(--font-mono);
