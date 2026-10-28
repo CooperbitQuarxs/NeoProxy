@@ -978,6 +978,7 @@ func (h *Handler) GetAuthStatus(c *gin.Context) {
 	h.mu.Unlock()
 	if isPlugin && host != nil && host.HasAuthProvider(provider) {
 		ctx := PopulateAuthContext(context.Background(), c)
+		ctx = oauthInitiatingOwner(ctx, state)
 		resp, handled, errPoll := host.PollLogin(ctx, provider, state, metadata)
 		if handled {
 			if errPoll != nil {
