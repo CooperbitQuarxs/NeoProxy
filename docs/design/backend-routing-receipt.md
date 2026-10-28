@@ -5,8 +5,12 @@
 Branch `feat/backend-routing`, PR #12, targets `nightly` and depends on #8
 (identity) and #9 (account inventory and ledger). The runnable dependency chain
 includes parent startup attachment `73bc0201` and the pool import-cycle correction
-`b90aead0`, integrated at `32b9ddca`. Routing source and HTTP regressions are
-published in signed `cc8364df`.
+`b90aead0`, integrated at `32b9ddca`. Initial routing source and HTTP regressions
+were published in signed `cc8364df`. The current runtime checkpoint is
+`db009f52fa5478bf6fe96bb9dbcacf7bfedc6728`, including the explicit-text-bound
+correction `648304a7`, isolated versioned routing migration `828864c0`, and
+structured Anthropic document coverage. Earlier ready receipt `841d884c` is
+superseded by these corrections and the final checks below.
 
 `Server.initNeoRouting` constructs `neoroute.New` over the shared identity store
 and pool ledger, attaches the resolver to the existing shared handlers, registers
@@ -118,8 +122,8 @@ flock /run/user/1000/npi-afk-heavy.lock \
 ```
 
 Passed with exit status 0. `-buildvcs=false` means the binary does not embed the
-source commit; this is the C production source published as `cc8364df`. Later C
-changes in this receipt are tests/docs only.
+source commit; this initial binary used the C production source published as
+`cc8364df`. The later correction was rebuilt and launched separately below.
 
 The built executable was launched through the polite relay with `--local-model`,
 a private config, private empty auth directory, and private application database,
@@ -129,6 +133,102 @@ catalogue, and unauthenticated `/v8/neo/virtual-models` returning 401. `/health`
 returned 404; no health endpoint success is claimed. The private process exited
 cleanly with status 0 after SIGTERM. Private config and data remain under
 `/mnt/alias/m2/agents/scratch/neoproxy-c-tmp`; no credentials are committed here.
+
+## Final correction and persistence acceptance
+
+F's real installed-evaluator test exposed a genuine runtime defect after the
+initial ready receipt: ordinary string messages with explicit `max_tokens` could
+fail when a custom model had context length zero. The gjson projection used to
+detect non-text input returned an existing empty array, so `Exists()` falsely
+required a catalogue ceiling. The initial HTTP fixtures had known context lengths
+and therefore did not expose this. Source fix `648304a7` inspects structured media
+instead of projection presence or matching ordinary text. Explicit output bounds
+now work for text requests without catalogue context; actual image/audio/file
+inputs still require the known context ceiling. Shared-handler and attached-server
+fixtures now deliberately have context length zero for all three protocols.
+
+Parent also identified the agreed migration convention missing from C's initial
+schema. Source fix `828864c0` uses routing-owned `neoroute_schema` in one short
+transaction, adopts initial unversioned tables without dropping data, rejects
+unsupported versions before product DDL, and atomically commits the initial
+schema and version. It does not change identity's `PRAGMA user_version` or B's
+`neo_pool_schema`. Real tests close/reopen the database, check legacy adoption and
+version isolation, reject a future version, and prove rollback after DDL failure.
+
+After these coherent corrections, `gofmt -w` was applied to their touched files.
+The affected focused checks used the same scratch `TMPDIR`, relay and locks:
+
+```sh
+flock /run/user/1000/npi-afk-light.lock \
+  /home/shayna/.local/share/polite-relay/polite --mem \
+  --label neoproxy-c-bounds-schema-20261028 -- \
+  go test ./internal/neoroute ./sdk/api/handlers ./internal/api \
+  -run 'Test(UpperBound|RoutingMigration|Durable|ConcurrentRouters|AtomicReservation|NeoRouteThreeProtocol|NeoAttachedServer)' \
+  -count=1
+```
+
+Passed: routing `1.028s`, shared handlers `0.501s`, actual API `0.127s`.
+This includes actual three-protocol HTTP fault/fallback at context length zero,
+not merely a pure upper-bound test.
+
+```sh
+flock /run/user/1000/npi-afk-heavy.lock \
+  /home/shayna/.local/share/polite-relay/polite --mem \
+  --label neoproxy-c-bounds-schema-build-20261028 -- \
+  go build -buildvcs=false \
+  -o /mnt/alias/m2/agents/scratch/neoproxy-c-server ./cmd/server
+```
+
+Passed with exit status 0, using runtime source `828864c0`. The corrected binary
+was launched again through `polite --mem`, using the same isolated private config,
+auth directory and application database on `127.0.0.1:19432`. This also exercises
+adoption of the initial smoke database's previously unversioned routing tables.
+The listener became ready; authenticated `/v1/models` returned 200 and an empty
+catalogue; unauthenticated `/v8/neo/virtual-models` returned 401. SIGTERM exited 0.
+F was sent the signed runtime checkpoint for its own affected evaluator test.
+
+Final media followup `db009f52` also recognizes structured Anthropic PDF document
+blocks as non-text media. The additional document regression and all upper-bound
+cases passed (`0.013s`) using the same light-lock/relay command with
+`--label neoproxy-c-media-final-20261028 -- go test ./internal/neoroute -run
+'^TestUpperBound' -count=1`. No additional suites were run.
+
+### Final corrected binary provenance
+
+- Source: `db009f52fa5478bf6fe96bb9dbcacf7bfedc6728`.
+- Binary: `/mnt/alias/m2/agents/scratch/neoproxy-c-server`.
+- SHA-256: `0b2e2a3ef2c675289422589bc2832999df6c8f561adc5aa642621e5280fc25dd`.
+- Build working directory:
+  `/mnt/alias/m2/agents/worktrees/neoproxy-backend-c`.
+- Exact final build command (passed, exit 0):
+
+```sh
+env TMPDIR=/mnt/alias/m2/agents/scratch/neoproxy-c-tmp \
+  flock /run/user/1000/npi-afk-heavy.lock \
+  /home/shayna/.local/share/polite-relay/polite --mem \
+  --label neoproxy-c-media-final-build-20261028 -- \
+  go build -buildvcs=false \
+  -o /mnt/alias/m2/agents/scratch/neoproxy-c-server ./cmd/server
+```
+
+The final binary was launched from the private scratch working directory with:
+
+```sh
+env NEOPROXY_DATA_DIR=/mnt/alias/m2/agents/scratch/neoproxy-c-tmp/smoke-data \
+  MANAGEMENT_PASSWORD= GITHUB_TOKEN= \
+  /home/shayna/.local/share/polite-relay/polite --mem \
+  --label neoproxy-c-media-launch-20261028 -- \
+  /mnt/alias/m2/agents/scratch/neoproxy-c-server \
+  --config /mnt/alias/m2/agents/scratch/neoproxy-c-tmp/server-smoke.yaml \
+  --local-model
+```
+
+This exact final binary reached listening-ready on localhost. Its authenticated
+`GET /v1/models` returned 200 with `{"data":[],"object":"list"}`; unauthenticated
+`GET /v8/neo/virtual-models` returned 401. It exited 0 after SIGTERM. The binary
+contains C without F's evaluator; F separately reported its own full evaluator
+checks and installed three-protocol request-dependent Lua test passing against
+C's corrected runtime. That is F's receipt, not a C claim of E provider proof.
 
 ## Integration notes
 
