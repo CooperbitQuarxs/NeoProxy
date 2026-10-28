@@ -1,12 +1,11 @@
 // Shared widgets. Every page composes these; pages never write raw markup for
-// a card, table, ring, chain or chip. Names shared with NeoDeck: .neo-ring,
-// .neo-chain, .neo-preview.
+// a card, table, ring, chain or chip.
 
 import { h, svgEl, icon, append, clear, fmtPct, copyText } from "./dom.js";
 
 // ---------- page chrome ----------
 
-export function pageHead({ title, desc, actions = [], preview = false, back }) {
+export function pageHead({ title, desc, actions = [], back }) {
 	return h(
 		"div",
 		{ class: "page-head" },
@@ -14,15 +13,11 @@ export function pageHead({ title, desc, actions = [], preview = false, back }) {
 			"div",
 			{ class: "titles" },
 			back ? h("a", { class: "back", href: back.href }, icon("arrowLeft", 14), back.label) : null,
-			h("h1", null, title, preview ? previewChip() : null),
+			h("h1", null, title),
 			desc ? h("p", { class: "desc" }, desc) : null,
 		),
 		actions.length ? h("div", { class: "actions" }, actions) : null,
 	);
-}
-
-export function previewChip(text = "preview data") {
-	return h("span", { class: "neo-preview", title: "Served by the dashboard's fixture adapter until the backend contract lands" }, text);
 }
 
 export function card({ title, sub, actions, body, foot, cls = "", flush = false, rise = true }) {
@@ -120,8 +115,11 @@ export function search(placeholder, onInput, attrs = {}) {
 	return h("div", { class: "search" }, icon("search", 15), input({ type: "search", placeholder, onInput: (e) => onInput(e.target.value), ...attrs }));
 }
 
+let fieldSerial = 0;
 export function field(label, control, hint, error) {
-	return h("div", { class: "field" }, h("label", null, label), control, error ? h("div", { class: "error" }, error) : hint ? h("div", { class: "hint" }, hint) : null);
+	const target = control?.matches?.("input,textarea,select") ? control : control?.querySelector?.("input,textarea,select");
+	if (target && !target.id) target.id = `neo-field-${++fieldSerial}`;
+	return h("div", { class: "field" }, h("label", { for: target?.id }, label), control, error ? h("div", { class: "error" }, error) : hint ? h("div", { class: "hint" }, hint) : null);
 }
 
 export function seg(options, value, onChange) {
@@ -178,9 +176,10 @@ export function toggle(checked, onChange, label, { disabled = false, showLabel =
 
 // A ring whose fill is `used` (0..1 of the account window) and whose dashed
 // marker is `budget` (0..1). Size in px. The label shows the used percentage.
-export function ring({ used = 0, budget = null, size = 36, label = true, large = false, title }) {
+export function ring({ used = null, budget = null, size = 36, label = true, large = false, title }) {
 	const r = size / 2 - 3;
 	const c = 2 * Math.PI * r;
+	if (!Number.isFinite(used)) return h("span", { class: `neo-ring ${large ? "lg" : ""}`, title: title ?? "Usage unknown", role: "img", "aria-label": "Usage unknown", style: { width: `${size}px`, height: `${size}px` } }, h("span", { class: "ring-label" }, "?"));
 	const u = Math.max(0, Math.min(1, used));
 	const kind = budget !== null && u >= budget ? "bad" : budget !== null && u >= budget * 0.8 ? "warn" : u >= 0.9 ? "bad" : u >= 0.7 ? "warn" : "";
 	const el = h("span", { class: `neo-ring ${kind} ${large ? "lg" : ""}`, title, role: "img", "aria-label": `${fmtPct(u)} used${budget !== null ? ` of ${fmtPct(budget)} allowed` : ""}` });
@@ -337,14 +336,21 @@ export function toast(text, kind = "ok", ms = 2800) {
 	return el;
 }
 
+const openDialogs = new Set();
+export function dismissDialogs() {
+	for (const close of [...openDialogs]) close();
+}
+
 export function dialog({ title, sub, body, actions, onClose }) {
 	const backdrop = h("div", { class: "dialog-backdrop", onClick: (e) => e.target === backdrop && close() });
 	const close = () => {
+		if (!openDialogs.delete(close)) return;
 		backdrop.remove();
 		document.removeEventListener("keydown", esc);
 		onClose?.();
 	};
 	const esc = (e) => e.key === "Escape" && close();
+	openDialogs.add(close);
 	document.addEventListener("keydown", esc);
 	backdrop.append(h("div", { class: "dialog", role: "dialog", "aria-modal": "true", "aria-label": title }, h("h2", null, title), sub ? h("div", { class: "sub" }, sub) : null, body, actions ? h("div", { class: "actions" }, actions(close)) : null));
 	document.body.append(backdrop);
@@ -615,21 +621,24 @@ export function trail(decision, { models, accounts, users }) {
 	const accName = (id) => accounts.find((a) => a.id === id)?.label ?? "an account in the pool";
 	(decision.trail ?? []).forEach((t, i) => {
 		if (t.kind === "stage") {
-			const cls = t.chosen ? "served" : "skipped";
+			const cls = t.chosen && !t.skipped && decision.outcome === "ok" ? "served" : "skipped";
 			let why;
-			if (t.chosen) why = `served from ${accName(t.chosen)} · ${fmtPct(t.total, 1)} of ${fmtPct(t.cap)} cap used`;
+			if (t.skipped === "upstream-error") why = `attempt${t.chosen ? ` from ${accName(t.chosen)}` : ""} failed${t.failureStatus ? ` (status ${t.failureStatus})` : ""}; the chain continued`;
 			else if (t.skipped === "cap") why = `skipped: stage cap reached (${fmtPct(t.total, 1)} of ${fmtPct(t.cap)})`;
 			else if (t.skipped === "per-account") why = "skipped: every account at its per-account budget";
-			else if (t.skipped === "unhealthy") why = "skipped: no healthy account in the pool";
-			else why = "skipped";
+			else if (t.skipped === "unhealthy") why = "skipped: no eligible healthy, metered account in the pool";
+			else if (t.skipped === "script") why = "skipped: the routing script selected another stage";
+			else if (t.skipped) why = `skipped: ${t.skipped}`;
+			else if (t.chosen) why = `selected ${accName(t.chosen)} · ${fmtPct(t.total, 1)} of ${fmtPct(t.cap)} cap used${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`;
+			else why = "no account selected";
 			steps.push(h("div", { class: `step ${cls}` }, h("div", { class: "n" }, `${t.index + 1}`), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, why))));
 		} else if (t.kind === "terminal") {
 			const passthrough = t.terminal.kind === "passthrough";
 			const title = passthrough ? "Fall through" : t.terminal.kind === "queue" ? "Queued" : "Limit error";
-			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · served without a budget from ${accName(decision.accountId)}` : decision.message) : t.terminal.message;
+			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · selected without a budget from ${accName(decision.accountId)}` : decision.message ?? decision.reason) : t.terminal.message || (t.terminal.kind === "queue" ? "Waiting for a stage that can serve." : "No stage could serve; returned a limit error.");
 			steps.push(h("div", { class: `step ${passthrough && decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "end"), h("div", null, h("div", { class: "what" }, title), h("div", { class: "why" }, detail))));
 		} else if (t.kind === "direct") {
-			steps.push(h("div", { class: "step served" }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}`))));
+			steps.push(h("div", { class: `step ${decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`))));
 		} else if (t.kind === "denied") {
 			steps.push(h("div", { class: "step end" }, h("div", { class: "n" }, "✕"), h("div", null, h("div", { class: "what" }, "Denied"), h("div", { class: "why" }, t.virtualModel ? "This user is not granted that virtual model" : `This user has no direct access to ${t.providerId}`))));
 		} else {
@@ -653,7 +662,8 @@ export function accountState(a) {
 	return status("", "Disabled");
 }
 
-export function windowsRow(windows, { now = Date.now() } = {}) {
+export function windowsRow(windows = [], { now = Date.now() } = {}) {
+	if (!windows.length) return h("span", { class: "ink-3" }, "Quota unknown");
 	return h(
 		"div",
 		{ class: "windows" },

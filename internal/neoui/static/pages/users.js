@@ -3,7 +3,7 @@
 // provider access), their limits, their keys, and what they did recently.
 
 import { h, icon, fmtPct, fmtAgo, fmtTime, fmtCompact, plural, clear, copyText } from "../lib/dom.js";
-import { neo, sources, onChange, ApiError } from "../lib/client.js";
+import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, status, servedName, ring, ringRow, field, input, select, seg, toggle, dialog, confirm, toast, empty, spinner, errorState, outcomeBadge, kv, table } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -19,16 +19,15 @@ async function list(ctx) {
 	root.append(
 		pageHead({
 			title: "Users",
-			desc: "People and services that sign in with a NeoProxy key. A member only ever sees neoproxy/… names; direct provider access is a deliberate grant.",
-			preview: sources.users === "fixture",
-			actions: [btn("Invite user", { icon: "plus", cls: "primary", onClick: () => invite(ctx) })],
+			desc: "People sign in with username/password; services use inference keys. Grants and direct provider access control what each user's keys can serve.",
+			actions: [btn("Create user", { icon: "plus", cls: "primary", onClick: () => invite(ctx) })],
 		}),
 	);
 	const host = h("div");
 	root.append(host, spinner());
 	let users, vms, usage, requests;
 	try {
-		[users, vms, usage, requests] = await Promise.all([neo.users(), neo.virtualModels(), neo.usage(), neo.requests({ limit: 400 })]);
+		[users, vms, usage, requests] = await Promise.all([neo.users(), neo.virtualModels(), neo.usage(), neo.requests({ limit: 200 })]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;
@@ -63,38 +62,40 @@ async function list(ctx) {
 }
 
 function invite(ctx) {
-	const draft = { handle: "", name: "", role: "member", state: "invited", grants: [], providerAccess: [], limits: { rpm: 60, tokensPerDay: 2_000_000 }, keys: [] };
+	const draft = { handle: "", name: "", password: "", role: "member", state: "active", grants: [], providerAccess: [], limits: { rpm: null, tokensPerDay: null }, keys: [] };
 	const err = h("div", { class: "error hidden" });
 	dialog({
-		title: "Invite a user",
-		sub: "They get an invited account with no key. Issue a key from their page when they are ready.",
+		title: "Create a user",
+		sub: "Set a password for a dashboard identity. A service uses inference keys and cannot sign in to this dashboard.",
 		body: [
 			field("Handle", input({ mono: true, placeholder: "lena", onInput: (e) => (draft.handle = e.target.value.trim().toLowerCase()) }), "Lowercase, what appears in logs."),
 			field("Name", input({ placeholder: "Lena", onInput: (e) => (draft.name = e.target.value) })),
+			field("Initial password", input({ type: "password", autocomplete: "new-password", onInput: (e) => (draft.password = e.target.value) }), "Required for human dashboard login. Never returned in user records."),
 			field(
 				"Role",
 				seg(
 					[
 						{ value: "member", label: "Member" },
+						{ value: "owner", label: "Owner" },
 						{ value: "service", label: "Service" },
 						{ value: "admin", label: "Admin" },
 					],
 					draft.role,
 					(v) => (draft.role = v),
 				),
-				"Services are machines (NeoDeck, CI); admins see this dashboard.",
+				"Owners manage their own accounts, not organization policy. Services are machines; admins manage this organization.",
 			),
 			err,
 		],
 		actions: (close) => [
 			btn("Cancel", { onClick: close }),
-			btn("Invite", {
+			btn("Create", {
 				cls: "primary",
 				onClick: async () => {
 					try {
 						const u = await neo.saveUser(draft);
 						close();
-						toast(`Invited ${u.handle}`);
+						toast(`Created ${u.handle}`);
 						ctx.navigate(`users/${u.id}`);
 					} catch (e) {
 						err.textContent = e.message;
@@ -129,6 +130,7 @@ async function detail(ctx, id) {
 		try {
 			const saved = await neo.saveUser(draft);
 			Object.assign(user, saved);
+			delete draft.password;
 			toast(`Saved ${user.handle}`);
 			setDirty(false);
 		} catch (e) {
@@ -151,10 +153,18 @@ async function detail(ctx, id) {
 			back: { href: "#/users", label: "Users" },
 			title: h("span", { class: "row" }, avatar(user), user.handle, roleBadge(user), stateStatus(user)),
 			desc: `${user.name} · joined ${fmtAgo(user.createdAt)}`,
-			preview: sources.users === "fixture",
 			actions: [suspendBtn, saveBtn],
 		}),
 	);
+	root.append(card({
+		title: "Identity & access",
+		body: h("div", { class: "grid c2" },
+			field("Name", input({ value: draft.name, onInput: (e) => { draft.name = e.target.value; setDirty(); } })),
+			field("Role", select(["admin", "owner", "member", "service"].map((role) => ({ value: role, label: role })), draft.role, (v) => { draft.role = v; setDirty(); }), "Owner does not grant organization administration."),
+			field("State", select(["active", "invited", "suspended"].map((state) => ({ value: state, label: state })), draft.state, (v) => { draft.state = v; setDirty(); }), "Suspension revokes access immediately."),
+			field("Reset password", input({ type: "password", autocomplete: "new-password", placeholder: "Leave empty to keep current password", onInput: (e) => { if (e.target.value) draft.password = e.target.value; else delete draft.password; setDirty(); } }), "Changing a password revokes existing sessions and inference keys."),
+		),
+	}));
 
 	// ----- catalogue -----
 	const catHost = h("div", { class: "list" });
@@ -252,15 +262,17 @@ async function detail(ctx, id) {
 					"div",
 					{ class: "li" },
 					icon("key", 15),
-					h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, k.prefix), " ", h("span", { class: "ink-2", style: { fontWeight: 400 } }, k.label)), h("div", { class: "sub" }, `issued ${fmtAgo(k.createdAt)} · ${k.lastUsedAt ? `last used ${fmtAgo(k.lastUsedAt)}` : "never used"}`)),
+					h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, k.prefix), " ", h("span", { class: "ink-2", style: { fontWeight: 400 } }, k.label)), h("div", { class: "sub" }, `issued ${fmtAgo(k.createdAt)} · ${k.lastUsedAt ? `last used ${fmtAgo(k.lastUsedAt)}` : "never used"} · ${k.accountIds?.length ? `scoped to ${k.accountIds.length} accounts` : "all currently authorized accounts"}`)),
 					btn("Revoke", {
 						cls: "danger sm",
 						onClick: async () => {
 							if (!(await confirm({ title: `Revoke ${k.prefix}?`, text: `Anything using "${k.label}" stops working now.`, confirmLabel: "Revoke", danger: true }))) return;
-							await neo.revokeKey(user.id, k.id);
-							user.keys = user.keys.filter((x) => x.id !== k.id);
-							toast("Key revoked");
-							renderKeys();
+							try {
+								await neo.revokeKey(user.id, k.id);
+								user.keys = user.keys.filter((x) => x.id !== k.id);
+								toast("Key revoked");
+								renderKeys();
+							} catch (e) { toast(e.message, "bad"); }
 						},
 					}),
 				),
@@ -283,7 +295,7 @@ async function detail(ctx, id) {
 			card({
 				title: "Keys",
 				sub: "Bearer tokens this user sends. Each key is a separate line in Activity.",
-				actions: [btn("Issue key", { icon: "plus", cls: "outline sm", onClick: () => issueKey(user, renderKeys) })],
+				actions: [btn("Issue key", { icon: "plus", cls: "outline sm", onClick: () => issueKey(user, renderKeys, user.role === "owner" ? vault.accounts.filter((a) => a.ownerId === user.id) : vault.accounts) })],
 				flush: true,
 				body: keysHost,
 			}),
@@ -314,27 +326,36 @@ async function detail(ctx, id) {
 	setDirty(false);
 }
 
-function issueKey(user, after) {
+function issueKey(user, after, accounts) {
 	let label = "";
+	const scope = new Set();
+	const err = h("div", { class: "error", role: "alert" });
 	dialog({
 		title: `Issue a key for ${user.handle}`,
-		sub: "Name it after the thing that will use it.",
-		body: field("Label", input({ placeholder: "NeoDeck on Utopia", autofocus: true, onInput: (e) => (label = e.target.value) })),
+		sub: "Inference only; this key never signs in to the dashboard. A scope narrows current grants, never expands them.",
+		body: [
+			field("Label", input({ placeholder: "Client or deployment name", autofocus: true, onInput: (e) => (label = e.target.value) })),
+			field("Account scope", h("div", { class: "row wrap" }, accounts.map((a) => toggle(false, (enabled) => enabled ? scope.add(a.id) : scope.delete(a.id), `${a.providerId} · ${a.label}`))), user.role === "owner" ? "An owner key requires at least one owned account." : "Optional. No selection means all currently authorized accounts."),
+			err,
+		],
 		actions: (close) => [
 			btn("Cancel", { onClick: close }),
 			btn("Issue", {
 				cls: "primary",
 				onClick: async () => {
-					const { key, secret } = await neo.createKey(user.id, label || "unnamed");
-					user.keys.push(key);
-					close();
-					after();
-					dialog({
-						title: "Copy the key now",
-						sub: "It is shown once. NeoProxy keeps only a hash.",
-						body: h("div", { class: "row" }, h("code", { style: { flex: 1, padding: "8px 10px", background: "var(--panel)", border: "1px solid var(--line-2)", borderRadius: "8px", overflowWrap: "anywhere" } }, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => toast((await copyText(secret)) ? "Copied" : "Clipboard unavailable", "warn") })),
-						actions: (close2) => [btn("Done", { cls: "primary", onClick: close2 })],
-					});
+					try {
+						if (user.role === "owner" && !scope.size) throw new Error("Select at least one owned account for this owner key.");
+						const { key, secret } = await neo.createKey(user.id, label || "unnamed", scope.size ? [...scope] : undefined);
+						user.keys.push(key);
+						close();
+						after();
+						dialog({
+							title: "Copy the key now",
+							sub: "It is shown once. NeoProxy keeps only a hash.",
+							body: h("div", { class: "row" }, h("code", { style: { flex: 1, padding: "8px 10px", background: "var(--panel)", border: "1px solid var(--line-2)", borderRadius: "8px", overflowWrap: "anywhere" } }, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => toast((await copyText(secret)) ? "Copied" : "Clipboard unavailable", "warn") })),
+							actions: (close2) => [btn("Done", { cls: "primary", onClick: close2 })],
+						});
+					} catch (e) { err.textContent = e.message; }
 				},
 			}),
 		],

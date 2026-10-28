@@ -2,7 +2,7 @@
 // members see their own. Selecting a row docks the routing trail on the right.
 
 import { h, icon, fmtTime, fmtDate, fmtCompact, fmtDuration, clear } from "../lib/dom.js";
-import { neo, sources, onChange } from "../lib/client.js";
+import { neo } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, servedName, search, select, seg, table, inspector, section, kv, trail, outcomeBadge, empty, spinner, errorState } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -12,14 +12,13 @@ export async function render(ctx) {
 		pageHead({
 			title: "Activity",
 			desc: mine ? "Your requests and how each one was answered." : "Every request through the proxy, who asked, what they asked for, and which stage and account answered.",
-			preview: sources.activity === "fixture",
 		}),
 	);
 	const host = h("div");
 	root.append(host, spinner());
 	let users, models, vault, vms;
 	try {
-		[users, models, vault, vms] = await Promise.all([neo.users(), neo.models(), neo.vault(), neo.virtualModels()]);
+		[users, models, vault, vms] = await Promise.all([mine ? neo.user(session.userId).then((u) => [u]) : neo.users(), neo.models(), neo.vault(), neo.virtualModels()]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;
@@ -64,8 +63,10 @@ export async function render(ctx) {
 	host.append(toolbar, card({ flush: true, body: tableHost }));
 
 	async function load() {
-		rows = await neo.requests({ limit: 200, userId: filters.userId || undefined, outcome: filters.outcome || undefined, asked: filters.asked || undefined });
-		renderTable();
+		try {
+			rows = await neo.requests({ limit: 200, userId: filters.userId || undefined, outcome: filters.outcome || undefined, asked: filters.asked || undefined });
+			renderTable();
+		} catch (e) { tableHost.replaceChildren(errorState(e, load)); }
 	}
 	function renderTable() {
 		clear(tableHost);
@@ -73,8 +74,8 @@ export async function render(ctx) {
 			table(
 				[
 					{ key: "t", label: "Time", render: (r) => h("span", { class: "mono ink-3" }, fmtTime(r.at)), sortBy: (r) => r.at },
-					...(mine ? [] : [{ key: "who", label: "User", render: (r) => { const u = users.find((x) => x.id === r.userId); return h("span", { class: "row" }, avatar(u, "sm"), u.handle); }, sortBy: (r) => r.userId }]),
-					{ key: "client", label: "Client", render: (r) => h("span", { class: "ink-2" }, r.client) },
+					...(mine ? [] : [{ key: "who", label: "User", render: (r) => { const u = users.find((x) => x.id === r.userId); return h("span", { class: "row" }, avatar(u ?? { handle: "?" }, "sm"), u?.handle ?? r.userId); }, sortBy: (r) => r.userId }]),
+					{ key: "client", label: "Client", clip: true, width: "12%", render: (r) => h("span", { class: "ink-2", title: r.client }, r.client) },
 					{ key: "asked", label: "Asked for", clip: true, width: "26%", render: (r) => servedName(r.asked, { virtual: r.asked.split("/").length === 2 }), sortBy: (r) => r.asked },
 					{ key: "served", label: "Answered by", clip: true, width: "34%", render: (r) => answeredBy(r) },
 					{ key: "tok", label: "Tokens", num: true, render: (r) => (r.outcome === "ok" ? fmtCompact(r.tokens.in + r.tokens.out) : "–"), sortBy: (r) => r.tokens.in + r.tokens.out },
@@ -117,13 +118,13 @@ export async function render(ctx) {
 							["User", u ? h("span", { class: "row" }, avatar(u, "sm"), u.handle) : r.userId],
 							key ? ["Key", h("code", null, `${key.prefix} · ${key.label}`)] : null,
 							["Client", r.client],
-							["Tokens", r.outcome === "ok" ? `${fmtCompact(r.tokens.in)} in · ${fmtCompact(r.tokens.out)} out · ${fmtCompact(r.tokens.cached)} cached` : "none"],
+							["Tokens", r.outcome === "ok" ? `${fmtCompact(r.tokens.in)} in · ${fmtCompact(r.tokens.out)} out · ${fmtCompact(r.tokens.cached)} cached` : "not reported"],
 							["Latency", fmtDuration(r.latencyMs)],
 						]),
 					),
 				],
 				foot: [
-					vm ? btn("Open chain", { icon: "route", cls: "outline", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) }) : null,
+					vm && !mine ? btn("Open chain", { icon: "route", cls: "outline", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) }) : null,
 					mine ? null : btn("Open user", { icon: "user", cls: "outline", onClick: () => ctx.navigate(`users/${r.userId}`) }),
 				],
 			}),

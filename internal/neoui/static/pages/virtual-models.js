@@ -5,7 +5,7 @@
 // stage and a simulator that shows where a user's request would land.
 
 import { h, icon, fmtPct, fmtAgo, plural, clear } from "../lib/dom.js";
-import { neo, sources, onChange, ApiError } from "../lib/client.js";
+import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, servedName, chainRail, inspector, section, field, input, select, seg, toggle, modelPicker, trail, ring, kv, confirm, toast, empty, spinner, errorState, drawLabel } from "../lib/components.js";
 
 export async function render(ctx) {
@@ -21,7 +21,6 @@ async function catalogue(ctx) {
 		pageHead({
 			title: "Virtual models",
 			desc: "Names you serve that are not any provider's model. Each is a chain: stages that draw from pooled accounts in measured sips, a demotion when a stage is spent, and a clear end.",
-			preview: sources["virtual-models"] === "fixture",
 			actions: [btn("New virtual model", { icon: "plus", cls: "primary", onClick: () => ctx.navigate("virtual-models/new") })],
 		}),
 	);
@@ -94,7 +93,7 @@ async function editor(ctx, id) {
 	const draft = structuredClone(vm);
 	let dirty = isNew;
 	let selected = draft.stages[0]?.id ?? null; // stage id or "terminal"
-	let simUser = users.find((u) => u.role === "member" && u.state === "active")?.id ?? users[0].id;
+	let simUser = users.find((u) => u.role === "member" && u.state === "active")?.id ?? users[0]?.id;
 	let simResult = null;
 	const errors = {};
 
@@ -109,8 +108,7 @@ async function editor(ctx, id) {
 	const head = pageHead({
 		back: { href: "#/virtual-models", label: "Virtual models" },
 		title: h("span", { class: "row", id: "vm-title" }, isNew ? "New virtual model" : servedName(draft.served, { virtual: true })),
-		desc: isNew ? "Name it, add stages, and try it against a user before saving." : null,
-		preview: sources["virtual-models"] === "fixture",
+		desc: isNew ? "Name it, add stages and save. Then try it against a user's actual grants." : null,
 		actions: [
 			isNew ? null : btn("Delete", { icon: "trash", cls: "danger", onClick: remove }),
 			btn("Discard", { cls: "outline", onClick: () => (dirty ? discard() : ctx.navigate("virtual-models")) }),
@@ -118,11 +116,13 @@ async function editor(ctx, id) {
 		],
 	});
 	root.append(head);
+	let resetSimulation = () => {};
 	const setDirty = (v = true) => {
 		dirty = v;
 		saveBtn.textContent = "";
 		saveBtn.append(icon("save", 15), dirty ? "Save changes" : "Saved");
 		saveBtn.disabled = !dirty;
+		if (v) resetSimulation();
 	};
 
 	// ----- identity -----
@@ -159,6 +159,17 @@ async function editor(ctx, id) {
 			),
 		}),
 	);
+	if (ctx.session.role === "admin") {
+		root.append(card({
+			title: "Routing script · optional",
+			sub: "Lua source (maximum 16 KiB). Empty uses the standard chain. Read-only global input contains asked, protocol, userId, request, virtualModel, stages and account health. Inspect input.request.messages or input.request.input for the client's payload. Return exactly {stageId='s', accountId='a'} to propose an eligible candidate.",
+			body: field("Lua source", h("textarea", {
+				class: "textarea mono", rows: 9, spellcheck: "false", "aria-label": "Lua routing script",
+				placeholder: "Leave empty for standard routing",
+				onInput: (e) => { draft.script = e.target.value; setDirty(); },
+			}, draft.script ?? ""), "Save before simulating. No OS, filesystem, network or module access. Scripts cannot override grants, ownership, exposure, health or budgets. Invalid syntax/runtime results are backend errors."),
+		}));
+	}
 
 	// ----- chain -----
 	const railHost = h("div");
@@ -205,6 +216,7 @@ async function editor(ctx, id) {
 	function addStage() {
 		const usedProviders = new Set(draft.stages.map((s) => s.model.split("/")[0]));
 		const candidate = models.find((m) => m.exposed && vault.providers.find((p) => p.id === m.providerId)?.exposed && !usedProviders.has(m.providerId)) ?? models.find((m) => m.exposed);
+		if (!candidate) { toast("No exposed provider models are available. Add an account and expose its catalogue first.", "warn"); return; }
 		const s = newStage(candidate.id);
 		draft.stages.push(s);
 		selected = s.id;
@@ -216,6 +228,23 @@ async function editor(ctx, id) {
 
 	// ----- simulator -----
 	const simHost = h("div");
+	let simProtocol = "openai", simPayload = "";
+	const simProtocolSel = select([
+		{ value: "openai", label: "OpenAI Chat Completions" },
+		{ value: "openai-response", label: "OpenAI Responses" },
+		{ value: "claude", label: "Anthropic Messages" },
+	], simProtocol, (value) => { simProtocol = value; runSim(); }, { "aria-label": "Simulation protocol" });
+	const payloadInput = h("textarea", {
+		class: "textarea mono", rows: 6, spellcheck: "false", "aria-label": "Simulation request JSON",
+		placeholder: 'Optional client JSON, e.g. {"messages":[{"role":"user","content":"Example request"}]}',
+		onInput: (e) => {
+			simPayload = e.target.value;
+			++simGeneration;
+			simResult = null;
+			simHost.replaceChildren(h("div", { class: "ink-3" }, "Request changed. Run simulation to evaluate this payload."));
+			renderRail();
+		},
+	});
 	const simUserSel = select(
 		users.map((u) => ({ value: u.id, label: `${u.handle} · ${u.role}` })),
 		simUser,
@@ -223,31 +252,55 @@ async function editor(ctx, id) {
 			simUser = v;
 			runSim();
 		},
+		{ "aria-label": "Simulate as user" },
 	);
 	root.append(
 		card({
 			title: "Try it",
-			sub: "Where would a request land right now, with today's usage? The lit stage on the rail is the answer; the steps explain why.",
-			actions: [h("div", { style: { width: "220px" } }, simUserSel)],
-			body: simHost,
+			sub: "Uses the saved model, the selected user's actual grants and current ledger. Save changes first; simulation never grants access or records usage.",
+			actions: [h("div", { style: { width: "220px" } }, simUserSel), btn("Run simulation", { icon: "refresh", cls: "outline sm", onClick: runSim })],
+			body: [
+				h("details", { style: { marginBottom: "14px" } },
+					h("summary", null, "Protocol & request payload"),
+					field("Protocol", simProtocolSel),
+					field("Client request JSON · optional", payloadInput, "Read-only script input.request. Use messages for Chat/Anthropic or input for Responses. The saved model and actual grants remain authoritative. Nothing is sent upstream or recorded. Script request bodies are capped at 256 KiB; the combined request/usage/health snapshot has its own 256 KiB cap and can reject smaller bodies."),
+				),
+				simHost,
+			],
 		}),
 	);
-	function runSim() {
-		const user = users.find((u) => u.id === simUser);
+	let simGeneration = 0;
+	resetSimulation = () => {
+		++simGeneration;
+		simResult = null;
+		simHost.replaceChildren(h("div", { class: "ink-3" }, "Save changes before running a real simulation."));
+		renderRail();
+	};
+	async function runSim() {
+		const generation = ++simGeneration;
+		simResult = null;
 		clear(simHost);
-		if (!draft.stages.length) {
-			simHost.append(h("div", { class: "ink-3" }, "Add a stage first."));
-			simResult = null;
+		if (dirty || isNew || !simUser) {
+			simHost.append(h("div", { class: "ink-3" }, !simUser ? "No users available." : "Save changes before running a real simulation."));
 			renderRail();
 			return;
 		}
-		const probe = { ...draft, id: draft.id ?? "vm-draft", name: draft.name || "draft" };
-		const probeUser = { ...user, grants: user.grants.some((g) => g.virtualModel === probe.id) ? user.grants : [...user.grants, { virtualModel: probe.id, allotment: 1 }] };
-		simResult = neo.resolveWith({ asked: `neoproxy/${probe.name}`, user: probeUser, virtualModels: [probe] });
-		const granted = user.grants.some((g) => g.virtualModel === draft.id);
-		simHost.append(
-			h("div", { class: "grid c1-2", style: { paddingTop: "4px" } }, h("div", null, h("div", { class: "row", style: { marginBottom: "8px" } }, avatar(user), h("div", null, h("div", { style: { fontWeight: 500 } }, user.handle), h("div", { class: "ink-3", style: { fontSize: "12px" } }, granted || isNew ? (granted ? `granted, allotment ${fmtPct(user.grants.find((g) => g.virtualModel === draft.id).allotment)}` : "not granted yet; simulated at 100%") : "not granted; simulated at 100%"))), h("div", { class: "row" }, simResult.outcome === "ok" ? badge("would be served", "ok") : simResult.outcome === "queued" ? badge("would queue", "cyan") : simResult.outcome === "limited" ? badge("would get a limit error", "warn") : badge("would fail", "bad"))), trail(simResult, { models, accounts: vault.accounts, users })),
-		);
+		simHost.append(spinner());
+		try {
+			let payload;
+			if (simPayload.trim()) {
+				try { payload = JSON.parse(simPayload); }
+				catch (e) { throw new Error(`Invalid simulation request JSON: ${e.message}`); }
+				if (!payload || Array.isArray(payload) || typeof payload !== "object") throw new Error("Simulation request JSON must be an object.");
+			}
+			const result = await neo.simulate({ asked: vm.served, userId: simUser, protocol: simProtocol, request: payload });
+			if (generation !== simGeneration || !simHost.isConnected) return;
+			simResult = result;
+			simHost.replaceChildren(trail(result, { models, accounts: vault.accounts, users }));
+		} catch (e) {
+			if (generation !== simGeneration || !simHost.isConnected) return;
+			simHost.replaceChildren(errorState(e, runSim));
+		}
 		renderRail();
 	}
 
@@ -514,12 +567,14 @@ async function editor(ctx, id) {
 			return;
 		}
 		try {
-			const saved = await neo.saveVirtualModel(draft, ctx.session.handle);
+			const saved = await neo.saveVirtualModel(draft);
 			toast(`Saved neoproxy/${saved.name}`);
 			if (isNew) ctx.navigate(`virtual-models/${saved.id}`);
 			else {
 				Object.assign(vm, saved);
+				Object.assign(draft, saved);
 				setDirty(false);
+				runSim();
 			}
 		} catch (e) {
 			toast(e instanceof ApiError ? e.message : "Could not save", "bad");

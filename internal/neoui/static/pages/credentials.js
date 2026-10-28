@@ -55,7 +55,7 @@ export async function render(ctx) {
 		} catch (error) { toast(`Refresh failed: ${error.message}`, "bad"); }
 		finally { refreshAll.disabled = false; }
 	} });
-	root.append(pageHead({ title: "Credentials", desc: "The engine's own auth files under auths/. Kept for proxies that run without a NeoPi core; while a core is linked these are the fallback, not the source.", actions: [refreshAll, addButton()] }));
+	root.append(pageHead({ title: "Credentials", desc: "The proxy engine's authoritative provider credentials. This organization-admin surface manages provider login, storage and refresh.", actions: [refreshAll, addButton()] }));
 	const host = h("div");
 	root.append(h("div", { class: "row wrap", style: { marginBottom: "14px" } },
 		search("Search name, email or provider", (value) => { query = value.toLowerCase(); renderTable(); }),
@@ -81,7 +81,7 @@ export async function render(ctx) {
 			{ key: "models", label: "Models served", num: true, render: (entry) => fmtInt(models.get(nameOf(entry))?.models?.length) },
 		], rows, { onRow: open, keyOf: nameOf, selectedKey: selected, emptyState: entries.length
 			? empty({ icon: "search", title: "No matching credentials", hint: "Try another name, email or state." })
-			: empty({ icon: "shield", title: "No local credential files", hint: "Sign in to a provider or upload an auth file. With a NeoPi core linked you usually do not need any.", action: addButton() }) }));
+			: empty({ icon: "shield", title: "No credential files", hint: "Sign in to a provider or upload an auth file. Account ownership and metered capacities are managed in Account pools.", action: addButton() }) }));
 	}
 	async function act(entry, operation, message) {
 		try { await operation(); toast(message, "ok"); await reload(); }

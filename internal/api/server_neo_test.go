@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopool"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
 func neoTestIdentity(t *testing.T) (*neo.Store, neo.User, string, string) {
@@ -125,6 +129,87 @@ func TestNeoAdminSessionsUseRealEngineManagementWithoutSecret(t *testing.T) {
 	}
 	if out := request(token, ""); out.Code != 401 {
 		t.Fatalf("password-reset session retained Engine access: %d", out.Code)
+	}
+}
+
+func TestNeoOwnerKeyScopeDenialReturnsForbidden(t *testing.T) {
+	t.Setenv("NEOPROXY_DATA_DIR", "")
+	store, admin, _, _ := neoTestIdentity(t)
+	server := newTestServerWithOptions(t, WithNeoStore(store), WithRequestLoggerFactory(nil))
+	owner, err := store.CreateUser(t.Context(), neo.UserInput{Handle: "pool-owner", Role: neo.RoleOwner, State: "active", Password: "correct-horse-battery"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, account := range []struct{ id, owner string }{{"owned-pool", owner.ID}, {"foreign-pool", admin.ID}} {
+		if err := server.neoPool.BindLogin(t.Context(), account.owner, &coreauth.Auth{ID: account.id, Provider: "codex"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, token, err := store.Login(t.Context(), owner.Handle, "correct-horse-battery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mint := func(label string, ids []string) *httptest.ResponseRecorder {
+		t.Helper()
+		body, err := json.Marshal(map[string]any{"label": label, "accountIds": ids})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/v8/neo/users/"+owner.ID+"/keys", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Neoproxy-CSRF", "1")
+		req.AddCookie(&http.Cookie{Name: neo.SessionCookie, Value: token})
+		out := httptest.NewRecorder()
+		server.engine.ServeHTTP(out, req)
+		return out
+	}
+	ownID, foreignID := neopool.AccountID("owned-pool"), neopool.AccountID("foreign-pool")
+	out := mint("owned", []string{ownID})
+	if out.Code != http.StatusCreated {
+		t.Fatalf("owned scope: HTTP %d", out.Code)
+	}
+	var issued struct {
+		Key neo.Key `json:"key"`
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &issued); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		ids  []string
+	}{
+		{"foreign", []string{foreignID}},
+		{"mixed", []string{ownID, foreignID}},
+		{"missing", []string{"nonexistent-account"}},
+		{"unrestricted", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := mint(tc.name, tc.ids)
+			var failure struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal(out.Body.Bytes(), &failure); err != nil {
+				t.Fatal(err)
+			}
+			if out.Code != http.StatusForbidden || failure.Error.Code != "neoproxy_forbidden" {
+				t.Fatalf("scope denial: HTTP %d, code %q", out.Code, failure.Error.Code)
+			}
+		})
+	}
+	req := httptest.NewRequest(http.MethodGet, "/v8/neo/users/"+owner.ID, nil)
+	req.AddCookie(&http.Cookie{Name: neo.SessionCookie, Value: token})
+	out = httptest.NewRecorder()
+	server.engine.ServeHTTP(out, req)
+	var listed struct {
+		Keys []neo.Key `json:"keys"`
+	}
+	if err := json.Unmarshal(out.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if out.Code != http.StatusOK || len(listed.Keys) != 1 || listed.Keys[0].ID != issued.Key.ID || listed.Keys[0].Label != "owned" {
+		t.Fatalf("scope denial persisted an unauthorized key: HTTP %d, keys %+v", out.Code, listed.Keys)
 	}
 }
 func TestNeoInferenceIdentitySurvivesHandlerParentContext(t *testing.T) {

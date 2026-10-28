@@ -16,7 +16,7 @@ export async function render(ctx) {
 				card({
 					title: "NeoProxy",
 					body: [
-						h("p", { class: "ink-2" }, "NeoProxy is PsychedelicShayna's fork of CLIProxyAPI, built to serve the credentials a NeoPi core holds to NeoDeck, NeoCode and any OpenAI-, Anthropic- or Gemini-shaped client under one ", h("code", null, "neoproxy/"), " namespace."),
+						h("p", { class: "ink-2" }, "NeoProxy is PsychedelicShayna's fork of CLIProxyAPI. This Go engine owns provider accounts, credentials and refresh, serving NeoPi, NeoDeck, NeoCode and compatible clients under one ", h("code", null, "neoproxy/"), " namespace."),
 						kv([
 							["Repository", externalLink(repository, "PsychedelicShayna/NeoProxy")],
 							["Engine", externalLink("https://github.com/router-for-me/CLIProxyAPI", "CLIProxyAPI")],

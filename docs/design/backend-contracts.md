@@ -2,7 +2,7 @@
 
 The dashboard at `/neo/` was designed ahead of the backend. Its product pages initially used an in-memory fixture (`internal/neoui/static/lib/fixture.js`) behind one client (`lib/client.js`). This document specifies the real backend in the existing Go CLIProxyAPI-derived engine. NeoProxy owns provider accounts, credentials and refresh. NeoPi is an inference client, not the credential source. The authorized implementation and delivery status are tracked in `backend-plan.md`. Where the dashboard makes a decision the backend must honour, it is marked **must**. Where it only displays what it is given, the field is marked *display*.
 
-Pages that are fixture-backed show a quiet `preview data` chip next to their title. The chip is driven by `sources` in `lib/client.js`; flipping a surface from `"fixture"` to `"engine"` there, and pointing its methods at the real routes, is the whole frontend cut-over.
+Production product pages must use the real engine adapter; an unavailable backend is an error, not a fallback to demo accounts or generated requests. `fixture.js` remains importable only as the routing reference oracle. A source chip is display metadata, not proof of a live implementation or an authorization boundary. The delivery plan records whether the actual endpoint and browser checks have passed.
 
 The existing management API (`/v8/management/...`) remains the engine administration interface. Organization-admin sessions may use its dashboard operations; member and account-owner sessions must not acquire management-secret authority. Existing operator management keys remain maintenance credentials, not ordinary dashboard logins or per-user inference keys. The first supported inference protocols are OpenAI Chat Completions, OpenAI Responses and Anthropic Messages.
 
@@ -25,7 +25,7 @@ The existing management API (`/v8/management/...`) remains the engine administra
 
 ## Naming rules
 
-- Every model id the proxy accepts on `/v1`, `/v1/messages`, `/v1beta`, `/v1/responses` starts with `neoproxy/`. The prefix means "served by NeoProxy"; downstream (NeoPi, NeoDeck, NeoCode) treats `neoproxy` as one provider.
+- Consumer inference keys use model ids beginning with `neoproxy/` on the three day-one inference endpoints. The prefix means "served by NeoProxy"; downstream (NeoPi, NeoDeck, NeoCode) treats `neoproxy` as one provider. Existing configured engine/operator keys retain their existing selectors and protocols; new consumer keys cannot use unsupported legacy surfaces.
 - `neoproxy/<provider>/<model>` is a provider model. The provider segment is the proxy engine's provider id.
 - `neoproxy/<name>` with exactly one segment after the prefix is a virtual model. Names are `^[a-z][a-z0-9-]{0,31}$` and **must** not collide with a provider id (the dashboard refuses a name that equals a served model id; the backend should refuse one that equals a provider id too).
 - `GET /v1/models` **must** list, for the calling key's user: every granted virtual model first, then every provider model the user has direct access to and that is served (provider exposed and model exposed). Members with no direct access see only `neoproxy/<name>` entries.
@@ -58,6 +58,11 @@ POST /v8/session/bootstrap
 
 Password verifiers and session-token hashes are stored in SQLite; plaintext passwords and session tokens are never returned in user records or logs. Sessions expire and are revoked on logout. Password changes and suspension invalidate existing access. The cookie is `Secure` when HTTPS is used. Initial local HTTP operation must not pretend to provide transport confidentiality; HTTPS deployment is a later task. State-changing cookie-authenticated requests must enforce same-origin/CSRF protection.
 
+Session origin, cookie security and the core endpoint scheme use the actual
+accepted transport. The shared HTTP/RESP multiplexer exposes TLS connection state
+only for encrypted connections; plaintext wrappers must not advertise an empty
+TLS state to Go's HTTP server. Same-origin checks remain strict for both schemes.
+
 Sessions last 12 hours without sliding renewal. A `service` principal cannot sign
 into the dashboard. Session responses map `member` to the dashboard role `user`;
 user records retain `member`. Passwords are 12–72 UTF-8 bytes. Organization-admin
@@ -77,6 +82,11 @@ realtime client secret, or enter management/plugin administration.
 The first organization admin is provisioned through an explicit bootstrap operation guarded by the existing operator management authority, not open registration or a default password. Bootstrap must not permit creation of another organization admin once setup has completed. Username/password sessions are the only ordinary dashboard login; an inference key does not become a dashboard session.
 
 A user inference key has format `nk_<48 hex>`. The dashboard displays `nk_xxxx…xxxx`; the server stores only its hash and rejects revocation immediately. Every request and `/v1/models` listing is restricted to that user's current grants and any narrower account scope on the key. Owners may mint keys over their own account pools, never another owner's pool.
+
+An owner key must name only accounts currently owned by that user. A foreign,
+missing, mixed-ownership or unrestricted scope is rejected with HTTP 403
+`neoproxy_forbidden`, without creating a key. Unexpected database errors remain
+server errors rather than being mislabeled as authorization denials.
 
 Organization admins manage users and organization-wide policy. Account owners manage their own provider accounts and pool-scoped keys, and see only statistics for their owned accounts. Ownership is not organization-admin authority. Member/service access is scoped to their grants, own user and requests regardless of supplied query parameters.
 
@@ -233,11 +243,11 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 The decision **must** be recorded on the request (see Requests › `decision`), including the `trail`, so the Activity page can explain it.
 
 ```
-POST /v8/neo/simulate   { asked: string, userId: string }
+POST /v8/neo/simulate   { asked: string, userId: string, protocol?: "openai" | "openai-response" | "claude", request?: JSON }
 → Decision
 ```
 
-Pure: runs the algorithm against current usage without recording anything. The dashboard runs it locally today; the backend route exists so the two cannot drift.
+Pure: the server runs the same resolver against current grants and usage without recording activity, admitting a request, reserving usage or advancing a cursor. The dashboard simulates only saved models and invalidates the result as soon as a draft changes; save before running it again. Optional protocol and credential-free business-request JSON let a configured script inspect representative input. Simulation never grants a hypothetical 100% allotment or runs a local production fixture fallback.
 
 Execution reserves a conservative token upper bound against explicitly configured
 metered windows before dispatch, then replaces that reservation with the existing
