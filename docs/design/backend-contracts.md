@@ -1,24 +1,24 @@
 # Backend contracts the NeoProxy dashboard assumes
 
-The dashboard at `/neo/` was designed ahead of the backend. Everything NeoPi-centred (the core link, the vault, the served catalogue, virtual models, users, the request stream) runs today against an in-memory fixture (`internal/neoui/static/lib/fixture.js`) behind one client (`lib/client.js`). This document is the contract that fixture implements, written for whoever builds the real thing (Astra or Opus, per the owner). Where the dashboard makes a decision the backend must honour, it is marked **must**. Where the dashboard only displays what it is given, the field is marked *display*.
+The dashboard at `/neo/` was designed ahead of the backend. Its product pages initially used an in-memory fixture (`internal/neoui/static/lib/fixture.js`) behind one client (`lib/client.js`). This document specifies the real backend in the existing Go CLIProxyAPI-derived engine. NeoProxy owns provider accounts, credentials and refresh. NeoPi is an inference client, not the credential source. The authorized implementation and delivery status are tracked in `backend-plan.md`. Where the dashboard makes a decision the backend must honour, it is marked **must**. Where it only displays what it is given, the field is marked *display*.
 
 Pages that are fixture-backed show a quiet `preview data` chip next to their title. The chip is driven by `sources` in `lib/client.js`; flipping a surface from `"fixture"` to `"engine"` there, and pointing its methods at the real routes, is the whole frontend cut-over.
 
-The engine's existing management API (`/v8/management/...`) is unchanged and is used as-is by the Engine pages (credentials, access keys, logs, routing, config, plugins).
+The existing management API (`/v8/management/...`) remains the engine administration interface. Organization-admin sessions may use its dashboard operations; member and account-owner sessions must not acquire management-secret authority. Existing operator management keys remain maintenance credentials, not ordinary dashboard logins or per-user inference keys. The first supported inference protocols are OpenAI Chat Completions, OpenAI Responses and Anthropic Messages.
 
 ## Vocabulary
 
 | Term | Meaning |
 |---|---|
-| **Core** | The NeoPi process that holds every provider credential (its auth broker/gateway). NeoProxy never stores a provider token of its own while linked. |
-| **Provider** | A credential family the core holds: `codex`, `anthropic`, `xai`, `zai`, `cerebras`, `github`, `gemini`, … |
-| **Account** | One signed-in identity for a provider, with its own quota windows. A provider may have several (the multi-account case). |
+| **Core** | The running NeoProxy Go engine. It owns provider login, credential storage, refresh and inference execution. |
+| **Provider** | A credential family supported by the proxy: `codex`, `anthropic`, `xai`, `zai`, `cerebras`, `github`, `gemini`, … |
+| **Account** | One proxy-managed signed-in identity or API credential for a provider, with an owning user and its own quota windows. A provider may have several. |
 | **Window** | A provider quota period for one account: `5h`, `day`, `week`, `month`. Usage is a fraction `0..1` of that window. |
 | **Model** | A provider's model, served as `neoproxy/<provider>/<model>`. |
 | **Virtual model** | A name NeoProxy serves that is not a provider's model: `neoproxy/<name>` (`default`, `small`, `heavy`, …). Defined by the admin as a chain. |
 | **Stage** | One step of a chain: a model, a pool of accounts, a draw policy, a budget, a window. |
 | **Terminal** | What happens when every stage is spent: limit error, queue, or fall through. |
-| **User** | A human or service that signs in with a NeoProxy key. Role `admin`, `member`, or `service`. |
+| **User** | A human who signs into NeoProxy with username/password, or a service principal using per-user inference keys. Roles are organization admin (`admin`), account owner (`owner`), `member`, or `service`. |
 | **Grant** | A user's access to a virtual model, with an allotment that scales every budget in that chain. |
 | **Direct access** | A user's permission to ask for `neoproxy/<provider>/<model>` by name, bypassing virtual models. Off by default for members. |
 | **Allotment** | A per-grant multiplier `0..1` applied to every stage budget in a chain. `0.5` means half the sips and half the cap. |
@@ -26,26 +26,43 @@ The engine's existing management API (`/v8/management/...`) is unchanged and is 
 ## Naming rules
 
 - Every model id the proxy accepts on `/v1`, `/v1/messages`, `/v1beta`, `/v1/responses` starts with `neoproxy/`. The prefix means "served by NeoProxy"; downstream (NeoPi, NeoDeck, NeoCode) treats `neoproxy` as one provider.
-- `neoproxy/<provider>/<model>` is a provider model. The provider segment is the core's provider id.
+- `neoproxy/<provider>/<model>` is a provider model. The provider segment is the proxy engine's provider id.
 - `neoproxy/<name>` with exactly one segment after the prefix is a virtual model. Names are `^[a-z][a-z0-9-]{0,31}$` and **must** not collide with a provider id (the dashboard refuses a name that equals a served model id; the backend should refuse one that equals a provider id too).
 - `GET /v1/models` **must** list, for the calling key's user: every granted virtual model first, then every provider model the user has direct access to and that is served (provider exposed and model exposed). Members with no direct access see only `neoproxy/<name>` entries.
 
 ## Authentication and sessions
 
-Two kinds of bearer token reach the dashboard's routes:
-
-- The engine's management secret (`management.secret-key`). It is the admin session. The dashboard treats any key that passes `GET /v8/management/config` as admin.
-- A **user key**, format `nk_<48 hex>`. The dashboard shows the first and last four hex characters as `nk_xxxx…xxxx` (`Key.prefix`). The backend stores only a hash and **must** reject a revoked key immediately.
+The dashboard uses username/password login with server-side sessions. Provider account credentials, dashboard sessions, user inference keys and operator management secrets are separate authorities.
 
 ```
 POST /v8/session
-  Authorization: Bearer <management secret | user key>
-→ 200 { role: "admin" | "user", userId, handle }
-→ 401 { error: { message } }   // unknown key
-→ 403 { error: { message } }   // user suspended or invited (no key should exist yet)
+  { handle: string, password: string }
+→ 200 { role: "admin" | "owner" | "user", userId, handle, expiresAt }
+  Set-Cookie: neoproxy_session=<opaque session>; HttpOnly; SameSite=Strict; Path=/
+→ 401 { error: { message } }   // invalid login; do not disclose which field failed
+→ 403 { error: { message } }   // user suspended or not yet active
+
+GET /v8/session
+→ 200 { role, userId, handle, expiresAt }
+→ 401 { error: { message } }
+
+DELETE /v8/session
+→ 204                         // revoke the server-side session and clear its cookie
+
+POST /v8/session/bootstrap
+  Authorization: Bearer <operator management secret>
+  { handle: string, name?: string, password: string }
+→ 201 { role: "admin", userId, handle, expiresAt } + session cookie
+→ 409 { error: { message } }   // bootstrap already completed
 ```
 
-`role: "user"` sessions may call only the routes marked **member** below, and the backend **must** scope them to their own user id regardless of query parameters.
+Password verifiers and session-token hashes are stored in SQLite; plaintext passwords and session tokens are never returned in user records or logs. Sessions expire and are revoked on logout. Password changes and suspension invalidate existing access. The cookie is `Secure` when HTTPS is used. Initial local HTTP operation must not pretend to provide transport confidentiality; HTTPS deployment is a later task. State-changing cookie-authenticated requests must enforce same-origin/CSRF protection.
+
+The first organization admin is provisioned through an explicit bootstrap operation guarded by the existing operator management authority, not open registration or a default password. Bootstrap must not permit creation of another organization admin once setup has completed. Username/password sessions are the only ordinary dashboard login; an inference key does not become a dashboard session.
+
+A user inference key has format `nk_<48 hex>`. The dashboard displays `nk_xxxx…xxxx`; the server stores only its hash and rejects revocation immediately. Every request and `/v1/models` listing is restricted to that user's current grants and any narrower account scope on the key. Owners may mint keys over their own account pools, never another owner's pool.
+
+Organization admins manage users and organization-wide policy. Account owners manage their own provider accounts and pool-scoped keys, and see only statistics for their owned accounts. Ownership is not organization-admin authority. Member/service access is scoped to their grants, own user and requests regardless of supplied query parameters.
 
 All routes below live under `/v8/neo/` unless stated. Errors are `{ error: { message: string, code?: string } }` with the appropriate status. Timestamps are epoch milliseconds. Fractions are `0..1` floats.
 
@@ -55,16 +72,16 @@ All routes below live under `/v8/neo/` unless stated. Errors are `{ error: { mes
 GET /v8/neo/core
 → {
     linked: boolean,
-    endpoint: string,        // "unix:///run/user/1000/npi/core.sock" or "tls://host:port"
-    identity: string,        // what this proxy authenticates as at the core, e.g. "neoproxy@utopia"
-    version: string,         // NeoPi version reported by the core
+    endpoint: string,        // this proxy's inference endpoint, e.g. "http://127.0.0.1:8317"
+    identity: string,        // this proxy's instance identity, e.g. "neoproxy@localhost"
+    version: string,         // running NeoProxy engine version
     host: string,            // short host name shown in the topbar chip
     heartbeatAt: number,     // last successful heartbeat
-    scopes: string[]         // what the core granted: "vault:read", "usage:read", "config:write", …
+    scopes: string[]         // authenticated session capabilities, e.g. "models:read", "usage:read"
   }
 ```
 
-When `linked` is false the dashboard shows a warning on Overview and Core link and expects the engine's local credential files to be serving instead. Nothing else changes shape.
+`linked` reports that the dashboard is connected to its authoritative NeoProxy engine. It does not mean a connection to a NeoPi credential broker. Core status must be real process/status data, not the old fixture's claimed NeoPi identity.
 
 ## Vault
 
@@ -83,6 +100,7 @@ Provider {
 Account {
   id: string,              // stable, opaque: "codex-a"
   providerId: string,
+  ownerId: string,          // owning NeoProxy user; only org admins may reassign another user's account
   label: string,           // masked identity: "shayna@…", "key …7f3a". NEVER a full email or key.
   plan: string,            // "Pro", "Max 20×"   display
   state: "healthy" | "cooldown" | "expired" | "disabled",
@@ -99,7 +117,7 @@ PATCH /v8/neo/vault/providers/:id   { exposed: boolean }
 
 Hiding a provider **must** remove every one of its models from every user, including direct access, and make every stage that targets it unservable (the chain skips it as `unhealthy`).
 
-Account state and windows come from the core (NeoPi's auth broker already tracks usage windows per credential). The proxy does not refresh tokens itself while linked.
+Account health, credentials, refresh and quota-window observations come from the proxy's existing provider managers and login/API-key flows. Each account has a persisted `ownerId`. Provider tokens stay in the engine's existing credential store; ownership, exposure, users, sessions, keys, grants, routing and usage state live in SQLite under the engine's data directory. Missing quota measurements must remain unknown or explicitly configured; they must not be invented as zero use.
 
 ## Catalogue
 
@@ -121,7 +139,7 @@ Model {
 PATCH /v8/neo/models/:id   { exposed: boolean }    // :id is the url-encoded "<provider>/<model>"
 ```
 
-The catalogue is derived from what the core reports per provider (NeoPi's model catalog). `exposed` is the admin's switch and is persisted by the proxy.
+The catalogue is derived from the proxy engine's registered provider models and accounts. `exposed` is the admin's switch and is persisted by the proxy. NeoPi discovers the authorized served catalogue through `/v1/models` using a user inference key.
 
 ## Virtual models
 
@@ -162,7 +180,7 @@ Terminal {
 }
 ```
 
-Validation the backend **must** enforce (the dashboard enforces the same client-side): name pattern; unique name; not equal to any provider id or served model id; at least one stage; each stage's model exists and its provider is held by the core; `accounts` ids belong to that provider; `perAccount ≤ cap` is *not* required (a cap lower than one sip is allowed and simply ends the stage early).
+Validation the backend **must** enforce: name pattern; unique name; not equal to any provider id or served model id; at least one stage; every stage's model exists in the proxy catalogue and belongs to a configured provider; `accounts` ids belong to that provider and satisfy the caller/key's ownership scope; `perAccount ≤ cap` is *not* required. A cap lower than one sip is allowed and simply ends the stage early.
 
 ### Usage
 
@@ -211,14 +229,14 @@ GET    /v8/neo/users                → User[]
 GET    /v8/neo/users/:id            → User            (member: own id only)
 POST   /v8/neo/users                User (without id, keys) → 201 User
 PUT    /v8/neo/users/:id            User → User     (keys are not editable here)
-POST   /v8/neo/users/:id/keys       { label } → 201 { key: Key, secret: string }   // secret shown once
+POST   /v8/neo/users/:id/keys       { label, accountIds?: string[] } → 201 { key: Key, secret: string }   // secret shown once
 DELETE /v8/neo/users/:id/keys/:keyId → 204
 
 User {
   id: string,              // "u-santiago"
   handle: string,          // "santiago"  ^[a-z][a-z0-9-]{1,31}$  unique
   name: string,
-  role: "admin" | "member" | "service",
+  role: "admin" | "owner" | "member" | "service",
   state: "active" | "invited" | "suspended",
   keys: Key[],
   providerAccess: string[],    // provider ids with direct access
@@ -226,13 +244,13 @@ User {
   limits: { rpm: number | null, tokensPerDay: number | null },
   createdAt: number
 }
-Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, createdAt: number, lastUsedAt: number | null }
+Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null }
 Grant { virtualModel: string /*VirtualModel.id*/, allotment: number /*0..1*/ }
 ```
 
 - `invited` users have no keys; issuing a key **should** move them to `active`.
 - `suspended` users keep their keys; every request with them fails 403 `code: "neoproxy_suspended"`.
-- An `admin` user's key also opens the dashboard as admin. A `service` user is a machine (NeoDeck, CI); the dashboard shows it with a different avatar and nothing else differs.
+- An `admin` user's username/password session opens the organization administration dashboard. An `owner` session manages only its own accounts, scoped keys and account statistics. A `service` user is a machine such as NeoDeck or CI and uses inference keys. No user's inference key is an organization-admin dashboard session.
 
 ## Requests
 
@@ -276,9 +294,11 @@ A live stream for the Overview ticker is wanted but not assumed: `GET /v8/neo/re
 ## What the dashboard never asks for
 
 - Full emails, full keys, raw tokens, auth-file contents. `Account.label` and `Key.prefix` are already masked server-side.
-- Provider pricing or cost. The vault's windows are the only quota currency; NeoPi's `/stats` owns cost.
+- Provider pricing or guessed cost. Quota fractions, token counts and monetary cost are distinct. Proxy-owned usage attribution and per-owner statistics come from its own ledger; a NeoPi client's local `/stats` is not the authoritative account ledger.
 - Anything from a member session beyond their own user, their own requests, the catalogue, the virtual models they are granted, and the core's `linked` flag.
 
 ## How this maps onto NeoPi
 
-The owner's framing is that NeoPi is the core and NeoProxy borrows from it. Concretely: `core`, `vault`, `models`, and the per-account `windows` are read from NeoPi's auth broker and model catalog over the core socket; the proxy caches them and re-reads on heartbeat. Virtual models, users, grants, keys, usage and requests are the proxy's own state (a small SQLite under the engine's data dir is enough). When NeoPi grows a native `neoproxy`-style serving mode, this document is the shape it should expose; the dashboard does not care which process answers.
+NeoProxy is the account, credential and refresh authority. Users log provider accounts into the existing Go engine directly through its provider login flows or API-key configuration. NeoPi connects as an inference client with a scoped user API key and discovers `neoproxy/<name>` entries from `/v1/models`. A NeoPi model role may select one of those virtual models; that client-side role is separate from the proxy's admin/owner/member roles and from the server-side virtual-model chain.
+
+The Go engine is retained for this delivery; there is no rewrite into NeoPi and no dependency on a NeoPi core socket, vault export or credential broker. Proxy-owned state is persisted in SQLite under the engine's data directory. The local end-to-end proof uses a scratch `PI_CODING_AGENT_DIR`, assigns a scratch NeoPi role to a discovered virtual model and proves a real role-selected turn with first-stage failure and fallback success over all three day-one protocols. It must never alter the owner's NeoPi profile.
