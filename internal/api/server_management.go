@@ -220,7 +220,7 @@ func (s *Server) managementAvailable(c *gin.Context) bool {
 		c.AbortWithStatus(http.StatusNotFound)
 		return false
 	}
-	if !s.managementRoutesEnabled.Load() {
+	if !s.managementRoutesEnabled.Load() && s.neoStore == nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return false
 	}
