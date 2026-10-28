@@ -52,6 +52,16 @@ type TrailStep struct {
  VirtualModel string `json:"virtualModel,omitempty"`
  AccountID string `json:"accountId,omitempty"`
  Asked string `json:"asked,omitempty"`
+ FailureStatus int `json:"failureStatus,omitempty"`
+}
+
+// Stage zero values are meaningful: preserve index 0, a zero cap and an empty
+// candidate list while keeping the other trail variants compact.
+func (t TrailStep) MarshalJSON()([]byte,error){
+ type plain TrailStep
+ if t.Kind!="stage"{return json.Marshal(plain(t))}
+ candidates:=t.Candidates;if candidates==nil{candidates=[]Candidate{}}
+ return json.Marshal(struct{plain;Index int `json:"index"`;Total float64 `json:"total"`;Cap float64 `json:"cap"`;Candidates []Candidate `json:"candidates"`}{plain(t),t.Index,t.Total,t.Cap,candidates})
 }
 type Decision struct {
  Outcome string `json:"outcome"`
@@ -97,6 +107,8 @@ type ScriptInput struct {
  Asked string `json:"asked"`
  Protocol string `json:"protocol"`
  UserID string `json:"userId"`
+ // Request is copied client business JSON before credential/header injection.
+ Request json.RawMessage `json:"request"`
  VirtualModel VirtualModel `json:"virtualModel"`
  Stages []ScriptStage `json:"stages"`
  Accounts []ScriptAccount `json:"accounts"`
