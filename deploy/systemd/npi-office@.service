@@ -1,0 +1,14 @@
+[Unit]
+Description=NeoPi office RPC agent for connection %i
+
+[Service]
+Type=simple
+UMask=0077
+WorkingDirectory=%h/.local/share/neoproxy-office/workspace
+Environment=PI_CODING_AGENT_DIR=%h/.local/share/neoproxy-office/npi-profile
+Environment=NODE_EXTRA_CA_CERTS=%h/.local/share/neoproxy-office/pki/ca.crt
+EnvironmentFile=%h/.config/neoproxy-office/npi.env
+ExecStart=%h/.local/lib/npi-office/current/npi --mode rpc --no-ui --no-title --model ${NPI_MODEL}
+StandardInput=socket
+StandardOutput=inherit
+StandardError=journal
