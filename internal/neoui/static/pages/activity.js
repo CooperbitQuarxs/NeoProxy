@@ -31,7 +31,7 @@ export async function render(ctx) {
 
 	const toolbar = h(
 		"div",
-		{ class: "row", style: { marginBottom: "14px" } },
+		{ class: "row wrap page-toolbar", style: { marginBottom: "14px" } },
 		search("Filter by model name", (v) => {
 			filters.asked = v;
 			load();

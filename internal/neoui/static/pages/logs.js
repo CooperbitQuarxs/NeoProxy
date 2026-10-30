@@ -86,7 +86,7 @@ export async function render(ctx) {
 		}
 	};
 	root.append(
-		h("div", { class: "row", style: { marginBottom: "14px" } },
+		h("div", { class: "row wrap page-toolbar", style: { marginBottom: "14px" } },
 			seg([100, 200, 500, 1000].map((n) => ({ value: n, label: String(n), title: `Last ${n} lines` })), limit, (value) => { limit = value; reloadLogs(); }),
 			seg([{ value: "all", label: "All" }, { value: "warn", label: "Warnings" }, { value: "err", label: "Errors" }], level, (value) => { level = value; paintLines(); }),
 			search("Filter log lines", (value) => { query = value; paintLines(); }), h("span", { class: "spacer" }),

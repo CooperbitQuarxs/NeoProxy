@@ -194,6 +194,10 @@ svg {
 		transition-duration: 0.01ms !important;
 	}
 }
+.table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
 
 /* ---------- shell ---------- */
 .shell {
@@ -1967,6 +1971,24 @@ kbd {
 	}
 }
 @media (max-width: 600px) {
+	.page-head,
+	.card-head,
+	.page-head .actions,
+	.card-head .actions {
+		flex-wrap: wrap;
+	}
+	.page-head .titles,
+	.card-head .titles {
+		flex-basis: 100%;
+	}
+	.page-head .actions,
+	.card-head .actions {
+		max-width: 100%;
+	}
+	.page-toolbar .search {
+		min-width: 0;
+		flex: 1 1 220px;
+	}
 	.topbar {
 		gap: 6px;
 		padding: 0 8px;
@@ -2023,7 +2045,7 @@ kbd {
 		row-gap: 8px;
 	}
 	.list .vm-teaser .lt {
-		flex: 1 1 calc(100% - 24px);
+		flex: 1 1 calc(100% - 28px);
 	}
 	.vm-teaser .rail-clip {
 		order: 1;

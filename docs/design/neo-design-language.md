@@ -270,6 +270,8 @@ above unchanged.
   Model identifiers wrap rather than losing their meaningful tail. Compact
   virtual-model teasers clip with an edge fade, not a nested scroll surface
   inside their button. Full chains remain horizontally scrollable.
+  Dense tables keep their column/sort structure in a keyboard-focusable local
+  scroll region; toolbars and card actions wrap rather than widening the page.
 - The served-model summary derives from the same effective provider/model
   exposure state as the rows after each completed change. Empty inventory asks
   for a credential; genuine filter misses retain their search guidance.

@@ -280,7 +280,7 @@ export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, 
 	};
 	renderHead();
 	renderBody();
-	return tbl;
+	return h("div", { class: "table-scroll", tabindex: 0, role: "region", "aria-label": "Table; scroll horizontally for more columns" }, tbl);
 }
 
 export function empty({ icon: ic = "inbox", title, hint, action }) {
