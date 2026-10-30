@@ -52,6 +52,12 @@ go build -o neoproxy ./cmd/server
 
 Configuration follows upstream's `config.example.yaml`.
 
+The dashboard's identity state uses SQLite in the engine data directory
+(`NEOPROXY_DATA_DIR` overrides it). Native Windows drive paths and directory names
+containing spaces, `#`, `%`, or Unicode are supported: filesystem paths are escaped
+as file URIs, not accepted as caller-supplied SQLite connection strings. Builds
+with this backend require CGO and a supported C compiler.
+
 ## Credit and licence
 
 NeoProxy is derived from
