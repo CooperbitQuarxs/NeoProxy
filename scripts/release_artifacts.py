@@ -181,6 +181,7 @@ def smoke(args):
         config_path = root / "smoke.json"
         config_path.write_text(json.dumps(config), encoding="utf-8")
         config_path.chmod(0o600)
+        sensitive = [operator, password]
         environment = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
         if os.name == "nt":
             # Do not let a runner's MinGW/compiler DLL directories make an
@@ -190,7 +191,7 @@ def smoke(args):
             environment["PATH"] = os.pathsep.join((str(binary.parent), str(Path(system_root) / "System32"), system_root))
         else:
             environment["PATH"] = "/usr/bin:/bin"
-        environment.update({"HOME": str(root), "USERPROFILE": str(root), "LOCALAPPDATA": str(root),
+        environment.update({"HOME": str(root), "USERPROFILE": str(root), "LOCALAPPDATA": str(root), "APPDATA": str(root),
                             "XDG_CONFIG_HOME": str(root), "XDG_CACHE_HOME": str(root),
                             "NEOPROXY_DATA_DIR": str(root / "data"), "GOMAXPROCS": "2",
                             "TMPDIR": str(root), "TMP": str(root), "TEMP": str(root)})
@@ -215,7 +216,8 @@ def smoke(args):
                                            cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
                 deadline = time.monotonic() + 30
                 while time.monotonic() < deadline:
-                    require(process.poll() is None, "server exited before opening the SQLite-backed session API")
+                    exit_code = process.poll()
+                    require(exit_code is None, f"server exited ({exit_code}) before opening the SQLite-backed session API")
                     try:
                         SmokeAPI(base).call("GET", "/v8/session", status=401)
                         return
@@ -233,6 +235,7 @@ def smoke(args):
                 user = admin.call("POST", "/v8/neo/users", {"handle": "release-member", "role": "member",
                                   "state": "active", "password": password}, status=201)
                 key = admin.call("POST", f"/v8/neo/users/{user['id']}/keys", {"label": "release-smoke"}, status=201)
+                sensitive.append(key.get("secret", ""))
                 require(key.get("secret", "").startswith("nk_"), "SQLite-backed key mint failed")
                 models = SmokeAPI(base).call("GET", "/v1/models", bearer=key["secret"])
                 require(isinstance(models.get("data"), list), "scoped catalogue did not execute")
@@ -250,6 +253,17 @@ def smoke(args):
                 users = restored.call("GET", "/v8/neo/users")
                 require(any(row["id"] == user["id"] for row in users), "created member was not persisted")
                 restored.call("POST", "/v8/session/bootstrap", {"handle": "second-admin", "password": password}, operator, 409)
+            except Exception:
+                log.flush()
+                with log_path.open("rb") as diagnostic:
+                    size = diagnostic.seek(0, os.SEEK_END)
+                    diagnostic.seek(max(0, size - 8192))
+                    tail = diagnostic.read(8192)
+                for value in sensitive:
+                    if value:
+                        tail = tail.replace(value.encode(), b"[REDACTED]")
+                print("Isolated smoke server log:\n" + tail.decode("utf-8", errors="replace"), file=sys.stderr)
+                raise
             finally:
                 stop()
         database = root / "data" / "neoproxy.sqlite"

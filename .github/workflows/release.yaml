@@ -136,17 +136,20 @@ jobs:
           binary="$RUNNER_TEMP/neoproxy"
           [[ "$GOOS" != windows ]] || binary="${binary}.exe"
           ldflags="-s -w -X main.Version=${RELEASE_VERSION} -X main.Commit=${SOURCE_COMMIT} -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          tags=()
+          tags=""
           if [[ "$VARIANT" == static ]]; then
             export CC=musl-gcc
-            tags=(-tags "netgo,osusergo")
+            tags="netgo,osusergo"
             ldflags="$ldflags -linkmode external -extldflags=-static"
           elif [[ "$GOOS" == windows ]]; then
             export CC=gcc
             export CGO_LDFLAGS='-static -static-libgcc'
             gcc --version
           fi
-          go build -buildvcs=false "${tags[@]}" -ldflags="$ldflags" -o "$binary" ./cmd/server
+          go build -buildvcs=false -tags="$tags" -ldflags="$ldflags" -o "$binary" ./cmd/server
+          if [[ "$GOOS" == windows ]]; then
+            objdump -p "$binary" | grep 'DLL Name'
+          fi
           if [[ "$VARIANT" == static ]] && readelf -l "$binary" | grep -q 'Requesting program interpreter'; then
             echo 'Portable Linux binary unexpectedly needs a dynamic loader' >&2
             exit 1
@@ -157,10 +160,11 @@ jobs:
           [[ ${#archives[@]} == 1 ]]
           python scripts/release_artifacts.py smoke --archive "${archives[0]}" --scratch "$RUNNER_TEMP/sqlite-smoke"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: neoproxy-${{ matrix.target }}
           path: dist/NeoProxy_*
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   publish:
