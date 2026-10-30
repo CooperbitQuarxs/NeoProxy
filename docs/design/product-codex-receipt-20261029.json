@@ -1,0 +1,925 @@
+{
+  "status": "passed",
+  "scope": "New real-Codex local backend/product proof; not historical Groq proof and not a claim that Utopia/native-client/releases/GUI are complete.",
+  "scratch": "/mnt/alias/m2/agents/scratch/neoproxy-product",
+  "source_full_sha": "f57e8655f06171aa2f32349f520d223111f86803",
+  "credential_acquisition": {
+    "provider": "openai-codex",
+    "credential_id": 1,
+    "source_connection_read_only": true,
+    "selected_fields": [
+      "access",
+      "accountId",
+      "expires"
+    ],
+    "refresh_token_copied": false,
+    "expires_at_ms": 1793806431490,
+    "engine_registration": "POST /v8/management/credentials?name=codex-product-lease.json"
+  },
+  "runs": [
+    {
+      "build": {
+        "binary": "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+        "sha256": "5528ee89e1264b040b5ec2c48cb54bfa15420a37b1d2c657e031f66504593453",
+        "source_sha": "f57e8655",
+        "command": [
+          "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+          "--config",
+          "/mnt/alias/m2/agents/scratch/neoproxy-product/config.yml",
+          "--local-model"
+        ],
+        "source_full_sha": "f57e8655f06171aa2f32349f520d223111f86803"
+      },
+      "setup": {
+        "endpoint": "http://127.0.0.1:18527",
+        "account_ids": [
+          "acct_eed9c93a79ed2b3385b037a198f38a8c"
+        ],
+        "virtual_selector": "neoproxy/office-cheap",
+        "model": "codex/gpt-6-luna",
+        "pool_cardinality": 1,
+        "metered_window": {
+          "kind": "day",
+          "capacityTokens": 1000000,
+          "source": "configured-metered-not-upstream-quota"
+        },
+        "credential_source": {
+          "kind": "specific-read-only-access-lease",
+          "credential_id": 1,
+          "expires_at_ms": 1793806431490,
+          "refresh_token_copied": false
+        }
+      },
+      "status": "passed",
+      "turns": [
+        {
+          "status": 200,
+          "request_id": "req_c677cfc8-179d-45db-a1bd-56d452c94bbf",
+          "path": "/v1/chat/completions",
+          "wire": "chat",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_c677cfc8-179d-45db-a1bd-56d452c94bbf",
+            "at": 1793327328991,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-chat",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1110,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_5555a1cc-9230-476f-95ae-5b50600baf0d",
+          "path": "/v1/responses",
+          "wire": "responses",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_5555a1cc-9230-476f-95ae-5b50600baf0d",
+            "at": 1793327330111,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-responses",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.000322,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.000322,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1128,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_7d712636-f26c-4910-a057-d5f468caec91",
+          "path": "/v1/messages",
+          "wire": "messages",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_7d712636-f26c-4910-a057-d5f468caec91",
+            "at": 1793327331249,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-messages",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.000644,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.000644,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1199,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_40291318-bff6-431b-8940-73c0984646d4",
+          "path": "/v1/chat/completions",
+          "wire": "chat",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_40291318-bff6-431b-8940-73c0984646d4",
+            "at": 1793327332512,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-chat",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.000966,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.000966,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 979,
+            "outcome": "ok",
+            "stream": true
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_f606b869-7b06-4b39-a4a9-9f2852aa1789",
+          "path": "/v1/responses",
+          "wire": "responses",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_f606b869-7b06-4b39-a4a9-9f2852aa1789",
+            "at": 1793327333501,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-responses",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.001288,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.001288,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1123,
+            "outcome": "ok",
+            "stream": true
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_dd24cab5-a82b-44c3-9bd8-65a8185e0ee4",
+          "path": "/v1/messages",
+          "wire": "messages",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_dd24cab5-a82b-44c3-9bd8-65a8185e0ee4",
+            "at": 1793327334633,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-messages",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.00161,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.00161,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1641,
+            "outcome": "ok",
+            "stream": true
+          }
+        }
+      ],
+      "identity_cycles": [
+        {
+          "cycle": 0,
+          "login_user_id": "u_156d26703d9eea725f5a7891",
+          "restored": true,
+          "logout_revoked": true,
+          "discovered_selectors": [
+            "neoproxy/office-cheap"
+          ]
+        },
+        {
+          "cycle": 1,
+          "login_user_id": "u_156d26703d9eea725f5a7891",
+          "restored": true,
+          "logout_revoked": true,
+          "discovered_selectors": [
+            "neoproxy/office-cheap"
+          ]
+        }
+      ],
+      "owner_stats": {
+        "accounts": [
+          {
+            "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+            "ownerId": "u_56e68e521433a74c96d18fd6",
+            "inputTokens": 1902,
+            "outputTokens": 30,
+            "cachedTokens": 0,
+            "estimatedTokens": 0,
+            "reservedTokens": 0,
+            "unknownAttempts": 0,
+            "attempts": 6
+          }
+        ]
+      },
+      "usage": {
+        "u_156d26703d9eea725f5a7891": {
+          "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e": {
+            "cheap": {
+              "acct_eed9c93a79ed2b3385b037a198f38a8c": 0.001932
+            }
+          }
+        }
+      }
+    },
+    {
+      "build": {
+        "binary": "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+        "sha256": "5528ee89e1264b040b5ec2c48cb54bfa15420a37b1d2c657e031f66504593453",
+        "source_sha": "f57e8655",
+        "command": [
+          "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+          "--config",
+          "/mnt/alias/m2/agents/scratch/neoproxy-product/config.yml",
+          "--local-model"
+        ],
+        "source_full_sha": "f57e8655f06171aa2f32349f520d223111f86803"
+      },
+      "setup": {
+        "endpoint": "http://127.0.0.1:18527",
+        "account_ids": [
+          "acct_eed9c93a79ed2b3385b037a198f38a8c"
+        ],
+        "virtual_selector": "neoproxy/office-cheap",
+        "model": "codex/gpt-6-luna",
+        "pool_cardinality": 1,
+        "metered_window": {
+          "kind": "day",
+          "capacityTokens": 1000000,
+          "source": "configured-metered-not-upstream-quota"
+        },
+        "credential_source": {
+          "kind": "specific-read-only-access-lease",
+          "credential_id": 1,
+          "expires_at_ms": 1793806431490,
+          "refresh_token_copied": false
+        }
+      },
+      "status": "passed",
+      "turns": [
+        {
+          "status": 200,
+          "request_id": "req_bd0e8cdb-6e9f-4603-92fe-afe30c5a8862",
+          "path": "/v1/chat/completions",
+          "wire": "chat",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_bd0e8cdb-6e9f-4603-92fe-afe30c5a8862",
+            "at": 1793327784712,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-chat",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.001932,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.001932,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1084,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_58bf051f-e288-4593-8599-0b323f9d499c",
+          "path": "/v1/responses",
+          "wire": "responses",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_58bf051f-e288-4593-8599-0b323f9d499c",
+            "at": 1793327785804,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-responses",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.002254,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.002254,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1233,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_84f11dce-768b-47da-a9b5-c54da8bc5c48",
+          "path": "/v1/messages",
+          "wire": "messages",
+          "stream": false,
+          "cycle": 0,
+          "text": "5",
+          "request": {
+            "id": "req_84f11dce-768b-47da-a9b5-c54da8bc5c48",
+            "at": 1793327787048,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-messages",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.002576,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.002576,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1628,
+            "outcome": "ok",
+            "stream": false
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_879ed9c0-3a25-4ec6-be53-abaa3f8d6947",
+          "path": "/v1/chat/completions",
+          "wire": "chat",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_879ed9c0-3a25-4ec6-be53-abaa3f8d6947",
+            "at": 1793327788743,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-chat",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.002898,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.002898,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1048,
+            "outcome": "ok",
+            "stream": true
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_7f69d965-ded7-4b46-af6b-ddae28a99957",
+          "path": "/v1/responses",
+          "wire": "responses",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_7f69d965-ded7-4b46-af6b-ddae28a99957",
+            "at": 1793327789801,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-responses",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.00322,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.00322,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 993,
+            "outcome": "ok",
+            "stream": true
+          }
+        },
+        {
+          "status": 200,
+          "request_id": "req_e2d417eb-4c4d-453c-af9c-e6d26f25432d",
+          "path": "/v1/messages",
+          "wire": "messages",
+          "stream": true,
+          "cycle": 1,
+          "text": "5",
+          "request": {
+            "id": "req_e2d417eb-4c4d-453c-af9c-e6d26f25432d",
+            "at": 1793327790802,
+            "userId": "u_156d26703d9eea725f5a7891",
+            "keyId": "key_23e675015c665c1c8fa2e744",
+            "client": "neoproxy-product-messages",
+            "asked": "neoproxy/office-cheap",
+            "decision": {
+              "outcome": "ok",
+              "virtualModel": "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e",
+              "stageIndex": 0,
+              "stageId": "cheap",
+              "model": "codex/gpt-6-luna",
+              "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+              "effort": "low",
+              "trail": [
+                {
+                  "kind": "stage",
+                  "stageId": "cheap",
+                  "model": "codex/gpt-6-luna",
+                  "chosen": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                  "index": 0,
+                  "total": 0.003542,
+                  "cap": 1,
+                  "candidates": [
+                    {
+                      "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+                      "used": 0.003542,
+                      "budget": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            "tokens": {
+              "in": 317,
+              "out": 5,
+              "cached": 0
+            },
+            "latencyMs": 1234,
+            "outcome": "ok",
+            "stream": true
+          }
+        }
+      ],
+      "identity_cycles": [
+        {
+          "cycle": 0,
+          "login_user_id": "u_156d26703d9eea725f5a7891",
+          "restored": true,
+          "logout_revoked": true,
+          "discovered_selectors": [
+            "neoproxy/office-cheap"
+          ]
+        },
+        {
+          "cycle": 1,
+          "login_user_id": "u_156d26703d9eea725f5a7891",
+          "restored": true,
+          "logout_revoked": true,
+          "discovered_selectors": [
+            "neoproxy/office-cheap"
+          ]
+        }
+      ],
+      "owner_stats": {
+        "accounts": [
+          {
+            "accountId": "acct_eed9c93a79ed2b3385b037a198f38a8c",
+            "ownerId": "u_56e68e521433a74c96d18fd6",
+            "inputTokens": 3804,
+            "outputTokens": 60,
+            "cachedTokens": 0,
+            "estimatedTokens": 0,
+            "reservedTokens": 0,
+            "unknownAttempts": 0,
+            "attempts": 12
+          }
+        ]
+      },
+      "usage": {
+        "u_156d26703d9eea725f5a7891": {
+          "vm_1ccf7089-40b1-4f7e-b161-1158ea1ae57e": {
+            "cheap": {
+              "acct_eed9c93a79ed2b3385b037a198f38a8c": 0.003864
+            }
+          }
+        }
+      }
+    }
+  ],
+  "authority": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "member cannot administer users",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "member cannot read another user",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "owner is not organization administrator",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "owner cannot mint an unscoped pool key",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "owner cannot mint a foreign or nonexistent pool scope",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "member cannot bypass virtual grant through direct model",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "owner pool-scoped key follows current grant",
+        "account_ids": [
+          "acct_eed9c93a79ed2b3385b037a198f38a8c"
+        ],
+        "selectors": [
+          "neoproxy/office-cheap"
+        ]
+      },
+      {
+        "name": "grant removal immediately narrows existing key",
+        "selectors": []
+      },
+      {
+        "name": "revoked owner pool key immediately rejected",
+        "status": 401,
+        "denied": true
+      },
+      {
+        "name": "suspension invalidates existing session",
+        "status": 401,
+        "denied": true
+      },
+      {
+        "name": "suspension rejects retained inference key",
+        "status": 403,
+        "denied": true
+      },
+      {
+        "name": "reactivation restores current scoped key grant",
+        "active": true
+      },
+      {
+        "name": "password change invalidates old session",
+        "status": 401,
+        "denied": true
+      },
+      {
+        "name": "password change invalidates old inference key",
+        "status": 401,
+        "denied": true
+      },
+      {
+        "name": "changed password supports fresh login",
+        "restored": true
+      }
+    ],
+    "build": {
+      "binary": "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+      "sha256": "5528ee89e1264b040b5ec2c48cb54bfa15420a37b1d2c657e031f66504593453",
+      "source_sha": "f57e8655",
+      "command": [
+        "/mnt/alias/m2/agents/npi-canary/neoproxy-nightly/neoproxy",
+        "--config",
+        "/mnt/alias/m2/agents/scratch/neoproxy-product/config.yml",
+        "--local-model"
+      ]
+    }
+  },
+  "focused_safety_tests": {
+    "command": "flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-product-focused -- python -B -m unittest discover -s scripts -p test_product_e2e.py -v",
+    "passed": 2
+  },
+  "actual_commands": [
+    "python -B scripts/product_e2e.py prepare --credential-id 1",
+    "/home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-product-lane -- python -B scripts/product_e2e.py serve --binary /home/shayna/.cache/npi-canary/neoproxy-nightly/neoproxy --source-sha f57e8655",
+    "python -B scripts/product_e2e.py bootstrap (initial wrong v8 auth-files route returned 404; corrected harness to documented credentials route and resumed existing administrator session)",
+    "python -B scripts/product_e2e.py bootstrap (passed with documented v8 credential registration)",
+    "flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-product-real -- python -B scripts/product_e2e.py exercise --cycles 2 --receipt product-initial-receipt.json",
+    "flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-product-authority -- python -B scripts/product_e2e.py authority",
+    "flock /run/user/1000/npi-afk-light.lock /home/shayna/.local/share/polite-relay/polite --mem --label neoproxy-product-final-real -- python -B scripts/product_e2e.py exercise --cycles 2 --receipt product-final-receipt.json"
+  ],
+  "redaction_review": {
+    "capture_files_checked": 6,
+    "known_credential_or_raw_inference_key_matches": 0,
+    "raw_transport_bodies_excluded_from_publication": true,
+    "private_access_manifests_credential_files_and_state_excluded": true
+  },
+  "limitations": [
+    "One genuine upstream account, explicitly accepted singleton pool; no fabricated second account.",
+    "Access-only lease is temporary. Durable deployment requires independent engine-owned Codex OAuth login via /v8/neo/vault/login/codex and its owner-attributed status/callback routes.",
+    "No copied refresh token or competing OAuth refresh writer; no owner profile/settings/production mutation.",
+    "No new Go build: exercised already installed parent-provided nightly binary with recorded SHA256; repository changes are reusable tooling, focused safety tests and documentation/receipt.",
+    "No claim of multiple-account failover, durable refresh provisioning, Utopia deployment, native client or platform-release completion."
+  ]
+}
