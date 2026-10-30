@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
@@ -41,6 +42,23 @@ func (h *BaseAPIHandler) neoResolver() neoroute.Resolver {
 	h.runtimeMu.RLock()
 	defer h.runtimeMu.RUnlock()
 	return h.NeoResolver
+}
+
+// ValidateNeoPrewarm checks current key/model authority before a local, non-
+// generating acknowledgement. Actual inference still requires resolver admission.
+func (h *BaseAPIHandler) ValidateNeoPrewarm(ctx context.Context, model string) *interfaces.ErrorMessage {
+	resolver := h.neoResolver()
+	if resolver == nil {
+		return &interfaces.ErrorMessage{StatusCode: http.StatusServiceUnavailable, Error: fmt.Errorf("NeoProxy routing is unavailable")}
+	}
+	models, err := resolver.Models(ctx)
+	if err != nil {
+		return neoErrorMessage(err)
+	}
+	if !slices.Contains(models, model) {
+		return &interfaces.ErrorMessage{StatusCode: http.StatusForbidden, Error: fmt.Errorf("model is not granted to this inference key")}
+	}
+	return nil
 }
 
 // enforceNeoPin runs after pre-auth interceptors and before the engine's shared

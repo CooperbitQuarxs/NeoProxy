@@ -75,7 +75,7 @@ func (s *Server) neoInferenceMiddleware() gin.HandlerFunc {
 			return
 		}
 		path := c.Request.URL.Path
-		allowed := c.Request.Method == http.MethodGet && path == "/v1/models"
+		allowed := c.Request.Method == http.MethodGet && (path == "/v1/models" || path == "/v1/responses" || path == "/backend-api/codex/responses")
 		if c.Request.Method == http.MethodPost {
 			switch path {
 			case "/v1/chat/completions", "/v1/responses", "/v1/messages":
