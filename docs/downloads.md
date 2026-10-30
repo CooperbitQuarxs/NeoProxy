@@ -10,16 +10,92 @@ this document does not invent a public endpoint.
 
 ## Connect using a released NeoPi client
 
-Download the native client for your platform from
-[NeoPi releases](https://github.com/PsychedelicShayna/neopi/releases) and verify
-that release's checksums. No source clone, Bun, or hand-written `models.yml` is
-needed. This requires a released nightly containing
-[NeoPi #602](https://github.com/PsychedelicShayna/neopi/pull/602); the version label
-`18.10.3` alone is not sufficient. The older
-`v18.10.3-nightly.0e5812fa0bb8.40952896996.1` predates this login command.
-Before connecting, `npi login neoproxy --help` must show the `--url` option.
-If it does not, install a release containing the native connection feature;
-do not work around it with a source run or manual provider configuration.
+The minimum published native client for this office connection is
+[`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1),
+from source `fd5698a0772a555cb554b860d8f3208a0f7026a5`, including
+[NeoPi #602](https://github.com/PsychedelicShayna/neopi/pull/602). Use that release
+or a later release retaining native NeoProxy login. The base version `18.10.3`
+alone is not sufficient; the older
+`v18.10.3-nightly.0e5812fa0bb8.40952896996.1` predates this command.
+
+NeoPi release assets are **standalone executables, not archives**:
+
+| Client system | Asset from the pinned NeoPi release |
+| --- | --- |
+| Linux x86-64, glibc | `npi-linux-x64` |
+| Linux ARM64, glibc | `npi-linux-arm64` |
+| NixOS/musl x86-64 | `npi-linux-musl-x64` |
+| NixOS/musl ARM64 | `npi-linux-musl-arm64` |
+| Windows x86-64 | `npi-windows-x64.exe` |
+| Windows ARM64 | `npi-windows-arm64.exe` |
+| macOS Intel | `npi-darwin-x64` |
+| macOS Apple Silicon | `npi-darwin-arm64` |
+
+Download `SHA256SUMS.txt` from the **same NeoPi release**. These client names and
+checksum filename differ from the NeoProxy server archives described below.
+Keep the release's `LICENSE` and `THIRD-PARTY-NOTICES.txt` when redistributing the
+client. No source clone, Bun installation or hand-written `models.yml` is needed.
+
+### Install the released client on Windows
+
+In PowerShell, choose a fresh private directory. The example is x86-64; use
+`npi-windows-arm64.exe` on ARM64.
+
+```powershell
+if (Test-Path .\NeoPi-office) { throw "Choose a fresh client directory" }
+New-Item -ItemType Directory .\NeoPi-office | Out-Null
+Set-Location .\NeoPi-office
+$tag = "v18.10.3-nightly.fd5698a0772a.41001835518.1"
+$asset = "npi-windows-x64.exe"
+$base = "https://github.com/PsychedelicShayna/neopi/releases/download/$tag"
+Invoke-WebRequest "$base/$asset" -OutFile $asset
+Invoke-WebRequest "$base/SHA256SUMS.txt" -OutFile SHA256SUMS.txt
+$line = Get-Content SHA256SUMS.txt | Where-Object { $_.EndsWith("  $asset") }
+if (@($line).Count -ne 1) { throw "Client missing or duplicated in checksums" }
+$expected = $line.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)[0]
+if ((Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Client checksum mismatch" }
+Move-Item $asset npi.exe
+$env:PATH = (Get-Location).Path + [IO.Path]::PathSeparator + $env:PATH
+npi --version
+npi login neoproxy --help
+```
+
+The PATH change above is for this terminal only; it does not replace another
+NeoPi installation or edit a permanent profile. The pinned Windows x86-64 asset's
+SHA-256 is `2cbb3842832ff2e93fbfa105953b8231310c4d53cc0be86fbe2b758e45f30e35`.
+
+### Install the released client on Linux
+
+Use a fresh private directory. Select the matching asset from the table; on
+NixOS use the musl asset rather than assuming a glibc loader is installed.
+
+```sh
+mkdir NeoPi-office
+cd NeoPi-office
+tag=v18.10.3-nightly.fd5698a0772a.41001835518.1
+asset=npi-linux-x64 # npi-linux-musl-x64 on NixOS; select arm64 when appropriate
+base="https://github.com/PsychedelicShayna/neopi/releases/download/$tag"
+curl -fL "$base/$asset" -o "$asset" &&
+curl -fL "$base/SHA256SUMS.txt" -o SHA256SUMS.txt &&
+sha256sum --ignore-missing -c SHA256SUMS.txt &&
+chmod 755 "$asset" &&
+mv "$asset" npi &&
+export PATH="$PWD:$PATH" &&
+npi --version &&
+npi login neoproxy --help
+```
+
+The pinned glibc Linux x86-64 asset is 326,813,872 bytes; its SHA-256 is
+`5487bf833b71f41e0f52c7c6e12d29915932e0085ffefd9681ae424ac50ecd17`.
+For macOS, download the matching Darwin asset, compare `shasum -a 256 <asset>`
+with its line in `SHA256SUMS.txt`, then make it executable and name it `npi`.
+
+### Log in and select a granted model
+
+The released client's `npi login neoproxy --help` must show `--url`. If it does
+not, use the pinned release above instead of a source run or manual provider
+configuration. Publication and native startup checks alone do not prove your
+office service is reachable: the login and real reply below are separate steps.
 
 ```sh
 npi login neoproxy --url https://YOUR-PROXY-HOST
@@ -48,9 +124,10 @@ eligible; an operator key, TLS bypass or manual model file is not the fix.
 
 Use only [PsychedelicShayna/NeoProxy releases](https://github.com/PsychedelicShayna/NeoProxy/releases).
 Nightly releases are marked **Pre-release** and may not appear behind GitHub's
-`latest` link. Choose an explicit tag. The first office nightly is named
-`neoproxy-v0.1.0-nightly.20261029.1`; its archive version is
-`0.1.0-nightly.20261029.1`.
+`latest` link. Choose an explicit **published** tag. The coordinated first office
+candidate is `neoproxy-v0.1.0-nightly.20261030.1`, with archive version
+`0.1.0-nightly.20261030.1`. The examples below apply once that release is published;
+the presence of this guide is not a claim that an unpublished candidate exists.
 
 | System | Archive | Notes |
 | --- | --- | --- |
@@ -88,7 +165,7 @@ security globally or accept a similarly named download from another repository.
 ### Windows PowerShell
 
 ```powershell
-$version = "0.1.0-nightly.20261029.1"
+$version = "0.1.0-nightly.20261030.1"
 $tag = "neoproxy-v$version"
 $asset = "NeoProxy_${version}_windows_amd64.zip"
 $base = "https://github.com/PsychedelicShayna/NeoProxy/releases/download/$tag"
@@ -107,15 +184,15 @@ Choose a private directory under your user profile, not a shared office drive.
 ### Linux
 
 ```sh
-version=0.1.0-nightly.20261029.1
+version=0.1.0-nightly.20261030.1
 tag="neoproxy-v$version"
 asset="NeoProxy_${version}_linux_amd64_static.tar.gz" # use arm64 for an ARM64 host
 base="https://github.com/PsychedelicShayna/NeoProxy/releases/download/$tag"
-curl -fL "$base/$asset" -o "$asset"
-curl -fL "$base/SHA256SUMS" -o SHA256SUMS
-sha256sum --ignore-missing -c SHA256SUMS
-mkdir NeoProxy
-tar -xzf "$asset" -C NeoProxy
+curl -fL "$base/$asset" -o "$asset" &&
+curl -fL "$base/SHA256SUMS" -o SHA256SUMS &&
+sha256sum --ignore-missing -c SHA256SUMS &&
+mkdir NeoProxy &&
+tar -xzf "$asset" -C NeoProxy &&
 cd NeoProxy
 ```
 
