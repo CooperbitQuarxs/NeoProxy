@@ -315,3 +315,20 @@ repeat or whole-product acceptance. Member/owner role coverage, pointer drag,
 screen-reader behaviour, provider provisioning, upstream inference/quota and
 released-client checks remain separate. No empty inventory or owner data was
 reset to manufacture a screenshot.
+
+The independent Terra repeat found two additional defects: pointer-only sort
+headings and fractional budgets rounded upward. Corrected candidate `ccf2667a`
+was then exercised on the actual private compiled engine. Chromium's AX tree
+exposed the sortable headings as buttons inside column headers. Native Tab
+reached User; Enter sorted descending once, Space sorted ascending once, and
+focus remained on User after both header replacements. Document/page widths
+remained 390px.
+
+The existing fractional-budget case retained its real 622-token ledger: the
+inspector inputs and subtitle read 0.5% each/0.5% cap; the stage read
+`0.622% of 0.5%`, and its account ring described the same exact allowance.
+Simulation skipped the exhausted stage with
+`stage cap reached (0.622% of 0.5%)`, then followed its existing fall-through
+terminal. No new inference call or configuration mutation was needed for this
+format proof. This is bounded implementation verification, not a replacement for
+the parent's continuing independent Terra/product acceptance.
