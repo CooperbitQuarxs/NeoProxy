@@ -295,6 +295,9 @@ above unchanged.
   inputs/titles, rail labels, ring descriptions and simulation trails, including
   grant-scaled budgets. A 0.5% cap must not read as 1% or imply room after it is
   exhausted. Rounded overview usage remains distinct from precise budget labels.
+- Error-dump `modified` values come from the management API as Unix seconds.
+  Convert to milliseconds once before formatting relative time; an omitted
+  modification time stays unknown rather than becoming a fabricated date.
 
 Check these behaviours in the compiled dashboard with real persisted account
 and model data, not a substitute fixture. The focused resolver oracle remains
