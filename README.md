@@ -34,10 +34,15 @@ available to organization-admin sessions, not ordinary member keys.
 
 ## Connect from a released NeoPi client
 
-Download a native client from [NeoPi releases](https://github.com/PsychedelicShayna/neopi/releases)
-that contains [native NeoProxy login](https://github.com/PsychedelicShayna/neopi/pull/602).
-An older release without `npi login neoproxy --help` / `--url` is insufficient.
-No repository clone, Bun or manual model/provider file is needed:
+Use the published native client
+[`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1)
+or a later release retaining NeoProxy login. This is the minimum office client
+release containing [native connection support](https://github.com/PsychedelicShayna/neopi/pull/602);
+the base version `18.10.3` alone is insufficient. Download its raw executable
+(`npi-linux-x64`, `npi-windows-x64.exe`, or the matching platform asset), verify
+`SHA256SUMS.txt`, and name it `npi` / `npi.exe` on your current terminal's PATH.
+The [installation guide](docs/downloads.md#connect-using-a-released-neopi-client)
+has exact Windows/Linux commands. No clone, Bun or manual provider file is needed:
 
 ```sh
 npi login neoproxy --url https://YOUR-PROXY-HOST

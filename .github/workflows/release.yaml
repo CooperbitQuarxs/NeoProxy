@@ -211,9 +211,12 @@ jobs:
           Complete setup/security instructions:
           https://github.com/${GH_REPO}/blob/${SOURCE_COMMIT}/docs/downloads.md
 
-          Office members connect with a RELEASED NeoPi binary containing native NeoProxy
-          login (NeoPi PR602), not a source clone or manual models.yml:
-          https://github.com/PsychedelicShayna/neopi/releases
+          Minimum published office client: NeoPi v18.10.3-nightly.fd5698a0772a.41001835518.1
+          https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1
+          Download its standalone npi executable for your platform and verify SHA256SUMS.txt.
+          No source clone, Bun or manual models.yml is needed. Windows users can name
+          npi-windows-x64.exe as npi.exe; Linux users make the matching asset executable
+          and name it npi on their terminal PATH. The complete guide above has commands.
           Run: npi login neoproxy --url https://YOUR-PROXY-HOST
           Answer username/hidden-password prompts, then npi models neoproxy --json.
           Start npi, choose a granted model with /model (or assign roles with /models),
