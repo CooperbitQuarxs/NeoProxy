@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,70 @@ func testInput(u User) UserInput {
 	return UserInput{Handle: u.Handle, Name: u.Name, Role: u.Role, State: u.State, ProviderAccess: u.ProviderAccess, Grants: u.Grants, Limits: u.Limits}
 }
 func testActor(u User) Principal { p := principal(u); p.Session = true; return p }
+
+func TestSQLiteDSNAbsolutePaths(t *testing.T) {
+	for _, path := range []string{
+		"/var/lib/NeoProxy/database #100% ü.sqlite",
+		"D:/a/_temp/sqlite smoke/database #100% ü.sqlite",
+	} {
+		t.Run(path, func(t *testing.T) {
+			uri, err := url.Parse(sqliteDSN(path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantPath := path
+			if !strings.HasPrefix(wantPath, "/") {
+				wantPath = "/" + wantPath
+			}
+			if uri.Scheme != "file" || uri.Host != "" || uri.Path != wantPath {
+				t.Fatalf("database URI does not preserve absolute filesystem path: %#v", uri)
+			}
+			for key, want := range map[string]string{
+				"_foreign_keys": "on", "_journal_mode": "WAL", "_synchronous": "FULL",
+				"_busy_timeout": "5000", "_txlock": "immediate", "_secure_delete": "on",
+			} {
+				if got := uri.Query().Get(key); got != want {
+					t.Fatalf("URI option %s = %q, want %q", key, got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestOpenSpecialCharacterPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "private data #100% ü", "identity #100% ü.sqlite")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if s != nil {
+			if errClose := s.Close(); errClose != nil {
+				t.Error(errClose)
+			}
+		}
+	})
+	user := testUser(t, s, "portable", RoleMember)
+	if errClose := s.Close(); errClose != nil {
+		t.Fatal(errClose)
+	}
+	s = nil
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Size() == 0 {
+		t.Fatal("SQLite did not persist to the intended native filesystem path")
+	}
+	s, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := s.User(t.Context(), user.ID)
+	if err != nil || restored.Handle != user.Handle {
+		t.Fatalf("user did not survive native path reopen: %#v %v", restored, err)
+	}
+}
 
 func TestPersistenceReopenAndPrivateHashes(t *testing.T) {
 	ctx := t.Context()
