@@ -19,11 +19,16 @@ a model configuration file. Ask your administrator for the **HTTPS NeoProxy URL*
 and your NeoProxy username/password. Sign in at `<service-url>/neo/` to see your
 access. An operator management secret is never an ordinary user's login.
 
-1. Download a released Linux/Windows/macOS NeoPi build from
-   [NeoPi releases](https://github.com/PsychedelicShayna/neopi/releases), choosing
-   the correct platform and checking that release's checksums. Use a release
-   containing native NeoProxy login: `npi login neoproxy --help` must show `--url`.
-   If that command is absent, upgrade; do not fall back to source/Bun/manual YAML.
+1. Download the published minimum office client
+   [`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1)
+   or a later release retaining native NeoProxy login. Its assets are raw
+   executables: choose `npi-linux-x64`, `npi-windows-x64.exe`, or the matching
+   platform asset, and verify the same release's `SHA256SUMS.txt`. Name it `npi`
+   / `npi.exe` on your current terminal PATH. The
+   [full installation guide](https://github.com/PsychedelicShayna/NeoProxy/blob/nightly/docs/downloads.md#connect-using-a-released-neopi-client)
+   has exact Windows/Linux steps, including NixOS's musl asset. A base version of
+   `18.10.3` alone is not a sufficient release identifier. Check
+   `npi login neoproxy --help` for `--url`; don't fall back to source/Bun/manual YAML.
 2. Run the released executable:
 
    ```sh
@@ -44,8 +49,9 @@ access. An operator management secret is never an ordinary user's login.
    Do not replace the setup with an operator key or disable TLS verification.
 
 Login is also available through `npi login` → NeoProxy, or `/login neoproxy` inside
-NeoPi. Existing clients without the native login command are not sufficient for
-this office path. The NeoPi release notes identify the release containing it.
+NeoPi. The pinned client release contains native connection support; publication
+alone is not a claim that a particular office service or account has been tested.
+The login, model selection and real reply above remain the functional check.
 
 ## Running a server
 
