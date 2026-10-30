@@ -1,5 +1,6 @@
 # Binaries
 cli-proxy-api
+neoproxy
 *.exe
 
 # Configuration
@@ -8,6 +9,7 @@ config.yaml
 
 # Generated content
 bin/*
+/dist/
 /logs
 conv/*
 temp/*
@@ -31,6 +33,7 @@ auths/*
 # Documentation
 docs/*
 !docs/management-api-v8.md
+!docs/downloads.md
 !docs/design/
 !docs/upstream/
 AGENTS.md
