@@ -24,8 +24,8 @@ NeoPi release assets are **standalone executables, not archives**:
 | --- | --- |
 | Linux x86-64, glibc | `npi-linux-x64` |
 | Linux ARM64, glibc | `npi-linux-arm64` |
-| NixOS/musl x86-64 | `npi-linux-musl-x64` |
-| NixOS/musl ARM64 | `npi-linux-musl-arm64` |
+| Linux musl x86-64 | `npi-linux-musl-x64` |
+| Linux musl ARM64 | `npi-linux-musl-arm64` |
 | Windows x86-64 | `npi-windows-x64.exe` |
 | Windows ARM64 | `npi-windows-arm64.exe` |
 | macOS Intel | `npi-darwin-x64` |
@@ -66,15 +66,32 @@ SHA-256 is `2cbb3842832ff2e93fbfa105953b8231310c4d53cc0be86fbe2b758e45f30e35`.
 
 ### Install the released client on Linux
 
-Use a fresh private directory. Select the matching asset from the table; on
-NixOS use the musl asset rather than assuming a glibc loader is installed.
+Use a fresh private directory and select the matching asset from the table.
+NixOS is a **glibc** distribution; do not treat it as a musl platform or assume
+that the official NeoPi musl client has been verified there.
+
+The proven Utopia NixOS 25.11 path uses the official `npi-linux-x64` asset and
+that host's **already installed** `nix-ld`. On that configured host, set these
+variables in the current terminal before running the installation/login commands:
 
 ```sh
-mkdir NeoPi-office
-cd NeoPi-office
-tag=v18.10.3-nightly.fd5698a0772a.41001835518.1
-asset=npi-linux-x64 # npi-linux-musl-x64 on NixOS; select arm64 when appropriate
-base="https://github.com/PsychedelicShayna/neopi/releases/download/$tag"
+export NIX_LD=/run/current-system/sw/share/nix-ld/lib/ld.so
+export NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib
+```
+
+Those exact existing-loader paths were used for native `--version`, `--smoke-test`,
+login, discovery and a role-selected real reply. This does not install a loader,
+hand-assemble a binary or change global NixOS configuration. Another NixOS host
+needs its own appropriate loader setup from its administrator; do not blindly
+assume the same paths exist. Change the asset assignment below for another
+architecture or a genuinely musl-based Linux host.
+
+```sh
+mkdir NeoPi-office &&
+cd NeoPi-office &&
+tag=v18.10.3-nightly.fd5698a0772a.41001835518.1 &&
+asset=npi-linux-x64 &&
+base="https://github.com/PsychedelicShayna/neopi/releases/download/$tag" &&
 curl -fL "$base/$asset" -o "$asset" &&
 curl -fL "$base/SHA256SUMS.txt" -o SHA256SUMS.txt &&
 sha256sum --ignore-missing -c SHA256SUMS.txt &&
