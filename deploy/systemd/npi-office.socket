@@ -1,0 +1,12 @@
+[Unit]
+Description=Private NeoPi office RPC socket
+
+[Socket]
+ListenStream=%t/neoproxy-office/npi.sock
+Accept=yes
+SocketMode=0600
+DirectoryMode=0700
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

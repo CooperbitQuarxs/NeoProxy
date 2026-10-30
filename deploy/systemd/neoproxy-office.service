@@ -1,0 +1,18 @@
+[Unit]
+Description=NeoProxy private office inference service
+
+[Service]
+Type=simple
+UMask=0077
+StateDirectory=neoproxy-office
+StateDirectoryMode=0700
+WorkingDirectory=%S/neoproxy-office
+Environment=NEOPROXY_DATA_DIR=%S/neoproxy-office
+ExecStart=%h/.local/lib/neoproxy-office/current/neoproxy --config %h/.config/neoproxy-office/config.yaml --local-model
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
