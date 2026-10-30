@@ -21,7 +21,9 @@ export async function render(ctx) {
 		const body = h("div", null,
 			kv([["Account", h("code", null, account.id)], ["Owner", admin ? (users.find((u) => u.id === account.ownerId)?.handle || account.ownerId || "unassigned") : ctx.session.handle], ["Plan", account.plan || "unknown"]]),
 			windowsRow(account.windows),
-			h("p", { class: "ink-3" }, "Configured token capacity is a local routing budget, not an upstream quota or monetary cost. Without a trustworthy window, quota remains unknown."),
+			h("p", { class: "ink-3" }, account.windows.some((w) => w.source === "configured-metered")
+				? "Local meter set in NeoProxy. Provider quota: unknown."
+				: "Configured token capacity is a local routing budget, not an upstream quota or monetary cost. Without a trustworthy window, quota remains unknown."),
 		);
 		if (admin) body.append(field("Assign owner", select([{ value: "", label: "Choose an owner" }, ...users.filter((u) => ["admin", "owner"].includes(u.role)).map((u) => ({ value: u.id, label: `${u.handle} · ${u.role}` }))], account.ownerId ?? "", async (ownerId) => {
 			if (!ownerId) return;

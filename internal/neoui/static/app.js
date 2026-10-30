@@ -70,13 +70,13 @@ function topbar(page, s, onMenu) {
 	return h(
 		"header",
 		{ class: "topbar" },
-		h("button", { class: "btn icon menu-btn", onClick: onMenu, "aria-label": "Menu", style: { display: "none" } }, icon("menu")),
-		h("a", { class: "brand", href: "#/overview" }, mark(), "NeoProxy", h("span", { class: "crumb" }, "/"), h("span", { class: "crumb-page" }, page.title)),
+		h("button", { class: "btn icon menu-btn", onClick: onMenu, "aria-label": "Menu" }, icon("menu")),
+		h("a", { class: "brand", href: "#/overview", "aria-label": "NeoProxy overview", title: "NeoProxy" }, mark(), h("span", { class: "brand-name" }, "NeoProxy"), h("span", { class: "crumb" }, "/"), h("span", { class: "crumb-page" }, page.title)),
 		h("span", { class: "spacer" }),
 		h("span", { class: "chip", id: "core-chip" }, h("span", { class: "dot" }), "Core", h("span", { class: "mono" }, "checking")),
 		h("span", { class: "chip", id: "proxy-chip" }, h("span", { class: "dot" }), "Proxy", h("span", { class: "mono" }, "checking")),
 		iconBtn({ auto: "monitor", light: "sun", dark: "moon" }[themeMode()], `Theme: ${themeMode()}`, cycleTheme),
-		h("span", { class: "chip" }, `${s.handle} · ${s.role === "user" ? "member" : s.role}`),
+		h("span", { class: "chip who", title: `${s.handle} · ${s.role === "user" ? "member" : s.role}` }, `${s.handle} · ${s.role === "user" ? "member" : s.role}`),
 		iconBtn("logout", `Sign out ${s.handle}`, signOut),
 	);
 }
@@ -99,6 +99,7 @@ async function refreshChips() {
 		if (proxy) {
 			proxy.querySelector(".dot").className = `dot ${ok ? "ok" : "bad"}`;
 			proxy.querySelector(".mono").textContent = ok ? location.host : "down";
+			proxy.title = ok ? `Proxy healthy at ${location.host}` : `Proxy unavailable at ${location.host}`;
 		}
 	} catch {
 		if (proxy) {
@@ -222,7 +223,6 @@ export async function render() {
 		h("main", { class: "shell-main" }, panel),
 	);
 	root.append(shell);
-	if (window.innerWidth <= 900) shell.querySelector(".menu-btn").style.display = "";
 	refreshChips();
 
 	const ctx = {

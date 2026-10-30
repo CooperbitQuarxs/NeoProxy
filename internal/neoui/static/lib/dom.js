@@ -142,8 +142,11 @@ export function fmtCompact(n) {
 	return `${(v / 1e9).toFixed(1)}B`;
 }
 
+// Budget labels retain fractional precision; compact usage labels keep explicit digits.
+const precisePercent = new Intl.NumberFormat("en-US", { style: "percent", maximumSignificantDigits: 15, useGrouping: false });
 export function fmtPct(x, digits = 0) {
 	if (x === null || x === undefined || Number.isNaN(Number(x))) return "–";
+	if (digits === null) return precisePercent.format(Number(x));
 	return `${(Number(x) * 100).toFixed(digits)}%`;
 }
 

@@ -255,3 +255,83 @@ NeoProxy ships the same control.
 - Fixture-backed pages carry the preview chip; engine-backed pages do not.
   The upstream control panel stays at `/management.html` as the escape hatch
   and is linked from About.
+
+### Office-walk refinements (2026-10-30)
+
+The GPT-6.1 Terra office walk and Opus 5.5 design critique exposed layout and
+interaction defects, not a need for a different visual language. Keep the tokens
+above unchanged.
+
+- At narrow widths the topbar must not establish a min-content floor for the
+  shell. CSS owns menu visibility, including after resize. On phones the mark
+  carries the brand, endpoint details stay in chip titles, and the user chip
+  truncates without pushing out sign-out.
+- The Models toolbar wraps; provider metadata moves below its name and switch.
+  Model identifiers wrap rather than losing their meaningful tail. Compact
+  virtual-model teasers clip with an edge fade, not a nested scroll surface
+  inside their button. Full chains remain horizontally scrollable.
+  Dense tables keep their column/sort structure in a keyboard-focusable local
+  scroll region; toolbars and card actions wrap rather than widening the page.
+  This table-local scrolling is an explicit limited exception to the chain-only
+  horizontal-scroll guidance: retaining real dense columns and sorting is less
+  disruptive than redesigning the tables as cards.
+  Sortable column headings are native buttons with `aria-sort` on their column;
+  Enter and Space sort once and retain focus on that same heading.
+- The served-model summary derives from the same effective provider/model
+  exposure state as the rows after each completed change. Empty inventory asks
+  for a credential; genuine filter misses retain their search guidance.
+- Focus a stage and press **Alt+Left** or **Alt+Right** to reorder it. Selection
+  is not required. Focus follows the same stage through rail replacement and
+  simulation updates; a quiet live region announces moves and boundaries.
+  **Enter** and **Space** open stage and terminal inspectors. **Escape** closes
+  the inspector. Reordering changes the draft: save before simulating it.
+- Script save errors persist beside Lua source, with the server's original
+  diagnostic, until edited. Rejected script results are named as such and offer
+  **Edit script**, rather than pretending the model failed to load.
+- Configured token windows show measured tokens against capacity and a
+  **local meter** tag. They are local routing budgets; provider quota remains
+  unknown. Unknown plan or provider quota must not become inferred values.
+- Fractional stage budgets retain their configured precision in inspector
+  inputs/titles, rail labels, ring descriptions and simulation trails, including
+  grant-scaled budgets. A 0.5% cap must not read as 1% or imply room after it is
+  exhausted. Rounded overview usage remains distinct from precise budget labels.
+- Error-dump `modified` values come from the management API as Unix seconds.
+  Convert to milliseconds once before formatting relative time; an omitted
+  modification time stays unknown rather than becoming a fabricated date.
+
+Check these behaviours in the compiled dashboard with real persisted account
+and model data, not a substitute fixture. The focused resolver oracle remains
+useful for routing arithmetic, but does not prove browser interaction, upstream
+inference, provider quota, OAuth, or released-client acceptance.
+
+The final compiled office UI candidate (`7fccd42e`) was exercised on the
+preserved private engine in Chromium at 390×844. All fourteen admin navigation
+pages and the persisted virtual-model editor had document and page scroll widths
+of 390px. Native ArrowRight reached the last Users table column, sorting still
+worked, and Enter on a user row opened its detail page. Native Tab/AltArrow
+reordered the focused stage and restored the original order; focus also survived
+an actual asynchronous simulation response. The local meter showed
+`0 of 100k tokens`, `local meter`, and `Provider quota: unknown`.
+
+This is bounded Sol implementation smoke, not the independent GPT-6.1 Terra
+repeat or whole-product acceptance. Member/owner role coverage, pointer drag,
+screen-reader behaviour, provider provisioning, upstream inference/quota and
+released-client checks remain separate. No empty inventory or owner data was
+reset to manufacture a screenshot.
+
+The independent Terra repeat found two additional defects: pointer-only sort
+headings and fractional budgets rounded upward. Corrected candidate `ccf2667a`
+was then exercised on the actual private compiled engine. Chromium's AX tree
+exposed the sortable headings as buttons inside column headers. Native Tab
+reached User; Enter sorted descending once, Space sorted ascending once, and
+focus remained on User after both header replacements. Document/page widths
+remained 390px.
+
+The existing fractional-budget case retained its real 622-token ledger: the
+inspector inputs and subtitle read 0.5% each/0.5% cap; the stage read
+`0.622% of 0.5%`, and its account ring described the same exact allowance.
+Simulation skipped the exhausted stage with
+`stage cap reached (0.622% of 0.5%)`, then followed its existing fall-through
+terminal. No new inference call or configuration mutation was needed for this
+format proof. This is bounded implementation verification, not a replacement for
+the parent's continuing independent Terra/product acceptance.

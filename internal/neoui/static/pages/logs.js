@@ -67,7 +67,7 @@ export async function render(ctx) {
 			if (disposed) return;
 			dumpBody.replaceChildren(files.length ? h("div", { class: "list" }, files.map((file) => {
 				const name = typeof file === "string" ? file : file.name;
-				const modified = file.modified ?? file.mod_time ?? file.modtime;
+				const modified = file.modified == null ? null : file.modified * 1000;
 				return h("div", { class: "li" }, icon("scroll", 15), h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, name)), h("div", { class: "sub" }, [file.size != null ? `${fmtInt(file.size)} bytes` : null, modified ? fmtAgo(modified) : null].filter(Boolean).join(" · "))), iconBtn("download", `Download ${name}`, async () => {
 					try {
 						const response = await engine.raw("GET", `observability/logs/errors/${encodeURIComponent(name)}`);
@@ -86,7 +86,7 @@ export async function render(ctx) {
 		}
 	};
 	root.append(
-		h("div", { class: "row", style: { marginBottom: "14px" } },
+		h("div", { class: "row wrap page-toolbar", style: { marginBottom: "14px" } },
 			seg([100, 200, 500, 1000].map((n) => ({ value: n, label: String(n), title: `Last ${n} lines` })), limit, (value) => { limit = value; reloadLogs(); }),
 			seg([{ value: "all", label: "All" }, { value: "warn", label: "Warnings" }, { value: "err", label: "Errors" }], level, (value) => { level = value; paintLines(); }),
 			search("Filter log lines", (value) => { query = value; paintLines(); }), h("span", { class: "spacer" }),
