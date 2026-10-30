@@ -31,9 +31,10 @@ export async function render(ctx) {
 	const reqCount = (served) => requests.filter((r) => r.asked === served || r.decision?.model === served.replace(/^neoproxy\//, "")).length;
 	const usersWith = (m) => users.filter((u) => u.providerAccess.includes(m.providerId)).length;
 
+	const summary = h("span", { class: "ink-3 summary", style: { fontSize: "12.5px" } });
 	const toolbar = h(
 		"div",
-		{ class: "row", style: { marginBottom: "14px" } },
+		{ class: "row models-toolbar", style: { marginBottom: "14px" } },
 		search("Filter by name, provider or tag", (v) => {
 			query = v.toLowerCase();
 			renderTree();
@@ -51,7 +52,7 @@ export async function render(ctx) {
 			},
 		),
 		h("span", { class: "spacer" }),
-		h("span", { class: "ink-3", style: { fontSize: "12.5px" } }, `${models.filter((m) => m.exposed && vault.providers.find((p) => p.id === m.providerId)?.exposed).length} of ${models.length} provider models served · ${vms.length} virtual`),
+		summary,
 	);
 	host.append(toolbar);
 
@@ -67,9 +68,9 @@ export async function render(ctx) {
 			vms.map((vm) =>
 				h(
 					"button",
-					{ type: "button", class: "li clickable", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) },
-					h("div", { class: "lt", style: { flex: "0 0 220px" } }, h("div", { class: "main" }, servedName(vm.served, { virtual: true })), h("div", { class: "sub" }, `${plural(users.filter((u) => u.grants.some((g) => g.virtualModel === vm.id)).length, "user")} · ${reqCount(vm.served)} requests recently`)),
-					h("div", { style: { flex: 1, minWidth: 0, overflow: "hidden" } }, chainRail(vm, { models, accounts: vault.accounts, compact: true })),
+					{ type: "button", class: "li clickable vm-teaser", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) },
+					h("div", { class: "lt" }, h("div", { class: "main" }, servedName(vm.served, { virtual: true })), h("div", { class: "sub" }, `${plural(users.filter((u) => u.grants.some((g) => g.virtualModel === vm.id)).length, "user")} · ${reqCount(vm.served)} requests recently`)),
+					h("div", { class: "rail-clip" }, chainRail(vm, { models, accounts: vault.accounts, compact: true })),
 					icon("chevronRight", 14),
 				),
 			),
@@ -89,6 +90,7 @@ export async function render(ctx) {
 	}
 
 	function renderTree() {
+		summary.textContent = `${models.filter((m) => m.exposed && vault.providers.find((p) => p.id === m.providerId)?.exposed).length} of ${models.length} provider models served · ${vms.length} virtual`;
 		clear(tree);
 		let any = false;
 		for (const p of vault.providers) {
@@ -147,7 +149,9 @@ export async function render(ctx) {
 				);
 			}
 		}
-		if (!any) tree.append(empty({ icon: "search", title: "No models match", hint: "Try a provider name, a model id, or a tag like fast or reasoning." }));
+		if (!any) tree.append(!vault.providers.length && !query && show === "all"
+			? empty({ icon: "shield", title: "No provider models yet", hint: "Add a provider credential and its models appear here.", action: btn("Add credential", { icon: "plus", cls: "outline", onClick: () => ctx.navigate("credentials") }) })
+			: empty({ icon: "search", title: "No models match", hint: "Try a provider name, a model id, or a tag like fast or reasoning." }));
 	}
 	renderTree();
 	const off = onChange((w) => (w === "vault" || w === "models") && renderTree());

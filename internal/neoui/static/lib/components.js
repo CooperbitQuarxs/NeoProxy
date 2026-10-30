@@ -1,7 +1,7 @@
 // Shared widgets. Every page composes these; pages never write raw markup for
 // a card, table, ring, chain or chip.
 
-import { h, svgEl, icon, append, clear, fmtPct, copyText } from "./dom.js";
+import { h, svgEl, icon, append, clear, fmtPct, fmtCompact, copyText } from "./dom.js";
 
 // ---------- page chrome ----------
 
@@ -483,7 +483,7 @@ export function modelPicker({ providers, models, accounts, value, onPick, onlyEx
 
 // Renders a virtual model's stages as a horizontal rail: request → stage… →
 // terminal. `lit` marks the stage a simulated request would land on;
-// `onSelect` makes nodes selectable (editor); `onReorder` enables drag.
+// `onSelect` makes nodes selectable; `onReorder` enables drag and Alt+Arrow keys.
 export function chainRail(vm, { models, accounts, usageFor, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1, accountLabel = (a) => a.label } = {}) {
 	const rail = h("div", { class: `neo-chain ${compact ? "compact" : ""} ${editor ? "editor" : ""}`, role: "list" });
 	const link = (text) => h("div", { class: "link" }, icon("arrowRight", 14), text ? h("span", { class: "demote" }, text) : null);
@@ -512,7 +512,21 @@ export function chainRail(vm, { models, accounts, usageFor, lit = null, selected
 				"aria-selected": onSelect ? String(selected === s.id) : null,
 				tabindex: onSelect ? 0 : null,
 				onClick: onSelect ? () => onSelect(s) : null,
-				onKeydown: onSelect ? (e) => e.key === "Enter" && onSelect(s) : null,
+				onKeydown: (e) => {
+					if (onReorder && e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+						e.preventDefault();
+						const j = e.key === "ArrowLeft" ? i - 1 : i + 1;
+						if (j < 0 || j >= vm.stages.length) return onReorder(null, { id: s.id, edge: j < 0 ? "first" : "last" });
+						const next = vm.stages.slice();
+						[next[i], next[j]] = [next[j], next[i]];
+						onReorder(next, { id: s.id, to: j });
+					} else if (onSelect && (e.key === "Enter" || e.key === " ")) {
+						e.preventDefault();
+						onSelect(s);
+					}
+				},
+				"aria-keyshortcuts": onReorder ? "Alt+ArrowLeft Alt+ArrowRight" : null,
+				"aria-label": onSelect ? `Stage ${i + 1} of ${vm.stages.length}, ${model?.display ?? s.model}` : null,
 				draggable: onReorder ? "true" : null,
 				dataset: { stage: s.id },
 			},
@@ -567,6 +581,13 @@ export function chainRail(vm, { models, accounts, usageFor, lit = null, selected
 				"aria-selected": onSelect ? String(selected === "terminal") : null,
 				tabindex: onSelect ? 0 : null,
 				onClick: onSelect ? () => onSelect("terminal") : null,
+				dataset: { stage: "terminal" },
+				onKeydown: onSelect ? (e) => {
+					if (e.key === "Enter" || e.key === " ") {
+						e.preventDefault();
+						onSelect("terminal");
+					}
+				} : null,
 			},
 			h("div", { class: "n-head" }, compact ? "then" : "when every stage is spent"),
 			h("div", { class: "n-model" }, compact ? (term.kind === "queue" ? "queue" : term.kind === "passthrough" ? "fall through" : "limit error") : term.kind === "queue" ? "Queue until a window resets" : term.kind === "passthrough" ? "Fall through to a direct model" : "Return a limit error"),
@@ -609,7 +630,7 @@ function wireDrag(node, rail, vm, onReorder) {
 		const next = vm.stages.slice();
 		const [moved] = next.splice(fi, 1);
 		next.splice(ti, 0, moved);
-		onReorder(next);
+		onReorder(next, { id: moved.id, to: ti });
 	});
 }
 
@@ -667,7 +688,10 @@ export function windowsRow(windows = [], { now = Date.now() } = {}) {
 	return h(
 		"div",
 		{ class: "windows" },
-		windows.map((w) => h("span", { class: "window" }, ring({ used: w.used, size: 24, label: false }), h("span", { class: "kind" }, w.kind), h("span", null, `${fmtPct(w.used)} used`), h("span", { class: "ink-3" }, `· resets in ${fmtInWindow(w.resetsAt, now)}`))),
+		windows.map((w) => h("span", { class: "window" }, ring({ used: w.used, size: 24, label: false }), h("span", { class: "kind" }, w.kind),
+			h("span", null, w.known && w.unit === "tokens" ? `${fmtCompact(w.usedTokens)} of ${fmtCompact(w.capacity)} tokens` : `${fmtPct(w.used)} used`),
+			w.source === "configured-metered" ? tag("local meter") : null,
+			h("span", { class: "ink-3" }, `· resets in ${fmtInWindow(w.resetsAt, now)}`))),
 	);
 }
 

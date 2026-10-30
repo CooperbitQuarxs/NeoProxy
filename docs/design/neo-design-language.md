@@ -255,3 +255,37 @@ NeoProxy ships the same control.
 - Fixture-backed pages carry the preview chip; engine-backed pages do not.
   The upstream control panel stays at `/management.html` as the escape hatch
   and is linked from About.
+
+### Office-walk refinements (2026-10-30)
+
+The GPT-6.1 Terra office walk and Opus 5.5 design critique exposed layout and
+interaction defects, not a need for a different visual language. Keep the tokens
+above unchanged.
+
+- At narrow widths the topbar must not establish a min-content floor for the
+  shell. CSS owns menu visibility, including after resize. On phones the mark
+  carries the brand, endpoint details stay in chip titles, and the user chip
+  truncates without pushing out sign-out.
+- The Models toolbar wraps; provider metadata moves below its name and switch.
+  Model identifiers wrap rather than losing their meaningful tail. Compact
+  virtual-model teasers clip with an edge fade, not a nested scroll surface
+  inside their button. Full chains remain horizontally scrollable.
+- The served-model summary derives from the same effective provider/model
+  exposure state as the rows after each completed change. Empty inventory asks
+  for a credential; genuine filter misses retain their search guidance.
+- Focus a stage and press **Alt+Left** or **Alt+Right** to reorder it. Selection
+  is not required. Focus follows the same stage through rail replacement and
+  simulation updates; a quiet live region announces moves and boundaries.
+  **Enter** and **Space** open stage and terminal inspectors. **Escape** closes
+  the inspector. Reordering changes the draft: save before simulating it.
+- Script save errors persist beside Lua source, with the server's original
+  diagnostic, until edited. Rejected script results are named as such and offer
+  **Edit script**, rather than pretending the model failed to load.
+- Configured token windows show measured tokens against capacity and a
+  **local meter** tag. They are local routing budgets; provider quota remains
+  unknown. Unknown plan or provider quota must not become inferred values.
+
+Check these behaviours in the compiled dashboard with real persisted account
+and model data, not a substitute fixture. The focused resolver oracle remains
+useful for routing arithmetic, but does not prove browser interaction, upstream
+inference, provider quota, OAuth, or released-client acceptance.

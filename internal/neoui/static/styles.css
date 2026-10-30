@@ -175,6 +175,17 @@ svg {
 .hidden {
 	display: none !important;
 }
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -194,6 +205,7 @@ svg {
 }
 .topbar {
 	grid-area: top;
+	min-width: 0;
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -201,6 +213,9 @@ svg {
 	border-bottom: 1px solid var(--line-1);
 	background: color-mix(in srgb, var(--bg) 85%, transparent);
 	backdrop-filter: blur(8px);
+}
+.topbar .menu-btn {
+	display: none;
 }
 .topbar .brand {
 	display: flex;
@@ -1096,6 +1111,13 @@ kbd {
 	transition: border-color var(--dur-1), background var(--dur-1);
 	position: relative;
 }
+.neo-chain .node:focus-visible {
+	outline-offset: -2px;
+}
+.neo-chain .node.request .served {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
 .neo-chain .node:hover {
 	border-color: var(--line-3);
 }
@@ -1117,10 +1139,10 @@ kbd {
 	width: 164px;
 }
 .neo-chain.editor .link {
-	width: 28px;
+	width: 48px;
 }
 .neo-chain.editor .link.adder {
-	width: 56px;
+	width: 72px;
 }
 .neo-chain .node.lit .n-head::after {
 	content: "lands here";
@@ -1541,6 +1563,25 @@ kbd {
 }
 
 /* ---------- catalogue tree ---------- */
+.models-toolbar {
+	flex-wrap: wrap;
+	row-gap: 8px;
+}
+.models-toolbar .search {
+	flex: 1 1 220px;
+	min-width: 0;
+}
+.list .vm-teaser .lt {
+	flex: 0 0 220px;
+}
+.vm-teaser .rail-clip {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+.vm-teaser .neo-chain {
+	overflow: hidden;
+}
 .tree .group-row {
 	display: flex;
 	align-items: center;
@@ -1579,7 +1620,7 @@ kbd {
 }
 .tree .model-row {
 	display: grid;
-	grid-template-columns: 1fr 150px 90px 90px 60px;
+	grid-template-columns: minmax(0, 1fr) 150px 90px 90px 60px;
 	gap: 12px;
 	align-items: center;
 	padding: 8px 16px 8px 40px;
@@ -1781,6 +1822,11 @@ kbd {
 	font-size: 12px;
 	color: var(--ink-3);
 }
+.gate .error {
+	color: var(--bad);
+	font-size: 12.5px;
+	margin: 2px 0 12px;
+}
 .gate .foot code {
 	font-size: 11.5px;
 }
@@ -1855,8 +1901,11 @@ kbd {
 	}
 }
 @media (max-width: 900px) {
+	.topbar .menu-btn {
+		display: inline-flex;
+	}
 	.shell {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 		grid-template-areas: "top" "main";
 	}
 	.sidebar {
@@ -1905,11 +1954,80 @@ kbd {
 		display: none;
 	}
 	.tree .model-row {
-		grid-template-columns: 1fr 60px;
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+	.tree .model-row .served {
+		white-space: normal;
+		overflow-wrap: anywhere;
 	}
 	.tree .model-row > :nth-child(2),
 	.tree .model-row > :nth-child(3),
 	.tree .model-row > :nth-child(4) {
 		display: none;
+	}
+}
+@media (max-width: 600px) {
+	.topbar {
+		gap: 6px;
+		padding: 0 8px;
+	}
+	.topbar .brand-name,
+	.topbar .brand .crumb,
+	.topbar .brand .crumb-page,
+	.topbar .chip .mono {
+		display: none;
+	}
+	.topbar .chip {
+		padding: 0 9px;
+		flex: none;
+	}
+	.topbar .who {
+		display: block;
+		line-height: 28px;
+		min-width: 0;
+		max-width: 34vw;
+		flex: 0 1 auto;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.models-toolbar .spacer {
+		display: none;
+	}
+	.models-toolbar .summary {
+		flex-basis: 100%;
+	}
+	.tree .group-row {
+		flex-wrap: wrap;
+		row-gap: 4px;
+		padding: 10px 12px;
+	}
+	.tree .group-row .name {
+		flex: 1 1 0;
+		flex-wrap: wrap;
+		overflow-wrap: anywhere;
+	}
+	.tree .group-row .name .caret {
+		flex: none;
+	}
+	.tree .group-row .meta {
+		order: 3;
+		flex-basis: 100%;
+		flex-wrap: wrap;
+		padding-left: 22px;
+	}
+	.tree .model-row {
+		padding: 8px 12px 8px 28px;
+	}
+	.list .vm-teaser {
+		flex-wrap: wrap;
+		row-gap: 8px;
+	}
+	.list .vm-teaser .lt {
+		flex: 1 1 calc(100% - 24px);
+	}
+	.vm-teaser .rail-clip {
+		order: 1;
+		flex-basis: 100%;
+		mask-image: linear-gradient(to right, #000 85%, transparent);
 	}
 }

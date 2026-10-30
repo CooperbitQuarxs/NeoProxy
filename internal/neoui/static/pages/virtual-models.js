@@ -159,28 +159,50 @@ async function editor(ctx, id) {
 			),
 		}),
 	);
+	let scriptInput, scriptField;
+	const scriptHint = "Save before simulating. No OS, filesystem, network or module access. Scripts cannot override grants, ownership, exposure, health or budgets. Invalid syntax/runtime results are backend errors.";
+	const isScriptError = (e) => e instanceof ApiError && (e.body?.error?.code === "neoproxy_script" || /^(invalid )?script:/i.test(e.message));
+	function setScriptError(message) {
+		if (!scriptInput) return;
+		scriptInput.setAttribute("aria-invalid", String(Boolean(message)));
+		const hint = scriptField.querySelector(".hint, .error");
+		hint.className = message ? "error" : "hint";
+		hint.textContent = message || scriptHint;
+	}
+	function editScript() {
+		scriptInput?.focus();
+		scriptInput?.scrollIntoView({ block: "center", behavior: "smooth" });
+	}
 	if (ctx.session.role === "admin") {
+		scriptInput = h("textarea", {
+			class: "textarea mono", rows: 9, spellcheck: "false", "aria-label": "Lua routing script",
+			placeholder: "Leave empty for standard routing",
+			onInput: (e) => { draft.script = e.target.value; setScriptError(null); setDirty(); },
+		}, draft.script ?? "");
+		scriptField = field("Lua source", scriptInput, scriptHint);
+		const hint = scriptField.querySelector(".hint");
+		hint.id = `${scriptInput.id}-hint`;
+		scriptInput.setAttribute("aria-describedby", hint.id);
 		root.append(card({
 			title: "Routing script · optional",
 			sub: "Lua source (maximum 16 KiB). Empty uses the standard chain. Read-only global input contains asked, protocol, userId, request, virtualModel, stages and account health. Inspect input.request.messages or input.request.input for the client's payload. Return exactly {stageId='s', accountId='a'} to propose an eligible candidate.",
-			body: field("Lua source", h("textarea", {
-				class: "textarea mono", rows: 9, spellcheck: "false", "aria-label": "Lua routing script",
-				placeholder: "Leave empty for standard routing",
-				onInput: (e) => { draft.script = e.target.value; setDirty(); },
-			}, draft.script ?? ""), "Save before simulating. No OS, filesystem, network or module access. Scripts cannot override grants, ownership, exposure, health or budgets. Invalid syntax/runtime results are backend errors."),
+			body: scriptField,
 		}));
 	}
 
 	// ----- chain -----
 	const railHost = h("div");
+	const reorderStatus = h("div", { class: "sr-only", role: "status" });
 	root.append(
 		card({
 			title: "Chain",
-			sub: "Left to right: a request arrives, each stage is tried in order, and when every stage is spent the chain ends the way you choose. Click a stage to edit it; drag it, or press Alt with ← →, to reorder.",
-			body: railHost,
+			sub: "Left to right: a request arrives, each stage is tried in order, and when every stage is spent the chain ends the way you choose. Click a stage to edit it. To reorder, drag it, or focus it and press Alt+← or Alt+→.",
+			body: [railHost, reorderStatus],
 		}),
 	);
-	function renderRail() {
+	function renderRail(focusStage) {
+		const focused = railHost.contains(document.activeElement) ? document.activeElement : null;
+		focusStage ??= focused?.closest("[data-stage]")?.dataset.stage;
 		clear(railHost);
 		const lit = simResult;
 		railHost.append(
@@ -198,14 +220,21 @@ async function editor(ctx, id) {
 					renderInspector();
 				},
 				onAdd: addStage,
-				onReorder: (next) => {
+				onReorder: (next, info) => {
+					if (!next) {
+						reorderStatus.textContent = `Already the ${info.edge} stage`;
+						return;
+					}
 					draft.stages = next;
 					setDirty();
-					renderRail();
-					runSim();
+					renderRail(info.id);
+					if (selected === info.id) renderInspector();
+					const stage = next[info.to];
+					reorderStatus.textContent = `Moved ${models.find((m) => m.id === stage.model)?.display ?? stage.model} to stage ${info.to + 1} of ${next.length}`;
 				},
 			}),
 		);
+		if (focusStage) railHost.querySelector(`[data-stage="${CSS.escape(focusStage)}"]`)?.focus({ preventScroll: true });
 		railHost.querySelector('.node[aria-selected="true"]')?.scrollIntoView({ inline: "nearest", block: "nearest" });
 		const t = document.getElementById("vm-title");
 		if (t && !isNew) {
@@ -299,7 +328,9 @@ async function editor(ctx, id) {
 			simHost.replaceChildren(trail(result, { models, accounts: vault.accounts, users }));
 		} catch (e) {
 			if (generation !== simGeneration || !simHost.isConnected) return;
-			simHost.replaceChildren(errorState(e, runSim));
+			simHost.replaceChildren(isScriptError(e)
+				? empty({ icon: "info", title: "Routing script result rejected", hint: e.message, action: scriptInput ? btn("Edit script", { cls: "outline", onClick: editScript }) : null })
+				: errorState(e, runSim));
 		}
 		renderRail();
 	}
@@ -568,6 +599,7 @@ async function editor(ctx, id) {
 		}
 		try {
 			const saved = await neo.saveVirtualModel(draft);
+			setScriptError(null);
 			toast(`Saved neoproxy/${saved.name}`);
 			if (isNew) ctx.navigate(`virtual-models/${saved.id}`);
 			else {
@@ -577,7 +609,11 @@ async function editor(ctx, id) {
 				runSim();
 			}
 		} catch (e) {
-			toast(e instanceof ApiError ? e.message : "Could not save", "bad");
+			if (scriptInput && isScriptError(e)) {
+				setScriptError(e.message);
+				editScript();
+				toast("Not saved: the routing script has an error.", "bad");
+			} else toast(e instanceof ApiError ? e.message : "Could not save", "bad");
 		}
 	}
 	async function discard() {
@@ -602,19 +638,6 @@ async function editor(ctx, id) {
 			selected = null;
 			renderRail();
 			ctx.setInspector(null);
-		}
-		// Alt+←/→ moves the selected stage; the keyboard path for drag-to-reorder.
-		if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight") && selected && selected !== "terminal") {
-			const i = draft.stages.findIndex((x) => x.id === selected);
-			const j = e.key === "ArrowLeft" ? i - 1 : i + 1;
-			if (i === -1 || j < 0 || j >= draft.stages.length) return;
-			e.preventDefault();
-			const next = draft.stages.slice();
-			[next[i], next[j]] = [next[j], next[i]];
-			draft.stages = next;
-			setDirty();
-			renderRail();
-			runSim();
 		}
 	};
 	document.addEventListener("keydown", esc);
