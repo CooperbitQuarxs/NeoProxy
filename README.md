@@ -32,6 +32,29 @@ proxy-owned pooled accounts. Users receive grants, allotments and scoped inferen
 keys; provider credentials stay in the proxy. Engine administration remains
 available to organization-admin sessions, not ordinary member keys.
 
+## Connect from a released NeoPi client
+
+Download a native client from [NeoPi releases](https://github.com/PsychedelicShayna/neopi/releases)
+that contains [native NeoProxy login](https://github.com/PsychedelicShayna/neopi/pull/602).
+An older release without `npi login neoproxy --help` / `--url` is insufficient.
+No repository clone, Bun or manual model/provider file is needed:
+
+```sh
+npi login neoproxy --url https://YOUR-PROXY-HOST
+npi models neoproxy --json
+npi
+```
+
+Use the administrator's actual HTTPS URL and answer the username/hidden-password
+prompts. NeoPi mints and stores a scoped inference key, configures discovery and
+logs out its temporary dashboard session. Owners explicitly narrow the key to
+their owned accounts. Open `/model` to choose a granted NeoProxy model, or
+`/models` to assign one through the normal role picker, then send a short prompt.
+Use the exact discovered selector, not an invented alias. The full
+[released-client instructions](docs/downloads.md#connect-using-a-released-neopi-client)
+explain version requirements and the difference between model discovery and a
+real reply.
+
 ## Downloads and setup
 
 Choose an explicit version from [NeoProxy releases](https://github.com/PsychedelicShayna/NeoProxy/releases);

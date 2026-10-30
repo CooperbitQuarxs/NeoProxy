@@ -8,6 +8,42 @@ Client applications use a user inference key, not the operator management secret
 or your dashboard password. The administrator supplies the deployed service URL;
 this document does not invent a public endpoint.
 
+## Connect using a released NeoPi client
+
+Download the native client for your platform from
+[NeoPi releases](https://github.com/PsychedelicShayna/neopi/releases) and verify
+that release's checksums. No source clone, Bun, or hand-written `models.yml` is
+needed. This requires a released nightly containing
+[NeoPi #602](https://github.com/PsychedelicShayna/neopi/pull/602); the version label
+`18.10.3` alone is not sufficient. The older
+`v18.10.3-nightly.0e5812fa0bb8.40952896996.1` predates this login command.
+Before connecting, `npi login neoproxy --help` must show the `--url` option.
+If it does not, install a release containing the native connection feature;
+do not work around it with a source run or manual provider configuration.
+
+```sh
+npi login neoproxy --url https://YOUR-PROXY-HOST
+npi models neoproxy --json
+npi
+```
+
+Use the actual HTTPS URL provided by your administrator. Login prompts for your
+NeoProxy username and hidden password. Account owners explicitly choose their
+owned accounts. NeoPi mints a scoped inference key through the real user
+interface, stores it through its normal auth storage, configures endpoint/model
+discovery, and logs out the temporary dashboard session. It does not copy a
+provider token or save your dashboard password as the inference credential.
+The interactive equivalents are `npi login` → NeoProxy and `/login neoproxy`.
+
+In NeoPi, open `/model` and choose a model that the authenticated NeoProxy
+catalogue actually lists. For role assignments use `/models` and its normal
+role picker. Do not invent or shorten a selector: a server model named
+`neoproxy/office-cheap` is preserved under the client provider as
+`neoproxy/neoproxy/office-cheap`. Send a short prompt such as
+`Reply with the word connected.` A real reply proves more than model discovery.
+An empty catalogue means the administrator must grant a model and make its pool
+eligible; an operator key, TLS bypass or manual model file is not the fix.
+
 ## Choose a download
 
 Use only [PsychedelicShayna/NeoProxy releases](https://github.com/PsychedelicShayna/NeoProxy/releases).

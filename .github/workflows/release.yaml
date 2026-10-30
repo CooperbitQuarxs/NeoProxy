@@ -211,6 +211,15 @@ jobs:
           Complete setup/security instructions:
           https://github.com/${GH_REPO}/blob/${SOURCE_COMMIT}/docs/downloads.md
 
+          Office members connect with a RELEASED NeoPi binary containing native NeoProxy
+          login (NeoPi PR602), not a source clone or manual models.yml:
+          https://github.com/PsychedelicShayna/neopi/releases
+          Run: npi login neoproxy --url https://YOUR-PROXY-HOST
+          Answer username/hidden-password prompts, then npi models neoproxy --json.
+          Start npi, choose a granted model with /model (or assign roles with /models),
+          and send a short prompt. Use the actual HTTPS URL from your administrator.
+          Old releases without npi login neoproxy --help / --url must be upgraded.
+
           No runtime configuration, credentials or pre-created user database is shipped.
           EOF
           prerelease=()
