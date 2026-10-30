@@ -182,7 +182,7 @@ export function ring({ used = null, budget = null, size = 36, label = true, larg
 	if (!Number.isFinite(used)) return h("span", { class: `neo-ring ${large ? "lg" : ""}`, title: title ?? "Usage unknown", role: "img", "aria-label": "Usage unknown", style: { width: `${size}px`, height: `${size}px` } }, h("span", { class: "ring-label" }, "?"));
 	const u = Math.max(0, Math.min(1, used));
 	const kind = budget !== null && u >= budget ? "bad" : budget !== null && u >= budget * 0.8 ? "warn" : u >= 0.9 ? "bad" : u >= 0.7 ? "warn" : "";
-	const el = h("span", { class: `neo-ring ${kind} ${large ? "lg" : ""}`, title, role: "img", "aria-label": `${fmtPct(u)} used${budget !== null ? ` of ${fmtPct(budget)} allowed` : ""}` });
+	const el = h("span", { class: `neo-ring ${kind} ${large ? "lg" : ""}`, title, role: "img", "aria-label": `${fmtPct(u, budget !== null ? null : 0)} used${budget !== null ? ` of ${fmtPct(budget, null)} allowed` : ""}` });
 	const sv = svgEl("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}` });
 	sv.append(svgEl("circle", { class: "track", cx: size / 2, cy: size / 2, r, "stroke-width": 3, fill: "none" }));
 	if (budget !== null) {
@@ -230,20 +230,25 @@ export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, 
 						{
 							class: `${c.num ? "num" : ""} ${c.sortBy ? "sortable" : ""}`,
 							style: c.width ? { width: c.width } : null,
-							onClick: c.sortBy
-								? () => {
-										if (sortKey === c.key) sortDir = sortDir === "asc" ? "desc" : "asc";
-										else {
-											sortKey = c.key;
-											sortDir = "desc";
-										}
-										renderHead();
-										renderBody();
-									}
-								: null,
+							scope: "col",
+							"aria-sort": c.sortBy ? (sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : "none") : null,
 						},
-						c.label,
-						sortKey === c.key ? (sortDir === "asc" ? " ↑" : " ↓") : "",
+						c.sortBy ? h("button", {
+							type: "button",
+							class: "sort-button",
+							dataset: { sort: c.key },
+							onClick: (e) => {
+								const focused = document.activeElement === e.currentTarget;
+								if (sortKey === c.key) sortDir = sortDir === "asc" ? "desc" : "asc";
+								else {
+									sortKey = c.key;
+									sortDir = "desc";
+								}
+								renderHead();
+								renderBody();
+								if (focused) thead.querySelector(`[data-sort="${CSS.escape(c.key)}"]`)?.focus({ preventScroll: true });
+							},
+						}, c.label, sortKey === c.key ? h("span", { "aria-hidden": "true" }, sortDir === "asc" ? " ↑" : " ↓") : null) : c.label,
 					),
 				),
 			),
@@ -550,7 +555,7 @@ export function chainRail(vm, { models, accounts, usageFor, lit = null, selected
 								budget: s.perAccount * allot,
 								size: 26,
 								label: false,
-								title: `${accountLabel(a)}: ${fmtPct(usageFor ? usageFor(s, a) : 0, 1)} of ${fmtPct(s.perAccount * allot)} allowed`,
+								title: `${accountLabel(a)}: ${fmtPct(usageFor ? usageFor(s, a) : 0, null)} of ${fmtPct(s.perAccount * allot, null)} allowed`,
 							}),
 						),
 						h("span", { class: "ink-3", style: { fontSize: "11.5px" } }, drawLabel(s.draw, pool.length)),
@@ -560,8 +565,8 @@ export function chainRail(vm, { models, accounts, usageFor, lit = null, selected
 				: h(
 						"div",
 						{ class: "n-foot" },
-						ring({ used: cap ? used / cap : 0, size: 22, label: false, title: `${fmtPct(used, 1)} of the ${fmtPct(cap)} cap` }),
-						h("span", null, `${fmtPct(used, 1)} of ${fmtPct(cap)} · ${s.window}`),
+						ring({ used: cap ? used / cap : 0, size: 22, label: false, title: `${fmtPct(used, null)} of the ${fmtPct(cap, null)} cap` }),
+						h("span", null, `${fmtPct(used, null)} of ${fmtPct(cap, null)} · ${s.window}`),
 					),
 			onReorder ? h("span", { class: "grip", title: "Drag to reorder" }, icon("grip", 14)) : null,
 		);
@@ -645,12 +650,12 @@ export function trail(decision, { models, accounts, users }) {
 			const cls = t.chosen && !t.skipped && decision.outcome === "ok" ? "served" : "skipped";
 			let why;
 			if (t.skipped === "upstream-error") why = `attempt${t.chosen ? ` from ${accName(t.chosen)}` : ""} failed${t.failureStatus ? ` (status ${t.failureStatus})` : ""}; the chain continued`;
-			else if (t.skipped === "cap") why = `skipped: stage cap reached (${fmtPct(t.total, 1)} of ${fmtPct(t.cap)})`;
+			else if (t.skipped === "cap") why = `skipped: stage cap reached (${fmtPct(t.total, null)} of ${fmtPct(t.cap, null)})`;
 			else if (t.skipped === "per-account") why = "skipped: every account at its per-account budget";
 			else if (t.skipped === "unhealthy") why = "skipped: no eligible healthy, metered account in the pool";
 			else if (t.skipped === "script") why = "skipped: the routing script selected another stage";
 			else if (t.skipped) why = `skipped: ${t.skipped}`;
-			else if (t.chosen) why = `selected ${accName(t.chosen)} · ${fmtPct(t.total, 1)} of ${fmtPct(t.cap)} cap used${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`;
+			else if (t.chosen) why = `selected ${accName(t.chosen)} · ${fmtPct(t.total, null)} of ${fmtPct(t.cap, null)} cap used${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`;
 			else why = "no account selected";
 			steps.push(h("div", { class: `step ${cls}` }, h("div", { class: "n" }, `${t.index + 1}`), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, why))));
 		} else if (t.kind === "terminal") {

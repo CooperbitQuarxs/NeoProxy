@@ -940,7 +940,17 @@ kbd {
 	text-align: right;
 }
 .table th.sortable {
-	cursor: pointer;
+	padding: 0;
+}
+.table .sort-button {
+	display: block;
+	width: 100%;
+	padding: 9px 12px 9px 16px;
+	text-align: inherit;
+	white-space: inherit;
+}
+.table .sort-button:focus-visible {
+	outline-offset: -2px;
 }
 .table th.sortable:hover {
 	color: var(--ink-2);

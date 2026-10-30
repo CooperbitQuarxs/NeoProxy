@@ -349,7 +349,7 @@ async function editor(ctx, id) {
 			const g = u.grants.find((x) => x.virtualModel === draft.id);
 			let drawn = 0;
 			for (const st of Object.values(usage[u.id]?.[draft.id] ?? {})) for (const v of Object.values(st)) drawn += v;
-			grantHost.append(h("button", { type: "button", class: "li clickable", onClick: () => ctx.navigate(`users/${u.id}`) }, avatar(u), h("div", { class: "lt" }, h("div", { class: "main" }, u.handle), h("div", { class: "sub" }, `allotment ${fmtPct(g.allotment)} of every budget in this chain`)), h("span", { class: "num ink-2" }, `${fmtPct(drawn, 1)} drawn`), icon("chevronRight", 14)));
+			grantHost.append(h("button", { type: "button", class: "li clickable", onClick: () => ctx.navigate(`users/${u.id}`) }, avatar(u), h("div", { class: "lt" }, h("div", { class: "main" }, u.handle), h("div", { class: "sub" }, `allotment ${fmtPct(g.allotment, null)} of every budget in this chain`)), h("span", { class: "num ink-2" }, `${fmtPct(drawn, 1)} drawn`), icon("chevronRight", 14)));
 		}
 	}
 	root.append(card({ title: "Granted to", sub: "Each user's allotment scales every budget in this chain. Half an allotment is half the sips and half the cap.", flush: true, body: grantHost }));
@@ -412,16 +412,16 @@ async function editor(ctx, id) {
 						}),
 						ring({ used: w?.used ?? 0, size: 24, label: false, title: `${fmtPct(w?.used ?? 0)} of the ${w?.kind} window used by everyone` }),
 						h("div", { class: "lt", style: { flex: 1, minWidth: 0 } }, h("div", { style: { fontWeight: 500 } }, h("code", null, a.label)), h("div", { class: "ink-3", style: { fontSize: "12px" } }, `${a.plan} · ${a.state}`)),
-						h("span", { class: "num ink-3", style: { fontSize: "12px" } }, `${fmtPct(usageFor(s, a), 1)} by this stage`),
+						h("span", { class: "num ink-3", style: { fontSize: "12px" } }, `${fmtPct(usageFor(s, a), null)} by this stage`),
 					),
 				);
 			}
 		};
 		renderAccounts();
-		const pct = (v) => Math.round(v * 1000) / 10;
+		const pct = (v) => Number((v * 100).toPrecision(15));
 		return inspector({
 			title: `Stage ${idx + 1} · ${model?.display ?? s.model}`,
-			sub: `${drawLabel(s.draw, chosen().length)} · ${fmtPct(s.perAccount)} each, ${fmtPct(s.cap)} cap · ${s.window}`,
+			sub: `${drawLabel(s.draw, chosen().length)} · ${fmtPct(s.perAccount, null)} each, ${fmtPct(s.cap, null)} cap · ${s.window}`,
 			onClose: () => {
 				selected = null;
 				renderRail();

@@ -275,6 +275,8 @@ above unchanged.
   This table-local scrolling is an explicit limited exception to the chain-only
   horizontal-scroll guidance: retaining real dense columns and sorting is less
   disruptive than redesigning the tables as cards.
+  Sortable column headings are native buttons with `aria-sort` on their column;
+  Enter and Space sort once and retain focus on that same heading.
 - The served-model summary derives from the same effective provider/model
   exposure state as the rows after each completed change. Empty inventory asks
   for a credential; genuine filter misses retain their search guidance.
@@ -289,6 +291,10 @@ above unchanged.
 - Configured token windows show measured tokens against capacity and a
   **local meter** tag. They are local routing budgets; provider quota remains
   unknown. Unknown plan or provider quota must not become inferred values.
+- Fractional stage budgets retain their configured precision in inspector
+  inputs/titles, rail labels, ring descriptions and simulation trails, including
+  grant-scaled budgets. A 0.5% cap must not read as 1% or imply room after it is
+  exhausted. Rounded overview usage remains distinct from precise budget labels.
 
 Check these behaviours in the compiled dashboard with real persisted account
 and model data, not a substitute fixture. The focused resolver oracle remains
