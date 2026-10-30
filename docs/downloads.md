@@ -80,7 +80,7 @@ export NIX_LD_LIBRARY_PATH=/run/current-system/sw/share/nix-ld/lib
 ```
 
 Those exact existing-loader paths were used for native `--version`, `--smoke-test`,
-login, discovery and a role-selected real reply. This does not install a loader,
+login, discovery and a real RPC reply. This does not install a loader,
 hand-assemble a binary or change global NixOS configuration. Another NixOS host
 needs its own appropriate loader setup from its administrator; do not blindly
 assume the same paths exist. Change the asset assignment below for another
