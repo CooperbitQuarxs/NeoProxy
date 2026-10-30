@@ -26,7 +26,8 @@ access. An operator management secret is never an ordinary user's login.
    platform asset, and verify the same release's `SHA256SUMS.txt`. Name it `npi`
    / `npi.exe` on your current terminal PATH. The
    [full installation guide](https://github.com/PsychedelicShayna/NeoProxy/blob/nightly/docs/downloads.md#connect-using-a-released-neopi-client)
-   has exact Windows/Linux steps, including NixOS's musl asset. A base version of
+   has exact Windows/Linux steps and the verified NixOS host-loader requirements.
+   NixOS uses glibc; don't assume the Linux musl client was tested there. A version of
    `18.10.3` alone is not a sufficient release identifier. Check
    `npi login neoproxy --help` for `--url`; don't fall back to source/Bun/manual YAML.
 2. Run the released executable:
