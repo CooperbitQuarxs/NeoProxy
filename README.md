@@ -21,36 +21,44 @@ NeoProxy is one of three pieces that are built to work together:
 
 | Project | Role |
 |---|---|
-| **NeoPi** | The core. Holds the credentials and provides inference and authentication to everything else. |
-| **NeoProxy** | Serves that inference as standard API endpoints to any client or SDK. This repository. |
+| **NeoPi** | An inference client. Connects with a user key and discovers granted models. |
+| **NeoProxy** | Owns provider accounts, users and routing, and serves standard API endpoints. This repository. |
 | **NeoDeck** | The team-facing web deck: inbox, workspaces, automations. Uses NeoProxy as its provider. |
 
-The dashboard lives at `/neo/`. It is built around NeoPi as the provider of
-everything: the models it serves are named `neoproxy/<provider>/<model>`, and
-the admin shapes **virtual models** (`neoproxy/default`, `neoproxy/heavy`, …)
-as chains of stages that draw from pooled accounts in measured sips, demote,
-and end in a clear limit. Users get a catalogue of those names, an allotment
-each, and their own view of what is left. The engine's own surfaces
-(credentials, keys, logs, routing, config, plugins) stay reachable in a
-demoted group; the upstream control panel remains at `/management.html`.
+The dashboard lives at `/neo/`. Models served by this proxy are named
+`neoproxy/<provider>/<model>`. The admin shapes **virtual models**
+(`neoproxy/default`, `neoproxy/heavy`, …) as chains of stages drawing from
+proxy-owned pooled accounts. Users receive grants, allotments and scoped inference
+keys; provider credentials stay in the proxy. Engine administration remains
+available to organization-admin sessions, not ordinary member keys.
 
-## Status
+## Downloads and setup
 
-Early. The engine is production-tested upstream. The dashboard's NeoPi-centred
-pages run on a fixture until the backend described in
-[docs/design/backend-contracts.md](docs/design/backend-contracts.md) exists;
-those pages carry a small `preview data` mark. The design language is
-documented in [docs/design/neo-design-language.md](docs/design/neo-design-language.md).
+Choose an explicit version from [NeoProxy releases](https://github.com/PsychedelicShayna/NeoProxy/releases);
+nightlies are pre-releases. Linux, Windows and macOS archives include their source
+identity and must pass real SQLite bootstrap/session/restart checks before publication.
+See [download, checksum, local setup and office connection instructions](docs/downloads.md).
+An office member connecting to an existing service needs its HTTPS URL and user
+credentials, not another locally running proxy.
+
+The users/sessions, owned-account pools, virtual-model routing, dashboard and optional
+Lua hook are implemented in the existing Go engine. The product contract and
+delivery receipts live in [docs/design/backend-contracts.md](docs/design/backend-contracts.md)
+and [docs/design/backend-plan.md](docs/design/backend-plan.md).
 
 ## Building
 
-NeoProxy is a Go program. Build it like upstream:
+NeoProxy requires Go 1.26+ and a C compiler because its SQLite backend uses CGO:
 
 ```sh
-go build -o neoproxy ./cmd/server
+CGO_ENABLED=1 go build -o neoproxy ./cmd/server
 ```
 
-Configuration follows upstream's `config.example.yaml`.
+`CGO_ENABLED=0` can compile a binary with a nonfunctional SQLite stub; do not ship
+or use it as an office backend. The portable Linux release keeps CGO enabled and
+links musl statically instead. Configuration follows `config.example.yaml`;
+[the setup instructions](docs/downloads.md) create a minimal private local instance
+without shipping placeholder client keys.
 
 ## Credit and licence
 

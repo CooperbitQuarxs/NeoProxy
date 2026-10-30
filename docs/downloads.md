@@ -1,0 +1,208 @@
+# Download and run NeoProxy
+
+NeoProxy is the server. It owns provider accounts, users, sessions, scoped inference
+keys and pooled virtual-model routing. **An office user connecting to an existing
+NeoProxy service does not need to run another proxy.** Get the HTTPS service URL
+and a user account from your administrator; sign in at `<service-url>/neo/`.
+Client applications use a user inference key, not the operator management secret
+or your dashboard password. The administrator supplies the deployed service URL;
+this document does not invent a public endpoint.
+
+## Choose a download
+
+Use only [PsychedelicShayna/NeoProxy releases](https://github.com/PsychedelicShayna/NeoProxy/releases).
+Nightly releases are marked **Pre-release** and may not appear behind GitHub's
+`latest` link. Choose an explicit tag. The first office nightly is named
+`neoproxy-v0.1.0-nightly.20261029.1`; its archive version is
+`0.1.0-nightly.20261029.1`.
+
+| System | Archive | Notes |
+| --- | --- | --- |
+| Linux x86-64 | `NeoProxy_<version>_linux_amd64_static.tar.gz` | Portable default, including NixOS and musl systems. SQLite is compiled in with CGO. Native dynamic-library plugins cannot load in this static build. |
+| Linux ARM64 | `NeoProxy_<version>_linux_arm64_static.tar.gz` | Same portable build for ARM64. |
+| Linux x86-64 with native plugins | `NeoProxy_<version>_linux_amd64.tar.gz` | Dynamically linked glibc build, built and tested on Ubuntu 22.04 (glibc 2.35). |
+| Linux ARM64 with native plugins | `NeoProxy_<version>_linux_arm64.tar.gz` | Dynamically linked glibc build, built and tested on Ubuntu 24.04 (glibc 2.39). |
+| Windows x86-64 | `NeoProxy_<version>_windows_amd64.zip` | Native Windows executable with working SQLite. No Go installation is needed to run it. |
+| macOS Intel | `NeoProxy_<version>_darwin_amd64.tar.gz` | Native CGO build, tested on macOS 15 Intel. |
+| macOS Apple Silicon | `NeoProxy_<version>_darwin_arm64.tar.gz` | Native CGO build, tested on macOS 15 ARM64. |
+
+Every published archive passes real server startup, administrator bootstrap,
+user/key creation, session login/logout, restart persistence and SQLite integrity
+checks on its own native CI runner. A successful `go build` alone is not the
+release check. The archive contains only `neoproxy` (or `neoproxy.exe`), `LICENSE`,
+`README.md`, `DOWNLOADS.md`, `config.example.yaml` and `BUILD.json`. The manifest
+records the full source commit, Go version, platform, CGO setting, plugin variant
+and binary SHA-256. No runtime configuration, database or credentials are shipped.
+
+The former upstream `CGO_ENABLED=0` / `_no-plugin` artifacts are deliberately not
+published: they compile but replace the required SQLite driver with a runtime
+stub. Unverified FreeBSD and Windows ARM64 targets are also omitted rather than
+presented as working office downloads. They can be restored after native SQLite
+runtime verification exists. macOS native builds are retained. Optional Lua
+routing scripts require Linux amd64 confinement; configured scripts fail closed
+on other platforms, while ordinary unscripted routing remains available.
+
+## Verify and extract
+
+Download the archive **and `SHA256SUMS` from the same release**. Checksums detect
+corruption or an asset mismatch; they are not an independent signature. Releases
+are not Windows Authenticode-signed or Apple-notarized. Do not disable system
+security globally or accept a similarly named download from another repository.
+
+### Windows PowerShell
+
+```powershell
+$version = "0.1.0-nightly.20261029.1"
+$tag = "neoproxy-v$version"
+$asset = "NeoProxy_${version}_windows_amd64.zip"
+$base = "https://github.com/PsychedelicShayna/NeoProxy/releases/download/$tag"
+Invoke-WebRequest "$base/$asset" -OutFile $asset
+Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
+$line = Get-Content SHA256SUMS | Where-Object { $_.EndsWith("  $asset") }
+if (@($line).Count -ne 1) { throw "Archive missing or duplicated in SHA256SUMS" }
+$expected = $line.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)[0]
+if ((Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Checksum mismatch" }
+Expand-Archive $asset -DestinationPath .\NeoProxy
+Set-Location .\NeoProxy
+```
+
+Choose a private directory under your user profile, not a shared office drive.
+
+### Linux
+
+```sh
+version=0.1.0-nightly.20261029.1
+tag="neoproxy-v$version"
+asset="NeoProxy_${version}_linux_amd64_static.tar.gz" # use arm64 for an ARM64 host
+base="https://github.com/PsychedelicShayna/NeoProxy/releases/download/$tag"
+curl -fL "$base/$asset" -o "$asset"
+curl -fL "$base/SHA256SUMS" -o SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
+mkdir NeoProxy
+tar -xzf "$asset" -C NeoProxy
+cd NeoProxy
+```
+
+On NixOS choose `_static`, not the glibc archive: the static executable does not
+require `/lib64/ld-linux-x86-64.so.2` to exist. On macOS choose the matching Darwin
+archive; compare `shasum -a 256 <archive>` with its line in `SHA256SUMS`, then
+extract it with `tar -xzf`. macOS may request approval for the unsigned executable.
+
+## Start your own local server
+
+These steps are for the administrator of a **new local instance**, not an office
+member connecting to the shared service. There are no default users or passwords.
+The large `config.example.yaml` describes all engine options; do not expose its
+placeholder client keys as real access credentials. Generate this minimal private
+configuration instead. Keep the operator secret in a password manager **before
+first launch**: the engine may replace its plaintext configuration value with a
+hash. It is separate from ordinary dashboard passwords and inference keys.
+
+### Windows: create private configuration
+
+Run in the extracted directory. This refuses to overwrite an existing instance.
+
+```powershell
+if (Test-Path config.yaml) { throw "config.yaml already exists; do not overwrite it" }
+$random = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+try { $rng.GetBytes($random) } finally { $rng.Dispose() }
+$operator = -join ($random | ForEach-Object { $_.ToString("x2") })
+$config = @{
+  'config-version' = 8
+  server = @{ host = '127.0.0.1'; port = 8317; discovery = @{ enabled = $false } }
+  management = @{ 'secret-key' = $operator; 'disable-control-panel' = $true; 'disable-auto-update-panel' = $true }
+  oauth = @{ 'auth-dir' = (Join-Path (Get-Location) 'auths') }
+  access = @{ 'api-keys' = @() }
+}
+$config | ConvertTo-Json -Depth 8 | Set-Content -Encoding UTF8 config.yaml
+notepad .\config.yaml
+# Save the generated management secret in your password manager, then close Notepad.
+.\neoproxy.exe --config .\config.yaml --local-model
+```
+
+The configuration is under your private user directory. For a shared Windows
+machine, additionally restrict its NTFS ACL and the `auths`/`data` directories to
+the service account and administrator before accepting users.
+
+### Linux/macOS: create private configuration
+
+The following one-time configuration generator uses Python 3; the running proxy
+itself does not require Python or Go. An administrator may instead create the
+same JSON/YAML using their normal private configuration tooling.
+
+```sh
+umask 077
+python3 - <<'PY'
+import json, secrets
+from pathlib import Path
+config = {
+    "config-version": 8,
+    "server": {"host": "127.0.0.1", "port": 8317, "discovery": {"enabled": False}},
+    "management": {"secret-key": secrets.token_hex(32), "disable-control-panel": True,
+                   "disable-auto-update-panel": True},
+    "oauth": {"auth-dir": str(Path("auths").resolve())},
+    "access": {"api-keys": []},
+}
+with open("config.yaml", "x", encoding="utf-8") as output:
+    json.dump(config, output, indent=2)
+    output.write("\n")
+PY
+${EDITOR:-vi} config.yaml
+# Save the generated management secret in your password manager before starting.
+./neoproxy --config ./config.yaml --local-model
+```
+
+Open **http://127.0.0.1:8317/neo/**. Choose **First-time setup**, enter a new
+username and password (12–72 UTF-8 bytes), and the generated **Operator management
+secret**. Create the first administrator; bootstrap then closes permanently.
+Afterward, ordinary sign-in uses only username/password. A service principal
+cannot sign in to the dashboard.
+
+The server creates `data/neoproxy.sqlite` beside the configuration unless
+`NEOPROXY_DATA_DIR` selects another directory. Provider credentials live separately
+under the configured `oauth.auth-dir`. Keep both directories private, back them
+up together with your configuration, and stop the server before copying database
+files. Preserve them when upgrading; **never unpack an upgrade over them and do
+not delete the database to fix a login problem**. Stop the process, extract the
+new archive into a new directory, verify it, and run it with the existing absolute
+`--config` path. The configuration-adjacent data path remains stable.
+
+The administrator then creates users, connects proxy-owned provider accounts,
+assigns ownership, configures explicitly metered windows where needed, creates
+virtual-model chains and grants users access. Users mint scoped inference keys
+in the dashboard. Client model discovery is `GET <service-url>/v1/models` with
+that user key; only currently granted selectors are listed. Successful local
+startup with an empty catalogue is not proof of configured provider inference.
+
+## Shared service and upgrades
+
+Local HTTP above is loopback-only and unencrypted. Do not change the listener to
+`0.0.0.0` and send passwords or inference keys over plain office-network HTTP.
+For shared service, the administrator must terminate **validated HTTPS**, preserve
+session cookies, and provide the service URL and any required trusted CA through
+normal managed-device trust. Never use `curl -k` or disable TLS validation as the
+default client setup. Run NeoProxy under a dedicated service account with private
+configuration/state permissions and an explicit persistent working directory.
+Do not use an inference key as an operator key or expose provider credential files
+to clients. Service deployment and provider availability are separate from the
+archive's SQLite packaging proof.
+
+## Release maintainers
+
+The workflow runs archive/runtime verification on relevant PRs. Publishing uses
+an existing integrated source tag `neoproxy-v<semver>`: push it, or dispatch
+**NeoProxy releases** with the exact existing tag. Versions containing `-` are
+pre-releases. The single final job writes `SHA256SUMS` only after all seven native
+jobs pass, creates a draft, uploads the complete asset set, then publishes it.
+Failed builds do not publish a partial office release. A published version is
+immutable; a corrected build uses a new tag, not replacement assets. CI artifacts
+are retained for 14 days even on a PR. No catalog refresh mutates the tagged source.
+
+Builds require Go 1.26.4 and a C compiler with `CGO_ENABLED=1`. Never release a
+`CGO_ENABLED=0` build just because compilation succeeds. The release script checks
+Go build metadata, then exercises the extracted archive's real SQLite lifecycle.
+The portable Linux job uses native `musl-gcc` with `-tags netgo,osusergo` and
+`-linkmode external -extldflags=-static`; Windows uses native GCC with static GCC
+runtime linkage. Source identity and artifact checksums are recorded in each
+archive, and local configuration/credentials are excluded by an exact file list.
