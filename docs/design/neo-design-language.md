@@ -272,6 +272,9 @@ above unchanged.
   inside their button. Full chains remain horizontally scrollable.
   Dense tables keep their column/sort structure in a keyboard-focusable local
   scroll region; toolbars and card actions wrap rather than widening the page.
+  This table-local scrolling is an explicit limited exception to the chain-only
+  horizontal-scroll guidance: retaining real dense columns and sorting is less
+  disruptive than redesigning the tables as cards.
 - The served-model summary derives from the same effective provider/model
   exposure state as the rows after each completed change. Empty inventory asks
   for a credential; genuine filter misses retain their search guidance.
@@ -291,3 +294,18 @@ Check these behaviours in the compiled dashboard with real persisted account
 and model data, not a substitute fixture. The focused resolver oracle remains
 useful for routing arithmetic, but does not prove browser interaction, upstream
 inference, provider quota, OAuth, or released-client acceptance.
+
+The final compiled office UI candidate (`7fccd42e`) was exercised on the
+preserved private engine in Chromium at 390×844. All fourteen admin navigation
+pages and the persisted virtual-model editor had document and page scroll widths
+of 390px. Native ArrowRight reached the last Users table column, sorting still
+worked, and Enter on a user row opened its detail page. Native Tab/AltArrow
+reordered the focused stage and restored the original order; focus also survived
+an actual asynchronous simulation response. The local meter showed
+`0 of 100k tokens`, `local meter`, and `Provider quota: unknown`.
+
+This is bounded Sol implementation smoke, not the independent GPT-6.1 Terra
+repeat or whole-product acceptance. Member/owner role coverage, pointer drag,
+screen-reader behaviour, provider provisioning, upstream inference/quota and
+released-client checks remain separate. No empty inventory or owner data was
+reset to manufacture a screenshot.
