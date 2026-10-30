@@ -23,8 +23,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: neoproxy-release-${{ github.ref }}
-  cancel-in-progress: false
+  group: neoproxy-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   GO_VERSION: '1.26.4'

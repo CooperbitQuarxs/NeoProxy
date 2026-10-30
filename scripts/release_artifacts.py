@@ -181,8 +181,15 @@ def smoke(args):
         config_path = root / "smoke.json"
         config_path.write_text(json.dumps(config), encoding="utf-8")
         config_path.chmod(0o600)
-        environment = {key: os.environ[key] for key in ("PATH", "SYSTEMROOT", "SystemRoot", "WINDIR")
-                       if key in os.environ}
+        environment = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
+        if os.name == "nt":
+            # Do not let a runner's MinGW/compiler DLL directories make an
+            # incomplete Windows archive appear to work on a clean office PC.
+            system_root = environment.get("SYSTEMROOT")
+            require(system_root, "Windows system directory is unavailable")
+            environment["PATH"] = os.pathsep.join((str(binary.parent), str(Path(system_root) / "System32"), system_root))
+        else:
+            environment["PATH"] = "/usr/bin:/bin"
         environment.update({"HOME": str(root), "USERPROFILE": str(root), "LOCALAPPDATA": str(root),
                             "XDG_CONFIG_HOME": str(root), "XDG_CACHE_HOME": str(root),
                             "NEOPROXY_DATA_DIR": str(root / "data"), "GOMAXPROCS": "2",
