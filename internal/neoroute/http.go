@@ -22,6 +22,7 @@ func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.POST("/virtual-models", s.saveVirtual(true))
 	group.PUT("/virtual-models/:id", s.saveVirtual(false))
 	group.DELETE("/virtual-models/:id", s.deleteVirtual)
+	group.GET("/model-params", s.modelParamsHTTP)
 	group.POST("/simulate", s.simulateHTTP)
 	group.GET("/redirects", s.listRedirects)
 	group.POST("/redirects", s.saveRedirect(true))
@@ -32,12 +33,32 @@ func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/requests/:id", s.requestHTTP)
 }
 
-// conditionCatalogue lets the dashboard build stage conditions and effort sets.
+// conditionCatalogue lets the dashboard build stage and parameter conditions.
 func conditionCatalogue(c *gin.Context) {
 	if _, ok := sessionPrincipal(c); !ok {
 		return
 	}
-	c.JSON(200, gin.H{"fields": ConditionFields, "ops": ConditionOps, "efforts": EffortLevels, "maxDepth": conditionMaxDepth, "maxLeaves": conditionMaxLeaves})
+	c.JSON(200, gin.H{"fields": ConditionFields, "ops": ConditionOps, "maxDepth": conditionMaxDepth, "maxLeaves": conditionMaxLeaves})
+}
+
+// modelParamsHTTP returns the parameters one inventory model supports, derived
+// from its discovered facts, for the dashboard's generic parameter controls.
+func (s *Store) modelParamsHTTP(c *gin.Context) {
+	if _, ok := adminPrincipal(c); !ok {
+		return
+	}
+	id := c.Query("model")
+	snap, err := s.pools.Snapshot(c.Request.Context())
+	if err != nil {
+		routeHTTPError(c, err)
+		return
+	}
+	specs, ok := modelParams(snap.Models, id)
+	if !ok {
+		c.JSON(404, gin.H{"error": gin.H{"message": "Unknown model"}})
+		return
+	}
+	c.JSON(200, gin.H{"model": id, "specs": specs})
 }
 func sessionPrincipal(c *gin.Context) (neo.Principal, bool) {
 	p, ok := neo.PrincipalFromContext(c.Request.Context())
@@ -111,8 +132,14 @@ func (s *Store) listVirtuals(c *gin.Context) {
 		routeHTTPError(c, err)
 		return
 	}
+	snap, err := s.pools.Snapshot(c.Request.Context())
+	if err != nil {
+		routeHTTPError(c, err)
+		return
+	}
 	out := make([]VirtualModel, 0, len(vms))
 	for _, vm := range vms {
+		vm = resolveFollows(vm, snap)
 		if p.IsAdmin() {
 			out = append(out, vm)
 		} else if _, granted := grantFor(p, vm.ID); granted {
@@ -132,6 +159,12 @@ func (s *Store) getVirtual(c *gin.Context) {
 		routeHTTPError(c, err)
 		return
 	}
+	snap, err := s.pools.Snapshot(c.Request.Context())
+	if err != nil {
+		routeHTTPError(c, err)
+		return
+	}
+	vm = resolveFollows(vm, snap)
 	if !p.IsAdmin() {
 		if _, granted := grantFor(p, vm.ID); !granted {
 			c.JSON(404, gin.H{"error": gin.H{"message": "Not found"}})
@@ -436,16 +469,39 @@ func (s *Store) requestHTTP(c *gin.Context) {
 	c.JSON(200, record)
 }
 
-// ModelsHTTP returns the OpenAI shape shared by all three day-one entry protocols.
+// ModelsHTTP returns the OpenAI shape shared by all three day-one entry
+// protocols. Models with a known window report context_length; a virtual
+// model reports the window it serves and its fixed properties in description.
 func (s *Store) ModelsHTTP(c *gin.Context) {
-	models, err := s.Models(c.Request.Context())
+	ctx := c.Request.Context()
+	models, err := s.Models(ctx)
 	if err != nil {
 		routeHTTPError(c, err)
 		return
 	}
+	snap, err := s.pools.Snapshot(ctx)
+	if err != nil {
+		routeHTTPError(c, err)
+		return
+	}
+	vms, err := s.VirtualModels(ctx)
+	if err != nil {
+		routeHTTPError(c, err)
+		return
+	}
+	details := s.modelDetails(snap, vms)
 	data := make([]gin.H, 0, len(models))
 	for _, id := range models {
-		data = append(data, gin.H{"id": id, "object": "model", "owned_by": "neoproxy"})
+		entry := gin.H{"id": id, "object": "model", "owned_by": "neoproxy"}
+		if d, ok := details[id]; ok {
+			if d.ContextLength > 0 {
+				entry["context_length"] = d.ContextLength
+			}
+			if d.Description != "" {
+				entry["description"] = d.Description
+			}
+		}
+		data = append(data, entry)
 	}
 	c.JSON(200, gin.H{"object": "list", "data": data})
 }

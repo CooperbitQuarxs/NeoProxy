@@ -341,7 +341,7 @@ export async function render(ctx) {
 			raw.append(jsonView(r, { collapsedDepth: 1 }));
 		});
 		const el = sheet({
-			title: h("span", { class: "row wrap", style: { gap: "10px" } }, servedName(r.asked, { virtual: r.asked.replace(/^neoproxy\//, "").split("/").length === 1 }), outcomeBadge(r.outcome, d), status ? badge(`HTTP ${status}`, "outline") : null, d.effort ? badge(`effort ${d.effort}`, "violet") : null, r.stream ? badge("stream") : null),
+			title: h("span", { class: "row wrap", style: { gap: "10px" } }, servedName(r.asked, { virtual: r.asked.replace(/^neoproxy\//, "").split("/").length === 1 }), outcomeBadge(r.outcome, d), status ? badge(`HTTP ${status}`, "outline") : null, ...(d.params ?? []).map((p) => badge(`${p.id.replace(/_/g, " ")} ${Array.isArray(p.value) ? p.value.join("/") : p.value}`, "violet")), r.stream ? badge("stream") : null),
 			sub: `${new Date(r.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })} · ${r.id}`,
 			onClose: () => { if (selectedId === r.id) { selectedId = null; markSelected(); setUrl(null); } },
 			body: [

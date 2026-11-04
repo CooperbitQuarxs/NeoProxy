@@ -10,9 +10,11 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoparams"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoroute"
 	coreexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	coreusage "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
+	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/sjson"
 )
 
@@ -100,7 +102,12 @@ func neoErrorMessage(err error) *interfaces.ErrorMessage {
 	}
 	var policy *neoroute.Error
 	if errors.As(err, &policy) {
-		body, _ := json.Marshal(map[string]any{"error": map[string]any{"message": policy.Error(), "code": policy.Code, "virtualModel": policy.Decision.VirtualModel, "resetsAt": policy.Decision.ResetsAt}})
+		detail := map[string]any{"message": policy.Error(), "code": policy.Code, "virtualModel": policy.Decision.VirtualModel, "resetsAt": policy.Decision.ResetsAt}
+		if policy.Code == "context_length_exceeded" {
+			// Clients recognise the provider's shape of this error and react to it.
+			detail["type"] = "invalid_request_error"
+		}
+		body, _ := json.Marshal(map[string]any{"error": detail})
 		return &interfaces.ErrorMessage{StatusCode: policy.Status, Error: errors.New(string(body))}
 	}
 	return executionErrorMessage(err)
@@ -108,7 +115,14 @@ func neoErrorMessage(err error) *interfaces.ErrorMessage {
 func neoProtocolAllowed(protocol string) bool {
 	return protocol == "openai" || protocol == "openai-response" || protocol == "claude"
 }
-func neoPrepared(ctx context.Context, selection neoroute.Selection, raw []byte) (context.Context, string, []byte, error) {
+
+// neoPrepared rewrites the client-protocol body for one attempt: the served
+// model (already the sibling variant when the virtual model's speed swaps
+// models), the reasoning effort as a model suffix, and the virtual model's other
+// parameters as request fields. It runs before translation, the thinking
+// applier, executor built-ins and the configured payload rules, so those keep
+// the last word.
+func neoPrepared(ctx context.Context, selection neoroute.Selection, protocol string, raw []byte) (context.Context, string, []byte, error) {
 	model := selection.Model
 	if selection.Effort != nil {
 		model += "(" + *selection.Effort + ")"
@@ -116,6 +130,13 @@ func neoPrepared(ctx context.Context, selection neoroute.Selection, raw []byte) 
 	body, err := sjson.SetBytes(raw, "model", model)
 	if err != nil {
 		return ctx, "", nil, err
+	}
+	body, skipped, err := neoparams.Apply(body, protocol, selection.Decision.Params)
+	if err != nil {
+		return ctx, "", nil, err
+	}
+	for _, note := range skipped {
+		log.Debugf("neoproxy: virtual model %s: %s", selection.Decision.VirtualModel, note)
 	}
 	ctx = context.WithValue(ctx, neoSelectionContextKey{}, selection)
 	ctx = WithPinnedAuthID(ctx, selection.AuthID)
@@ -132,7 +153,7 @@ func (h *BaseAPIHandler) executeNeo(ctx context.Context, entryProtocol, exitProt
 	}
 	req := neoroute.Request{Asked: asked, Protocol: entryProtocol, Body: raw, Client: neoroute.ClientName(headersFromContext(ctx))}
 	execution, err := resolver.Run(ctx, req, func(attemptCtx context.Context, selection neoroute.Selection) (*neoroute.Execution, error) {
-		attemptCtx, model, body, errPrepare := neoPrepared(attemptCtx, selection, raw)
+		attemptCtx, model, body, errPrepare := neoPrepared(attemptCtx, selection, entryProtocol, raw)
 		if errPrepare != nil {
 			return nil, errPrepare
 		}
@@ -166,7 +187,7 @@ func (h *BaseAPIHandler) executeNeoStream(ctx context.Context, entryProtocol, ex
 	}
 	req := neoroute.Request{Asked: asked, Protocol: entryProtocol, Body: raw, Stream: true, Client: neoroute.ClientName(headersFromContext(ctx))}
 	execution, err := resolver.Run(ctx, req, func(attemptCtx context.Context, selection neoroute.Selection) (*neoroute.Execution, error) {
-		attemptCtx, model, body, errPrepare := neoPrepared(attemptCtx, selection, raw)
+		attemptCtx, model, body, errPrepare := neoPrepared(attemptCtx, selection, entryProtocol, raw)
 		if errPrepare != nil {
 			return nil, errPrepare
 		}

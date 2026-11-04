@@ -103,9 +103,6 @@ var ConditionOps = []ConditionOp{
 	{"exists", []string{"string", "number", "bool", "list"}, "optional-bool", "The field has a value; value false asks for absence."},
 }
 
-// EffortLevels are the reasoning efforts a stage may force or allow, lowest first.
-var EffortLevels = []string{"minimal", "low", "medium", "high", "xhigh", "max"}
-
 var conditionFieldIndex = func() map[string]ConditionField {
 	index := make(map[string]ConditionField, len(ConditionFields))
 	for _, field := range ConditionFields {
@@ -546,42 +543,4 @@ func (x *conditionScope) lookup(field string) (any, bool) {
 		return x.usage(*a, kind)
 	}
 	return nil, false
-}
-
-func effortRank(level string) int { return slices.Index(EffortLevels, level) }
-
-// stageEffort is the effort a stage applies: Effort forces one; otherwise a
-// caller effort within Efforts passes through unchanged (nil: the body keeps
-// it) and any other, or none, becomes the highest allowed.
-func stageEffort(st Stage, caller string) *string {
-	if st.Effort != nil || len(st.Efforts) == 0 {
-		return st.Effort
-	}
-	if slices.Contains(st.Efforts, caller) {
-		return nil
-	}
-	highest := st.Efforts[0]
-	for _, level := range st.Efforts[1:] {
-		if effortRank(level) > effortRank(highest) {
-			highest = level
-		}
-	}
-	return &highest
-}
-
-func validateEfforts(st Stage) error {
-	if st.Effort != nil && effortRank(*st.Effort) < 0 {
-		return fmt.Errorf("stage %q effort %q is not one of %s", st.ID, *st.Effort, strings.Join(EffortLevels, ", "))
-	}
-	seen := make(map[string]bool, len(st.Efforts))
-	for _, level := range st.Efforts {
-		if effortRank(level) < 0 {
-			return fmt.Errorf("stage %q effort %q is not one of %s", st.ID, level, strings.Join(EffortLevels, ", "))
-		}
-		if seen[level] {
-			return fmt.Errorf("stage %q lists effort %q twice", st.ID, level)
-		}
-		seen[level] = true
-	}
-	return nil
 }

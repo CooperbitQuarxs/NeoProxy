@@ -41,7 +41,7 @@ is separate and is not claimed by this receipt.
   reload after evaluation. A configured script is never silently ignored.
 - Actual shared auth manager, protocol translators and HTTP provider executor
   across Chat Completions, Responses and Messages. The shared-handler fault test
-  also checks that configured final payload rules override stage effort and that
+  also checks that configured final payload rules override the fields a virtual model sets (effort, top_p) and that
   inner fallback cannot reach a third account outside the selected scope.
 - An actual private attached HTTP server across all three public inference routes,
   with first-stage HTTP 503 and fallback success, persisted correlation and usage,
