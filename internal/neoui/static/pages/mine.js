@@ -1,24 +1,26 @@
-// My models: what a signed-in member sees. Their catalogue with how much of
-// each allotment is left, how to point a client at the proxy, and their keys.
+// My models: what a signed-in member may use. The virtual models they are
+// granted, each with their allotment in words and where a request lands right
+// now; any direct provider access; their keys with expiry; recent requests.
 // No admin surfaces; no provider internals beyond what their chain reveals.
 
-import { h, icon, fmtPct, fmtAgo, fmtIn, copyText } from "../lib/dom.js";
+import { h, fmtTime, fmtCompact, plural } from "../lib/dom.js";
 import { neo, engine } from "../lib/client.js";
-import { pageHead, card, btn, badge, servedName, ring, kv, chainRail, trail, toast, empty, spinner, errorState, field, input, dialog } from "../lib/components.js";
+import { pageHead, card, btn, badge, servedName, kv, chainRail, toast, empty, spinner, errorState, field, input, dialog, confirm, providerDot, providerLabel, table, outcomeBadge } from "../lib/components.js";
+import { allotmentSentence, keysTable, mintKeyDialog, drawableAccounts } from "./users.js";
 
 export async function render(ctx) {
 	const { root, session } = ctx;
 	root.append(
 		pageHead({
 			title: "My models",
-			desc: "What you can ask this proxy for, and how much of each allotment is left. Everything is served under the neoproxy/ name; which provider answers is decided for you.",
+			desc: "The virtual models you may use, how much of each one's thresholds you have, and the keys that reach them. Everything is served under the neoproxy/ name; which provider answers is decided for you.",
 		}),
 	);
 	const host = h("div");
 	root.append(host, spinner());
-	let user, vms, models, vault, usage;
+	let user, vms, models, vault, usage, requests;
 	try {
-		[user, vms, models, vault, usage] = await Promise.all([neo.user(session.userId), neo.virtualModels(), neo.models(), neo.vault(), neo.usage()]);
+		[user, vms, models, vault, usage, requests] = await Promise.all([neo.user(session.userId), neo.virtualModels(), neo.models(), neo.vault(), neo.usage(), neo.requests({ limit: 10 })]);
 	} catch (e) {
 		root.lastChild.replaceWith(errorState(e, () => ctx.rerender()));
 		return;
@@ -29,7 +31,7 @@ export async function render(ctx) {
 	host.append(
 		card({
 			title: "Point a client here",
-			sub: "Use your inference key as the bearer token and one of the names below as the model. Dashboard session cookies are not inference keys.",
+			sub: "Use one of your keys as the bearer token and one of the names below as the model. Dashboard sessions are not keys.",
 			body: kv([
 				["OpenAI Chat", h("code", null, `${base}/v1/chat/completions`)],
 				["OpenAI Responses", h("code", null, `${base}/v1/responses`)],
@@ -40,7 +42,7 @@ export async function render(ctx) {
 	);
 
 	if (!user.grants.length) {
-		host.append(card({ body: empty({ icon: "route", title: "Nothing granted yet", hint: "Your admin has not given you a model. Ask for neoproxy/default to start." }) }));
+		host.append(card({ body: empty({ icon: "route", title: "Nothing granted yet", hint: "Your admin has not given you a virtual model. Ask for neoproxy/default to start." }) }));
 	}
 	for (const g of user.grants) {
 		const vm = vms.find((v) => v.id === g.virtualModel);
@@ -53,14 +55,13 @@ export async function render(ctx) {
 			continue;
 		}
 		let drawn = 0;
-		for (const st of Object.values(usage[user.id]?.[vm.id] ?? {})) for (const v of Object.values(st)) drawn += v;
-		const total = g.allotment * vm.stages.reduce((n, s) => n + s.cap, 0);
+		for (const st of Object.values(usage[user.id]?.[vm.id] ?? {})) for (const v of Object.values(st)) drawn = Math.max(drawn, v);
 		host.append(
 			card({
 				title: h("span", { class: "row" }, servedName(vm.served, { virtual: true }), sim.outcome === "ok" ? badge("available", "ok") : sim.outcome === "queued" ? badge("would queue", "cyan") : sim.outcome === "limited" ? badge("limit reached", "warn") : badge("unavailable", "bad")),
 				sub: vm.description,
-				actions: [h("div", { class: "ring-row" }, ring({ used: total ? drawn / total : 0, size: 40, large: true }), h("div", { class: "ring-text" }, h("div", { class: "main" }, "of your allotment used"), h("div", { class: "sub" }, g.allotment < 1 ? `you have ${fmtPct(g.allotment, null)} of the standard allotment` : "standard allotment")))],
 				body: [
+					h("div", { class: "allot-sentence mine-allot" }, allotmentSentence({ who: "You", them: "you", allotment: g.allotment, vm }), drawn ? ` So far you have drawn ${+(drawn * 100).toFixed(1)}% of the busiest meter.` : ""),
 					chainRail(vm, { models, providers: vault.providers, accounts: vault.accounts, usageFor, lit: sim, allot: g.allotment, accountLabel: (a) => `account ${vault.accounts.filter((x) => x.providerId === a.providerId).indexOf(a) + 1}` }),
 					sim.outcome !== "ok" ? h("div", { class: "ink-2", style: { marginTop: "8px" } }, sim.message) : h("div", { class: "ink-3", style: { marginTop: "6px", fontSize: "12.5px" } }, sim.stageIndex !== undefined ? `Right now a request lands on stage ${sim.stageIndex + 1}, ${models.find((m) => m.id === sim.model)?.display}.` : `Right now a request falls through to ${models.find((m) => m.id === sim.model)?.display}.`),
 				],
@@ -72,31 +73,66 @@ export async function render(ctx) {
 		host.append(
 			card({
 				title: "Direct provider access",
-				sub: "Your admin let you call these providers by name. These draw from the account's own window, with no allotment.",
-				body: h("div", { class: "row wrap", style: { paddingTop: "4px" } }, user.providerAccess.map((pid) => { const p = vault.providers.find((x) => x.id === pid); return p ? badge(`neoproxy/${p.id}/…`) : null; })),
+				sub: "Direct access bypasses virtual models and their budgets; the engine routing strategy applies. You may call these providers by name.",
+				body: h("div", { class: "direct" }, user.providerAccess.map((pid) => {
+					const p = vault.providers.find((x) => x.id === pid);
+					const ms = models.filter((m) => m.providerId === pid && m.exposed);
+					return h("div", { class: "direct-row on" },
+						h("div", { class: "direct-head" }, providerDot(p, 9), h("span", null, providerLabel(p).main), h("span", { class: "ink-3 direct-count" }, plural(ms.length, "model"))),
+						ms.length ? h("div", { class: "direct-models" }, ms.slice(0, 8).map((m) => h("span", { class: "tag mono", title: m.display }, servedName(m.served))), ms.length > 8 ? h("span", { class: "ink-3" }, `and ${ms.length - 8} more`) : null) : null);
+				})),
 			}),
 		);
 	}
 
+	// ----- keys -----
+	const keysHost = h("div");
+	async function revoke(k) {
+		if (!(await confirm({ title: `Revoke ${k.prefix}?`, text: `Anything using "${k.label}" stops working now. This cannot be undone.`, confirmLabel: "Revoke", danger: true }))) return;
+		try {
+			await neo.revokeKey(user.id, k.id);
+			user.keys = user.keys.filter((x) => x.id !== k.id);
+			toast("Key revoked");
+			renderKeys();
+		} catch (e) { toast(e.message, "bad"); }
+	}
+	function renderKeys() {
+		keysHost.replaceChildren(keysTable({ keys: user.keys, accounts: vault.accounts, providers: vault.providers, onRevoke: revoke, scoped: user.keys.some((k) => k.accountIds?.length), emptyHint: "No keys yet. Mint one for each tool that should reach the proxy." }));
+	}
+	renderKeys();
 	host.append(
 		card({
-			title: "Your keys",
-			sub: "Ask your admin to issue or revoke keys.",
+			title: "My keys",
+			sub: "A key is only as powerful as you: it reaches the models above and nothing else. Give each tool its own key, with an expiry if it is temporary.",
+			actions: [btn("Mint key", { icon: "plus", cls: "outline sm", onClick: () => mintKeyDialog({ user, accounts: user.role === "owner" ? drawableAccounts(user, vault.accounts) : [], providers: vault.providers, onMinted: (key) => { user.keys.push(key); renderKeys(); } }) })],
 			flush: true,
-			body: h(
-				"div",
-				{ class: "list" },
-				user.keys.length ? user.keys.map((k) => h("div", { class: "li" }, icon("key", 15), h("div", { class: "lt" }, h("div", { class: "main" }, h("code", null, k.prefix), " ", h("span", { class: "ink-2", style: { fontWeight: 400 } }, k.label)), h("div", { class: "sub" }, `issued ${fmtAgo(k.createdAt)} · ${k.lastUsedAt ? `last used ${fmtAgo(k.lastUsedAt)}` : "never used"}`)))) : h("div", { class: "ink-3", style: { padding: "12px 16px" } }, "No keys yet."),
-			),
+			body: keysHost,
 		}),
 	);
+
+	// ----- recent -----
+	host.append(
+		card({
+			title: "My recent requests",
+			flush: true,
+			body: requests.length
+				? table([
+					{ key: "t", label: "Time", render: (r) => h("span", { class: "mono ink-3" }, fmtTime(r.at)) },
+					{ key: "asked", label: "Asked for", render: (r) => servedName(r.asked, { virtual: r.asked.split("/").length === 2 }) },
+					{ key: "tok", label: "Tokens", num: true, render: (r) => (r.outcome === "ok" ? fmtCompact(r.tokens.in + r.tokens.out) : "–") },
+					{ key: "out", label: "", render: (r) => outcomeBadge(r.outcome) },
+				], requests)
+				: empty({ title: "Nothing yet", hint: "Requests made with your keys will show here." }),
+		}),
+	);
+
 	host.append(card({
 		title: "Dashboard password",
-		sub: "Your password is separate from provider credentials and inference keys.",
+		sub: "Your password is separate from provider credentials and keys.",
 		actions: [btn("Change password", { cls: "outline", onClick: () => {
 			let currentPassword = "", password = "";
 			const err = h("div", { class: "error", role: "alert" });
-			dialog({ title: "Change password", sub: "All existing dashboard sessions and inference keys will be revoked. Sign in again and issue replacement keys after saving.", body: [
+			dialog({ title: "Change password", sub: "All existing dashboard sessions and keys will be revoked. Sign in again and mint replacement keys after saving.", body: [
 				field("Current password", input({ type: "password", autocomplete: "current-password", onInput: (e) => { currentPassword = e.target.value; } })),
 				field("New password", input({ type: "password", autocomplete: "new-password", minlength: 12, onInput: (e) => { password = e.target.value; } }), "12–72 UTF-8 bytes."), err,
 			], actions: (close) => [btn("Cancel", { onClick: close }), btn("Save password", { cls: "primary", onClick: async () => {

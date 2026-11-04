@@ -1,6 +1,7 @@
 import { h, mask, copyText } from "../lib/dom.js";
-import { engine, invalidate } from "../lib/client.js";
-import { pageHead, card, btn, iconBtn, table, empty, kv, copyLine, field, input, dialog, confirm, toast, spinner, errorState, search } from "../lib/components.js";
+import { engine, neo, invalidate } from "../lib/client.js";
+import { pageHead, card, btn, iconBtn, table, empty, kv, copyLine, field, input, dialog, confirm, toast, spinner, errorState, search, avatar } from "../lib/components.js";
+import { keysTable } from "./users.js";
 
 export async function render(ctx) {
 	const { root } = ctx;
@@ -27,9 +28,12 @@ export async function render(ctx) {
 				finally { button.disabled = false; }
 			} })] });
 	}
-	const addButton = () => btn("Add key", { icon: "plus", cls: "primary", onClick: add });
-	root.append(pageHead({ title: "Access keys", desc: "Bearer keys the engine itself accepts on /v1. These bypass users and virtual models; prefer issuing user keys on the Users page.", actions: [addButton()] }),
-		h("div", { class: "row", style: { marginBottom: "14px" } }, search("Search keys", (value) => { query = value.toLowerCase(); renderTable(); })), card({ flush: true, body: host }),
+	const addButton = () => btn("Add engine key", { icon: "plus", cls: "primary", onClick: add });
+	const peopleHost = h("div");
+	root.append(pageHead({ title: "Access keys", desc: "Two kinds of key reach this proxy. A person's key is minted on their page and can only use what that person may use. An engine key is a plain bearer key that skips users, virtual models and budgets." }),
+		card({ title: "Keys issued to people", sub: "Mint and revoke on each person's page. A key past its expiry no longer works; it stays listed until revoked.", flush: true, body: peopleHost }),
+		h("div", { class: "row", style: { margin: "22px 0 10px" } }, h("h2", { style: { margin: 0, fontSize: "15px" } }, "Engine keys"), h("span", { class: "spacer" }), search("Search engine keys", (value) => { query = value.toLowerCase(); renderTable(); }), addButton()),
+		card({ flush: true, body: host }),
 		card({ title: "Where these are used", body: kv([
 			["OpenAI", copyLine(`${location.origin}/v1`, "OpenAI endpoint")],
 			["Claude", copyLine(`${location.origin}/v1/messages`, "Claude endpoint")],
@@ -48,8 +52,20 @@ export async function render(ctx) {
 				}, "danger")) },
 		], keys.filter((key) => key.toLowerCase().includes(query)), { keyOf: (key) => key, emptyState: keys.length
 			? empty({ icon: "search", title: "No matching keys", hint: "Try a different search." })
-			: empty({ icon: "key", title: "No engine keys", hint: "Add one only for clients that cannot use a user key.", action: addButton() }) }));
+			: empty({ icon: "key", title: "No engine keys", hint: "Add one only for clients that cannot use a person's key." }) }));
 	}
+	async function renderPeople() {
+		try {
+			const [users, vault] = await Promise.all([neo.users(), neo.vault()]);
+			const rows = users.flatMap((u) => u.keys.map((k) => ({ ...k, user: u })));
+			peopleHost.replaceChildren(rows.length ? keysTable({
+				keys: rows.sort((a, b) => (a.expiresAt ?? Infinity) - (b.expiresAt ?? Infinity)),
+				accounts: vault.accounts, providers: vault.providers, whoOf: (k) => k.user, onOpen: (k) => ctx.navigate(`users/${k.user.id}`),
+			}) : empty({ icon: "key", title: "No keys issued yet", hint: "Open a person on the Users page and mint one." }));
+		} catch (error) { peopleHost.replaceChildren(errorState(error, renderPeople)); }
+	}
+	peopleHost.append(spinner());
+	renderPeople();
 	host.append(spinner());
 	try {
 		// Usage here describes upstream provider keys, not incoming bearer keys.

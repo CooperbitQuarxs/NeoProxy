@@ -5,14 +5,16 @@
 
 import { h, svgEl, clear, icon, fmtPct, fmtAgo, fmtIn, fmtTime, fmtCompact, plural } from "../lib/dom.js";
 import { neo, onChange } from "../lib/client.js";
-import { pageHead, card, strip, btn, avatar, ring, servedName, outcomeBadge, status, empty, spinner, errorState } from "../lib/components.js";
+import { pageHead, card, strip, btn, avatar, ring, servedName, outcomeBadge, status, empty, spinner, errorState, meterRing, preferredMeter, providerDot } from "../lib/components.js";
+import { accountHealth } from "../lib/providers.js";
+import { explainDecision } from "../lib/explain.js";
 
 export async function render(ctx) {
 	const { root } = ctx;
 	root.append(
 		pageHead({
 			title: "Overview",
-			desc: "Who draws what from where. Proxy-managed accounts on the left, virtual models in the middle, and the people and services drawing from them on the right.",
+			desc: "Who draws what from where: the pool of provider accounts on the left, the virtual models you shaped in the middle, and the people and services drawing from them on the right.",
 			actions: [btn("New virtual model", { icon: "plus", cls: "primary", onClick: () => ctx.navigate("virtual-models/new") })],
 		}),
 	);
@@ -106,21 +108,47 @@ function flowBoard(world, ctx) {
 		return el;
 	};
 
-	const provCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Proxy vault", h("span", { class: "count" }, `${accounts.length} accounts`)));
-	for (const p of providers) {
+	const provCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Pool", h("span", { class: "count" }, `${accounts.length} accounts`)));
+	const feeds = (p) => vms.some((vm) => vm.stages.some((s) => s.model.startsWith(`${p.id}/`)));
+	const provUsage = (p) => {
+		const used = accounts.filter((a) => a.providerId === p.id).map((a) => preferredMeter(a)?.used).filter(Number.isFinite);
+		return used.length ? used.reduce((x, y) => x + y, 0) / used.length : null;
+	};
+	const ordered = [...providers].sort((a, b) => Number(feeds(b)) - Number(feeds(a)) || (provUsage(b) ?? -1) - (provUsage(a) ?? -1) || a.name.localeCompare(b.name));
+	const idle = ordered.filter((p) => !feeds(p));
+	const provRow = (p) => {
 		const accs = accounts.filter((a) => a.providerId === p.id);
-		const week = accs.map((a) => a.windows.find((w) => w.kind === "week" || w.kind === "month" || w.kind === "day")?.used);
-		const avg = week.length && week.every(Number.isFinite) ? week.reduce((a, b) => a + b, 0) / week.length : null;
-		const unhealthy = accs.filter((a) => a.state !== "healthy").length;
-		provCol.append(
-			frow(`p:${p.id}`, {
-				lead: ring({ used: avg, size: 30, label: false, title: avg === null ? "Quota unknown" : `${fmtPct(avg)} of the ${accs[0]?.windows.at(-1)?.kind ?? ""} window, averaged` }),
-				main: p.name,
-				sub: !p.exposed ? "hidden from users" : unhealthy ? `${plural(accs.length, "account")} · ${unhealthy} need attention` : `${plural(accs.length, "account")} · ${avg === null ? "quota unknown" : `${fmtPct(avg)} used`}`,
-				trail: p.exposed ? null : icon("eyeOff", 14),
-				href: "core",
-			}),
+		const avg = provUsage(p);
+		const metered = accs.filter((a) => preferredMeter(a)).length;
+		const unhealthy = accs.filter((a) => accountHealth(a).kind !== "ok").length;
+		const sample = accs.find((a) => preferredMeter(a));
+		const lead = sample
+			? ring({ used: avg, size: 30, label: false, title: `${fmtPct(avg)} of the ${preferredMeter(sample).kind} window used, averaged over ${plural(metered, "metered account")}` })
+			: meterRing(accs[0] ?? { meters: [] }, { size: 30 });
+		return frow(`p:${p.id}`, {
+			lead,
+			main: h("span", { class: "row", style: { gap: "7px" } }, providerDot(p, 7), p.name),
+			sub: !p.exposed ? "hidden from users" : unhealthy ? `${plural(accs.length, "account")} · ${unhealthy} need attention` : accs.length === 1 && accs[0].meters?.length ? `${(accs[0].meters.filter((m) => m.kind === "5h" || m.kind === "week").length ? accs[0].meters.filter((m) => m.kind === "5h" || m.kind === "week") : accs[0].meters.slice(0, 2)).map((m) => `${m.kind} ${fmtPct(m.used)}`).join(" · ")}` : `${plural(accs.length, "account")} · ${avg === null ? "no meter" : `${fmtPct(avg)} used`}`,
+			trail: p.exposed ? null : icon("eyeOff", 14),
+			href: "pool",
+		});
+	};
+	for (const p of ordered.filter(feeds)) provCol.append(provRow(p));
+	// Providers no chain draws from fold away so the ribbons stay readable.
+	if (idle.length) {
+		const fold = h("div", { class: "fold" });
+		let open = false;
+		const toggleRow = h(
+			"button",
+			{ type: "button", class: "frow fold-toggle", "aria-expanded": "false", onClick: () => { open = !open; toggleRow.setAttribute("aria-expanded", String(open)); fold.classList.toggle("open", open); toggleLabel.textContent = open ? "Hide them" : `${idle.length} more providers`; requestAnimationFrame(draw); } },
+			h("span", { class: "fold-dots" }, idle.slice(0, 6).map((p) => providerDot(p, 6))),
+			h("div", { class: "ft" }, h("div", { class: "main ink-2" }, ""), h("div", { class: "sub" }, "no chain draws from them")),
+			icon("chevronDown", 14),
 		);
+		const toggleLabel = toggleRow.querySelector(".main");
+		toggleLabel.textContent = `${idle.length} more providers`;
+		for (const p of idle) fold.append(provRow(p));
+		provCol.append(toggleRow, fold);
 	}
 
 	const vmCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Virtual models", h("span", { class: "count" }, `${vms.length}`)));
@@ -224,7 +252,7 @@ function flowBoard(world, ctx) {
 		if (kind === "p") {
 			const p = providers.find((x) => x.id === id);
 			const touched = vms.filter((vm) => vm.stages.some((s) => s.model.startsWith(`${id}/`)));
-			foot.append(h("span", null, h("b", null, p.name), ` feeds ${plural(touched.length, "virtual model")}: `, touched.map((v) => v.name).join(", ") || "none"), h("span", { class: "spacer" }), btn("Open in Core link", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("core") }));
+			foot.append(h("span", null, h("b", null, p.name), ` feeds ${plural(touched.length, "virtual model")}: `, touched.map((v) => v.name).join(", ") || "none"), h("span", { class: "spacer" }), btn("Open in Pool", { icon: "arrowRight", cls: "sm", onClick: () => ctx.navigate("pool") }));
 		} else if (kind === "v") {
 			const vm = vms.find((x) => x.id === id);
 			const granted = users.filter((u) => u.grants.some((g) => g.virtualModel === vm.id));
@@ -277,7 +305,7 @@ function streamCard(world, ctx) {
 			h(
 				"span",
 				{ class: "route" },
-				d.outcome === "ok" ? [icon("arrowRight", 12), h("span", { class: "hop" }, model?.display ?? d.model), acc ? h("span", { class: "ink-3 hop acc" }, `· ${acc.label}`) : null] : [icon("stop", 12), h("span", { class: "hop ink-3" }, d.message ?? d.reason)],
+				d.outcome === "ok" ? [icon("arrowRight", 12), h("span", { class: "hop" }, model?.display ?? d.model), acc ? h("span", { class: "ink-3 hop acc" }, `· ${acc.label}`) : null] : [icon("stop", 12), h("span", { class: "hop ink-3", title: explainDecision(r, world).sentences.join(" ") }, explainDecision(r, world).headline)],
 			),
 			h("span", { class: "num ink-3" }, r.outcome === "ok" ? fmtCompact(r.tokens.in + r.tokens.out) : "–"),
 			h("span", { style: { textAlign: "right" } }, outcomeBadge(r.outcome)),
@@ -310,10 +338,15 @@ function attentionCard(world, ctx) {
 	const items = [];
 	for (const a of world.accounts) {
 		const p = world.providers.find((x) => x.id === a.providerId);
-		if (a.state === "expired") items.push({ kind: "bad", text: `${p.name} · ${a.label}: token expired, re-authenticate through NeoProxy`, href: "accounts" });
-		if (a.state === "cooldown") items.push({ kind: "warn", text: `${p.name} · ${a.label}: cooling down, back in ${fmtIn(a.cooldownUntil)}`, href: "core" });
-		for (const w of a.windows) if (w.used >= 0.9 && a.state === "healthy") items.push({ kind: "warn", text: `${p.name} · ${a.label}: ${w.kind} window at ${fmtPct(w.used)}`, href: "core" });
+		const who = `${p?.name ?? a.providerId} · ${a.label}`;
+		const hs = accountHealth(a);
+		if (hs.kind === "bad") items.push({ kind: "bad", text: `${who}: ${hs.text.toLowerCase()}. ${hs.hint ?? ""}`.trim(), href: `pool/${a.id}` });
+		else if (a.state === "cooldown") items.push({ kind: "warn", text: `${who}: cooling down, back in ${fmtIn(a.cooldownUntil)}`, href: `pool/${a.id}` });
+		else if (hs.kind === "warn") items.push({ kind: "warn", text: `${who}: ${hs.text.toLowerCase()}${hs.hint ? `. ${hs.hint}` : ""}`, href: `pool/${a.id}` });
+		for (const m of a.meters ?? []) if (m.used >= 0.9 && m.used < 1 && a.state === "healthy") items.push({ kind: "warn", text: `${who}: ${m.kind} window at ${fmtPct(m.used)}, resets ${fmtIn(m.resetsAt)}`, href: `pool/${a.id}` });
+		if ((a.usage?.failed24h ?? 0) > 0 && a.usage.failed24h >= Math.max(3, (a.usage.requests24h ?? 0) * 0.3)) items.push({ kind: "warn", text: `${who}: ${a.usage.failed24h} of ${a.usage.requests24h} requests failed in the last day`, href: `activity?outcome=error` });
 	}
+	if (!world.vms.length) items.push({ kind: "", text: "No virtual model yet: people can only use direct provider models", href: "virtual-models/new" });
 	for (const u of world.users) {
 		if (u.state === "invited") items.push({ kind: "", text: `${u.handle} is invited but has no key yet`, href: `users/${u.id}` });
 		if (u.state === "suspended") items.push({ kind: "", text: `${u.handle} is suspended; its key still exists`, href: `users/${u.id}` });
@@ -324,7 +357,7 @@ function attentionCard(world, ctx) {
 		const u = world.users.find((x) => x.id === uid);
 		items.push({ kind: "warn", text: `${u?.handle ?? uid} hit a limit ${n} ${n === 1 ? "time" : "times"} recently`, href: `activity?user=${uid}&outcome=limited` });
 	}
-	if (!world.core.linked) items.unshift({ kind: "bad", text: "Engine connection unavailable; inspect core status", href: "core" });
+	if (!world.core.linked) items.unshift({ kind: "bad", text: "Engine connection unavailable; inspect the pool page", href: "pool" });
 	const body = items.length
 		? h(
 				"div",

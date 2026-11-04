@@ -2,6 +2,7 @@ import { h, clear, icon, svg } from "./lib/dom.js";
 import { session, neo, engine, onUnauthorized, invalidate, ApiError } from "./lib/client.js";
 import { btn, toast, field, input, iconBtn, card, dialog, dismissDialogs } from "./lib/components.js";
 import { pages, groups } from "./pages/index.js";
+import { fabric } from "./lib/fabric.js";
 
 const root = document.getElementById("app");
 
@@ -161,7 +162,7 @@ function gate(reason, bootstrap = false) {
 			password = operatorSecret = "";
 			unauthorized = false;
 			toast(`Signed in as ${s.handle}`);
-			const destination = s.role === "admin" ? "overview" : s.role === "owner" ? "accounts" : "mine";
+			const destination = s.role === "admin" ? "overview" : s.role === "owner" ? "pool" : "mine";
 			if (route().id === destination) render();
 			else navigate(destination);
 		} catch (ex) {
@@ -172,7 +173,9 @@ function gate(reason, bootstrap = false) {
 			submitBtn.disabled = false;
 		}
 	};
-	root.append(h("div", { class: "gate" }, card({
+	disposeGate?.();
+	const canvas = h("canvas", { class: "fabric", "aria-hidden": "true" });
+	const form = card({
 		rise: true,
 		body: h("form", { onSubmit: submit },
 			h("div", { class: "brand" }, mark(), "NeoProxy"),
@@ -185,8 +188,27 @@ function gate(reason, bootstrap = false) {
 			h("div", { class: "row" }, btn(bootstrap ? "Back to sign in" : "First-time setup", { onClick: () => gate(null, !bootstrap) }), h("span", { class: "spacer" }), submitBtn),
 			h("div", { class: "foot" }, location.protocol === "https:" ? "Your session uses an HttpOnly cookie." : "Local HTTP is not encrypted. Do not use this connection across an untrusted network."),
 		),
-	})));
+	});
+	root.append(
+		h("div", { class: "gate" },
+			h("div", { class: "gate-hero" },
+				canvas,
+				h("div", { class: "gate-words" },
+					h("h2", null, "One address for every model your team may use."),
+					h("p", null, "People ask for ", h("code", null, "neoproxy/"), h("code", { class: "vm" }, "default"), ". NeoProxy decides which account answers, within the share each person is allowed, and moves on when a window is spent."),
+					h("ul", { class: "gate-legend" },
+						h("li", null, h("span", { class: "sw people" }), "People and services"),
+						h("li", null, h("span", { class: "sw models" }), "Virtual models with fallback stages"),
+						h("li", null, h("span", { class: "sw providers" }), "Provider accounts and their usage windows"),
+					),
+				),
+			),
+			h("div", { class: "gate-form" }, form),
+		),
+	);
+	disposeGate = fabric(canvas);
 }
+let disposeGate = null;
 
 // ---------- render ----------
 let cleanup = null;
@@ -212,7 +234,7 @@ export async function render() {
 	}
 	const r = route();
 	let page = pages.find((p) => p.id === r.id);
-	if (!page) page = pages.find((p) => p.id === (s.role === "admin" ? "overview" : s.role === "owner" ? "accounts" : "mine"));
+	if (!page) page = pages.find((p) => p.id === (s.role === "admin" ? "overview" : s.role === "owner" ? "pool" : "mine"));
 	const denied = !allowed(page, s);
 	document.title = `${page.title} · NeoProxy`;
 	clear(root);

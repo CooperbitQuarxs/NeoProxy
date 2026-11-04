@@ -2,11 +2,18 @@ import { h, icon, fmtAgo, fmtInt, fmtTime } from "../lib/dom.js";
 import { engine, invalidate, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, iconBtn, seg, search, toggle, empty, spinner, errorState, toast, confirm } from "../lib/components.js";
 
-function levelOf(text) {
-	if (/\[(error|fatal)\]/i.test(text)) return "err";
-	if (/\[warn ?\]/i.test(text)) return "warn";
-	return "";
+// Engine lines read `[time] [request-id] [level] message`. Lines without that
+// prefix (stack traces, multi-line messages) belong to the line above them.
+const PREFIX = /^\[[^\]]*\] \[[^\]]*\] \[(\w+)\s*\]/;
+const RANK = { panic: 3, fatal: 3, error: 3, warn: 2, warning: 2, info: 1, debug: 0, trace: 0 };
+const CLASS = { 3: "err", 2: "warn", 0: "dim" };
+const LEVEL_MIN = { all: 0, warn: 2, err: 3 };
+function rankOf(text, previous) {
+	const match = PREFIX.exec(text);
+	return match ? RANK[match[1].toLowerCase()] ?? 1 : previous;
 }
+const debounce = (fn, ms = 140) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; };
+const FOLLOW_MS = 2500;
 
 export async function render(ctx) {
 	const { root } = ctx;
@@ -14,53 +21,119 @@ export async function render(ctx) {
 	let limit = 200;
 	let level = "all";
 	let query = "";
-	let lines = [];
+	let follow = true;
+	let lines = []; // { number, text, rank }
+	let nextNumber = 1;
+	let cursor = "";
 	let loadedAt;
 	let logsAvailable = false;
 	let revision = 0;
 	let disposed = false;
+	let polling = false;
+	let timer;
 	const logBody = h("div");
 	const foot = h("span");
 	const dumpBody = h("div", null, spinner());
 	const settingsBody = h("div", null, spinner());
+	let view = null; // the scrolling log element while lines are shown
+	let followControl;
+	const visible = (line) => line.rank >= LEVEL_MIN[level] && (!query || line.text.toLowerCase().includes(query));
+	const lineEl = (line) => h("div", { class: `log-line ${CLASS[line.rank] ?? ""}` }, h("span", { class: "ln" }, line.number), h("span", { class: "tx" }, line.text));
+	const atBottom = () => !view || view.scrollHeight - view.scrollTop - view.clientHeight < 40;
+	const scrollToEnd = () => { if (view) view.scrollTop = view.scrollHeight; };
+	const setFollow = (value) => {
+		follow = value;
+		followControl?.setAttribute("aria-checked", String(value));
+		schedule();
+	};
+	const paintFoot = (shown) => {
+		foot.textContent = `${fmtInt(shown)} of ${fmtInt(lines.length)} lines${follow ? " · following" : ""} · last reload ${fmtTime(loadedAt)}`;
+	};
 	const paintLines = () => {
 		if (!logsAvailable) return;
-		const visible = lines.filter((line) => (level === "all" || levelOf(line.text) === level) && line.text.toLowerCase().includes(query.toLowerCase()));
-		const pre = h("pre", { class: "code", style: { maxHeight: "60vh", margin: 0, border: 0, borderRadius: 0 } }, visible.map((line) => h("span", { class: levelOf(line.text) }, h("span", { class: "ln" }, line.number), line.text, "\n")));
-		logBody.replaceChildren(visible.length ? pre : empty({ icon: "scroll", title: lines.length ? "No matching lines" : "No log lines", hint: lines.length ? "Try another level or a shorter search." : "New engine messages will appear here when you reload." }));
-		pre.scrollTop = pre.scrollHeight;
-		foot.textContent = `${fmtInt(visible.length)} lines · last reload ${fmtTime(loadedAt)}`;
+		const shown = lines.filter(visible);
+		if (!shown.length) {
+			view = null;
+			logBody.replaceChildren(empty({ icon: "scroll", title: lines.length ? "No matching lines" : "No log lines", hint: lines.length ? "Try another level or a shorter search." : "New engine messages will appear here." }));
+		} else {
+			view = h("div", { class: "log-view", tabindex: 0, role: "log", "aria-label": "Engine log", onScroll: () => { if (follow && !atBottom()) setFollow(false); } }, shown.map(lineEl));
+			logBody.replaceChildren(view);
+			scrollToEnd();
+		}
+		paintFoot(shown.length);
+	};
+	// Keep the newest `limit` lines; returns how many were new.
+	const ingest = (entries, replace) => {
+		if (replace) { lines = []; nextNumber = 1; }
+		let previous = lines.length ? lines[lines.length - 1].rank : 1;
+		for (const entry of entries) {
+			const text = typeof entry === "string" ? entry : entry.message ?? entry.line ?? JSON.stringify(entry);
+			previous = rankOf(text, previous);
+			lines.push({ number: nextNumber++, text, rank: previous });
+		}
+		if (lines.length > limit) lines = lines.slice(lines.length - limit);
+	};
+	const failed = (e, retry) => {
+		lines = [];
+		logsAvailable = false;
+		view = null;
+		foot.textContent = "No lines loaded";
+		logBody.replaceChildren(e instanceof ApiError && e.status === 400 && /logging to file disabled/i.test(e.message)
+			? empty({ icon: "scroll", title: "File logging is off", hint: "The engine only serves a log tail when it writes logs to a file. Turn on Log to file under What gets logged, below." })
+			: errorState(e, retry));
 	};
 	const reloadLogs = async () => {
 		const current = ++revision;
 		logsAvailable = false;
 		logBody.replaceChildren(spinner());
 		try {
-			const config = await engine.config();
-			if (disposed || current !== revision) return;
-			if (!(config.observability?.logs?.["logging-to-file"] ?? config.observability?.["logging-to-file"])) {
-				lines = [];
-				foot.textContent = "No lines loaded";
-				logBody.replaceChildren(empty({ icon: "scroll", title: "File logging is off", hint: "File logging is off; turn it on under What gets logged" }));
-				return;
-			}
-			const result = await engine.logs(limit);
+			const result = await engine.get("observability/logs", { query: { limit } });
 			if (disposed || current !== revision) return;
 			let entries = Array.isArray(result) ? result : result?.lines ?? result?.logs ?? [];
 			if (typeof entries === "string") entries = entries.split("\n");
-			lines = entries.map((line, i) => ({ number: i + 1, text: typeof line === "string" ? line : line.message ?? line.line ?? JSON.stringify(line) }));
+			cursor = result?.["next-cursor"] ?? "";
+			ingest(entries, true);
 			loadedAt = Date.now();
 			logsAvailable = true;
 			paintLines();
+			schedule();
 		} catch (e) {
-			if (disposed || current !== revision) return;
-			lines = [];
-			foot.textContent = "No lines loaded";
-			logBody.replaceChildren(e instanceof ApiError && e.status === 400 && /logging to file disabled/i.test(e.message)
-				? empty({ icon: "scroll", title: "File logging is off", hint: "File logging is off; turn it on under What gets logged" })
-				: errorState(e, reloadLogs));
+			if (!disposed && current === revision) failed(e, reloadLogs);
 		}
 	};
+	// Follow: ask only for lines after the cursor and append them.
+	const poll = async () => {
+		if (disposed || !follow || !logsAvailable || !cursor || polling || document.hidden) return schedule();
+		polling = true;
+		const current = revision;
+		try {
+			const result = await engine.get("observability/logs", { query: { limit, cursor } });
+			if (disposed || current !== revision) return;
+			cursor = result?.["next-cursor"] || cursor;
+			const entries = Array.isArray(result?.lines) ? result.lines : [];
+			loadedAt = Date.now();
+			if (result?.["cursor-reset"]) { ingest(entries, true); paintLines(); }
+			else if (entries.length) {
+				const before = lines.length ? lines[lines.length - 1].number : 0;
+				ingest(entries, false);
+				const added = lines.filter((line) => line.number > before && visible(line));
+				if (!view) paintLines();
+				else {
+					const stick = atBottom();
+					view.append(...added.map(lineEl));
+					while (view.childElementCount > limit) view.firstElementChild.remove();
+					if (stick) scrollToEnd();
+					paintFoot(view.childElementCount);
+				}
+			} else paintFoot(view ? view.childElementCount : 0);
+		} catch (e) {
+			if (!disposed && current === revision) { setFollow(false); toast(`Stopped following: ${e.message}`, "bad"); }
+		} finally { polling = false; schedule(); }
+	};
+	function schedule() {
+		clearTimeout(timer);
+		if (follow && !disposed) timer = setTimeout(poll, FOLLOW_MS);
+	}
 	const reloadDumps = async () => {
 		try {
 			const files = (await engine.errorLogs())?.files ?? [];
@@ -85,11 +158,18 @@ export async function render(ctx) {
 			if (!disposed) dumpBody.replaceChildren(errorState(e, reloadDumps));
 		}
 	};
+	followControl = toggle(follow, (value) => {
+		setFollow(value);
+		if (value) { scrollToEnd(); poll(); }
+		paintFoot(view ? view.childElementCount : 0);
+	}, "Follow");
 	root.append(
 		h("div", { class: "row wrap page-toolbar", style: { marginBottom: "14px" } },
 			seg([100, 200, 500, 1000].map((n) => ({ value: n, label: String(n), title: `Last ${n} lines` })), limit, (value) => { limit = value; reloadLogs(); }),
-			seg([{ value: "all", label: "All" }, { value: "warn", label: "Warnings" }, { value: "err", label: "Errors" }], level, (value) => { level = value; paintLines(); }),
-			search("Filter log lines", (value) => { query = value; paintLines(); }), h("span", { class: "spacer" }),
+			seg([{ value: "all", label: "All", title: "Every line" }, { value: "warn", label: "Warnings+", title: "Warnings and errors" }, { value: "err", label: "Errors", title: "Errors only" }], level, (value) => { level = value; paintLines(); }),
+			search("Filter log lines", debounce((value) => { query = value.trim().toLowerCase(); paintLines(); })),
+			followControl,
+			h("span", { class: "spacer" }),
 			btn("Reload", { icon: "refresh", cls: "outline", onClick: () => Promise.all([reloadLogs(), reloadDumps()]) }),
 			btn("Clear logs", { cls: "danger", onClick: async () => {
 				if (!(await confirm({ title: "Clear logs?", text: "The engine's log files are emptied. Saved error dumps are kept.", confirmLabel: "Clear logs", danger: true }))) return;
@@ -128,5 +208,5 @@ export async function render(ctx) {
 		} catch (e) { if (!disposed) settingsBody.replaceChildren(errorState(e, loadSettings)); }
 	};
 	await Promise.all([reloadLogs(), reloadDumps(), loadSettings()]);
-	return () => { disposed = true; };
+	return () => { disposed = true; clearTimeout(timer); };
 }

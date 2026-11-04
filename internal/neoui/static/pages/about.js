@@ -1,6 +1,6 @@
 import { h, icon } from "../lib/dom.js";
-import { engine, ApiError } from "../lib/client.js";
-import { pageHead, card, kv, badge, status, spinner } from "../lib/components.js";
+import { engine, neo, ApiError } from "../lib/client.js";
+import { pageHead, card, kv, status, spinner, copyLine } from "../lib/components.js";
 import { pages } from "./index.js";
 
 const repository = "https://github.com/PsychedelicShayna/NeoProxy";
@@ -10,6 +10,7 @@ export async function render(ctx) {
 	const { root } = ctx;
 	root.append(pageHead({ title: "About", desc: "What this proxy is, what it runs on, and where to look next." }));
 	const versionHost = h("div", null, spinner());
+	const panelHost = h("div", null, h("a", { href: "/management.html", class: "row" }, "Open /management.html", icon("external", 13)), h("div", { class: "hint" }, "The engine's original panel. It signs in with the engine's management key, not your dashboard account."));
 	root.append(
 		h("div", { class: "grid c2-1" },
 			h("div", null,
@@ -21,7 +22,7 @@ export async function render(ctx) {
 							["Repository", externalLink(repository, "PsychedelicShayna/NeoProxy")],
 							["Engine", externalLink("https://github.com/router-for-me/CLIProxyAPI", "CLIProxyAPI")],
 							["Dashboard", h("span", null, h("code", null, "/neo/"), " · Neo design language")],
-							["Upstream panel", h("div", null, h("a", { href: "/management.html" }, "legacy control panel"), h("div", { class: "hint" }, "The engine's original panel, kept reachable."))],
+							["Legacy control panel", panelHost],
 						]),
 					],
 				}),
@@ -51,24 +52,20 @@ export async function render(ctx) {
 		return;
 	}
 
-	const [runningResult, latestResult] = await Promise.allSettled([
-		engine.raw("GET", "config").then(async (res) => {
-			if (!res.ok) throw new ApiError(res.status, "Could not read the running version");
-			const config = await res.json();
-			return res.headers.get("X-CPA-Version") || config.version || config["server-version"] || config.server?.version || null;
-		}),
-		engine.latestVersion(),
-	]);
+	const [coreResult, latestResult, configResult] = await Promise.allSettled([neo.core(), engine.latestVersion(), engine.config()]);
+	if (configResult.status === "fulfilled" && configResult.value?.management?.["disable-control-panel"]) panelHost.replaceChildren(h("span", { class: "ink-2" }, "Turned off on this engine"), h("div", { class: "hint" }, h("code", null, "management.disable-control-panel"), " is true in config.yaml, so /management.html is not served."));
 	const denied = (result) => result.status === "rejected" && result.reason instanceof ApiError && [401, 403].includes(result.reason.status);
-	if (denied(runningResult) || denied(latestResult)) {
+	if (denied(coreResult) && denied(latestResult)) {
 		versionHost.replaceChildren(status("", "Not available to members"));
 		return;
 	}
-	const running = runningResult.status === "fulfilled" ? runningResult.value : null;
+	const version = coreResult.status === "fulfilled" ? coreResult.value?.version || null : null;
+	// Local and nightly builds end their version with the short commit hash (`…local.0a10dd70`).
+	const commit = version && /(?:^|[.+-])g?([0-9a-f]{7,40})$/.exec(version)?.[1];
 	const latest = latestResult.status === "fulfilled" ? latestResult.value?.["latest-version"] || latestResult.value?.latest_version || latestResult.value?.tag_name || latestResult.value?.version : null;
-	const sameVersion = running && latest && String(running).replace(/^v/, "") === String(latest).replace(/^v/, "");
 	versionHost.replaceChildren(kv([
-		["Running", running ? h("code", null, running) : status("", "Not reported")],
-		["Latest", latestResult.status === "rejected" ? status("", "Could not check") : latest ? h("span", { class: "row wrap" }, h("code", null, latest), running ? badge(sameVersion ? "up to date" : "update available", sameVersion ? "ok" : "warn") : null) : status("", "Not reported")],
+		["Version", version ? copyLine(version, "version") : status("", "Not reported")],
+		["Commit", commit ? h("span", { class: "row wrap" }, copyLine(commit, "commit"), externalLink(`${repository}/commit/${commit}`, "on GitHub")) : h("span", { class: "ink-3" }, version ? "This version string has no commit hash" : "Not reported")],
+		["Upstream release", latestResult.status === "rejected" ? status("", "Could not check") : latest ? h("div", null, h("code", null, latest), h("div", { class: "hint" }, "Latest CLIProxyAPI release, the engine this fork is built from. NeoProxy versions on its own track, so the two are not compared.")) : status("", "Not reported")],
 	]));
 }

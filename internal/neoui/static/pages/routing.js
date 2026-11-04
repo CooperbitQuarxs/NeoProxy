@@ -7,7 +7,10 @@ const CHANNELS = ["claude", "gemini", "gemini-interactions", "vertex", "aistudio
 
 export async function render(ctx) {
 	const { root } = ctx;
-	root.append(pageHead({ title: "Routing", desc: "How the engine picks among its own credential files for the same provider. Virtual models and per-user allotments are decided on their own pages; this is the layer underneath." }));
+	root.append(pageHead({
+		title: "Routing",
+		desc: h("span", null, "Virtual models decide routing for ", h("code", null, "neoproxy/<name>"), ": their stages and draw modes pick the account. This strategy applies only to direct provider models, ", h("code", null, "neoproxy/<provider>/<model>"), ", which skip virtual models. ", h("a", { class: "link-text", href: "#/virtual-models" }, "Open virtual models"), "."),
+	}));
 	const host = h("div");
 	const loading = spinner();
 	root.append(host, loading);
@@ -45,14 +48,18 @@ export async function render(ctx) {
 		return field(label, control, hint);
 	};
 	const setting = (label, checked, change) => toggle(checked, (value) => { change(value); updateSave(); }, label);
+	const strategies = [
+		{ value: "round-robin", label: "Round robin", hint: "Take turns across the provider's healthy credentials." },
+		{ value: "weighted-round-robin", label: "Weighted round robin", hint: "Take turns, giving credentials with more weight a bigger share." },
+		{ value: "fill-first", label: "Fill first", hint: "Use the first healthy credential until it can't serve, then move to the next." },
+	];
 	host.append(card({
-		title: "Strategy", sub: "Applies when a provider has more than one credential.", actions: [save],
+		title: "Strategy", sub: "How a direct provider model picks among a provider's credentials.", actions: [save],
 		body: [
-			field("Credential selection", seg([
-				{ value: "round-robin", label: "Round robin" },
-				{ value: "weighted-round-robin", label: "Weighted round robin" },
-				{ value: "fill-first", label: "Fill first" },
-			], draft.strategy, (value) => { draft.strategy = value; updateSave(); }), "Take turns, take turns by weight, or fill the first healthy credential before moving on."),
+			h("div", { class: "strategy-options", role: "radiogroup", "aria-label": "Credential selection" }, strategies.map((option) => h("label", { class: "strategy-option" },
+				h("input", { type: "radio", name: "routing-strategy", value: option.value, checked: draft.strategy === option.value, onChange: () => { draft.strategy = option.value; updateSave(); } }),
+				h("span", { class: "lt" }, h("span", { class: "main" }, option.label), h("span", { class: "sub" }, option.hint)),
+			))),
 			h("div", { class: "grid c2" },
 				numberField("Request retries", "retry", "request-retry", "Extra retry rounds after a failed call. 0 means no extra rounds."),
 				numberField("Max credentials per request", "retry", "max-retry-credentials", "How many credentials a request may try. 0 means all available credentials."),

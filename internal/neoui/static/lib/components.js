@@ -1,7 +1,8 @@
+import { meters, meterFor, accountHealth, providerHueStyle } from "./providers.js";
 // Shared widgets. Every page composes these; pages never write raw markup for
 // a card, table, ring, chain or chip.
 
-import { h, svgEl, icon, append, clear, fmtPct, fmtCompact, copyText } from "./dom.js";
+import { h, svgEl, icon, append, clear, fmtPct, fmtCompact, copyText, plural } from "./dom.js";
 
 // ---------- page chrome ----------
 
@@ -511,7 +512,7 @@ export function modelPicker({ providers, models, accounts, value, onPick, onlyEx
 						providerId = provider.id;
 						render("provider", provider.id);
 					},
-				}, h("span", { class: "name" }, label.main), h("span", { class: "count", title: query ? "Matching models" : "Healthy accounts" }, String(count))));
+				}, providerDot(provider, 8), h("span", { class: "name" }, label.main), h("span", { class: "count", title: query ? "Matching models" : "Healthy accounts" }, String(count))));
 			}
 		}
 		for (const model of matches.get(providerId) ?? []) {
@@ -537,35 +538,77 @@ export function modelPicker({ providers, models, accounts, value, onPick, onlyEx
 
 // ---------- chain rail (.neo-chain) ----------
 
-// Renders a virtual model's stages as a horizontal rail: request → stage… →
-// terminal. `lit` marks the stage a simulated request would land on;
-// `onSelect` makes nodes selectable; `onReorder` enables drag and Alt+Arrow keys.
-export function chainRail(vm, { models, providers, accounts, usageFor, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1, accountLabel = (a) => a.label } = {}) {
-	const rail = h("div", { class: `neo-chain ${compact ? "compact" : ""} ${editor ? "editor" : ""}`, role: "list" });
-	const link = (text) => h("div", { class: "link" }, icon("arrowRight", 14), text ? h("span", { class: "demote" }, text) : null);
+// How a stage picks among the accounts of its pool, in the words the editor uses.
+export const DRAW_MODES = [
+	{ value: "least-used", label: "Most room left", hint: "Each request goes to the account with the most room left." },
+	{ value: "alternate", label: "Take turns", hint: "Requests go to each account in turn." },
+	{ value: "fill", label: "First with room", hint: "Use the first account until it reaches its threshold, then the next." },
+];
+export const WINDOW_WORDS = { "5h": "5h", day: "daily", week: "weekly", month: "monthly" };
+
+export function drawLabel(draw) {
+	return (DRAW_MODES.find((mode) => mode.value === draw) ?? DRAW_MODES[0]).label;
+}
+
+// The accounts a stage may draw from, and how full their meters are for the
+// stage's window. `avg` is null when none of them has a meter.
+export function stagePool(stage, accounts) {
+	const provider = stage.model.split("/")[0];
+	return accounts.filter((a) => a.providerId === provider && (stage.accounts === "all" || stage.accounts.includes(a.id)));
+}
+
+export function poolUsage(pool, window) {
+	const used = pool.map((a) => meterFor(a, window)).filter(Boolean).map((m) => m.used);
+	return { metered: used.length, avg: used.length ? used.reduce((n, u) => n + u, 0) / used.length : null };
+}
+
+// "until 50% · pool 70% · 5h": one line that says where a stage stops. `allot`
+// scales both thresholds for one person's grant.
+export function stageLine(stage, allot = 1, metered = true) {
+	if (!metered) return "no meter · always available";
+	return `until ${fmtPct(stage.perAccount * allot, null)} · pool ${fmtPct(stage.cap * allot, null)} · ${stage.window}`;
+}
+
+// Renders a virtual model's stages as a rail: request → stages (scrolls
+// sideways, any number) → terminal. `lit` marks the stage a simulated request
+// would land on; `onSelect` makes nodes selectable; `onReorder` enables drag and
+// Alt+Arrow keys; `onAdd` adds a stage button after the last stage. `compact`
+// draws one-line chips for lists that only need the shape of the chain.
+export function chainRail(vm, { models, providers, accounts, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1 } = {}) {
+	const rail = h("div", { class: `neo-chain ${compact ? "compact" : ""} ${editor ? "editor" : ""}` });
+	const stages = h("div", { class: "stages", role: "list", "aria-label": "Stages", tabindex: onSelect ? null : 0 });
+	const link = () => h("div", { class: "link", "aria-hidden": "true" }, icon("arrowRight", 14));
 	const litIdx = lit ? (lit.stageIndex ?? vm.stages.length) : null;
 	if (!compact) rail.append(
 		h(
 			"div",
-			{ class: "node request", role: "listitem" },
+			{ class: "node request" },
 			h("div", { class: "n-head" }, "request"),
 			h("div", { class: "n-model" }, servedName(vm.served ?? `neoproxy/${vm.name}`, { virtual: true })),
-			compact ? null : h("div", { class: "n-foot" }, `${vm.stages.length} ${vm.stages.length === 1 ? "stage" : "stages"}`),
 		),
+		link(),
 	);
+	rail.append(stages);
 	vm.stages.forEach((s, i) => {
-		if (!(compact && i === 0)) rail.append(link(i === 0 ? null : "demote"));
+		if (i > 0) stages.append(link());
 		const model = models.find((m) => m.id === s.model);
 		const provider = catalogueIndex(providers).get(model?.providerId ?? s.model.split("/")[0]);
 		const label = providerLabel(provider);
-		const pool = accounts.filter((a) => a.providerId === (model?.providerId ?? s.model.split("/")[0]) && (s.accounts === "all" || s.accounts.includes(a.id)));
-		const used = usageFor ? pool.reduce((n, a) => n + usageFor(s, a), 0) : 0;
-		const cap = s.cap * allot;
 		const isLit = litIdx === i;
+		const name = model?.display ?? "Unavailable model";
+		if (compact) {
+			stages.append(h("div", { class: "node", role: "listitem", dataset: { stage: s.id }, title: s.model }, h("div", { class: "n-head" }, h("span", { class: "idx" }, `stage ${i + 1}`), s.effort ? h("span", { class: "badge violet" }, s.effort) : null), h("div", { class: "n-model" }, name)));
+			return;
+		}
+		const pool = stagePool(s, accounts);
+		const usage = poolUsage(pool, s.window);
+		const budget = s.cap * allot;
+		const spent = usage.avg !== null && usage.avg >= budget;
+		const detail = `${plural(pool.length, "account")} in the pool · ${drawLabel(s.draw).toLowerCase()}`;
 		const node = h(
 			"div",
 			{
-				class: `node ${isLit ? "lit" : ""}`,
+				class: `node stage ${isLit ? "lit" : ""} ${spent ? "spent" : ""}`,
 				role: "listitem",
 				"aria-selected": onSelect ? String(selected === s.id) : null,
 				tabindex: onSelect ? 0 : null,
@@ -584,51 +627,37 @@ export function chainRail(vm, { models, providers, accounts, usageFor, lit = nul
 					}
 				},
 				"aria-keyshortcuts": onReorder ? "Alt+ArrowLeft Alt+ArrowRight" : null,
-				"aria-label": onSelect ? `Stage ${i + 1} of ${vm.stages.length}, ${model?.display ?? s.model}` : null,
+				"aria-label": `Stage ${i + 1} of ${vm.stages.length}, ${name}, ${detail}, ${stageLine(s, allot, usage.metered > 0)}`,
 				draggable: onReorder ? "true" : null,
 				dataset: { stage: s.id },
 			},
 			h(
 				"div",
 				{ class: "n-head" },
-				h("span", { class: "idx" }, `stage ${i + 1}`),
+				h("span", { class: "idx" }, String(i + 1)),
+				providerDot(provider, 8),
+				h("span", { class: "prov", title: `${label.main}${label.source ? ` · ${label.source}` : ""}` }, label.main),
 				h("span", { class: "spacer" }),
-				s.per === "all" ? h("span", { title: "One budget shared by everyone granted" }, "shared") : null,
 				s.effort ? h("span", { class: "badge violet" }, s.effort) : null,
+				s.lua ? h("span", { class: "badge", title: "This stage uses Lua functions" }, "Lua") : null,
 			),
-			h("div", { class: "n-model", title: s.model }, model?.display ?? "Unavailable model", h("span", { class: "prov" }, provider?.kind === "neopi-gateway" ? `${label.main}${label.source ? ` · ${label.source}` : ""}` : provider ? servedName(`neoproxy/${s.model}`) : label.main)),
-			compact
-				? null
-				: h(
-						"div",
-						{ class: "n-accounts" },
-						pool.map((a) =>
-							ring({
-								used: usageFor ? usageFor(s, a) : 0,
-								budget: s.perAccount * allot,
-								size: 26,
-								label: false,
-								title: `${accountLabel(a)}: ${fmtPct(usageFor ? usageFor(s, a) : 0, null)} of ${fmtPct(s.perAccount * allot, null)} allowed`,
-							}),
-						),
-						h("span", { class: "ink-3", style: { fontSize: "11.5px" } }, drawLabel(s.draw, pool.length)),
-					),
-			compact
-				? null
-				: h(
-						"div",
-						{ class: "n-foot" },
-						ring({ used: cap ? used / cap : 0, size: 22, label: false, title: `${fmtPct(used, null)} of the ${fmtPct(cap, null)} cap` }),
-						h("span", null, `${fmtPct(used, null)} of ${fmtPct(cap, null)} · ${s.window}`),
-					),
+			h("div", { class: "n-model", title: s.model }, name),
+			h(
+				"div",
+				{ class: "n-pool", title: detail },
+				usage.avg === null
+					? meterRing({}, { size: 22 })
+					: ring({ used: usage.avg, budget, size: 22, label: false, title: `The pool averages ${fmtPct(usage.avg)} of its ${s.window} meters; this stage stops at ${fmtPct(budget, null)}` }),
+				h("span", null, plural(pool.length, "account")),
+			),
+			h("div", { class: "n-line" }, stageLine(s, allot, usage.metered > 0)),
 			onReorder ? h("span", { class: "grip", title: "Drag to reorder" }, icon("grip", 14)) : null,
 		);
 		if (onReorder) wireDrag(node, rail, vm, onReorder);
-		rail.append(node);
+		stages.append(node);
 	});
-	if (onAdd) {
-		rail.append(h("div", { class: "link adder" }, h("button", { type: "button", class: "add", onClick: onAdd, title: "Add a stage before the end", "aria-label": "Add stage" }, icon("plus", 14)), h("span", { class: "demote" }, "add stage")));
-	} else rail.append(link(vm.stages.length ? "then" : null));
+	if (onAdd) stages.append(h("div", { class: "link adder" }, h("button", { type: "button", class: "add", onClick: onAdd, title: "Add a stage after the last one", "aria-label": "Add stage" }, icon("plus", 14))));
+	rail.append(link());
 	const term = vm.terminal ?? { kind: "limit" };
 	rail.append(
 		h(
@@ -647,18 +676,12 @@ export function chainRail(vm, { models, providers, accounts, usageFor, lit = nul
 					}
 				} : null,
 			},
-			h("div", { class: "n-head" }, compact ? "then" : "when every stage is spent"),
-			h("div", { class: "n-model" }, compact ? (term.kind === "queue" ? "queue" : term.kind === "passthrough" ? "fall through" : "limit error") : term.kind === "queue" ? "Queue until a window resets" : term.kind === "passthrough" ? "Fall through to a direct model" : "Return a limit error"),
-			compact ? null : h("div", { class: "n-foot ink-3" }, term.kind === "queue" ? "The caller waits" : term.kind === "passthrough" ? servedName(`neoproxy/${term.model ?? ""}`) : "HTTP 429 with the message below"),
+			h("div", { class: "n-head" }, compact ? "then" : "if all are spent"),
+			h("div", { class: "n-model" }, compact ? (term.kind === "queue" ? "queue" : term.kind === "passthrough" ? "fall through" : "limit error") : term.kind === "queue" ? "Queue until a window resets" : term.kind === "passthrough" ? "Fall through" : "Return a limit error"),
+			compact ? null : h("div", { class: "n-line" }, term.kind === "queue" ? "the caller waits" : term.kind === "passthrough" ? servedName(`neoproxy/${term.model ?? ""}`) : "HTTP 429"),
 		),
 	);
 	return rail;
-}
-
-export function drawLabel(draw, n) {
-	if (draw === "alternate") return n > 1 ? `alternating across ${n}` : "one account";
-	if (draw === "least-used") return n > 1 ? `least-used of ${n}` : "one account";
-	return n > 1 ? `fill ${n} in order` : "one account";
 }
 
 function wireDrag(node, rail, vm, onReorder) {
@@ -694,76 +717,132 @@ function wireDrag(node, rail, vm, onReorder) {
 
 // ---------- trail ----------
 
-export function trail(decision, { models, accounts, users, admin = false }) {
+// 0.62 -> "62%", 0.125 -> "12.5%". Budgets are fractions of a window.
+export function pctLabel(x) {
+	const v = Math.round(Number(x) * 1000) / 10;
+	return Number.isFinite(v) ? `${v}%` : "–";
+}
+
+// What an upstream HTTP status means for the person reading the ledger.
+export function statusLabel(status) {
+	if (status === 401) return "sign-in rejected";
+	if (status === 403) return "forbidden";
+	if (status === 404) return "model missing at provider";
+	if (status === 429) return "provider rate limit";
+	if (status >= 500) return "provider error";
+	return "provider error";
+}
+
+// Why a stage was passed over: `short` heads a routing step, `clause` completes
+// "stage 1 <model> ..." inside a sentence.
+export function stageSkip(t, { accounts = [], who = "this user" } = {}) {
+	const acct = (id) => accounts.find((a) => a.id === id)?.label ?? "an account in the pool";
+	const lua = t.policy?.accounts?.length && t.policy.accounts.every((a) => !a.eligible);
+	switch (t.skipped) {
+		case "cap":
+			return t.cap > 0
+				? { short: `Over its ${pctLabel(t.cap)} threshold for ${who}, pool at ${pctLabel(t.total)}`, clause: `was over its ${pctLabel(t.cap)} threshold for ${who} (at ${pctLabel(t.total)})` }
+				: { short: `Its threshold is 0% for ${who}, so it is off`, clause: `has a 0% threshold for ${who}, so it is switched off` };
+		case "per-account":
+			return { short: "Every account has used its per-account share", clause: "had every account at its per-account share" };
+		case "unhealthy":
+			return { short: "No healthy account could serve it", clause: "had no healthy account" };
+		case "script":
+			return { short: "The routing script chose another stage", clause: "was passed over by the routing script" };
+		case "lua-cap":
+			return { short: `Over its Lua threshold for ${who}, pool at ${pctLabel(t.total)} of ${pctLabel(t.cap)}`, clause: `was over its Lua threshold for ${who} (at ${pctLabel(t.total)} of ${pctLabel(t.cap)})` };
+		case "lua-policy":
+			return lua
+				? { short: "Every account's Lua condition returned false", clause: "had every account's Lua condition return false" }
+				: { short: "The Lua allocation is spent for every eligible account", clause: "had its Lua allocation spent on every eligible account" };
+		case "upstream-error": {
+			const status = t.failureStatus ? `HTTP ${t.failureStatus}, ${statusLabel(t.failureStatus)}` : "a provider error";
+			return { short: `${t.chosen ? acct(t.chosen) : "The provider"} failed with ${status}`, clause: `failed${t.chosen ? ` on ${acct(t.chosen)}` : ""} with ${status}` };
+		}
+		default:
+			return t.skipped ? { short: `Skipped: ${t.skipped}`, clause: `was skipped (${t.skipped})` } : null;
+	}
+}
+
+function candidateList(t, accName) {
+	const list = t.candidates ?? [];
+	if (!list.length) return null;
+	const row = (c) => {
+		const used = Math.max(0, Math.min(1, Number(c.used) || 0));
+		const budget = Math.max(0, Math.min(1, Number(c.budget) || 0));
+		return h(
+			"div",
+			{ class: `cand ${c.accountId === t.chosen ? "chosen" : ""}` },
+			h("span", { class: "acct", title: accName(c.accountId) }, accName(c.accountId)),
+			c.metered
+				? h("span", { class: "cand-bar", role: "img", "aria-label": `${pctLabel(c.used)} used of ${pctLabel(c.budget)} allowed`, title: `${pctLabel(c.used)} used of ${pctLabel(c.budget)} allowed` }, h("i", { style: { width: `${used * 100}%` } }), h("b", { style: { left: `${budget * 100}%` } }))
+				: h("span", { class: "cand-nometer" }, "no meter"),
+			h("span", { class: "num" }, c.metered ? `${pctLabel(c.used)}/${pctLabel(c.budget)}` : "always on"),
+		);
+	};
+	const head = list.slice(0, 3).map(row);
+	const rest = list.slice(3);
+	return h("div", { class: "cands" }, head, rest.length ? h("details", null, h("summary", null, `${rest.length} more ${rest.length === 1 ? "account" : "accounts"}`), rest.map(row)) : null);
+}
+
+export function trail(decision, { models = [], accounts = [], users, admin = false, who = "this user" }) {
 	const steps = [];
 	const modelName = (id) => models.find((m) => m.id === id)?.display ?? id;
 	const accName = (id) => accounts.find((a) => a.id === id)?.label ?? "an account in the pool";
-	(decision.trail ?? []).forEach((t, i) => {
+	const ok = decision.outcome === "ok";
+	const step = (cls, n, state, what, why, extra) =>
+		h("div", { class: `step ${cls}` }, h("div", { class: "n" }, n), h("div", { class: "body" }, h("div", { class: "head" }, h("span", { class: "what" }, what), state ? h("span", { class: "state" }, state) : null), why ? h("div", { class: "why" }, why) : null, extra));
+	for (const t of decision.trail ?? []) {
 		if (t.kind === "stage") {
-			const cls = t.chosen && !t.skipped && decision.outcome === "ok" ? "served" : "skipped";
+			const answered = t.chosen && !t.skipped;
+			const cls = t.skipped === "upstream-error" ? "failed" : answered ? (ok ? "served" : "tried") : "skipped";
+			const state = cls === "failed" ? "failed" : cls === "served" ? "answered" : cls === "tried" ? "tried" : "skipped";
 			let why;
-			if (t.skipped === "upstream-error") why = `attempt${t.chosen ? ` from ${accName(t.chosen)}` : ""} failed${t.failureStatus ? ` (status ${t.failureStatus})` : ""}; the chain continued`;
-			else if (t.skipped === "cap") why = `skipped: stage cap reached (${fmtPct(t.total, null)} of ${fmtPct(t.cap, null)})`;
-			else if (t.skipped === "per-account") why = "skipped: every account at its per-account budget";
-			else if (t.skipped === "unhealthy") why = "skipped: no eligible healthy, metered account in the pool";
-			else if (t.skipped === "script") why = "skipped: the routing script selected another stage";
-			else if (t.skipped === "lua-cap") why = `skipped: Lua stage cap reached (${fmtPct(t.total, null)} of ${fmtPct(t.cap, null)})`;
-			else if (t.skipped === "lua-policy") why = t.policy?.accounts?.length && t.policy.accounts.every((a) => !a.eligible)
-				? "skipped: every account's Lua condition returned false"
-				: t.policy ? "skipped: the calculated Lua allocation is spent for every eligible account" : "skipped: Lua policy did not allow an account";
-			else if (t.skipped) why = `skipped: ${t.skipped}`;
-			else if (t.chosen) why = `selected ${accName(t.chosen)} · ${fmtPct(t.total, null)} of ${fmtPct(t.cap, null)} cap used${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`;
-			else why = "no account selected";
-			const policy = admin && t.policy ? h("details", { open: t.skipped?.startsWith("lua"), style: { marginTop: "6px" } },
+			if (t.skipped) why = stageSkip(t, { accounts, who })?.short;
+			else if (t.chosen && t.metered > 0) why = `${accName(t.chosen)} · pool at ${pctLabel(t.total)} of the ${pctLabel(t.cap)} threshold${ok ? "" : ` · request ${decision.outcome}`}`;
+			else if (t.chosen) why = `${accName(t.chosen)} · no meter, so it is always available${ok ? "" : ` · request ${decision.outcome}`}`;
+			else why = "No account selected";
+			const policy = admin && t.policy ? h("details", { open: t.skipped?.startsWith("lua") },
 				h("summary", null, "Lua policy results"),
-				t.policy.cap !== undefined ? h("div", { class: "why" }, `Calculated stage cap: ${fmtPct(t.policy.cap, null)} before grant scaling; effective ceiling ${fmtPct(t.cap, null)}.`) : null,
-				t.policy.accounts.map((a) => {
-					const candidate = t.candidates.find((c) => c.accountId === a.accountId);
-					return h("div", { class: "why", style: { marginTop: "4px" } },
-						`${accName(a.accountId)}: condition ${a.eligible ? "true" : "false"}${a.limit !== undefined ? `; calculated allocation ${fmtPct(a.limit, null)} before grant scaling` : ""}; ${candidate ? `effective budget ${fmtPct(candidate.budget, null)}, used ${fmtPct(candidate.used, null)}` : "not an eligible candidate"}.`);
+				t.policy.cap !== undefined ? h("div", { class: "why" }, `Calculated stage cap: ${pctLabel(t.policy.cap)} before grant scaling; effective ceiling ${pctLabel(t.cap)}.`) : null,
+				(t.policy.accounts ?? []).map((a) => {
+					const candidate = (t.candidates ?? []).find((c) => c.accountId === a.accountId);
+					return h("div", { class: "why" },
+						`${accName(a.accountId)}: condition ${a.eligible ? "true" : "false"}${a.limit !== undefined ? `; calculated allocation ${pctLabel(a.limit)} before grant scaling` : ""}; ${candidate ? `effective budget ${pctLabel(candidate.budget)}, used ${pctLabel(candidate.used)}` : "not an eligible candidate"}.`);
 				}),
 			) : null;
-			steps.push(h("div", { class: `step ${cls}` }, h("div", { class: "n" }, `${t.index + 1}`), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, why), policy)));
+			const cands = admin && !t.skipped ? candidateList(t, accName) : null;
+			steps.push(step(cls, `${t.index + 1}`, state, modelName(t.model), why, [cands, policy]));
 		} else if (t.kind === "terminal") {
-			const passthrough = t.terminal.kind === "passthrough";
-			const title = passthrough ? "Fall through" : t.terminal.kind === "queue" ? "Queued" : "Limit error";
-			const detail = passthrough ? (decision.outcome === "ok" ? `${modelName(decision.model)} · selected without a budget from ${accName(decision.accountId)}` : decision.message ?? decision.reason) : t.terminal.message || (t.terminal.kind === "queue" ? "Waiting for a stage that can serve." : "No stage could serve; returned a limit error.");
-			steps.push(h("div", { class: `step ${passthrough && decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "end"), h("div", null, h("div", { class: "what" }, title), h("div", { class: "why" }, detail))));
+			const kind = t.terminal?.kind;
+			if (kind === "passthrough") {
+				steps.push(step(ok ? "served" : "end error", "end", ok ? "answered" : "failed", "Fell through", ok ? `${modelName(decision.model)} on ${accName(decision.accountId)}, chosen without a budget` : `${decision.model ? `${modelName(decision.model)} on ${accName(decision.accountId)}: ` : ""}the provider returned an error`));
+			} else {
+				const queued = kind === "queue";
+				steps.push(step(`end ${queued ? "queued" : "limited"}`, "end", null, queued ? "Queued" : "Limit error", t.terminal?.message || (queued ? "Waits for a stage that can serve." : "No stage could serve, so the client got a limit error.")));
+			}
 		} else if (t.kind === "direct") {
-			steps.push(h("div", { class: `step ${decision.outcome === "ok" ? "served" : "end"}` }, h("div", { class: "n" }, "→"), h("div", null, h("div", { class: "what" }, modelName(t.model)), h("div", { class: "why" }, `direct provider access · ${accName(t.accountId)}${decision.outcome !== "ok" ? ` · request ${decision.outcome}` : ""}`))));
+			steps.push(step(ok ? "served" : "end error", "→", ok ? "answered" : "failed", modelName(t.model), `Direct provider model · ${accName(t.accountId)}`));
 		} else if (t.kind === "denied") {
-			steps.push(h("div", { class: "step end" }, h("div", { class: "n" }, "✕"), h("div", null, h("div", { class: "what" }, "Denied"), h("div", { class: "why" }, t.virtualModel ? "This user is not granted that virtual model" : `This user has no direct access to ${t.providerId}`))));
+			steps.push(step("end error", "✕", null, "Not allowed", t.virtualModel ? `${who} has no grant on this virtual model` : `${who} has no direct access to ${t.providerId}`));
 		} else {
-			steps.push(h("div", { class: "step end" }, h("div", { class: "n" }, "✕"), h("div", null, h("div", { class: "what" }, "Unknown model"), h("div", { class: "why" }, t.asked ?? ""))));
+			steps.push(step("end error", "✕", null, "Unknown model", t.asked ? `Nothing is named “${t.asked}” on this proxy` : null));
 		}
-	});
+	}
+	if (!steps.length) steps.push(step("end", "–", null, "No routing steps recorded", decision.message ?? null));
 	return h("div", { class: "trail" }, steps);
 }
 
-export function outcomeBadge(outcome) {
-	if (outcome === "ok") return badge("served", "ok");
-	if (outcome === "limited") return badge("limited", "warn");
-	if (outcome === "queued") return badge("queued", "cyan");
-	return badge("error", "bad");
-}
-
-export function accountState(a) {
-	if (a.state === "healthy") return status("ok", "Healthy");
-	if (a.state === "cooldown") return status("warn", "Cooling down");
-	if (a.state === "expired") return status("bad", "Token expired");
-	return status("", "Disabled");
-}
-
-export function windowsRow(windows = [], { now = Date.now() } = {}) {
-	if (!windows.length) return h("span", { class: "ink-3" }, "Quota unknown");
-	return h(
-		"div",
-		{ class: "windows" },
-		windows.map((w) => h("span", { class: "window" }, ring({ used: w.used, size: 24, label: false }), h("span", { class: "kind" }, w.kind),
-			h("span", null, w.known && w.unit === "tokens" ? `${fmtCompact(w.usedTokens)} of ${fmtCompact(w.capacity)} tokens` : `${fmtPct(w.used)} used`),
-			w.source === "configured-metered" ? tag("local meter") : null,
-			h("span", { class: "ink-3" }, `· resets in ${fmtInWindow(w.resetsAt, now)}`))),
-	);
+// The badge a request row carries. Pass the decision to explain errors on hover.
+export function outcomeBadge(outcome, decision) {
+	const detail = decision?.message ?? decision?.reason;
+	const el =
+		outcome === "ok" ? badge("served", "ok")
+		: outcome === "limited" ? badge("limited", "warn")
+		: outcome === "queued" ? badge("queued", "cyan")
+		: badge("error", "bad");
+	if (detail && outcome !== "ok") el.title = detail;
+	return el;
 }
 
 function fmtInWindow(ts, now) {
@@ -772,6 +851,39 @@ function fmtInWindow(ts, now) {
 	const hr = Math.floor(m / 60);
 	if (hr < 24) return `${hr}h ${m % 60}m`;
 	return `${Math.floor(hr / 24)}d ${hr % 24}h`;
+}
+
+// ---------- meters ----------
+// The ring every page draws for an account: provider-reported usage when the
+// provider tells us, the local token meter when the admin configured one, and
+// an open ring when there is no meter at all (the account is always available).
+export function preferredMeter(account) {
+	const ms = account.meters ?? meters(account);
+	return ms.find((m) => m.kind === "5h") ?? ms.find((m) => m.kind === "day") ?? ms.find((m) => m.kind === "week") ?? ms[0] ?? null;
+}
+
+export function meterRing(account, { size = 30, label = false, budget = null, kind } = {}) {
+	const m = kind ? meterFor(account, kind) : preferredMeter(account);
+	if (!m) {
+		return h(
+			"span",
+			{ class: "neo-ring unmetered", title: "No meter: this account is always available to the stages that use it", role: "img", "aria-label": "No meter", style: { width: `${size}px`, height: `${size}px` } },
+			svgEl("svg", { width: size, height: size, viewBox: `0 0 ${size} ${size}` }, svgEl("circle", { class: "track", cx: size / 2, cy: size / 2, r: size / 2 - 3, "stroke-width": 3, fill: "none", "stroke-dasharray": "2 4" })),
+			label ? h("span", { class: "ring-label" }, "∞") : null,
+		);
+	}
+	const src = m.source === "provider" ? "reported by the provider" : "local token meter";
+	return ring({ used: m.used, budget, size, label, title: `${fmtPct(m.used)} of the ${m.kind} window used (${src}) · resets in ${fmtInWindow(m.resetsAt, Date.now())}` });
+}
+
+// Human health line for an account row.
+export function healthStatus(account) {
+	const hs = accountHealth(account);
+	return status(hs.kind === "muted" ? "" : hs.kind, hs.text, undefined);
+}
+
+export function providerDot(provider, size = 8) {
+	return h("span", { class: "prov-dot", style: { ...providerHueStyle(provider?.hue, provider?.chroma), width: `${size}px`, height: `${size}px` } });
 }
 
 export { append, clear };

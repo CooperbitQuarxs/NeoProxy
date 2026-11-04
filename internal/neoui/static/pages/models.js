@@ -2,9 +2,11 @@
 // list. Virtual models sit on top because they are what users should reach
 // for; provider models follow, grouped and collapsible, each with a switch.
 
-import { h, icon, fmtCompact, plural, clear } from "../lib/dom.js";
+import { h, icon, fmtCompact, fmtInt, plural, clear } from "../lib/dom.js";
 import { neo, onChange } from "../lib/client.js";
 import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast } from "../lib/components.js";
+
+const debounce = (fn, ms = 150) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; };
 
 export async function render(ctx) {
 	const { root } = ctx;
@@ -29,20 +31,40 @@ export async function render(ctx) {
 	let show = "all"; // all | served | hidden
 	let vmLimit = 25;
 	const vmSearch = new Map(vms.map((vm) => [vm.id, vmSearchText(vm, models, vault.providers)]));
-	const collapsed = new Set();
-	const reqCount = (served) => requests.filter((r) => r.asked === served || r.decision?.model === served.replace(/^neoproxy\//, "")).length;
 	const providers = new Map(vault.providers.map((p) => [p.id, p]));
+	// Big providers (nanogpt, nous, vercel have hundreds) start collapsed and render a page of rows at a time.
+	const BIG_GROUP = 40;
+	const ROW_PAGE = 60;
+	const byProvider = new Map();
+	const haystack = new Map();
+	for (const m of models) {
+		if (!byProvider.has(m.providerId)) byProvider.set(m.providerId, []);
+		byProvider.get(m.providerId).push(m);
+		const p = providers.get(m.providerId);
+		const label = p ? providerLabel(p) : { main: "", source: "" };
+		haystack.set(m.id, [m.display, m.name, m.id, label.main, label.source, ...(m.tags ?? [])].filter(Boolean).join("\n").toLowerCase());
+	}
+	const openState = new Map(); // provider id -> true/false once the person has toggled it
+	const rowsShown = new Map(); // provider id -> how many rows are rendered
+	// Recent request counts per served name, computed once instead of per row.
+	const recent = new Map();
+	for (const r of requests) {
+		const keys = new Set([r.asked, r.decision?.model ? `neoproxy/${r.decision.model}` : null]);
+		for (const key of keys) if (key) recent.set(key, (recent.get(key) ?? 0) + 1);
+	}
+	const reqCount = (served) => recent.get(served) ?? 0;
 
 	const summary = h("span", { class: "ink-3 summary", role: "status", "aria-live": "polite", style: { fontSize: "12.5px" } });
 	const toolbar = h(
 		"div",
 		{ class: "row models-toolbar", style: { marginBottom: "14px" } },
-		search("Filter by name, provider or tag", (v) => {
+		search("Filter by name, provider or tag", debounce((v) => {
 			query = v.trim().toLowerCase();
 			vmLimit = 25;
+			rowsShown.clear();
 			renderTree();
 			renderVMs();
-		}),
+		})),
 		seg(
 			[
 				{ value: "all", label: "All" },
@@ -97,82 +119,108 @@ export async function render(ctx) {
 		vmMore.classList.toggle("hidden", matches.length <= vmLimit);
 		const local = models.filter((m) => !m.virtualOnly);
 		const servedLocal = local.filter((m) => m.exposed && providers.get(m.providerId)?.exposed).length;
-		summary.textContent = `${servedLocal} of ${local.length} local provider models served · ${models.length - local.length} shared-source models (virtual only) · ${vms.length} virtual models · showing ${Math.min(vmLimit, matches.length)} of ${matches.length} virtual matches`;
+		const sharedOnly = models.length - local.length;
+		summary.textContent = [`${fmtInt(servedLocal)} of ${fmtInt(local.length)} provider models served`, sharedOnly ? `${fmtInt(sharedOnly)} shared-source (virtual only)` : null, plural(vms.length, "virtual model"), query ? `${fmtInt(matches.length)} virtual ${matches.length === 1 ? "match" : "matches"}` : null].filter(Boolean).join(" · ");
 	}
 
 	function matches(m, p) {
 		if (show === "served" && !(m.exposed && p.exposed)) return false;
 		if (show === "hidden" && m.exposed && p.exposed) return false;
-		if (!query) return true;
-		const label = providerLabel(p);
-		return [m.display, m.name, m.id, label.main, label.source, ...m.tags].some((value) => value?.toLowerCase().includes(query));
+		return !query || haystack.get(m.id).includes(query);
+	}
+
+	function modelRow(m, p) {
+		let control;
+		control = toggle(m.exposed, async (v) => {
+			try {
+				await neo.setModelExposed(m.id, v);
+			} catch (e) {
+				control.setAttribute("aria-checked", String(!v));
+				toast(e.message, "bad");
+				return;
+			}
+			m.exposed = v;
+			toast(v ? `${m.display} served` : `${m.display} hidden`);
+			renderTree();
+			renderVMs();
+		}, `Serve ${m.display}`, { disabled: !p.exposed, showLabel: false });
+		return h(
+			"div",
+			{ class: `model-row ${m.exposed && p.exposed ? "" : "off"}` },
+			h("div", null, h("div", { class: "cell-main" }, m.display), h("div", { class: "cell-sub" }, servedName(m.served))),
+			h("div", { class: "tags" }, (m.tags ?? []).map(tag)),
+			h("div", { class: "num ink-3" }, m.context ? `${fmtCompact(m.context)} ctx` : "–"),
+			h("div", { class: "num ink-3" }, `${reqCount(m.served)} req`),
+			control,
+		);
 	}
 
 	function renderTree() {
-		clear(tree);
+		const frag = document.createDocumentFragment();
 		let any = false;
 		for (const p of vault.providers) {
-			const all = models.filter((m) => m.providerId === p.id);
-			const label = providerLabel(p);
+			const all = byProvider.get(p.id) ?? [];
 			const list = all.filter((m) => matches(m, p));
 			if (!list.length) continue;
 			any = true;
+			const label = providerLabel(p);
 			const accs = vault.accounts.filter((a) => a.providerId === p.id);
-			const isCollapsed = collapsed.has(p.id) && !query;
-			tree.append(
+			// A person's own choice wins; otherwise a search opens its matches and big providers stay shut.
+			const isOpen = openState.has(p.id) ? openState.get(p.id) : query ? true : all.length <= BIG_GROUP;
+			const servedCount = p.exposed ? all.filter((m) => m.exposed).length : 0;
+			let providerSwitch;
+			providerSwitch = toggle(p.exposed, async (v) => {
+				try {
+					await neo.setProviderExposed(p.id, v);
+				} catch (e) {
+					providerSwitch.setAttribute("aria-checked", String(!v));
+					toast(e.message, "bad");
+					return;
+				}
+				p.exposed = v;
+				toast(v ? `${label.main} served` : `${label.main} hidden from everyone`);
+				renderTree();
+				renderVMs();
+			}, `Serve ${label.main}`);
+			frag.append(
 				h(
 					"div",
-					{ class: `group-row ${p.exposed ? "" : "off"}`, "aria-expanded": String(!isCollapsed) },
+					{ class: `group-row ${p.exposed ? "" : "off"}`, "aria-expanded": String(isOpen) },
 					h(
 						"button",
 						{
 							type: "button",
 							class: "name",
 							onClick: () => {
-								if (collapsed.has(p.id)) collapsed.delete(p.id);
-								else collapsed.add(p.id);
+								openState.set(p.id, !isOpen);
 								renderTree();
 							},
-							"aria-label": `${isCollapsed ? "Expand" : "Collapse"} ${label.main}`,
+							"aria-expanded": String(isOpen),
+							"aria-label": `${isOpen ? "Collapse" : "Expand"} ${label.main}, ${plural(all.length, "model")}`,
 						},
 						h("span", { class: "caret" }, icon("chevronDown", 14)),
 						h("span", { title: p.id }, label.main),
 						h("span", { class: "ink-3", style: { fontWeight: 400 } }, [label.source, p.kind === "neopi-gateway" ? "virtual models only" : `neoproxy/${p.id}/…`].filter(Boolean).join(" · ")),
 					),
-					h("div", { class: "meta" }, h("span", null, `${all.filter((m) => m.exposed).length} of ${plural(all.length, "model")}`), h("span", null, plural(accs.length, "account")), h("span", null, p.kind === "neopi-gateway" ? "grant virtual models in Users" : `${plural(users.filter((u) => u.providerAccess.includes(p.id)).length, "user")} direct`)),
-					toggle(p.exposed, async (v) => {
-						await neo.setProviderExposed(p.id, v);
-						p.exposed = v;
-						toast(v ? `${label.main} served` : `${label.main} hidden from everyone`);
-						renderTree();
-						renderVMs();
-					}, `Serve ${label.main}`),
+					h("div", { class: "meta" },
+						h("span", null, p.exposed ? `${fmtInt(servedCount)} of ${plural(all.length, "model")} served` : `hidden · ${plural(all.length, "model")}`),
+						list.length !== all.length ? h("span", null, `${fmtInt(list.length)} shown`) : null,
+						h("span", null, plural(accs.length, "account")),
+						h("span", null, p.kind === "neopi-gateway" ? "grant virtual models in Users" : `${plural(users.filter((u) => u.providerAccess.includes(p.id)).length, "user")} direct`)),
+					providerSwitch,
 				),
 			);
-			if (isCollapsed) continue;
-			for (const m of list) {
-				tree.append(
-					h(
-						"div",
-						{ class: `model-row ${m.exposed && p.exposed ? "" : "off"}` },
-						h("div", null, h("div", { class: "cell-main" }, m.display), h("div", { class: "cell-sub" }, servedName(m.served))),
-						h("div", { class: "tags" }, m.tags.map(tag)),
-						h("div", { class: "num ink-3" }, m.context ? `${fmtCompact(m.context)} ctx` : "–"),
-						h("div", { class: "num ink-3" }, `${reqCount(m.served)} req`),
-						toggle(m.exposed, async (v) => {
-							await neo.setModelExposed(m.id, v);
-							m.exposed = v;
-							toast(v ? `${m.display} served` : `${m.display} hidden`);
-							renderTree();
-							renderVMs();
-						}, `Serve ${m.display}`, { disabled: !p.exposed, showLabel: false }),
-					),
-				);
-			}
+			if (!isOpen) continue;
+			const shown = Math.min(list.length, rowsShown.get(p.id) ?? ROW_PAGE);
+			for (let i = 0; i < shown; i++) frag.append(modelRow(list[i], p));
+			if (shown < list.length) frag.append(h("div", { class: "model-more" },
+				btn(`Show ${fmtInt(Math.min(ROW_PAGE * 2, list.length - shown))} more`, { cls: "outline sm", onClick: () => { rowsShown.set(p.id, shown + ROW_PAGE * 2); renderTree(); } }),
+				h("span", { class: "ink-3" }, `${fmtInt(shown)} of ${fmtInt(list.length)} shown${query ? "" : ". Search to jump to one."}`)));
 		}
-		if (!any) tree.append(!vault.providers.length && !query && show === "all"
-			? empty({ icon: "shield", title: "No provider models yet", hint: "Add a provider credential and its models appear here.", action: btn("Add credential", { icon: "plus", cls: "outline", onClick: () => ctx.navigate("credentials") }) })
+		if (!any) frag.append(!vault.providers.length && !query && show === "all"
+			? empty({ icon: "shield", title: "No provider models yet", hint: "Add a provider credential and its models appear here.", action: btn("Add provider access", { icon: "plus", cls: "outline", onClick: () => ctx.navigate("pool") }) })
 			: empty({ icon: "search", title: "No models match", hint: "Try a provider name, a model id, or a tag like fast or reasoning." }));
+		tree.replaceChildren(frag);
 	}
 	renderTree();
 	renderVMs();

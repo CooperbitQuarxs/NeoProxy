@@ -25,15 +25,18 @@ export async function render(ctx) {
 	let busy = false;
 	let showing = false;
 	let structuredLoad = 0;
-	const error = h("div", { class: "error hidden", role: "alert" });
+	const error = h("div", { class: "inline-error hidden", id: "config-save-error", role: "alert" });
 	const foot = h("span", { class: "mono" });
 	const editor = h("textarea", {
 		class: "textarea yaml-editor",
 		spellcheck: "false",
 		wrap: "off",
+		autocapitalize: "off",
+		autocomplete: "off",
 		"aria-label": "config.yaml",
+		"aria-describedby": "config-save-error",
 		style: { minHeight: "60vh" },
-		onInput: () => update(),
+		onInput: () => { update(); if (!error.classList.contains("hidden")) showError(null); },
 		onKeydown: (e) => {
 			if (e.key !== "Tab") return;
 			e.preventDefault();
@@ -60,6 +63,29 @@ export async function render(ctx) {
 	} });
 	const structuredCard = card({ title: "Structured view", actions: [showButton], body: structuredHost });
 	structuredHost.parentElement.classList.add("hidden");
+
+	// Save errors stay on the page, above the editor, until the text changes or a save works.
+	function showError(message) {
+		if (message) editor.setAttribute("aria-invalid", "true");
+		else editor.removeAttribute("aria-invalid");
+		if (!message) { error.classList.add("hidden"); error.replaceChildren(); return; }
+		const line = /\bline (\d+)/i.exec(message)?.[1];
+		error.replaceChildren(
+			h("div", { class: "inline-error-title" }, "config.yaml was not saved"),
+			h("pre", { class: "inline-error-text" }, message),
+			h("div", { class: "inline-error-foot" }, "The running config is unchanged and your edits are still in the editor.", line ? btn(`Go to line ${line}`, { cls: "outline sm", onClick: () => goToLine(Number(line)) }) : null),
+		);
+		error.classList.remove("hidden");
+		error.scrollIntoView({ block: "nearest", behavior: "smooth" });
+	}
+
+	function goToLine(number) {
+		const text = editor.value.split("\n");
+		const start = text.slice(0, Math.max(0, number - 1)).reduce((sum, row) => sum + row.length + 1, 0);
+		editor.focus();
+		editor.setSelectionRange(start, start + (text[number - 1]?.length ?? 0));
+		editor.scrollTop = Math.max(0, (number - 4) * parseFloat(getComputedStyle(editor).lineHeight || "19"));
+	}
 
 	function update() {
 		saveButton.disabled = busy || baseline === null || editor.value === baseline;
@@ -88,11 +114,11 @@ export async function render(ctx) {
 			editor.value = typeof yaml === "string" ? yaml : JSON.stringify(yaml, null, 2);
 			baseline = editor.value;
 			loadedAt = Date.now();
-			error.classList.add("hidden");
+			showError(null);
 			if (initial || !host.contains(editor)) host.replaceChildren(card({
 				title: "config.yaml",
-				sub: "Saved files are validated by the engine before they replace the running config.",
-				body: [editor, error],
+				sub: "The engine validates the file before it replaces the running config; if it refuses, the reason shows here and nothing changes.",
+				body: [error, editor],
 				foot,
 			}), structuredCard);
 			invalidate("config");
@@ -113,7 +139,7 @@ export async function render(ctx) {
 		const text = editor.value;
 		busy = true;
 		update();
-		error.classList.add("hidden");
+		showError(null);
 		try {
 			await engine.put("config.yaml", undefined, { body: text, headers: { "Content-Type": "application/yaml" } });
 			invalidate("config");
@@ -122,10 +148,12 @@ export async function render(ctx) {
 			toast("Saved config.yaml");
 			if (showing) await loadStructured();
 		} catch (e) {
-			const message = e instanceof ApiError ? e.body?.message || e.message : e.message || "Could not save config.yaml";
-			toast(message, "bad");
-			error.textContent = message;
-			error.classList.remove("hidden");
+			const body = e instanceof ApiError && e.body && typeof e.body === "object" ? e.body : null;
+			const code = typeof body?.error === "string" ? body.error : "";
+			// The engine sometimes answers with a bare code; say what it means, keep the code.
+			const meaning = { invalid_body: "The engine could not parse this as YAML. Look for bad indentation, an unclosed bracket or quote, or a stray colon.", config_must_be_object: "The top level must be a mapping of settings, not a list or a single value.", invalid_yaml: "The engine could not parse this as YAML." }[code];
+			const message = body?.message || e.message || "Could not save config.yaml";
+			showError(body?.message ? message : meaning ? `${meaning}\n(${code})` : message);
 		} finally {
 			busy = false;
 			update();

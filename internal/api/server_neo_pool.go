@@ -9,6 +9,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopool"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
@@ -40,6 +41,14 @@ func (s *Server) initNeoPool(manager *coreauth.Manager) {
 // ledger: a test is budget-free, like a direct attempt.
 func (s *Server) probeAccess(ctx context.Context, authID, provider string, body []byte) ([]byte, int, error) {
 	model := gjson.GetBytes(body, "model").String()
+	// A test means "try the provider now": lift any cooldown or quota hold the
+	// engine placed on this credential so the request actually goes upstream.
+	// A failing answer re-arms the hold through the normal result path.
+	if s.handlers != nil && s.handlers.AuthManager != nil {
+		if _, _, errReset := s.handlers.AuthManager.ResetQuota(ctx, authID); errReset != nil {
+			log.WithError(errReset).Debug("NeoProxy probe: could not clear cooldown before test")
+		}
+	}
 	resp, errMsg := s.handlers.ExecuteModel(neo.WithPrincipal(ctx, neo.Principal{}), handlers.ModelExecutionRequest{
 		EntryProtocol:  "openai",
 		ExitProtocol:   "openai",
