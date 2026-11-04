@@ -70,6 +70,8 @@ type ProviderInfo struct {
 	dialectRules []dialectRule
 	// sessionHeader is the request header that must carry a session id.
 	sessionHeader string
+	// headers are static request headers for the provider's entry.
+	headers map[string]string
 }
 
 // dialectRule routes model ids starting with prefix to dialect.
@@ -118,6 +120,10 @@ var openCodeDialectRules = []dialectRule{
 }
 
 const openCodeSessionHeader = "x-opencode-session"
+
+// openCodeHeaders replace the engine's default OpenAI-compatible User-Agent,
+// which opencode.ai's Cloudflare front rejects (error 1010, HTTP 403).
+var openCodeHeaders = map[string]string{"User-Agent": "NeoProxy"}
 
 func openAIKey(base, hint, getKey string) *ProviderAPIKey {
 	return &ProviderAPIKey{Style: "openai", BaseURL: base, KeyHint: hint, GetKeyURL: getKey}
@@ -199,11 +205,11 @@ var providerCatalog = []ProviderInfo{
 	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
-		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
 	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/v1", "oc_... (OpenCode Zen key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{},
-		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
 	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.sakana.ai/v1", "fish_...", "https://console.sakana.ai/api-keys"), Plans: []ProviderPlan{},
 		dialect: "responses"},

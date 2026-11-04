@@ -142,6 +142,14 @@ func appendCompatKey(cfg *config.Config, name, base, key string, k coreauth.Acco
 	if dialect := strings.TrimSpace(k.Dialect); dialect != "" {
 		entry.Dialect = config.NormalizeDialect(dialect)
 	}
+	for name, value := range k.Headers {
+		if _, set := entry.Headers[name]; !set {
+			if entry.Headers == nil {
+				entry.Headers = map[string]string{}
+			}
+			entry.Headers[name] = value
+		}
+	}
 	if header := strings.TrimSpace(k.SessionHeader); header != "" {
 		entry.SessionHeader = header
 	}

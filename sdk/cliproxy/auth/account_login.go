@@ -31,6 +31,8 @@ type AccountKey struct {
 	Dialect       string
 	SessionHeader string
 	ModelRoutes   map[string]AccountModelRoute
+	// Headers are static request headers for a new openai-compatibility entry.
+	Headers map[string]string
 }
 
 // AccountModelRoute is one model's upstream API and optional base URL.
