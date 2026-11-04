@@ -4,7 +4,7 @@ NeoProxy es el gateway de inferencia: recibe una solicitud con un modelo y la en
 
 ## Dónde encaja
 
-En el diseño de oficina se distinguen tres servicios: NeoProxy para inferencia, NeoDeck como cockpit web del equipo y NeoCore como futuro daemon de agentes. NeoCore todavía no está implementado y no hay que suponer que los tres ya están desplegados o integrados. Los dos clientes instalables son NeoPi (motor más interfaz de terminal) y NeoCode (interfaz gráfica). NeoPi conserva la ejecución local, sin exigir un daemon separado. En el futuro se busca conectar las interfaces a agentes alojados localmente o en un daemon local o remoto; no es una capacidad que esta guía dé por disponible hoy. Véase el [panorama general](https://github.com/CooperbitQuarxs/neopi/blob/main/docs/panorama-general.md).
+En el diseño de oficina se distinguen tres servicios: NeoProxy para inferencia, NeoDeck como cockpit web del equipo y NeoCore como futuro daemon de agentes. NeoCore todavía no está implementado y no hay que suponer que los tres ya están desplegados o integrados. Los dos clientes instalables son NeoPi (motor más interfaz de terminal) y NeoCode (interfaz gráfica). NeoPi conserva la ejecución local, sin exigir un daemon separado. En el futuro se busca conectar las interfaces a agentes alojados localmente o en un daemon local o remoto; no es una capacidad que esta guía dé por disponible hoy. Véase el [panorama general](https://github.com/CooperbitQuarxs/neopi/blob/neopi/docs/panorama-general.md).
 
 ## Qué existe y qué falta
 

@@ -7,7 +7,7 @@ En la arquitectura prevista para la oficina hay tres servicios: **NeoCore**, dae
 La rama actual incluye autenticación de clientes por clave y alias de modelos configurables. La intención para la oficina es administrar claves individuales y ofrecer roles como modelos virtuales con correspondencias de modelo y esfuerzo actualizables centralmente; esa configuración de oficina está pendiente. También se prevé la elección explícita de modelos donde estén disponibles. La responsable debe configurar cuentas, claves y despliegue conforme a las condiciones de cada proveedor; no compartas credenciales personales.
 
 - [Guía de NeoProxy para el equipo](docs/guia-neoproxy-es-UY.md)
-- [Panorama general del ecosistema](https://github.com/CooperbitQuarxs/neopi/blob/main/docs/panorama-general.md)
+- [Panorama general del ecosistema](https://github.com/CooperbitQuarxs/neopi/blob/neopi/docs/panorama-general.md)
 - [NeoPi](https://github.com/CooperbitQuarxs/neopi) · [NeoCode](https://github.com/CooperbitQuarxs/neocode) · [NeoDeck](https://github.com/CooperbitQuarxs/neodeck)
 
 El material original de referencia se conserva a continuación. NeoProxy deriva de [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI); el desarrollo de este fork está en [PsychedelicShayna/NeoProxy](https://github.com/PsychedelicShayna/NeoProxy). Licencia [MIT](LICENSE).
