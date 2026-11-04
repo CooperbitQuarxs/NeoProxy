@@ -601,6 +601,72 @@ func (m *Manager) ResetQuota(ctx context.Context, authID string) (*Auth, []strin
 		}
 	}()
 
+	m.publishCooldownChange(authID, snapshot, now)
+	if errPersist != nil {
+		return nil, nil, errPersist
+	}
+	return snapshot, models, nil
+}
+
+// ClearModelCooldown clears the cooldown and quota hold of one model on an auth,
+// leaving every other model's state and any credential-wide hold intact.
+func (m *Manager) ClearModelCooldown(ctx context.Context, authID, model string) error {
+	if m == nil {
+		return nil
+	}
+	authID = strings.TrimSpace(authID)
+	modelKey := canonicalModelKey(model)
+	if authID == "" || modelKey == "" {
+		return fmt.Errorf("auth id and model are required")
+	}
+	now := time.Now()
+	releaseMutation := m.lockAuthMutation(authID)
+	defer releaseMutation()
+	m.mu.Lock()
+	auth, ok := m.auths[authID]
+	if !ok || auth == nil {
+		m.mu.Unlock()
+		return nil
+	}
+	var recordsBefore []CooldownStateRecord
+	trackCooldownState := m.cooldownStore != nil
+	if trackCooldownState {
+		recordsBefore = m.cooldownStateRecordsForAuthLocked(auth, now)
+	}
+	changed := false
+	for key, state := range auth.ModelStates {
+		if state != nil && canonicalModelKey(key) == modelKey && !modelStateIsClean(state) {
+			resetModelState(state, now)
+			changed = true
+		}
+	}
+	if !changed {
+		m.mu.Unlock()
+		return nil
+	}
+	updateAggregatedAvailability(auth, now)
+	if !auth.Disabled && auth.Status != StatusDisabled && !hasModelError(auth, now) && !hasUnauthorizedAuthFailure(auth) {
+		auth.LastError = nil
+		auth.StatusMessage = ""
+		auth.Status = StatusActive
+	}
+	auth.Generation++
+	auth.UpdatedAt = now
+	snapshot := auth.Clone()
+	cooldownStateChanged := trackCooldownState && !cooldownStateRecordsEqual(recordsBefore, m.cooldownStateRecordsForAuthLocked(auth, now))
+	errPersist := m.persistLocked(ctx, auth)
+	m.mu.Unlock()
+	releaseMutation()
+	if cooldownStateChanged {
+		m.persistCooldownStates(context.Background())
+	}
+	m.publishCooldownChange(authID, snapshot, now)
+	return errPersist
+}
+
+// publishCooldownChange re-projects an auth's models into the registry and the
+// scheduler after its cooldown state changed.
+func (m *Manager) publishCooldownChange(authID string, snapshot *Auth, now time.Time) {
 	supportedModels, regEpoch := registry.GetGlobalRegistry().GetModelsAndEpochForClient(authID)
 	projections := make([]registry.ClientModelProjection, 0, len(supportedModels))
 	for _, sm := range supportedModels {
@@ -615,10 +681,6 @@ func (m *Manager) ResetQuota(ctx context.Context, authID string) (*Auth, []strin
 	if m.scheduler != nil && snapshot != nil {
 		m.scheduler.upsertAuth(snapshot)
 	}
-	if errPersist != nil {
-		return nil, nil, errPersist
-	}
-	return snapshot, models, nil
 }
 
 func modelsForRegisteredAuth(authID string) []string {

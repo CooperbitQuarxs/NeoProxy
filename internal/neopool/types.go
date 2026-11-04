@@ -107,6 +107,9 @@ type Reservation struct {
 	Cap            float64
 	Shared         bool
 	BudgetFree     bool
+	// ProviderUsed holds the provider-reported used fraction of each pool account
+	// whose stage meter is a provider reading; those accounts skip the local meter.
+	ProviderUsed map[string]float64 `json:",omitempty"`
 }
 
 // Settlement is final. Known usage replaces the reservation; missing usage

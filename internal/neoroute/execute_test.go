@@ -296,6 +296,46 @@ func TestConcurrentRoutersReserveAndAdvanceOneDurableCursor(t *testing.T) {
 		}
 	}
 }
+
+// providerReadingPool reports one provider-reported day window on every account.
+type providerReadingPool struct {
+	*neopool.Store
+	used float64
+}
+
+func (p providerReadingPool) Snapshot(ctx context.Context) (neopool.Snapshot, error) {
+	snap, err := p.Store.Snapshot(ctx)
+	for i := range snap.Accounts {
+		snap.Accounts[i].ProviderWindows = []neopool.Window{{Kind: "day", Known: true, Source: "provider-reported", Unit: "percent", Capacity: 100, Used: p.used}}
+	}
+	return snap, err
+}
+
+// The resolver's provider-over-local meter choice reaches the ledger: a full
+// local meter does not refuse a reservation the provider reading admits.
+func TestReservationFollowsProviderMeter(t *testing.T) {
+	f := newRouteFixture(t, "fill")
+	ctx := context.Background()
+	for i, a := range f.accounts {
+		if err := f.pool.ConfigureWindow(ctx, a.ID, f.admin.UserID, "day", 100, time.Now().Add(-time.Hour).UnixMilli(), true); err != nil {
+			t.Fatal(err)
+		}
+		fill := neopool.Reservation{ID: fmt.Sprintf("fill-%d", i), RequestID: fmt.Sprintf("fill-%d", i), UserID: f.user.ID, AccountID: a.ID, Tokens: 100, BudgetFree: true}
+		if err := f.pool.Reserve(ctx, fill); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.route.Run(f.ctx, boundedRequest(false), successful); err == nil {
+		t.Fatal("full local meters admitted without a provider reading")
+	}
+	route, err := New(f.identity, providerReadingPool{Store: f.pool, used: .1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = route.Run(f.ctx, boundedRequest(false), successful); err != nil {
+		t.Fatalf("provider meter at 10%% refused: %v", err)
+	}
+}
 func TestBudgetFreePassthroughStillScopedAndAttributed(t *testing.T) {
 	f := newRouteFixture(t, "fill")
 	f.vm.Stages[0].Cap = 0

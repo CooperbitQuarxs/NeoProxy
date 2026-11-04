@@ -76,3 +76,24 @@ func TestAccessTestPinsOneCredentialAndShapesResult(t *testing.T) {
 		t.Fatalf("lastProbe after failure: %+v", listed.Items[0].LastProbe)
 	}
 }
+
+// A contributor demoted to member still owns the access but may not test it:
+// a test lifts the engine hold and spends a real request.
+func TestAccessTestRequiresOwnerRole(t *testing.T) {
+	f := newAccessFixture(t)
+	item := itemOf(t, f.json("owner-a", "POST", "/v8/neo/access/api-key", `{"provider":"openrouter","apiKey":"`+routerKey+`"}`, 201))
+	probed := false
+	f.http.SetAccessProbe(func(context.Context, string, string, []byte) ([]byte, int, error) {
+		probed = true
+		return []byte(`{"choices":[{"message":{"content":"OK"}}]}`), 200, nil
+	})
+	if _, err := f.identity.DB().Exec(`UPDATE neo_users SET role='member' WHERE id='owner-a'`); err != nil {
+		t.Fatal(err)
+	}
+	path := "/v8/neo/access/" + item.ID + "/test"
+	f.json("owner-a", "POST", path, `{"model":"some-model"}`, 403)
+	if probed {
+		t.Fatal("member reached the probe")
+	}
+	f.json("admin", "POST", path, `{"model":"some-model"}`, 200)
+}
