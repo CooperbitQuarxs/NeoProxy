@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/modelconfig"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -848,7 +849,14 @@ func buildConfiguredModelInfo(model modelEntry, ownedBy, modelType string, creat
 }
 
 func buildOpenAICompatibilityConfigModels(compat *config.OpenAICompatibility) []*ModelInfo {
-	if compat == nil || len(compat.Models) == 0 {
+	if compat == nil {
+		return nil
+	}
+	// A Z.ai coding-plan entry serves NeoPi's Z.ai catalog, not a configured list.
+	if zaiauth.IsCodingPlanBaseURL(compat.BaseURL) {
+		return registry.ZaiModels(compat.Name)
+	}
+	if len(compat.Models) == 0 {
 		return nil
 	}
 	now := time.Now().Unix()

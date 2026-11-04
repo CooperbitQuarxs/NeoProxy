@@ -38,6 +38,21 @@ type neoPiProfile struct {
 		InjectClaudeCodeInstruction        bool   `json:"injectClaudeCodeInstruction"`
 		DisabledThinking                   string `json:"disabledThinking"`
 	} `json:"compat"`
+	// thirdParty is set only for NeoPi catalog rows served by another
+	// provider over Anthropic Messages (Z.ai); Claude's own rows never carry it.
+	thirdParty *neoPiThirdParty
+}
+
+// neoPiThirdParty is what NeoPi's Anthropic provider reads from a
+// non-Anthropic model: its effort ladder and the compat facts that change the
+// wire relative to Anthropic's own endpoint.
+type neoPiThirdParty struct {
+	efforts        []string
+	budgetEffort   bool // thinking mode anthropic-budget-effort: the effort ships beside the budget
+	requiresEffort bool
+	outputEffort   bool
+	toolResultID   bool
+	images         bool
 }
 
 var neoPiProfiles = func() map[string]neoPiProfile {

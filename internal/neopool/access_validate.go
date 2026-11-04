@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -169,6 +170,9 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 // dropped so they never reach the model list. routes carries the API each
 // model is served over (see modelRoutes).
 func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, []string, map[string]modelRoute, error) {
+	if info.ID == "zai" {
+		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
+	}
 	candidates := []string{base}
 	if regions := catalogRegions(info.ID); len(regions) > 0 {
 		preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
@@ -213,6 +217,35 @@ func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred,
 		}
 	}
 	return base, models, modelRoutes(info, base, models, advertised), nil
+}
+
+// validateZaiKey is NeoPi's Z.ai key check (validate "chat-completions"): a
+// one-token chat completion with glm-5.2 at the coding-plan endpoint. The
+// account then serves NeoPi's Z.ai catalog, so no model list is kept.
+func validateZaiKey(ctx context.Context, key string) error {
+	body := `{"model":"glm-5.2","messages":[{"role":"user","content":"ping"}],"max_tokens":1,"temperature":0}`
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, zaiauth.CodingPlanBaseURL+"/chat/completions", strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+key)
+	resp, err := accessHTTPClient.Do(req)
+	if err != nil {
+		return accessErr(http.StatusBadGateway, "Could not reach Z.ai to check the key. Try again in a moment.")
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		return nil
+	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
+		return &AccessError{Status: http.StatusBadRequest, keyRejected: true, Message: fmt.Sprintf("Z.ai rejected this key (HTTP %d). Check that the whole key was pasted and that its GLM Coding Plan is active.", resp.StatusCode)}
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return accessErr(http.StatusServiceUnavailable, "Z.ai is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.")
+	default:
+		return accessErr(http.StatusBadGateway, "Z.ai answered HTTP %d when checking the key. Try again in a moment.", resp.StatusCode)
+	}
 }
 
 // modelRoutes decides each model's upstream API: what the model list

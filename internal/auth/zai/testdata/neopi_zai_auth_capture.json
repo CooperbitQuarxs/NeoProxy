@@ -1,0 +1,863 @@
+{
+  "source": "NeoPi OWN DeclarativeOAuthCodeFlow (zai-coding-plan) + zai-mint-key hook",
+  "scenarios": [
+    {
+      "name": "existing-key",
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "credential": {
+        "access": "ak-existing.secret-fake-0000",
+        "refresh": "",
+        "expires": 8640000000000000,
+        "email": "Zai@Example.Invalid",
+        "accountId": "4242"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys/copy/ak-existing",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "creates-key",
+      "list": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {
+            "list": [
+              {
+                "name": "zcode-api-key",
+                "apiKey": "ak-zcode"
+              }
+            ]
+          }
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "credential": {
+        "access": "ak-created.secret-fake-0000",
+        "refresh": "",
+        "expires": 8640000000000000,
+        "email": "Zai@Example.Invalid",
+        "accountId": "4242"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "content-length": "19",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"name\":\"oh-my-pi\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys/copy/ak-created",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "bare-array-list",
+      "list": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": [
+            {
+              "name": "oh-my-pi",
+              "apiKey": "ak-bare"
+            }
+          ]
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "credential": {
+        "access": "ak-bare.secret-fake-0000",
+        "refresh": "",
+        "expires": 8640000000000000,
+        "email": "Zai@Example.Invalid",
+        "accountId": "4242"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys/copy/ak-bare",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "code-with-state-fragment",
+      "code": "the-code#fragment-state",
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "credential": {
+        "access": "ak-existing.secret-fake-0000",
+        "refresh": "",
+        "expires": 8640000000000000,
+        "email": "Zai@Example.Invalid",
+        "accountId": "4242"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "104",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"fragment-state\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys/copy/ak-existing",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "token-http-error",
+      "token": {
+        "status": 400,
+        "body": {
+          "code": 400,
+          "msg": "invalid code"
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "zai-coding-plan token exchange failed: 400 {\"code\":400,\"msg\":\"invalid code\"}",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        }
+      ]
+    },
+    {
+      "name": "token-envelope-error",
+      "token": {
+        "body": {
+          "code": 1001,
+          "msg": "authorization code expired"
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "zai-coding-plan token response missing access token: {\"code\":1001,\"msg\":\"authorization code expired\"}",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        }
+      ]
+    },
+    {
+      "name": "login-envelope-error",
+      "login": {
+        "body": {
+          "code": 500,
+          "msg": "login rejected",
+          "success": false
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "Z.ai business login failed: login rejected",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        }
+      ]
+    },
+    {
+      "name": "login-no-token",
+      "login": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {}
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "Z.ai business login returned no access token",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        }
+      ]
+    },
+    {
+      "name": "no-organization",
+      "customer": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {
+            "organizations": []
+          }
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "Z.ai key provisioning failed: no organization/project on account",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "create-without-api-key",
+      "list": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {
+            "list": []
+          }
+        }
+      },
+      "create": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {}
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "Z.ai key provisioning returned no apiKey",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "content-length": "19",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"name\":\"oh-my-pi\"}"
+        }
+      ]
+    },
+    {
+      "name": "copy-without-secret",
+      "copy": {
+        "body": {
+          "code": 200,
+          "success": true,
+          "data": {}
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "Z.ai key provisioning returned no secretKey",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys/copy/ak-existing",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "list-http-error",
+      "list": {
+        "status": 401,
+        "body": {
+          "msg": "expired"
+        }
+      },
+      "state": "0123456789abcdef0123456789abcdef",
+      "redirectUri": "zcode://zai-auth/callback",
+      "auth": {
+        "url": "https://chat.z.ai/api/oauth/authorize?client_id=client_P8X5CMWmlaRO9gyO-KSqtg&response_type=code&redirect_uri=zcode%3A%2F%2Fzai-auth%2Fcallback&state=0123456789abcdef0123456789abcdef",
+        "instructions": "Complete Z.ai login in your browser. On supported local desktops, NeoPi captures the zcode:// callback and restores its previous handler automatically. You can also paste the final redirect URL or authorization code when prompted."
+      },
+      "error": "HTTP request failed. status=401; url=https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys; body={\"msg\":\"expired\"}",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://zcode.z.ai/api/v1/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "122",
+            "content-type": "application/json",
+            "host": "zcode.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"provider\":\"zai\",\"code\":\"the-code\",\"redirect_uri\":\"zcode://zai-auth/callback\",\"state\":\"0123456789abcdef0123456789abcdef\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.z.ai/api/auth/z/login",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "29",
+            "content-type": "application/json",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"token\":\"oauth-access-fake\"}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/customer/getCustomerInfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.z.ai/api/biz/v1/organization/org-main/projects/proj-main/api_keys",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer biz-token-fake",
+            "connection": "keep-alive",
+            "host": "api.z.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    }
+  ]
+}
