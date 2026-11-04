@@ -252,7 +252,7 @@ func (s *Store) reserve(ctx context.Context, req Request, run *runState, state r
 	}
 	if d.StageIndex != nil {
 		st := state.vm.Stages[*d.StageIndex]
-		allot, _ := grantFor(state.principal, state.vm.ID)
+		allot, _ := state.allotment(state.vm.ID)
 		reservation.Window = st.Window
 		// Use the exact bounded Lua/static budgets that produced this decision.
 		// The pool ledger atomically checks them against current in-flight usage.

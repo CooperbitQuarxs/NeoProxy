@@ -142,7 +142,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	if version > 1 {
+	if version > 2 {
 		return fmt.Errorf("unsupported identity schema version %d", version)
 	}
 	if version == 0 {
@@ -175,6 +175,17 @@ CREATE INDEX neo_keys_user ON neo_keys(user_id);
 PRAGMA user_version=1;`)
 		if err != nil {
 			return fmt.Errorf("migrate identity schema: %w", err)
+		}
+		version = 1
+	}
+	if version == 1 {
+		// v2: per-provider direct model allowlists and per-key model narrowing.
+		_, err = tx.ExecContext(ctx, `
+ALTER TABLE neo_users ADD COLUMN model_access TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE neo_keys ADD COLUMN models TEXT;
+PRAGMA user_version=2;`)
+		if err != nil {
+			return fmt.Errorf("migrate identity schema to v2: %w", err)
 		}
 	}
 	if err = tx.Commit(); err != nil {

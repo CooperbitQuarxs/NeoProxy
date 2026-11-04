@@ -12,7 +12,7 @@ import (
 func assertIndependentVersions(t *testing.T, identity *neo.Store, routing int) {
 	t.Helper()
 	for query, want := range map[string]int{
-		"PRAGMA user_version":                 1,
+		"PRAGMA user_version":                 2,
 		"SELECT version FROM neo_pool_schema": 1,
 		"SELECT version FROM neoroute_schema": routing,
 	} {
@@ -45,7 +45,7 @@ func TestRoutingMigrationReopensAndAdoptsUnversionedData(t *testing.T) {
 			if _, err = New(identity, pool); err != nil {
 				t.Fatal(err)
 			}
-			assertIndependentVersions(t, identity, 1)
+			assertIndependentVersions(t, identity, 2)
 			if _, err = identity.DB().ExecContext(t.Context(), `INSERT INTO neoroute_admissions(id,user_id,at,day,tokens) VALUES('retained','user',1,0,17)`); err != nil {
 				t.Fatal(err)
 			}
@@ -68,7 +68,7 @@ func TestRoutingMigrationReopensAndAdoptsUnversionedData(t *testing.T) {
 			if _, err = New(identity, pool); err != nil {
 				t.Fatal(err)
 			}
-			assertIndependentVersions(t, identity, 1)
+			assertIndependentVersions(t, identity, 2)
 			var tokens int64
 			if err = identity.DB().QueryRowContext(t.Context(), `SELECT tokens FROM neoroute_admissions WHERE id='retained'`).Scan(&tokens); err != nil || tokens != 17 {
 				t.Fatalf("migration changed persisted admissions: tokens=%d error=%v", tokens, err)
@@ -136,5 +136,5 @@ func TestRoutingMigrationRollsBackInitialSchemaOnDDLFailure(t *testing.T) {
 	if _, err = New(identity, pool); err != nil {
 		t.Fatal(err)
 	}
-	assertIndependentVersions(t, identity, 1)
+	assertIndependentVersions(t, identity, 2)
 }

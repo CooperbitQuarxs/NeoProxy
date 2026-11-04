@@ -5,6 +5,7 @@
 import { h, icon, fmtAgo } from "../lib/dom.js";
 import { neo } from "../lib/client.js";
 import { pageHead, card, btn, servedName, copyLine, kv, seg, empty, spinner, errorState, toast, dialog, field, input } from "../lib/components.js";
+import { directModelsFor } from "../lib/access.js";
 
 const origin = () => location.origin;
 
@@ -62,7 +63,7 @@ export async function render(ctx) {
 	root.lastChild.remove();
 
 	const granted = vms.filter((vm) => session.role === "admin" || me.grants.some((g) => g.virtualModel === vm.id));
-	const direct = (me.providerAccess ?? []).flatMap((pid) => models.filter((m) => m.providerId === pid && m.exposed).map((m) => m.served ?? `neoproxy/${m.id}`));
+	const direct = directModelsFor(me, models).map((m) => m.served ?? `neoproxy/${m.id}`);
 	const names = [...granted.map((vm) => vm.served), ...direct];
 	let model = names[0] ?? "neoproxy/default";
 	let key = "";

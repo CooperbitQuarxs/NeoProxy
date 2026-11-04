@@ -871,6 +871,8 @@ export function trail(decision, { models = [], accounts = [], users, admin = fal
 			}
 		} else if (t.kind === "direct") {
 			steps.push(step(ok ? "served" : "end error", "→", ok ? "answered" : "failed", modelName(t.model), `Direct provider model · ${accName(t.accountId)}`));
+		} else if (t.kind === "redirect" && t.redirect) {
+			steps.push(step("redirect", "↪", t.redirect.bypassAccess ? "bypasses access" : null, "Redirected", redirectWords(t.redirect)));
 		} else if (t.kind === "denied") {
 			steps.push(step("end error", "✕", null, "Not allowed", t.virtualModel ? `${who} has no grant on this virtual model` : `${who} has no direct access to ${t.providerId}`));
 		} else {
@@ -1009,6 +1011,16 @@ export function sheet({ title, sub, body, foot, onClose, keep = "tr, .li, .frow,
 	setTimeout(() => { document.addEventListener("pointerdown", outside, true); document.addEventListener("keydown", esc, true); }, 0);
 	openSheet = { el, close };
 	return openSheet;
+}
+
+// ---------- redirects ----------
+// The rule a redirect is known by: its note when it has one, else its source.
+export function redirectRule(r) {
+	return r.note ? `the rule “${r.note}”` : `the rule for ${r.pattern ?? r.from}`;
+}
+// One sentence for a recorded redirect (Decision.redirect / a "redirect" step).
+export function redirectWords(r) {
+	return `Redirected from ${r.from} to ${r.to} by ${redirectRule(r)}.`;
 }
 
 export { append, clear };

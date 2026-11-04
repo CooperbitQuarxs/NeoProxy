@@ -1,10 +1,15 @@
 // Models: everything the proxy serves, as a tree by provider. Never a flat
 // list. Virtual models sit on top because they are what users should reach
 // for; provider models follow, grouped and collapsible, each with a switch.
+// Provider rows are selectable (lib/multiselect.js): sweep or Shift+click a
+// range, then Space serves or hides them all in one request, or the bar at
+// the bottom gives them to a person as direct models.
 
 import { h, icon, fmtCompact, fmtInt, plural, clear } from "../lib/dom.js";
 import { neo, onChange } from "../lib/client.js";
-import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast, confirm } from "../lib/components.js";
+import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast, confirm, picker, avatar } from "../lib/components.js";
+import { multiSelect, selectionBar } from "../lib/multiselect.js";
+import { matchModel, modelName } from "../lib/access.js";
 
 const debounce = (fn, ms = 150) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; };
 
@@ -64,6 +69,7 @@ export async function render(ctx) {
 			rowsShown.clear();
 			renderTree();
 			renderVMs();
+			retainSelection();
 		})),
 		seg(
 			[
@@ -75,6 +81,7 @@ export async function render(ctx) {
 			(v) => {
 				show = v;
 				renderTree();
+				retainSelection();
 			},
 		),
 		h("span", { class: "spacer" }),
@@ -99,7 +106,7 @@ export async function render(ctx) {
 	});
 	host.append(vmCard);
 
-	const treeCard = card({ title: "Provider models", sub: "All / Served / Hidden filters only these provider models. Local providers may have direct selectors; shared-source models use stored virtual names. Hiding a provider disables all routes that draw from it.", flush: true, body: h("div", { class: "tree" }) });
+	const treeCard = card({ title: "Provider models", sub: "All / Served / Hidden filters only these provider models. Local providers may have direct selectors; shared-source models use stored virtual names. Hiding a provider disables all routes that draw from it. Drag across rows or Shift+click to select several; Space serves or hides them.", flush: true, body: h("div", { class: "tree" }) });
 	host.append(treeCard);
 	const tree = treeCard.querySelector(".tree");
 
@@ -129,29 +136,18 @@ export async function render(ctx) {
 		return !query || haystack.get(m.id).includes(query);
 	}
 
+	// Rows carry no listeners: the tree delegates the switch (data-act="serve")
+	// and selection, so a 640-model provider costs DOM nodes, not handlers.
 	function modelRow(m, p) {
-		let control;
-		control = toggle(m.exposed, async (v) => {
-			try {
-				await neo.setModelExposed(m.id, v);
-			} catch (e) {
-				control.setAttribute("aria-checked", String(!v));
-				toast(e.message, "bad");
-				return;
-			}
-			m.exposed = v;
-			toast(v ? `${m.display} served` : `${m.display} hidden`);
-			renderTree();
-			renderVMs();
-		}, `Serve ${m.display}`, { disabled: !p.exposed, showLabel: false });
+		const on = m.exposed && p.exposed;
 		return h(
 			"div",
-			{ class: `model-row ${m.exposed && p.exposed ? "" : "off"}` },
+			{ class: `model-row ${on ? "" : "off"}`, role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id, "aria-label": `${m.display}, ${on ? "served" : "hidden"}` },
 			h("div", null, h("div", { class: "cell-main" }, m.display), h("div", { class: "cell-sub" }, servedName(m.served))),
 			h("div", { class: "tags" }, (m.tags ?? []).map(tag)),
 			h("div", { class: "num ink-3" }, m.context ? `${fmtCompact(m.context)} ctx` : "–"),
 			h("div", { class: "num ink-3" }, `${reqCount(m.served)} req`),
-			control,
+			h("button", { type: "button", class: "switch", role: "switch", "aria-checked": String(m.exposed), "aria-label": `Serve ${m.display}`, title: p.exposed ? null : "Serve the provider first", tabindex: "-1", disabled: !p.exposed, "data-act": "serve" }, h("span", { class: "track" })),
 		);
 	}
 
@@ -241,7 +237,9 @@ export async function render(ctx) {
 			);
 			if (!isOpen) continue;
 			const shown = Math.min(list.length, rowsShown.get(p.id) ?? ROW_PAGE);
-			for (let i = 0; i < shown; i++) frag.append(modelRow(list[i], p));
+			const rows = h("div", { class: "model-rows", role: "listbox", "aria-multiselectable": "true", "aria-label": `${label.main} models` });
+			for (let i = 0; i < shown; i++) rows.append(modelRow(list[i], p));
+			frag.append(rows);
 			if (shown < list.length) frag.append(h("div", { class: "model-more" },
 				btn(`Show ${fmtInt(Math.min(ROW_PAGE * 2, list.length - shown))} more`, { cls: "outline sm", onClick: () => { rowsShown.set(p.id, shown + ROW_PAGE * 2); renderTree(); } }),
 				h("span", { class: "ink-3" }, `${fmtInt(shown)} of ${fmtInt(list.length)} shown${query ? "" : ". Search to jump to one."}`)));
@@ -250,7 +248,134 @@ export async function render(ctx) {
 			? empty({ icon: "shield", title: "No provider models yet", hint: "Add a provider credential and its models appear here.", action: btn("Add provider access", { icon: "plus", cls: "outline", onClick: () => ctx.navigate("pool") }) })
 			: empty({ icon: "search", title: "No models match", hint: "Try a provider name, a model id, or a tag like fast or reasoning." }));
 		tree.replaceChildren(frag);
+		ms.refresh();
 	}
+
+	// ----- selection: Space and the bar act on every selected model at once -----
+	const modelById = new Map(models.map((m) => [m.id, m]));
+	const matchingIn = (providerId) => {
+		const p = providers.get(providerId);
+		return p ? (byProvider.get(providerId) ?? []).filter((m) => matches(m, p)) : [];
+	};
+	const verbs = { serve: "served", hide: "hidden", invert: "inverted" };
+	// Apply {modelId: exposed} in one request; the toast can put it back.
+	async function applyExposure(set, verb, { undoable = true, note = "" } = {}) {
+		const ids = Object.keys(set);
+		const before = Object.fromEntries(ids.map((id) => [id, modelById.get(id).exposed]));
+		try {
+			const r = await neo.setModelsExposed(set);
+			for (const id of ids) modelById.get(id).exposed = set[id];
+			const n = r?.changed ?? ids.length;
+			const text = ids.length === 1 ? `${modelById.get(ids[0]).display} ${verb}` : `${fmtInt(n)} models ${verb}`;
+			const undo = undoable ? h("button", { type: "button", class: "link-btn toast-act", onClick: (e) => { e.currentTarget.closest(".toast")?.remove(); applyExposure(before, "restored", { undoable: false }); } }, "Undo") : null;
+			toast([text, note, undo], "ok", undoable ? 6000 : 2800);
+		} catch (e) {
+			toast(e.message, "bad");
+		}
+		renderTree();
+		renderVMs();
+	}
+	// mode: serve | hide | invert | toggle. Toggle hides them when every one is
+	// served and serves them all otherwise, so a mixed selection ends up uniform.
+	function changeExposure(keys, mode) {
+		const list = keys.map((k) => modelById.get(k)).filter((m) => m && providers.get(m.providerId)?.exposed);
+		const skipped = keys.length - list.length;
+		if (mode === "toggle") mode = list.length && list.every((m) => m.exposed) ? "hide" : "serve";
+		const set = {};
+		for (const m of list) {
+			const next = mode === "invert" ? !m.exposed : mode === "serve";
+			if (m.exposed !== next) set[m.id] = next;
+		}
+		const skipNote = skipped ? `${plural(skipped, "model")} on hidden providers left alone; serve the provider first` : "";
+		if (!Object.keys(set).length) { toast(skipNote || `Already ${verbs[mode]}`, skipped ? "warn" : "ok"); return; }
+		applyExposure(set, verbs[mode], { note: skipNote ? `; ${skipNote}` : "" });
+	}
+
+	const directSummary = (u) => (u.providerAccess.length ? `direct: ${u.providerAccess.map((pid) => providerLabel(providers.get(pid)).main).join(", ")}` : "no direct access yet");
+	function givePicker(anchor) {
+		const chosen = [...ms.selected].map((k) => modelById.get(k)).filter(Boolean);
+		const direct = chosen.filter((m) => !m.virtualOnly && providers.get(m.providerId)?.kind !== "neopi-gateway");
+		if (!direct.length) { toast("Shared-source models are reached through virtual models: grant one in Users instead.", "warn"); return; }
+		picker(anchor, {
+			items: users.map((u) => ({ value: u.id, label: u.handle, sub: `${u.name ? `${u.name}, ` : ""}${u.role}; ${directSummary(u)}`, lead: avatar(u) })),
+			placeholder: "Find a person",
+			empty: "No one matches",
+			onPick: (id) => giveTo(users.find((u) => u.id === id), direct, chosen.length - direct.length),
+		});
+		// The bar sits at the bottom of the page, so open the list above it and
+		// let it grow upwards as the search narrows it.
+		const pop = document.body.lastElementChild;
+		if (pop?.classList.contains("picker")) {
+			pop.style.top = "auto";
+			pop.style.bottom = `${document.documentElement.clientHeight - anchor.getBoundingClientRect().top - scrollY + 8}px`;
+		}
+	}
+	// Add the models to the person's direct access: a provider they lack is
+	// turned on for just these models; one they have with a list gains them; one
+	// they have without a list already serves every model.
+	async function giveTo(u, list, shared) {
+		const access = new Set(u.providerAccess);
+		const allow = structuredClone(u.modelAccess ?? {});
+		let added = 0;
+		for (const m of list) {
+			const name = modelName(m);
+			if (!access.has(m.providerId)) {
+				access.add(m.providerId);
+				allow[m.providerId] = [name];
+				added++;
+			} else if (allow[m.providerId] && !matchModel(allow[m.providerId], name)) {
+				allow[m.providerId].push(name);
+				added++;
+			}
+		}
+		if (!added) { toast(`${u.handle} can already call ${list.length === 1 ? "it" : "all of them"} directly`); return; }
+		try {
+			Object.assign(u, await neo.saveUser({ ...u, providerAccess: [...access], modelAccess: allow, password: undefined }));
+		} catch (e) {
+			toast(e.message, "bad");
+			return;
+		}
+		const hidden = list.filter((m) => !m.exposed || !providers.get(m.providerId)?.exposed).length;
+		toast([
+			`${u.handle} can now call ${plural(added, "more model")} directly`,
+			hidden ? `; ${fmtInt(hidden)} ${hidden === 1 ? "is" : "are"} hidden, so serve ${hidden === 1 ? "it" : "them"} first` : "",
+			shared ? `; ${fmtInt(shared)} shared-source skipped` : "",
+			h("button", { type: "button", class: "link-btn toast-act", onClick: () => ctx.navigate(`users/${u.id}`) }, `Open ${u.handle}`),
+		], "ok", 7000);
+		renderTree();
+	}
+
+	const bar = selectionBar({
+		actions: [
+			{ label: "Serve", icon: "eye", title: "Serve the selected models", onClick: () => changeExposure([...ms.selected], "serve") },
+			{ label: "Hide", icon: "eyeOff", title: "Hide the selected models from everyone", onClick: () => changeExposure([...ms.selected], "hide") },
+			{ label: "Invert", icon: "shuffle", title: "Served ones are hidden, hidden ones served", onClick: () => changeExposure([...ms.selected], "invert") },
+			{ label: "Give to person…", icon: "user", cls: "accent", title: "Let one person call the selected models directly", onClick: (e) => givePicker(e.currentTarget) },
+		],
+		onClear: () => { ms.clear(); ms.focus(); },
+	});
+	bar.el.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.querySelector(".picker")) { ms.clear(); ms.focus(); } });
+	const ms = multiSelect(tree, {
+		row: ".model-row",
+		groupKeys: (el) => matchingIn(modelById.get(el.dataset.key)?.providerId).map((m) => m.id),
+		onChange: (sel) => bar.update(sel.size),
+		onSpace: (keys) => changeExposure(keys, "toggle"),
+	});
+	// Filtering keeps only the selected models that still match.
+	function retainSelection() {
+		const keep = [...ms.selected].filter((k) => { const m = modelById.get(k); return m && matches(m, providers.get(m.providerId)); });
+		if (keep.length !== ms.selected.size) ms.set(keep);
+	}
+	// The one switch handler for every row.
+	tree.addEventListener("click", (e) => {
+		const sw = e.target.closest('[data-act="serve"]');
+		const m = sw && !sw.disabled && modelById.get(sw.closest(".model-row")?.dataset.key);
+		if (!m) return;
+		sw.setAttribute("aria-checked", String(!m.exposed));
+		applyExposure({ [m.id]: !m.exposed }, m.exposed ? "hidden" : "served");
+	});
+	root.append(bar.el);
+
 	renderTree();
 	renderVMs();
 	const off = onChange((w) => {
@@ -259,5 +384,5 @@ export async function render(ctx) {
 			renderVMs();
 		}
 	});
-	return () => off();
+	return () => { off(); ms.destroy(); };
 }

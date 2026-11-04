@@ -263,8 +263,9 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 
 `internal/neoroute/testdata/fixture.js › resolve()` is the reference implementation. Given a request for `asked` from `user` at time `at`:
 
+0. **Redirect** (see Redirects below): if an enabled redirect matches `asked` for this caller, resolution continues as if the caller had asked for its `to`. One hop only; the decision carries `redirect` and a leading `{ kind: "redirect" }` trail step.
 1. Strip `neoproxy/`. If the remainder has one segment it is a virtual model name; otherwise it is `<provider>/<model>`.
-2. **Provider model**: the user **must** have `providerId` in `providerAccess`, the provider and model **must** be exposed, and a healthy account **must** exist. Serve from the first healthy account (the engine's own routing strategy applies here). No budget is applied. Outcome `ok` with `direct: true`.
+2. **Provider model**: the user **must** have `providerId` in `providerAccess`, the model **must** match the user's `modelAccess[providerId]` when that entry exists and the key's `models` when the key has them (else `no-model-access`, 403), the provider and model **must** be exposed, and a healthy account **must** exist. Serve from the first healthy account (the engine's own routing strategy applies here). No budget is applied. Outcome `ok` with `direct: true`. `GET /v1/models` lists exactly the direct models that pass the same checks.
 3. **Virtual model**: the user **must** hold a grant; `allot = grant.allotment`.
 4. For each stage in order:
    - `pool` = accounts of the stage's provider, filtered by `stage.accounts`.
@@ -285,11 +286,11 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 The decision **must** be recorded on the request (see Requests › `decision`), including the `trail`, so the Activity page can explain it.
 
 ```
-POST /v8/neo/simulate   { asked: string, userId: string, protocol?: "openai" | "openai-response" | "claude", request?: JSON }
+POST /v8/neo/simulate   { asked: string, userId: string, keyId?: string, protocol?: "openai" | "openai-response" | "claude", request?: JSON }
 → Decision
 ```
 
-Pure: the server runs the same resolver against current grants and usage without recording activity, admitting a request, reserving usage or advancing a cursor. The dashboard simulates only saved models and invalidates the result as soon as a draft changes; save before running it again. Optional protocol and credential-free business-request JSON let a configured script inspect representative input. Simulation never grants a hypothetical 100% allotment or runs a local production fixture fallback.
+Pure: the server runs the same resolver against current grants and usage without recording activity, admitting a request, reserving usage or advancing a cursor. The dashboard simulates only saved models and invalidates the result as soon as a draft changes; save before running it again. Optional protocol and credential-free business-request JSON let a configured script inspect representative input. Simulation never grants a hypothetical 100% allotment or runs a local production fixture fallback. `keyId` (one of `userId`'s live keys, else 400) simulates a request made with that inference key: its account scope and key-scoped redirects apply. Redirects apply to simulation exactly as to execution.
 
 Execution reserves a conservative token upper bound against explicitly configured
 metered windows before dispatch, then replaces that reservation with the existing
@@ -343,6 +344,36 @@ grants. Simulation makes no token reservation or promise about a later request's
 capacity. Ordinary member views do not expose source.
 
 
+### Redirects
+
+```
+GET    /v8/neo/redirects        → Redirect[]            (admin; oldest first)
+POST   /v8/neo/redirects        Redirect → 201 Redirect (admin; 400 { error: { message } } on validation)
+PUT    /v8/neo/redirects/:id    Redirect → 200 Redirect (admin; 404 unknown id)
+DELETE /v8/neo/redirects/:id    → 204                   (admin)
+
+Redirect {
+  id: string,                  // "rd_…", server-assigned
+  from: string,                // what callers ask for: "neoproxy/<vm>" or "neoproxy/<provider>/<model>"; may end in "*" (prefix)
+  to: string,                  // one existing virtual model or catalogue model, no "*"
+  scope: { users?: string[], keys?: string[] },  // empty = everyone; keys = only those inference keys (users is then filled with their owners)
+  enabled: boolean,
+  bypassAccess: boolean,       // default false; see below
+  note: string,                // ≤ 280 chars
+  createdAt: number, updatedAt: number
+}
+
+Decision.redirect / TrailStep{kind:"redirect"}.redirect = {
+  id, from /* the model asked for */, to, pattern? /* the rule's from when it is a prefix */, note?, bypassAccess?
+}
+```
+
+`from` and `to` are accepted with or without the `neoproxy/` prefix and stored with it. Only asks that carry the `neoproxy/` prefix are matched. For one request the most specific matching enabled redirect wins: a key rule over a person rule over an everyone rule, then an exact `from` over a prefix, then the oldest. Redirects never chain: the target is resolved directly. Validation rejects a rule that redirects to itself (including a prefix matching its own `to`), a rule whose `to` is the `from` of another enabled rule (or whose `from` matches another enabled rule's `to`) in an overlapping scope, and a second enabled rule with the same `from` and scope.
+
+**A redirect never grants access.** The redirected request goes through the target's ordinary checks as if the caller had asked for `to`: a grant for a virtual model, provider/model access for a direct model, key account scope and budgets. **`bypassAccess: true`** (administrators only, since only they can save redirects) is the exception: the target's grant and direct-access checks are skipped, an ungranted virtual model is drawn at a 100% allotment, and account ownership and key account scope still apply.
+
+`GET /v1/models` hides nothing because of a redirect; a model that a caller can reach only through a redirect (its `to` is usable by them, or the rule bypasses access) is listed too, because the caller still asks for it. The request record keeps the caller's `asked`.
+
 ## Users
 
 ```
@@ -351,7 +382,7 @@ GET    /v8/neo/users/:id            → User            (member: own id only)
 POST   /v8/neo/users                User (without id, keys) → 201 User
 PUT    /v8/neo/users/:id            User → User     (keys are not editable here)
 DELETE /v8/neo/users/:id            → 204            // admin; last active admin is protected
-POST   /v8/neo/users/:id/keys       { label, accountIds?: string[], expiresAt?: number } → 201 { key: Key, secret: string }   // secret shown once
+POST   /v8/neo/users/:id/keys       { label, accountIds?: string[], models?: string[], expiresAt?: number } → 201 { key: Key, secret: string }   // secret shown once
 DELETE /v8/neo/users/:id/keys/:keyId → 204
 
 User {
@@ -362,13 +393,18 @@ User {
   state: "active" | "invited" | "suspended",
   keys: Key[],
   providerAccess: string[],    // provider ids with direct access
+  modelAccess?: { [providerId]: string[] },  // narrows direct access per provider; see below
   grants: Grant[],
   limits: { rpm: number | null, tokensPerDay: number | null },
   createdAt: number
 }
-Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, createdAt: number, lastUsedAt: number | null, expiresAt?: number }
+Key   { id: string, prefix: string /*"nk_xxxx…xxxx"*/, label: string, accountIds?: string[] /*narrower scope*/, models?: string[] /*narrower direct models*/, createdAt: number, lastUsedAt: number | null, expiresAt?: number }
 Grant { virtualModel: string /*VirtualModel.id*/, allotment: number /*0..1*/ }
 ```
+
+- **Model patterns.** A pattern is a model id or a prefix ending in one `*` (`gpt-5*`, `*`); no whitespace, at most 200 bytes, 1 to 2000 distinct patterns per list. `modelAccess[p]` patterns match the model id without its `<p>/` prefix; key `models` match the full `<provider>/<model>` id.
+- `modelAccess`: a provider in `providerAccess` without an entry serves every exposed model, including ones added later; with an entry only the matching ones. An entry must not be empty (turn the provider off instead). Entries for providers outside `providerAccess` are dropped on save. On `PUT`, omitting `modelAccess` keeps the stored allowlist; `{}` clears it.
+- Key `models` narrows the key's direct models further and never widens the user's; omitted or `[]` means no narrowing. Virtual models are governed by grants alone.
 
 - `invited` users have no keys; issuing a key **should** move them to `active`.
 - `suspended` users keep their keys; every request with them fails 403 `code: "neoproxy_suspended"`.

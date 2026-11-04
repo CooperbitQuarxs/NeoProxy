@@ -47,7 +47,7 @@ func (s *Store) VisibleAccountIDs(ctx context.Context, p neo.Principal) ([]strin
 		}
 	}
 	for _, model := range snapshot.Models {
-		if slices.Contains(p.ProviderAccess, model.ProviderID) {
+		if p.AllowsDirect(model.ProviderID, model.ID) {
 			addPool(model.ID, AccountScope{All: true})
 		}
 	}
