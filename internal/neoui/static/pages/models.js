@@ -4,7 +4,7 @@
 
 import { h, icon, fmtCompact, fmtInt, plural, clear } from "../lib/dom.js";
 import { neo, onChange } from "../lib/client.js";
-import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast } from "../lib/components.js";
+import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast, confirm } from "../lib/components.js";
 
 const debounce = (fn, ms = 150) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; };
 
@@ -155,6 +155,30 @@ export async function render(ctx) {
 		);
 	}
 
+	// Serve or hide every model of a provider that matches the current search,
+	// one PATCH per model that actually changes, so curating 600 models does
+	// not mean 600 clicks.
+	function bulk(p, list, label) {
+		const scope = query ? `the ${fmtInt(list.length)} matching` : `all ${fmtInt(list.length)}`;
+		const run = async (exposed) => {
+			const targets = list.filter((m) => m.exposed !== exposed);
+			if (!targets.length) { toast(`Already ${exposed ? "served" : "hidden"}`); return; }
+			if (targets.length > 25 && !(await confirm({ title: `${exposed ? "Serve" : "Hide"} ${fmtInt(targets.length)} models?`, text: `${label.main}: ${scope} models${query ? ` matching “${query}”` : ""} will be ${exposed ? "served to" : "hidden from"} everyone.`, confirmLabel: exposed ? "Serve them" : "Hide them", danger: !exposed }))) return;
+			let failed = 0;
+			for (const m of targets) {
+				try { await neo.setModelExposed(m.id, exposed); m.exposed = exposed; }
+				catch { failed++; }
+			}
+			toast(failed ? `${fmtInt(targets.length - failed)} changed, ${failed} failed` : `${fmtInt(targets.length)} models ${exposed ? "served" : "hidden"}`, failed ? "warn" : "ok");
+			renderTree();
+			renderVMs();
+		};
+		return h("span", { class: "bulk" },
+			btn(`Serve ${scope}`, { cls: "sm ghost", onClick: () => run(true), title: `Serve ${scope} ${label.main} models` }),
+			btn(`Hide ${scope}`, { cls: "sm ghost", onClick: () => run(false), title: `Hide ${scope} ${label.main} models` }),
+		);
+	}
+
 	function renderTree() {
 		const frag = document.createDocumentFragment();
 		let any = false;
@@ -207,6 +231,7 @@ export async function render(ctx) {
 						list.length !== all.length ? h("span", null, `${fmtInt(list.length)} shown`) : null,
 						h("span", null, plural(accs.length, "account")),
 						h("span", null, p.kind === "neopi-gateway" ? "grant virtual models in Users" : `${plural(users.filter((u) => u.providerAccess.includes(p.id)).length, "user")} direct`)),
+					p.exposed && list.length > 1 ? bulk(p, list, label) : null,
 					providerSwitch,
 				),
 			);

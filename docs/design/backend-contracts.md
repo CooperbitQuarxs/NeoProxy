@@ -157,6 +157,17 @@ Hiding a provider **must** remove every one of its models from every user, inclu
 
 Account health, credentials, refresh and quota-window observations come from the proxy's existing provider managers and login/API-key flows. Each account has a persisted `ownerId`. Provider tokens stay in the engine's existing credential store; ownership, exposure, users, sessions, keys, grants, routing and usage state live in SQLite under the engine's data directory. Missing quota measurements must remain unknown or explicitly configured; they must not be invented as zero use.
 
+### Access extras (pool page)
+
+```
+POST /v8/neo/access/:id/test            { model?, prompt? } → { ok, model, latencyMs, status?, reply?, error?, checkedAt }
+POST /v8/neo/access/:id/quota/refresh   → { item }   (409: provider has no usage endpoint; 502: provider did not answer)
+AccessItem.lastProbe?  { ok, latencyMs, checkedAt, error? }
+AccessItem.providerWindows[] / Account.providerWindows[]  Window{ kind, known, source: "provider-reported", unit: "percent", capacity: 100, used, startsAt, resetsAt }
+```
+
+`test` sends one real request pinned to that account's credential (admin or the owning owner only), budget-free; it lifts the probed model's cooldown first so the request reaches the provider. Trail steps carry `metered` (count of metered accounts in the average) and candidates carry `metered` and `window` so the dashboard can say "no meter".
+
 ## Catalogue
 
 ```
@@ -205,10 +216,11 @@ Stage {
   model: string,           // "<provider>/<model>"
   accounts: "all" | string[],   // account ids within that provider; "all" follows the pool as it changes
   draw: "alternate" | "least-used" | "fill",
-  perAccount: number,      // 0..1 of each account's window this stage may draw
-  cap: number,             // 0..1 total across the stage's accounts
+  perAccount: number,      // 0..1: draw from an account while its window usage is below this
+  accountLimits?: { [accountId]: number },  // per-account override of perAccount (0..1]
+  cap: number,             // 0..1: skip the stage once the pool's AVERAGE usage reaches this
   window: "5h" | "day" | "week" | "month",
-  per: "user" | "all",     // whether the budget is per granted user or shared by all
+  per: "user" | "all",     // local token meters only: count this user's usage or everyone's
   effort: null | "low" | "medium" | "high" | "max"   // force the reasoning effort; null = caller's choice
   lua?: {                 // named functions defined in VirtualModel.script
     eligible?: string,    // function(ctx) -> boolean, per authorized account
@@ -246,9 +258,11 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 3. **Virtual model**: the user **must** hold a grant; `allot = grant.allotment`.
 4. For each stage in order:
    - `pool` = accounts of the stage's provider, filtered by `stage.accounts`.
-   - `used(a)` = the usage fraction for this stage and account, per user (`per: "user"`) or summed over all users (`per: "all"`).
-   - If `Σ used(a) ≥ stage.cap × allot` → skip (`cap`).
-   - `candidates` = pool members that are `healthy` and have `used(a) < stage.perAccount × allot`. None → skip (`unhealthy` if any pool member is not healthy, else `per-account`).
+   - The **meter** of `a` for the stage's window is: a current provider-reported window (`Account.providerWindows`, polled from Claude and Codex every five minutes) if there is one, else the local configured token meter (`Account.windows`), else none. An account with no meter is always a candidate with `used(a) = 0` and is left out of the average.
+   - `used(a)` = the provider window's fraction; or, for a local meter, the account-wide fraction (`per: "all"`) or this user's fraction through this stage (`per: "user"`).
+   - If the **average** of `used(a)` over metered pool members `≥ stage.cap × allot` → skip (`cap`).
+   - `limit(a)` = `stage.accountLimits[a.id]` if present, else `stage.perAccount`. `candidates` = pool members that are `healthy` and have `used(a) < limit(a) × allot`. None → skip (`unhealthy` if any pool member is not healthy, else `per-account`).
+   - The ledger re-checks the chosen account inside the reservation transaction with the same meter choice (`Reservation.providerUsed`), so simulation and execution agree.
    - Choose: `fill` → first candidate in pool order; `least-used` → the candidate with the lowest `used`; `alternate` → rotate through candidates on successive requests (the fixture rotates by wall-clock second; the backend should keep a per-stage cursor).
    - Serve. Record usage against `(user, vm, stage, account)`. Apply `effort` if set. Outcome `ok` with `stageIndex`, `stageId`, `model`, `accountId`.
 5. No stage served → the terminal:
