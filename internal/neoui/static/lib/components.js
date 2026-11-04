@@ -681,6 +681,16 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 			compact ? null : h("div", { class: "n-line" }, term.kind === "queue" ? "the caller waits" : term.kind === "passthrough" ? servedName(`neoproxy/${term.model ?? ""}`) : "HTTP 429"),
 		),
 	);
+	// When the stages overflow, fade the clipped edge so the pinned terminal
+	// does not look like it is covering a card.
+	const edges = () => {
+		const more = stages.scrollWidth - stages.clientWidth > 2;
+		stages.classList.toggle("overflow-end", more && stages.scrollLeft + stages.clientWidth < stages.scrollWidth - 2);
+		stages.classList.toggle("overflow-start", more && stages.scrollLeft > 2);
+	};
+	stages.addEventListener("scroll", edges, { passive: true });
+	new ResizeObserver(edges).observe(stages);
+	requestAnimationFrame(edges);
 	return rail;
 }
 
