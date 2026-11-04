@@ -88,8 +88,8 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 			{ id: "supergrok-heavy", name: "SuperGrok Heavy", monthlyUSD: 300 },
 		],
 	},
-	{ id: "kimi", name: "Kimi", vendor: "Moonshot", hue: 340, methods: ["subscription"], subscription: { flow: "device", note: "Shows a code to confirm on Kimi's site." } },
-	{ id: "devin", name: "Devin", vendor: "Cognition", hue: 205, methods: ["subscription"], subscription: { flow: "browser", note: "Opens Devin's sign-in page in a new tab." } },
+	{ id: "kimi", name: "Kimi", vendor: "Moonshot", hue: 340, methods: ["subscription"], subscription: { flow: "device", note: "Shows a code to confirm on Kimi's site.", site: "Kimi" } },
+	{ id: "devin", name: "Devin", vendor: "Cognition", hue: 205, methods: ["subscription"], subscription: { flow: "browser", note: "Opens Devin's sign-in page in a new tab.", site: "Devin" } },
 	{ id: "meta", name: "Meta AI", vendor: "Meta", hue: 280, methods: ["subscription"], subscription: { flow: "device", note: "Shows a code to confirm on Meta's site." } },
 	{ id: "openrouter", name: "OpenRouter", vendor: "OpenRouter", hue: 300, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://openrouter.ai/api/v1", keyHint: "sk-or-…", getKeyUrl: "https://openrouter.ai/keys" } },
 	{ id: "deepseek", name: "DeepSeek", vendor: "DeepSeek", hue: 230, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.deepseek.com/v1", keyHint: "sk-…", getKeyUrl: "https://platform.deepseek.com/api_keys" } },
@@ -105,7 +105,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		vendor: "Zhipu AI",
 		hue: 190,
 		methods: ["subscription", "apiKey"],
-		subscription: { flow: "code", note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires." },
+		subscription: { flow: "code", note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires.", site: "Z.ai" },
 		apiKey: { style: "openai", baseUrl: "https://api.z.ai/api/coding/paas/v4", keyHint: "32 hex digits, a dot, then more", getKeyUrl: "https://z.ai/manage-apikey/apikey-list" },
 		plans: [
 			{ id: "lite", name: "GLM Coding Plan Lite", monthlyUSD: 18 },
@@ -131,7 +131,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 	{ id: "huggingface", name: "Hugging Face", vendor: "Hugging Face", hue: 85, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://router.huggingface.co/v1", keyHint: "hf_…", getKeyUrl: "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained" } },
 	{ id: "nvidia", name: "NVIDIA NIM", vendor: "NVIDIA", hue: 135, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://integrate.api.nvidia.com/v1", keyHint: "nvapi-…", getKeyUrl: "https://build.nvidia.com/settings/api-keys" } },
 	{ id: "vercel-ai-gateway", name: "Vercel AI Gateway", vendor: "Vercel", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://ai-gateway.vercel.sh/v1", keyHint: "vck_…", getKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys" } },
-	{ id: "nous-portal", name: "Nous Portal", vendor: "Nous Research", hue: 320, methods: ["subscription", "apiKey"], subscription: { flow: "device", note: "Shows a code to confirm on the Nous Portal." }, apiKey: { style: "openai", baseUrl: "https://inference-api.nousresearch.com/v1", keyHint: "sk-…", getKeyUrl: "https://portal.nousresearch.com/" } },
+	{ id: "nous-portal", name: "Nous Portal", vendor: "Nous Research", hue: 320, methods: ["subscription", "apiKey"], subscription: { flow: "device", note: "Shows a code to confirm on the Nous Portal.", site: "Nous Portal" }, apiKey: { style: "openai", baseUrl: "https://inference-api.nousresearch.com/v1", keyHint: "sk-…", getKeyUrl: "https://portal.nousresearch.com/" } },
 	{ id: "marineris", name: "Marineris", vendor: "Marineris gateway", hue: 35, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "http://192.168.50.50:8801/v1", editableBaseUrl: true, keyHint: "mrn_… (issued by the gateway's administrator)" } },
 	{
 		id: "cursor",
@@ -140,7 +140,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		hue: 0,
 		neutral: true,
 		methods: ["subscription"],
-		subscription: { flow: "browser", note: "Opens Cursor's sign-in page in a new tab." },
+		subscription: { flow: "browser", note: "Opens Cursor's sign-in page in a new tab.", site: "Cursor" },
 		plans: [
 			{ id: "plus", name: "Cursor Plus", monthlyUSD: 8 },
 			{ id: "premium", name: "Cursor Premium", monthlyUSD: 30 },

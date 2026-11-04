@@ -59,7 +59,8 @@ export interface ProviderInfo {
 	neutral?: boolean;
 	methods: Array<"subscription" | "apiKey">;
 	/** "code": the provider cannot redirect back, so the person pastes the final address or code. */
-	subscription?: { flow: "browser" | "device" | "code"; note?: string };
+	/** site: where the person signs in, when that isn't the vendor (Cursor, not Anysphere). */
+	subscription?: { flow: "browser" | "device" | "code"; note?: string; site?: string };
 	apiKey?: { style: "openai" | "anthropic" | "gemini"; baseUrl: string; editableBaseUrl?: boolean; keyOptional?: boolean; keyHint?: string; getKeyUrl?: string };
 	plans?: Plan[];
 }

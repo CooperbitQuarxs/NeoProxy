@@ -136,6 +136,8 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 	const [code, setCode] = useState("");
 	const popup = useRef<Window | null>(null);
 	const info = provider ? providerInfo(provider, providers) : undefined;
+	// Where the person signs in: Cursor, not its vendor Anysphere.
+	const site = info?.subscription?.site ?? info?.vendor ?? "the provider";
 
 	useEffect(() => {
 		if (phase !== "waiting" || !session) return;
@@ -221,17 +223,17 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 			{phase === "idle" || phase === "starting" ? (
 				<>
 					<ol className="steps">
-						<li>{info?.subscription?.flow === "device" ? `A short code appears here; confirm it on ${info.vendor}'s site.` : `${info?.vendor ?? "The provider"}'s sign-in page opens in a new tab.`}</li>
+						<li>{info?.subscription?.flow === "device" ? `A short code appears here; confirm it on ${site}'s site.` : `${info ? site : "The provider"}'s sign-in page opens in a new tab.`}</li>
 						<li>Sign in with the account you want to share and approve access.</li>
 						<li>
 							{info?.subscription?.flow === "code"
-								? `${info.vendor} can't send you back here, so copy the address its page hands off to (or the code in it) and paste it in this tab.`
+								? `${site} can't send you back here, so copy the address its page hands off to (or the code in it) and paste it in this tab.`
 								: "Come back to this tab. It notices the sign-in by itself and adds the account to the pool under your name."}
 						</li>
 					</ol>
 					<div className="row flow-actions">
 						<Button variant="primary" size="lg" icon="signin" busy={phase === "starting"} onClick={start} disabled={!provider}>
-							Continue to {info?.vendor ?? "provider"}
+							Continue to {site}
 						</Button>
 					</div>
 				</>
@@ -240,13 +242,13 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 					<div className="waiting-head">
 						<span className="pulse-ring" style={{ ["--tile" as string]: providerColor(provider!, info?.hue) }} />
 						<div>
-							<strong>Waiting for {info?.vendor} sign-in</strong>
+							<strong>Waiting for {site} sign-in</strong>
 							<p className="muted">{info?.subscription?.flow === "code" ? "Finish on the tab that just opened, then paste the address it ends on below." : "Finish on the tab that just opened. This updates on its own."}</p>
 						</div>
 					</div>
 					{session.userCode && (
 						<div className="device-code">
-							<span className="faint">Confirm this code on {info?.vendor}'s page</span>
+							<span className="faint">Confirm this code on {site}'s page</span>
 							<span className="device-code-value mono">{session.userCode}</span>
 						</div>
 					)}
@@ -261,7 +263,7 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 					{info?.subscription?.flow === "code" ? (
 						<div className="stack">
 							<p className="faint">
-								After you approve, {info.vendor} tries to open its own app at an address starting with <span className="mono">zcode://</span>. Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the "Failed to launch" message.
+								After you approve, {site} tries to open its own app at an address starting with <span className="mono">zcode://</span>. Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the "Failed to launch" message.
 							</p>
 							<div className="row">
 								<Input mono value={code} onChange={(e) => setCode(e.target.value)} placeholder="zcode://zai-auth/callback?code=…" />
@@ -357,7 +359,7 @@ function ApiKeyFlow({ session, people, legacy, onDone }: { session: Session; peo
 						Stored on this server only and never shown again.{" "}
 						{info?.apiKey?.getKeyUrl && (
 							<a href={info.apiKey.getKeyUrl} target="_blank" rel="noreferrer">
-								Get a {info.vendor} key <Icon name="external" size={12} />
+								Get a key from {info.vendor} <Icon name="external" size={12} />
 							</a>
 						)}
 					</>

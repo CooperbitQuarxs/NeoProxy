@@ -24,6 +24,9 @@ type ProviderPlan struct {
 type ProviderSubscription struct {
 	Flow string `json:"flow"`
 	Note string `json:"note"`
+	// Site names where the person signs in when that isn't the vendor
+	// (Cursor, not Anysphere); the dashboard falls back to Vendor.
+	Site string `json:"site,omitempty"`
 }
 
 // ProviderAPIKey describes how a pay-as-you-go key is validated and routed.
@@ -103,6 +106,12 @@ func device(note string) *ProviderSubscription {
 	return &ProviderSubscription{Flow: "device", Note: note}
 }
 
+// at sets where the person signs in, for sites not named after the vendor.
+func (s *ProviderSubscription) at(site string) *ProviderSubscription {
+	s.Site = site
+	return s
+}
+
 // providerCatalog lists only sign-ins whose engine handler exists
 // (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
@@ -131,10 +140,10 @@ var providerCatalog = []ProviderInfo{
 		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to Grok Build, the Grok CLI's endpoint, with its own speed, usage limits and models."),
 		Plans:        grokPlans},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
-		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there."),
+		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there.").at("Kimi"),
 		Plans:        []ProviderPlan{}},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
-		Subscription: browser("Opens Devin's sign-in in a new tab."),
+		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),
 		Plans:        []ProviderPlan{}},
 	{ID: "meta", Name: "Meta AI", Vendor: "Meta", Hue: 280, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
 		Subscription: device("Opens Meta in a new tab and shows a code to confirm there."),
@@ -159,7 +168,7 @@ var providerCatalog = []ProviderInfo{
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
 	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
 	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: &ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."},
+		Subscription: (&ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."}).at("Z.ai"),
 		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
@@ -183,7 +192,7 @@ var providerCatalog = []ProviderInfo{
 	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://ai-gateway.vercel.sh/v1", "vck_...", "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys"), Plans: []ProviderPlan{}},
 	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed."),
+		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed.").at("Nous Portal"),
 		APIKey:       openAIKey("https://inference-api.nousresearch.com/v1", "sk-...", "https://portal.nousresearch.com/"), Plans: []ProviderPlan{}},
 	// Marineris is a self-hosted gateway, so its address is chosen per key;
 	// the default is the gateway's own documented listen address.
@@ -191,7 +200,7 @@ var providerCatalog = []ProviderInfo{
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://192.168.50.50:8801/v1", EditableBaseURL: true, KeyHint: "mrn_... (issued by the gateway's administrator)"},
 		Plans:  []ProviderPlan{}},
 	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 0, Chroma: 0, Methods: []string{"subscription"},
-		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed."),
+		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed.").at("Cursor"),
 		Plans:        cursorPlans},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
