@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -161,6 +162,7 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 			return state, errVM
 		}
 		if errVM == nil {
+			vm = resolveFollows(vm, snap)
 			state.vm = &vm
 			for _, st := range vm.Stages {
 				n, errCursor := s.cursor(ctx, vm.ID, st.ID)
@@ -280,9 +282,22 @@ func stageAccounts(snap neopool.Snapshot, st Stage) []neopool.Account {
 func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot float64, facts *requestFacts) (TrailStep, []neopool.Account, int64) {
 	trail := TrailStep{Kind: "stage", Index: index, StageID: st.ID, Model: st.Model, Window: st.Window, Cap: st.Cap * allot, Draw: canonicalDraw(st.Draw), Candidates: []Candidate{}}
 	m, visible := exposedModel(state.snapshot, st.Model)
-	if visible && !fitsContext(st, m, facts) {
-		trail.Skipped = "context"
-		return trail, nil, 0
+	modelID := st.Model
+	if visible {
+		// The stage's parameters may switch the served model (speed realized by
+		// a sibling) and impose a context window.
+		sp := evalStageParams(state, vm, st, m, facts)
+		m, modelID = sp.model, sp.model.ID
+		trail.Model, trail.Params, trail.window = modelID, sp.applied, sp.window
+		if trail.window == 0 {
+			trail.window = m.Context
+		}
+		if !fitsContext(st, m, facts, sp.window) {
+			trail.Skipped = "context"
+			trail.Params = nil
+			trail.DrawNote = fmt.Sprintf("the request needs about %d tokens; this stage's window is %d", facts.tokens(), trail.window)
+			return trail, nil, 0
+		}
 	}
 	var candidates []neopool.Account
 	unhealthy := !visible
@@ -308,7 +323,7 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 			}
 		}
 		exhausted := metered && !provider && w.UsedTokens >= w.Capacity
-		if a.State != "healthy" || !visible || !accountSupports(a, st.Model) || exhausted {
+		if a.State != "healthy" || !visible || !accountSupports(a, modelID) || exhausted {
 			unhealthy = true
 			continue
 		}
@@ -377,6 +392,9 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 // explained lists the condition-excluded accounts after the stage's candidates
 // unless the stage was skipped for a reason that hides every account.
 func explained(tr TrailStep) TrailStep {
+	if tr.Skipped != "" {
+		tr.Params = nil
+	}
 	switch tr.Skipped {
 	case "cap", "lua-cap", "upstream-error":
 	default:
@@ -418,10 +436,18 @@ func resolveAsked(req Request, state routeState, after int, proposal *ScriptProp
 		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "not-granted", Trail: []TrailStep{{Kind: "denied", VirtualModel: vm.ID}}}
 	}
 	var resetsAt int64
+	var considered, contextSkipped, widest int
 	facts := newRequestFacts(req, state)
 	for index, st := range vm.Stages {
 		tr, candidates, reset := evaluateStage(state, vm, st, index, allot, facts)
 		tr, candidates = applyPolicy(tr, candidates, st, allot, proposal)
+		if index > after {
+			considered++
+			if tr.Skipped == "context" {
+				contextSkipped++
+				widest = max(widest, tr.window)
+			}
+		}
 		if reset > 0 && (resetsAt == 0 || reset < resetsAt) {
 			resetsAt = reset
 		}
@@ -458,10 +484,16 @@ func resolveAsked(req Request, state routeState, after int, proposal *ScriptProp
 		}
 		tr.Chosen = candidates[chosen].ID
 		trail = append(trail, explained(tr))
-		return Decision{Outcome: "ok", VirtualModel: vm.ID, StageIndex: &index, StageID: st.ID, Model: st.Model, AccountID: candidates[chosen].ID, Effort: stageEffort(st, facts.effort), Trail: trail}
+		return Decision{Outcome: "ok", VirtualModel: vm.ID, StageIndex: &index, StageID: st.ID, Model: tr.Model, AccountID: candidates[chosen].ID, Params: tr.Params, Trail: trail}
 	}
 	if proposal != nil && proposal.StageID != "" {
 		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "invalid-script-proposal", Trail: trail}
+	}
+	if considered > 0 && contextSkipped == considered && vm.Terminal.Kind != "passthrough" {
+		// The prompt exceeds the window of every stage left: waiting or limiting
+		// would never help, so say so the way providers do.
+		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "context_length_exceeded", Trail: trail,
+			Message: fmt.Sprintf("This request is about %d tokens, but the largest context window %s offers is %d tokens.", facts.tokens(), req.Asked, widest)}
 	}
 	trail = append(trail, TrailStep{Kind: "terminal", Terminal: &vm.Terminal})
 	switch vm.Terminal.Kind {
@@ -499,7 +531,7 @@ func (s *Store) choose(ctx context.Context, req Request, state routeState, after
 				tr.Skipped = "upstream-error"
 				tr.Candidates = nil
 			}
-			input.Stages = append(input.Stages, ScriptStage{StageID: st.ID, Model: st.Model, Candidates: tr.Candidates, Total: tr.Total, Cap: tr.Cap, Skipped: tr.Skipped, Lua: st.Lua, Allotment: allot, Window: st.Window})
+			input.Stages = append(input.Stages, ScriptStage{StageID: st.ID, Model: tr.Model, Candidates: tr.Candidates, Total: tr.Total, Cap: tr.Cap, Skipped: tr.Skipped, Lua: st.Lua, Allotment: allot, Window: st.Window})
 		}
 		for _, a := range state.snapshot.Accounts {
 			if !accountAllowed(state.principal, a) {
@@ -564,6 +596,9 @@ func decisionError(d Decision) error {
 		return &Error{Status: 429, Code: "neoproxy_limit", Decision: d}
 	case "queued":
 		return &Error{Status: 429, Code: "neoproxy_limit", Decision: d}
+	}
+	if d.Reason == "context_length_exceeded" {
+		return &Error{Status: 400, Code: "context_length_exceeded", Decision: d}
 	}
 	status := 403
 	if d.Reason == "unknown-model" {

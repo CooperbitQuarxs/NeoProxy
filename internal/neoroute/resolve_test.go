@@ -139,7 +139,7 @@ func TestVirtualValidation(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		change func(*VirtualModel)
-	}{{"provider collision", func(v *VirtualModel) { v.Name = "primary" }}, {"invalid name", func(v *VirtualModel) { v.Name = "Bad" }}, {"duplicate stage", func(v *VirtualModel) { v.Stages = append(v.Stages, v.Stages[0]) }}, {"unknown model", func(v *VirtualModel) { v.Stages[0].Model = "primary/unknown" }}, {"wrong account", func(v *VirtualModel) { v.Stages[0].Accounts = AccountScope{IDs: []string{"c"}} }}, {"nan", func(v *VirtualModel) { v.Stages[0].Cap = math.NaN() }}, {"infinite", func(v *VirtualModel) { v.Stages[0].PerAccount = math.Inf(1) }}, {"effort", func(v *VirtualModel) { e := "turbo"; v.Stages[0].Effort = &e }}, {"terminal", func(v *VirtualModel) { v.Terminal.Kind = "silent-fallback" }}} {
+	}{{"provider collision", func(v *VirtualModel) { v.Name = "primary" }}, {"invalid name", func(v *VirtualModel) { v.Name = "Bad" }}, {"duplicate stage", func(v *VirtualModel) { v.Stages = append(v.Stages, v.Stages[0]) }}, {"unknown model", func(v *VirtualModel) { v.Stages[0].Model = "primary/unknown" }}, {"wrong account", func(v *VirtualModel) { v.Stages[0].Accounts = AccountScope{IDs: []string{"c"}} }}, {"nan", func(v *VirtualModel) { v.Stages[0].Cap = math.NaN() }}, {"infinite", func(v *VirtualModel) { v.Stages[0].PerAccount = math.Inf(1) }}, {"effort", func(v *VirtualModel) { v.Stages[0].Params = effortSetting("force", "turbo") }}, {"terminal", func(v *VirtualModel) { v.Terminal.Kind = "silent-fallback" }}} {
 		t.Run(test.name, func(t *testing.T) {
 			state := policyState()
 			test.change(state.vm)
@@ -246,7 +246,7 @@ func TestFixtureOracleParity(t *testing.T) {
 			gotRaw, _ := json.Marshal(decision)
 			var got map[string]any
 			_ = json.Unmarshal(gotRaw, &got)
-			for _, key := range []string{"outcome", "reason", "direct", "virtualModel", "stageIndex", "stageId", "model", "accountId", "effort"} {
+			for _, key := range []string{"outcome", "reason", "direct", "virtualModel", "stageIndex", "stageId", "model", "accountId"} {
 				if !reflect.DeepEqual(got[key], want[key]) {
 					t.Fatalf("%s got=%v want=%v; decision=%s oracle=%s", key, got[key], want[key], gotRaw, output)
 				}

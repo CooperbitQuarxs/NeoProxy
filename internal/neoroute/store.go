@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path"
 	"regexp"
 	"slices"
 	"strings"
@@ -80,7 +81,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, `SELECT version FROM neoroute_schema`).Scan(&version); err != nil {
 		return err
 	}
-	if version < 0 || version > 2 {
+	if version < 0 || version > 3 {
 		return fmt.Errorf("unsupported routing schema version %d", version)
 	}
 	if version == 0 {
@@ -104,6 +105,16 @@ func (s *Store) migrate(ctx context.Context) error {
  CREATE TABLE IF NOT EXISTS neoroute_redirects(id TEXT PRIMARY KEY,created_at INTEGER NOT NULL,body BLOB NOT NULL);
  UPDATE neoroute_schema SET version=2;
  `); err != nil {
+			return err
+		}
+		version = 2
+	}
+	if version == 2 {
+		// v3: a stage's effort/efforts become its params.effort/params.efforts.
+		if err = migrateEffortsToParams(ctx, tx); err != nil {
+			return fmt.Errorf("migrate stage efforts to params: %w", err)
+		}
+		if _, err = tx.ExecContext(ctx, `UPDATE neoroute_schema SET version=3`); err != nil {
 			return err
 		}
 	}
@@ -157,6 +168,7 @@ var luaFunctionName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 func finiteFraction(n float64) bool { return !math.IsNaN(n) && !math.IsInf(n, 0) && n >= 0 && n <= 1 }
 
 type validationInventory struct {
+	list      []neopool.Model
 	providers map[string]bool
 	models    map[string]*neopool.Model
 	served    map[string]bool
@@ -165,6 +177,7 @@ type validationInventory struct {
 
 func indexValidationInventory(snap neopool.Snapshot) validationInventory {
 	index := validationInventory{
+		list:      snap.Models,
 		providers: make(map[string]bool, len(snap.Providers)),
 		models:    make(map[string]*neopool.Model, len(snap.Models)),
 		served:    make(map[string]bool, len(snap.Models)),
@@ -190,7 +203,21 @@ func indexValidationInventory(snap neopool.Snapshot) validationInventory {
 // Validate checks configuration against the live configured inventory. Hidden or
 // temporarily unhealthy accounts remain valid configuration but cannot execute.
 func Validate(v VirtualModel, snap neopool.Snapshot, p neo.Principal) error {
-	return validateIndexed(v, indexValidationInventory(snap), p)
+	for _, st := range v.Stages {
+		if st.Follow == "" {
+			continue
+		}
+		if _, err := path.Match(st.Follow, ""); err != nil {
+			return fmt.Errorf("stage %q follows an invalid pattern: %w", st.ID, err)
+		}
+		if len(st.Follow) > 256 || !strings.Contains(st.Follow, "/") {
+			return fmt.Errorf("stage %q follow pattern must start with a provider, for example codex/gpt-*-luna", st.ID)
+		}
+		if _, ok := newestMatch(snap, st.Follow); !ok {
+			return fmt.Errorf("stage %q follows %q, which matches no exposed model", st.ID, st.Follow)
+		}
+	}
+	return validateIndexed(resolveFollows(v, snap), indexValidationInventory(snap), p)
 }
 
 func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Principal) error {
@@ -266,7 +293,7 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 		if st.Per != "user" && st.Per != "all" {
 			return fmt.Errorf("invalid budget scope")
 		}
-		if err = validateEfforts(st); err != nil {
+		if err = validateParams(st, inventory); err != nil {
 			return err
 		}
 		if st.Condition != nil {
@@ -315,6 +342,7 @@ func (s *Store) SaveVirtualModel(ctx context.Context, v VirtualModel, create boo
 	if err = Validate(v, snap, p); err != nil {
 		return VirtualModel{}, err
 	}
+	v = canonicalParams(resolveFollows(v, snap))
 	if v.Script != "" {
 		h := s.scriptHook()
 		if h == nil {

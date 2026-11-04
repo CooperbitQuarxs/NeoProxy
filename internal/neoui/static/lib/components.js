@@ -3,6 +3,7 @@ import { meters, meterFor, accountHealth, providerHueStyle } from "./providers.j
 // a card, table, ring, chain or chip.
 
 import { h, svgEl, icon, append, clear, fmtPct, fmtCompact, copyText, plural } from "./dom.js";
+import { describeSetting } from "./param-model.js";
 
 // ---------- page chrome ----------
 
@@ -426,11 +427,13 @@ export function providerLabel(provider) {
 
 export function vmIdentity(vm, models, providers) {
 	const stages = vm.stages ?? [];
-	if (stages.length !== 1) return `${stages.length} stages`;
+	if (!stages.length) return "No model yet";
 	const model = catalogueIndex(models).get(stages[0].model);
 	const provider = catalogueIndex(providers).get(model?.providerId ?? stages[0].model.split("/")[0]);
 	const label = providerLabel(provider);
-	return `${model?.display ?? model?.name ?? "Unavailable model"} · ${label.main}${label.source ? ` · ${label.source}` : ""}`;
+	const name = model?.display ?? model?.name ?? "Unavailable model";
+	if (stages.length > 1) return `${name} + ${stages.length - 1} ${stages.length === 2 ? "fallback" : "fallbacks"}`;
+	return `${name} · ${label.main}${label.source ? ` · ${label.source}` : ""}`;
 }
 
 export function vmSearchText(vm, models, providers) {
@@ -440,7 +443,8 @@ export function vmSearchText(vm, models, providers) {
 	for (const stage of vm.stages ?? []) {
 		const model = modelIndex.get(stage.model);
 		const label = providerLabel(providerIndex.get(model?.providerId ?? stage.model.split("/")[0]));
-		parts.push(stage.model, model?.display, model?.name, label.main, label.source);
+		parts.push(stage.model, stage.follow, model?.display, model?.name, label.main, label.source);
+		for (const [id, setting] of Object.entries(stage.params ?? {})) parts.push(id, ...(setting.rules ?? []).map((r) => String(r.value)));
 	}
 	return parts.filter(Boolean).join(" ").toLowerCase();
 }
@@ -591,6 +595,18 @@ export function stageLine(stage, allot = 1, metered = true, redacted = false) {
 	return `until ${fmtPct(stage.perAccount * allot, null)} · pool ${fmtPct(stage.cap * allot, null)} · ${stage.window}`;
 }
 
+// The properties a stage always sets, as small badges: "Fast", "300k", "+2". Values come
+// straight from the stored setting, so a list can show them without loading specs.
+export function paramBadges(stage, max = 2) {
+	const set = Object.entries(stage.params ?? {}).map(([id, setting]) => ({ id, ...describeSetting(null, id, setting) }));
+	const forced = set.filter((p) => p.mode === "force" && !p.conditional);
+	const shown = (forced.length ? forced : set).slice(0, max);
+	return [
+		...shown.map((p) => h("span", { class: "badge violet", title: `${p.label}: ${p.text}${p.mode === "force" ? " (always)" : ""}` }, p.text)),
+		set.length > shown.length ? h("span", { class: "badge", title: set.slice(shown.length).map((p) => `${p.label}: ${p.text}`).join("\n") }, `+${set.length - shown.length}`) : null,
+	];
+}
+
 // Renders a virtual model's stages as a rail: request → stages (scrolls
 // sideways, any number) → terminal. `lit` marks the stage a simulated request
 // would land on; `onSelect` makes nodes selectable; `onReorder` enables drag and
@@ -621,7 +637,7 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 		const isLit = litIdx === i;
 		const name = model?.display ?? "Unavailable model";
 		if (compact) {
-			stages.append(h("div", { class: "node", role: "listitem", dataset: { stage: s.id }, title: s.model }, h("div", { class: "n-head" }, h("span", { class: "idx" }, `stage ${i + 1}`), s.effort ? h("span", { class: "badge violet" }, s.effort) : null), h("div", { class: "n-model" }, name)));
+			stages.append(h("div", { class: "node", role: "listitem", dataset: { stage: s.id }, title: s.model }, h("div", { class: "n-head" }, h("span", { class: "idx" }, `stage ${i + 1}`), ...paramBadges(s, 1)), h("div", { class: "n-model" }, name)));
 			return;
 		}
 		const pool = stagePool(s, accounts);
@@ -664,7 +680,7 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 				providerDot(provider, 8),
 				h("span", { class: "prov", title: `${label.main}${label.source ? ` · ${label.source}` : ""}` }, label.main),
 				h("span", { class: "spacer" }),
-				s.effort ? h("span", { class: "badge violet" }, s.effort) : null,
+				...paramBadges(s, 2),
 				s.lua ? h("span", { class: "badge", title: "This stage uses Lua functions" }, "Lua") : null,
 			),
 			h("div", { class: "n-model", title: s.model }, name),
@@ -942,7 +958,7 @@ export function providerDot(provider, size = 8) {
 export function picker(anchor, { items, placeholder = "Search", onPick, empty: emptyText = "Nothing matches" }) {
 	const list = h("div", { class: "picker-list", role: "listbox" });
 	const q = input({ type: "search", placeholder, autocomplete: "off", class: "input picker-search" });
-	const pop = h("div", { class: "picker", role: "dialog" }, q, list);
+	const pop = h("div", { class: "picker-pop", role: "dialog" }, q, list);
 	let active = -1;
 	let shown = [];
 	const paint = () => {
@@ -993,7 +1009,7 @@ export function sheet({ title, sub, body, foot, onClose, keep = "tr, .li, .frow,
 		),
 		h("div", { class: "sheet-body" }, body),
 	);
-	const outside = (e) => { if (el.contains(e.target) || e.target.closest?.(keep) || e.target.closest?.(".dialog-backdrop, .picker, .pool-menu")) return; close(); };
+	const outside = (e) => { if (el.contains(e.target) || e.target.closest?.(keep) || e.target.closest?.(".dialog-backdrop, .picker-pop, .pool-menu")) return; close(); };
 	const esc = (e) => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) { e.preventDefault(); close(); } };
 	function close() {
 		if (!el.isConnected) return;

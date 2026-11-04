@@ -123,6 +123,13 @@ export const icons = {
 	shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
 	// A path that leaves its line and continues elsewhere: a redirect.
 	redirect: '<circle cx="4" cy="6" r="1.5"/><path d="M5.5 6H11a4 4 0 0 1 4 4v8"/><path d="m11 14 4 4 4-4"/>',
+	lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+	unlock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+	arrowUp: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+	arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+	chevronUp: '<path d="m18 15-6-6-6 6"/>',
+	link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+	fork: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10"/><path d="M18 17V13a4 4 0 0 0-4-4H9"/>',
 };
 
 export function icon(name, size = 16) {
