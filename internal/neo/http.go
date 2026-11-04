@@ -320,16 +320,12 @@ func (h *HTTP) mintKey(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var in struct {
-		Label      string   `json:"label"`
-		AccountIDs []string `json:"accountIds"`
-		ExpiresAt  *int64   `json:"expiresAt"`
-	}
+	var in KeyRequest
 	if c.ShouldBindJSON(&in) != nil {
 		Error(c, ErrInvalid)
 		return
 	}
-	k, secret, err := h.Store.MintKey(c.Request.Context(), p, c.Param("id"), in.Label, in.AccountIDs, in.ExpiresAt)
+	k, secret, err := h.Store.Mint(c.Request.Context(), p, c.Param("id"), in)
 	if err != nil {
 		Error(c, err)
 		return

@@ -129,6 +129,10 @@ type routeState struct {
 	rng     drawRand
 	history map[string]accountHistory
 	prices  map[string]neopool.PlanPrice
+	// redirect is the redirect applied to the asked model (resolution then
+	// sees its To); bypass skips the target's grant/access check for it.
+	redirect *Redirect
+	bypass   bool
 }
 
 func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
@@ -147,6 +151,9 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 	}
 	now := s.now()
 	state := routeState{principal: p, snapshot: snap, at: now.UnixMilli(), now: now, cursors: make(map[string]int64), memory: s.memory, rng: s.rng}
+	if r := s.redirectFor(p, asked); r != nil {
+		state.redirect, state.bypass, asked = r, r.BypassAccess, r.To
+	}
 	selector := strings.TrimPrefix(asked, "neoproxy/")
 	if strings.HasPrefix(asked, "neoproxy/") && !strings.Contains(selector, "/") {
 		vm, errVM := s.VirtualModel(ctx, selector)
@@ -203,9 +210,15 @@ func directDecision(asked, model string, state routeState, vm string, trail []Tr
 		d.Message = "This model is available only through a metered virtual-model stage"
 		return d
 	}
-	if checkAccess && !slices.Contains(state.principal.ProviderAccess, m.ProviderID) {
+	if checkAccess && !state.bypass && !slices.Contains(state.principal.ProviderAccess, m.ProviderID) {
 		d.Reason = "no-provider-access"
 		d.Trail = append(d.Trail, TrailStep{Kind: "denied", ProviderID: m.ProviderID})
+		return d
+	}
+	if checkAccess && !state.bypass && !state.principal.AllowsDirect(m.ProviderID, m.ID) {
+		d.Reason = "no-model-access"
+		d.Message = "This model is not in the direct models allowed for this person or key"
+		d.Trail = append(d.Trail, TrailStep{Kind: "denied", ProviderID: m.ProviderID, Model: m.ID})
 		return d
 	}
 	for _, a := range state.snapshot.Accounts {
@@ -375,7 +388,19 @@ func explained(tr TrailStep) TrailStep {
 
 // decide is the canonical pure policy shared by simulation and execution. The
 // excluded prefix represents real failed attempts, not fabricated health changes.
+// A redirect resolves its target as if asked for, after a leading trail step.
 func decide(req Request, state routeState, after int, proposal *ScriptProposal) Decision {
+	if state.redirect == nil {
+		return resolveAsked(req, state, after, proposal)
+	}
+	ref := state.redirect.ref(req.Asked)
+	d := resolveAsked(state.target(req), state, after, proposal)
+	d.Redirect = ref
+	d.Trail = append([]TrailStep{{Kind: "redirect", Asked: req.Asked, Redirect: ref}}, d.Trail...)
+	return d
+}
+
+func resolveAsked(req Request, state routeState, after int, proposal *ScriptProposal) Decision {
 	trail := make([]TrailStep, 0)
 	if !strings.HasPrefix(req.Asked, "neoproxy/") {
 		return Decision{Outcome: "error", Reason: "unknown-model", Trail: []TrailStep{{Kind: "no-model", Asked: req.Asked}}}
@@ -388,7 +413,7 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 		return Decision{Outcome: "error", Reason: "unknown-model", Trail: []TrailStep{{Kind: "no-model", Asked: req.Asked}}}
 	}
 	vm := *state.vm
-	allot, granted := grantFor(state.principal, vm.ID)
+	allot, granted := state.allotment(vm.ID)
 	if !granted {
 		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "not-granted", Trail: []TrailStep{{Kind: "denied", VirtualModel: vm.ID}}}
 	}
@@ -451,7 +476,8 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 func (s *Store) choose(ctx context.Context, req Request, state routeState, after int) (Decision, routeState, error) {
 	var proposal *ScriptProposal
 	if state.vm != nil && state.vm.Script != "" {
-		if _, ok := grantFor(state.principal, state.vm.ID); !ok {
+		allot, ok := state.allotment(state.vm.ID)
+		if !ok {
 			return decide(req, state, after, nil), state, nil
 		}
 		hook := s.scriptHook()
@@ -461,9 +487,9 @@ func (s *Store) choose(ctx context.Context, req Request, state routeState, after
 		if len(req.Body) > ScriptMaxInput {
 			return Decision{}, state, scriptError(state.vm.ID, "routing script input exceeds 256 KiB")
 		}
-		allot, _ := grantFor(state.principal, state.vm.ID)
-		facts := newRequestFacts(req, state)
-		input := ScriptInput{Source: state.vm.Script, Asked: req.Asked, Protocol: req.Protocol, UserID: state.principal.UserID, VirtualModel: *state.vm, Stages: make([]ScriptStage, 0, len(state.vm.Stages)), Effort: facts.effort}
+		asked := state.target(req)
+		facts := newRequestFacts(asked, state)
+		input := ScriptInput{Source: state.vm.Script, Asked: asked.Asked, Protocol: req.Protocol, UserID: state.principal.UserID, VirtualModel: *state.vm, Stages: make([]ScriptStage, 0, len(state.vm.Stages)), Effort: facts.effort}
 		input.User = ScriptUser{ID: state.principal.UserID, Handle: state.handle, Role: state.principal.Role}
 		input.Time = ScriptTime{Weekday: strings.ToLower(facts.now.Weekday().String()), Hour: facts.now.Hour(), Date: facts.now.Format(time.DateOnly)}
 		input.Request = append(json.RawMessage(nil), req.Body...)
@@ -581,7 +607,7 @@ func (s *Store) Models(ctx context.Context) ([]string, error) {
 		}
 	}
 	for _, m := range state.snapshot.Models {
-		if !m.VirtualOnly && m.Exposed && providerVisible(state.snapshot, m.ProviderID) && slices.Contains(state.principal.ProviderAccess, m.ProviderID) {
+		if !m.VirtualOnly && m.Exposed && providerVisible(state.snapshot, m.ProviderID) && state.principal.AllowsDirect(m.ProviderID, m.ID) {
 			for _, a := range state.snapshot.Accounts {
 				if a.ProviderID == m.ProviderID && accountAllowed(state.principal, a) && accountSupports(a, m.ID) {
 					out = append(out, m.Served)
@@ -590,5 +616,7 @@ func (s *Store) Models(ctx context.Context) ([]string, error) {
 			}
 		}
 	}
-	return out, nil
+	s.redirectMu.RLock()
+	defer s.redirectMu.RUnlock()
+	return redirectedModels(out, s.redirects, state.principal, state.snapshot, vms), nil
 }

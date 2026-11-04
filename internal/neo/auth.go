@@ -160,7 +160,21 @@ func (s *Store) Logout(ctx context.Context, token string) error {
 	return err
 }
 
+// KeyRequest describes a key to mint. AccountIDs nil means no account scope;
+// Models empty means no direct-model narrowing.
+type KeyRequest struct {
+	Label      string   `json:"label"`
+	AccountIDs []string `json:"accountIds"`
+	Models     []string `json:"models"`
+	ExpiresAt  *int64   `json:"expiresAt"`
+}
+
 func (s *Store) MintKey(ctx context.Context, actor Principal, userID, label string, accountIDs []string, expiresAt *int64) (Key, string, error) {
+	return s.Mint(ctx, actor, userID, KeyRequest{Label: label, AccountIDs: accountIDs, ExpiresAt: expiresAt})
+}
+
+func (s *Store) Mint(ctx context.Context, actor Principal, userID string, req KeyRequest) (Key, string, error) {
+	label, accountIDs, expiresAt := req.Label, req.AccountIDs, req.ExpiresAt
 	if !actor.Session || !actor.CanAccessUser(userID) {
 		return Key{}, "", ErrForbidden
 	}
@@ -173,6 +187,12 @@ func (s *Store) MintKey(ctx context.Context, actor Principal, userID, label stri
 			return Key{}, "", ErrInvalid
 		}
 		seen[id] = true
+	}
+	models := req.Models
+	if len(models) == 0 {
+		models = nil
+	} else if !validModelPatterns(models, maxModelPatterns) {
+		return Key{}, "", fmt.Errorf("%w: models needs distinct <provider>/<model> ids or prefixes ending in *", ErrInvalid)
 	}
 	u, err := s.User(ctx, userID)
 	if err != nil {
@@ -194,10 +214,13 @@ func (s *Store) MintKey(ctx context.Context, actor Principal, userID, label stri
 	if err != nil {
 		return Key{}, "", err
 	}
-	k := Key{ID: id, Prefix: secret[:7] + "…" + secret[len(secret)-4:], Label: label, AccountIDs: accountIDs, CreatedAt: s.now().UnixMilli(), ExpiresAt: expiresAt}
-	var scope any
+	k := Key{ID: id, Prefix: secret[:7] + "…" + secret[len(secret)-4:], Label: label, AccountIDs: accountIDs, Models: models, CreatedAt: s.now().UnixMilli(), ExpiresAt: expiresAt}
+	var scope, modelScope any
 	if accountIDs != nil {
 		scope = jsonText(accountIDs)
+	}
+	if models != nil {
+		modelScope = jsonText(models)
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -212,7 +235,7 @@ func (s *Store) MintKey(ctx context.Context, actor Principal, userID, label stri
 	if current.Role != u.Role || current.State != u.State {
 		return Key{}, "", ErrConflict
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO neo_keys(id,user_id,token_hash,prefix,label,account_ids,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)`, id, userID, hashToken(secret), k.Prefix, label, scope, k.CreatedAt, expiresAt); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO neo_keys(id,user_id,token_hash,prefix,label,account_ids,models,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?)`, id, userID, hashToken(secret), k.Prefix, label, scope, modelScope, k.CreatedAt, expiresAt); err != nil {
 		return Key{}, "", databaseError(err)
 	}
 	if current.State == "invited" {
@@ -277,9 +300,9 @@ func (s *Store) RefreshPrincipal(ctx context.Context, p Principal) (Principal, e
 	}
 	defer rollback(tx)
 	var userID string
-	var scope sql.NullString
+	var scope, models sql.NullString
 	var expires, revoked sql.NullInt64
-	err = tx.QueryRowContext(ctx, "SELECT user_id,account_ids,expires_at,revoked_at FROM neo_keys WHERE id=?", p.KeyID).Scan(&userID, &scope, &expires, &revoked)
+	err = tx.QueryRowContext(ctx, "SELECT user_id,account_ids,models,expires_at,revoked_at FROM neo_keys WHERE id=?", p.KeyID).Scan(&userID, &scope, &models, &expires, &revoked)
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && (userID != p.UserID || revoked.Valid || (expires.Valid && expires.Int64 <= s.now().UnixMilli()))) {
 		return Principal{}, ErrUnauthenticated
 	}
@@ -301,6 +324,13 @@ func (s *Store) RefreshPrincipal(ctx context.Context, p Principal) (Principal, e
 		}
 		if len(next.AccountIDs) == 0 {
 			return Principal{}, ErrForbidden
+		}
+	}
+	if models.Valid {
+		// A stored scope never widens: an empty list (never written) denies all.
+		next.KeyModels = []string{}
+		if err = json.Unmarshal([]byte(models.String), &next.KeyModels); err != nil {
+			return Principal{}, err
 		}
 	}
 	if err = tx.Commit(); err != nil {

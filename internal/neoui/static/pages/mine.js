@@ -7,6 +7,7 @@ import { h, fmtTime, fmtCompact, plural } from "../lib/dom.js";
 import { neo, engine } from "../lib/client.js";
 import { pageHead, card, btn, badge, servedName, kv, chainRail, toast, empty, spinner, errorState, field, input, dialog, confirm, providerDot, providerLabel, table, outcomeBadge } from "../lib/components.js";
 import { allotmentSentence, keysTable, mintKeyDialog, drawableAccounts } from "./users.js";
+import { directModelsFor } from "../lib/access.js";
 
 export async function render(ctx) {
 	const { root, session } = ctx;
@@ -75,9 +76,10 @@ export async function render(ctx) {
 				sub: "Direct access bypasses virtual models and their budgets; the engine routing strategy applies. You may call these providers by name.",
 				body: h("div", { class: "direct" }, user.providerAccess.map((pid) => {
 					const p = vault.providers.find((x) => x.id === pid);
-					const ms = models.filter((m) => m.providerId === pid && m.exposed);
+					const ms = directModelsFor(user, models, pid);
+					const total = models.filter((m) => m.providerId === pid && m.exposed && !m.virtualOnly).length;
 					return h("div", { class: "direct-row on" },
-						h("div", { class: "direct-head" }, providerDot(p, 9), h("span", null, providerLabel(p).main), h("span", { class: "ink-3 direct-count" }, plural(ms.length, "model"))),
+						h("div", { class: "direct-head" }, providerDot(p, 9), h("span", null, providerLabel(p).main), h("span", { class: "ink-3 direct-count" }, user.modelAccess?.[pid] ? `${ms.length} of ${plural(total, "model")}` : plural(ms.length, "model"))),
 						ms.length ? h("div", { class: "direct-models" }, ms.slice(0, 8).map((m) => h("span", { class: "tag mono", title: m.display }, servedName(m.served))), ms.length > 8 ? h("span", { class: "ink-3" }, `and ${ms.length - 8} more`) : null) : null);
 				})),
 			}),
@@ -96,14 +98,14 @@ export async function render(ctx) {
 		} catch (e) { toast(e.message, "bad"); }
 	}
 	function renderKeys() {
-		keysHost.replaceChildren(keysTable({ keys: user.keys, accounts: vault.accounts, providers: vault.providers, onRevoke: revoke, scoped: user.keys.some((k) => k.accountIds?.length), emptyHint: "No keys yet. Mint one for each tool that should reach the proxy." }));
+		keysHost.replaceChildren(keysTable({ keys: user.keys, accounts: vault.accounts, providers: vault.providers, onRevoke: revoke, scoped: user.keys.some((k) => k.accountIds?.length || k.models?.length), emptyHint: "No keys yet. Mint one for each tool that should reach the proxy." }));
 	}
 	renderKeys();
 	host.append(
 		card({
 			title: "My keys",
 			sub: "A key is only as powerful as you: it reaches the models above and nothing else. Give each tool its own key, with an expiry if it is temporary.",
-			actions: [btn("Mint key", { icon: "plus", cls: "outline sm", onClick: () => mintKeyDialog({ user, accounts: user.role === "owner" ? drawableAccounts(user, vault.accounts) : [], providers: vault.providers, onMinted: (key) => { user.keys.push(key); renderKeys(); } }) })],
+			actions: [btn("Mint key", { icon: "plus", cls: "outline sm", onClick: () => mintKeyDialog({ user, accounts: user.role === "owner" ? drawableAccounts(user, vault.accounts) : [], providers: vault.providers, models: directModelsFor(user, models), onMinted: (key) => { user.keys.push(key); renderKeys(); } }) })],
 			flush: true,
 			body: keysHost,
 		}),
