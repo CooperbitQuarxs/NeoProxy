@@ -3,11 +3,12 @@
 // allotment), which providers they may call directly, their limits, their keys,
 // and the sign-ins they contribute to the pool.
 
-import { h, icon, fmtAgo, fmtIn, fmtTime, fmtDate, fmtCompact, plural, clear, copyText } from "../lib/dom.js";
+import { h, icon, fmtAgo, fmtTime, fmtCompact, plural, clear } from "../lib/dom.js";
 import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, status, servedName, providerLabel, providerDot, search, field, input, select, seg, toggle, dialog, confirm, toast, empty, spinner, errorState, outcomeBadge, table, healthStatus } from "../lib/components.js";
 import { multiSelect, selectionBar } from "../lib/multiselect.js";
 import { matchModel, modelName, directModelsFor } from "../lib/access.js";
+import { keysTable, drawableAccounts, mintKeyDialog } from "../lib/person-keys.js";
 
 export async function render(ctx) {
 	if (ctx.params[0]) return detail(ctx, ctx.params[0]);
@@ -17,7 +18,7 @@ export async function render(ctx) {
 const roleBadge = (u) => badge(u.role, u.role === "admin" ? "accent" : u.role === "service" ? "violet" : "");
 const stateStatus = (u) => (u.state === "active" ? status("ok", "Active") : u.state === "invited" ? status("warn", "Invited") : status("bad", "Suspended"));
 
-// ---------- shared by Users, My models and Access keys ----------
+// ---------- shared by Users and My models ----------
 
 const pct = (x) => `${+(x * 100).toFixed(1)}%`;
 
@@ -30,184 +31,6 @@ export function allotmentSentence({ who, them = "them", allotment, vm }) {
 	if (allotment >= 1) return h("span", null, who, " may use each model up to ", h("b", null, "100%"), " of its usage limits.");
 	if (allotment <= 0) return h("span", null, who, " may use ", h("b", null, "0%"), " of each usage limit: nothing is available to ", them, ".");
 	return h("span", null, who, " may use each model up to ", h("b", null, pct(allotment)), " of its usage limits: a limit of ", pct(example), " stops at ", pct(example * allotment), " for ", them, ".");
-}
-
-// What a key's expiry looks like: quiet when never, plain when future, red once past.
-export function expiryCell(key, now = Date.now()) {
-	if (!key.expiresAt) return h("span", { class: "ink-3" }, "never");
-	const past = key.expiresAt <= now;
-	const soon = !past && key.expiresAt - now < 7 * 864e5;
-	return h("span", { class: `key-exp ${past ? "bad" : soon ? "warn" : ""}`, title: fmtDate(key.expiresAt) },
-		past ? `expired ${fmtAgo(key.expiresAt, now)}` : `in ${fmtIn(key.expiresAt, now).replace(/ \d+h$/, "")}`,
-		h("span", { class: "cell-sub" }, new Date(key.expiresAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })));
-}
-
-function scopeCell(key, accounts, providers) {
-	const narrowed = key.models?.length ? h("span", { class: "key-models", title: key.models.join("\n") }, `only ${plural(key.models.length, "direct model")}`) : null;
-	if (!key.accountIds?.length) return h("span", { class: "key-scope" }, h("span", { class: "ink-2" }, "every account this person may use"), narrowed);
-	return h("span", { class: "key-scope" }, key.accountIds.map((id) => {
-		const a = accounts.find((x) => x.id === id);
-		const p = a && providers.find((x) => x.id === a.providerId);
-		return h("span", { class: "tag", title: id }, p ? providerDot(p, 7) : null, a ? `${providerLabel(p).main} · ${a.label}` : "an account");
-	}), narrowed);
-}
-
-// A person's keys as a table. `onRevoke` is omitted when the viewer may not revoke;
-// `whoOf` adds a Person column and `onOpen` makes rows open that person.
-export function keysTable({ keys, accounts = [], providers = [], onRevoke, scoped = true, emptyHint, whoOf, onOpen }) {
-	const columns = [
-		whoOf ? { key: "who", label: "Person", render: (k) => h("span", { class: "row" }, avatar(whoOf(k)), h("span", { class: "cell-main" }, whoOf(k).handle)) } : null,
-		{ key: "key", label: "Key", render: (k) => h("div", null, h("code", { class: "cell-main" }, k.prefix), h("div", { class: "cell-sub" }, k.label)) },
-		scoped ? { key: "scope", label: "Scope", wrap: true, render: (k) => scopeCell(k, accounts, providers) } : null,
-		{ key: "created", label: "Created", render: (k) => h("span", { class: "ink-2" }, fmtAgo(k.createdAt)) },
-		{ key: "last", label: "Last used", render: (k) => (k.lastUsedAt ? h("span", { class: "ink-2" }, fmtAgo(k.lastUsedAt)) : h("span", { class: "ink-3" }, "never")) },
-		{ key: "expires", label: "Expires", render: (k) => expiryCell(k) },
-		onRevoke ? { key: "x", label: "", width: "84px", render: (k) => btn("Revoke", { cls: "danger sm", onClick: () => onRevoke(k) }) } : null,
-	].filter(Boolean);
-	return table(columns, keys, { onRow: onOpen, emptyState: h("div", { class: "ink-3", style: { padding: "14px 16px" } }, emptyHint ?? "No keys yet.") });
-}
-
-// Accounts a person's keys can draw from. Owners only reach what they contribute;
-// everyone else reaches any sign-in that has a contributor.
-export function drawableAccounts(user, accounts) {
-	return accounts.filter((a) => a.ownerId && (user.role !== "owner" || a.ownerId === user.id));
-}
-
-// Mint a key: label, optional expiry, optional account scope, optional direct
-// models (`models`: the provider models the person may call directly). Calls
-// `onMinted(key, secret)` once minted, then shows the secret once.
-export function mintKeyDialog({ user, accounts = [], providers = [], models = [], onMinted }) {
-	const ownerRole = user.role === "owner";
-	let label = "", expiry = "never", date = "", limited = ownerRole;
-	const scope = new Set();
-	const err = h("div", { class: "error", role: "alert" });
-	const when = h("div", { class: "hint" });
-	const dateInput = input({ type: "date", min: new Date().toISOString().slice(0, 10), onInput: (e) => { date = e.target.value; showWhen(); } });
-	const dateRow = h("div", { class: "hidden" }, dateInput);
-	const expiresAt = () => {
-		if (expiry === "never") return undefined;
-		if (expiry === "date") return date ? new Date(`${date}T23:59:59`).getTime() : NaN;
-		return Date.now() + Number(expiry) * 864e5;
-	};
-	function showWhen() {
-		dateRow.classList.toggle("hidden", expiry !== "date");
-		const at = expiresAt();
-		when.textContent = at === undefined ? "The key works until you revoke it." : Number.isNaN(at) ? "Pick the last day the key should work." : `The key stops working on ${fmtDate(at)}.`;
-	}
-	showWhen();
-
-	const groups = h("div", { class: "scope-groups" });
-	function renderScopes(value = "") {
-		const q = value.trim().toLowerCase();
-		clear(groups);
-		for (const provider of providers) {
-			const lab = providerLabel(provider);
-			const rows = accounts.filter((a) => a.providerId === provider.id && (!q || [a.label, lab.main, lab.source].some((t) => t?.toLowerCase().includes(q))));
-			if (!rows.length) continue;
-			groups.append(h("div", { class: "scope-group" },
-				h("div", { class: "scope-prov", title: provider.id }, providerDot(provider, 8), [lab.main, lab.source].filter(Boolean).join(" · ")),
-				rows.map((a) => {
-					const t = toggle(scope.has(a.id), (on) => (on ? scope.add(a.id) : scope.delete(a.id)), a.label);
-					t.title = a.id;
-					return t;
-				}),
-			));
-		}
-		if (!groups.childElementCount) groups.append(h("p", { class: "ink-3" }, q ? "No accounts match." : "This person cannot draw from any account yet."));
-	}
-	renderScopes();
-	const picker = h("div", { class: limited ? "" : "hidden" }, accounts.length > 8 ? search("Filter accounts by provider or label", renderScopes, { "aria-label": "Filter accounts" }) : null, groups);
-	const scopeField = accounts.length
-		? field("Accounts", h("div", { class: "scope-field" },
-			ownerRole ? null : seg([{ value: "all", label: "Every account they may use" }, { value: "some", label: "Only these accounts" }], limited ? "some" : "all", (v) => { limited = v === "some"; picker.classList.toggle("hidden", !limited); }),
-			picker),
-		ownerRole ? "An owner's key must name at least one account they contribute." : "A scope can only narrow what the person may draw from, never widen it.")
-		: null;
-
-	// "Only these models": the same list interaction as the person's direct models.
-	const keyModels = new Set();
-	let narrowModels = false;
-	let mQuery = "";
-	const mList = h("div", { class: "dm-list", role: "listbox", "aria-multiselectable": "true", "aria-label": "Direct models this key may call" });
-	const mCount = h("div", { class: "dm-note" });
-	const mVisible = () => models.filter((m) => !mQuery || `${m.id}\n${m.display}`.toLowerCase().includes(mQuery));
-	function renderModelScope() {
-		const list = mVisible();
-		const shown = list.slice(0, 150);
-		mList.replaceChildren(
-			...shown.map((m) => h("div", { class: "dm-row", role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id },
-				h("button", { type: "button", class: "dm-check", role: "checkbox", "aria-checked": String(keyModels.has(m.id)), "aria-label": `Allow ${m.display}`, tabindex: "-1", "data-act": "check" }, icon("check", 12)),
-				h("span", { class: "dm-name" }, m.display), servedName(m.served))),
-			list.length > shown.length ? h("div", { class: "dm-more" }, `${shown.length} of ${list.length.toLocaleString()} shown; search to find the rest`) : "",
-			list.length ? "" : h("div", { class: "dm-more" }, "No models match."),
-		);
-		mCount.textContent = keyModels.size ? `${plural(keyModels.size, "model")} ticked. Drag or Shift+click to select several, Space ticks them.` : "Tick the models this key may call. Drag or Shift+click to select several, Space ticks them.";
-		msel.refresh();
-	}
-	const setKeyModels = (ids, on) => {
-		for (const id of ids) if (on) keyModels.add(id); else keyModels.delete(id);
-		renderModelScope();
-	};
-	const msel = multiSelect(mList, { row: ".dm-row", onSpace: (keys) => setKeyModels(keys, !keys.every((k) => keyModels.has(k))) });
-	mList.addEventListener("click", (e) => {
-		const id = e.target.closest('[data-act="check"]')?.closest(".dm-row")?.dataset.key;
-		if (id) setKeyModels([id], !keyModels.has(id));
-	});
-	const modelScope = h("div", { class: "hidden" }, h("div", { class: "dm key-dm" }, models.length > 8 ? search("Find a model", (v) => { mQuery = v.trim().toLowerCase(); renderModelScope(); }, { "aria-label": "Find a model" }) : null, mList, mCount));
-	const modelField = models.length
-		? field("Direct models", h("div", { class: "scope-field" },
-			seg([{ value: "all", label: "Every direct model they may call" }, { value: "some", label: "Only these models" }], "all", (v) => {
-				narrowModels = v === "some";
-				modelScope.classList.toggle("hidden", !narrowModels);
-				if (narrowModels) renderModelScope();
-			}),
-			modelScope),
-		"Narrows only neoproxy/<provider>/<model> calls. Virtual models follow the person's grants.")
-		: null;
-
-	dialog({
-		title: `Mint a key for ${user.handle}`,
-		sub: "A key is only as powerful as the person: it reaches the virtual models and direct providers granted above. It never signs in to the dashboard.",
-		body: [
-			field("Label", input({ placeholder: "What will use this key, e.g. Voyager on the laptop", autofocus: true, onInput: (e) => (label = e.target.value) })),
-			field("Expires", h("div", { class: "scope-field" },
-				seg([{ value: "never", label: "Never" }, { value: "30", label: "30 days" }, { value: "90", label: "90 days" }, { value: "date", label: "On a date" }], expiry, (v) => { expiry = v; showWhen(); }),
-				dateRow, when)),
-			scopeField,
-			modelField,
-			err,
-		],
-		actions: (close) => [
-			btn("Cancel", { onClick: close }),
-			btn("Mint key", { icon: "key", cls: "primary", onClick: async (event) => {
-				err.textContent = "";
-				const at = expiresAt();
-				if (Number.isNaN(at) || (at !== undefined && at <= Date.now())) { err.textContent = "Choose a day in the future for the key to expire."; return; }
-				if (limited && !scope.size) { err.textContent = "Pick at least one account, or switch to every account they may use."; return; }
-				if (narrowModels && !keyModels.size) { err.textContent = "Tick at least one model, or switch to every direct model they may call."; return; }
-				const button = event.currentTarget;
-				button.disabled = true;
-				try {
-					const { key, secret } = await neo.createKey(user.id, label.trim() || "unnamed", limited ? [...scope] : undefined, at, narrowModels ? [...keyModels] : undefined);
-					close();
-					onMinted?.(key, secret);
-					revealSecret(key, secret);
-				} catch (e) { err.textContent = e.message; button.disabled = false; }
-			} }),
-		],
-	});
-}
-
-function revealSecret(key, secret) {
-	dialog({
-		title: "Copy the key now",
-		sub: "This is the only time it is shown. NeoProxy keeps a hash, not the key.",
-		body: [
-			h("div", { class: "secret-line" }, h("code", null, secret), btn("Copy", { icon: "copy", cls: "outline", onClick: async () => { const ok = await copyText(secret); toast(ok ? "Copied" : "Clipboard unavailable", ok ? "ok" : "warn"); } })),
-			h("div", { class: "hint", style: { marginTop: "8px" } }, key.expiresAt ? `It stops working on ${fmtDate(key.expiresAt)}.` : "It works until it is revoked."),
-		],
-		actions: (close) => [btn("Done", { cls: "primary", onClick: close })],
-	});
 }
 
 // ---------- the list ----------

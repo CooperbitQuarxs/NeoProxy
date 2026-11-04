@@ -14,7 +14,7 @@ import (
 
 func TestConfigV8SharedUpstreamRoundTrip(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "config.yaml")
-	raw := "oauth: {providers: {codex: {stream-bootstrap-buffering: true, header-defaults: {user-agent: oauth-agent}}}}\n"
+	raw := "oauth: {providers: {codex: {stream-bootstrap-buffering: true, live-media-relay: {max-sessions: 12}}}}\n"
 	if errWrite := os.WriteFile(file, []byte(raw), 0600); errWrite != nil {
 		t.Fatal(errWrite)
 	}
@@ -52,8 +52,8 @@ func TestConfigV8SharedUpstreamRoundTrip(t *testing.T) {
 	if loaded.Codex.StreamBootstrapBuffering || loaded.AuthAutoRefreshWorkers != 3 || loaded.ClaudeHeaderDefaults.Timezone != "Asia/Singapore" || loaded.ForAPIKey().ClaudeHeaderDefaults.Timezone != "Asia/Singapore" {
 		t.Fatal("management write lost shared upstream values")
 	}
-	if loaded.CodexHeaderDefaults.UserAgent != "oauth-agent" || loaded.ForAPIKey().CodexHeaderDefaults.UserAgent != "" {
-		t.Fatal("management write changed OAuth-only header scope")
+	if loaded.Codex.LiveMediaRelay.MaxSessions != 12 || loaded.ForAPIKey().Codex.LiveMediaRelay.MaxSessions != 0 {
+		t.Fatal("management write changed OAuth-only relay scope")
 	}
 	before, errRead := os.ReadFile(file)
 	if errRead != nil {

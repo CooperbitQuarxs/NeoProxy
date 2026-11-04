@@ -45,16 +45,6 @@ func (cfg *Config) NormalizeClaudeConfig() {
 	}
 }
 
-// SanitizeCodexHeaderDefaults trims surrounding whitespace from the
-// configured Codex header fallback values.
-func (cfg *Config) SanitizeCodexHeaderDefaults() {
-	if cfg == nil {
-		return
-	}
-	cfg.CodexHeaderDefaults.UserAgent = strings.TrimSpace(cfg.CodexHeaderDefaults.UserAgent)
-	cfg.CodexHeaderDefaults.BetaFeatures = strings.TrimSpace(cfg.CodexHeaderDefaults.BetaFeatures)
-}
-
 // SanitizeClaudeHeaderDefaults trims surrounding whitespace from the
 // configured Claude fingerprint baseline values, normalizes the beta override
 // lists, and resets an unknown client-request-id mode to the default.

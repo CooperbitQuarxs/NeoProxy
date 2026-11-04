@@ -23,6 +23,8 @@
 	--ink-2: #a49faa;
 	--ink-3: #6e6974;
 	--ink-4: #48444e;
+	/* Operational facts (reset times, account names, scope, qualifiers): 7.8–9:1 on every dark surface. */
+	--ink-fact: #b1acb7;
 	--ink-inverse: #0a0a0b;
 	--accent-a: #5ad8e6;
 	--accent-b: #ed4abf;
@@ -63,6 +65,7 @@
 	--ink-2: #5a5a63;
 	--ink-3: #8b8b94;
 	--ink-4: #b9b9c0;
+	--ink-fact: #52525b;
 	--ink-inverse: #ffffff;
 	--accent-a: #1fa9bb;
 	--accent-b: #d42ea3;
@@ -172,6 +175,15 @@ svg {
 .ink-3 {
 	color: var(--ink-3);
 }
+/* The readable secondary tier for facts a person acts on: resets, accounts,
+   scope, data qualifications. ≥4.5:1 on every surface in both themes; use
+   ink-3 only for genuinely optional metadata. */
+:root { --fact-size: 14px; }
+.fact {
+	color: var(--ink-fact);
+	font-size: var(--fact-size);
+	line-height: 1.45;
+}
 .hidden {
 	display: none !important;
 }
@@ -211,6 +223,10 @@ svg {
 	.rd-card .table-scroll.stack td { grid-column: 1 / -1; }
 	.rd-card .table-scroll.stack td:nth-last-child(-n + 2) { grid-column: auto; }
 }
+
+/* Hidden until it gets keyboard focus; fixed so it never takes a grid cell. */
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 8px 14px; border-radius: var(--r-control); border: 1px solid var(--accent-line); background: var(--raised); color: var(--ink-1); font: inherit; font-weight: 600; transform: translateY(-200%); transition: transform var(--dur-1); }
+.skip-link:focus-visible { transform: none; outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ---------- shell ---------- */
 .shell {
@@ -346,7 +362,7 @@ kbd {
 	grid-area: main;
 	min-width: 0;
 	min-height: 0;
-	padding: 14px var(--gutter) var(--gutter) 10px;
+	padding: 10px 14px 14px 8px;
 	overflow: hidden;
 	display: flex;
 }

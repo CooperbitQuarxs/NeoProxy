@@ -153,7 +153,8 @@ function railCollapsed() {
 	const v = localStorage.getItem(RAIL_KEY);
 	if (v === "1") return true;
 	if (v === "0") return false;
-	return matchMedia("(max-width: 1280px)").matches;
+	// Until someone chooses, laptop-sized screens give the page the width and keep the sidebar one hover away.
+	return matchMedia("(max-width: 1600px)").matches;
 }
 function applyRail() {
 	document.documentElement.classList.toggle("rail", railCollapsed());
@@ -171,14 +172,25 @@ function gate(reason, bootstrap = false) {
 	dismissDialogs();
 	clear(root);
 	let handle = "", password = "", operatorSecret = "", busy = false;
-	const err = h("div", { class: "error hidden", role: "alert" });
-	const submitBtn = btn(bootstrap ? "Create first admin" : "Sign in", { cls: "primary", type: "submit" });
+	const err = h("div", { class: "gate-error", role: "alert", hidden: true });
+	const submitBtn = btn(bootstrap ? "Create the first admin" : "Sign in", { cls: "primary gate-submit", type: "submit" });
+	const showError = (text) => {
+		err.replaceChildren(icon("info", 14), h("span", null, text));
+		err.hidden = !text;
+	};
 	const submit = async (e) => {
 		e.preventDefault();
-		if (busy || !handle || !password || (bootstrap && !operatorSecret)) return;
+		if (busy) return;
+		const missing = form.querySelector("input:invalid");
+		if (missing) {
+			showError(missing.validity.tooShort ? "The password needs at least 12 characters." : `Enter ${missing.name === "username" ? "your username" : missing.name === "password" ? "your password" : "the operator management secret"}.`);
+			missing.focus();
+			return;
+		}
 		busy = true;
 		submitBtn.disabled = true;
-		err.classList.add("hidden");
+		submitBtn.lastChild.textContent = bootstrap ? "Creating…" : "Signing in…";
+		showError("");
 		try {
 			const s = bootstrap ? await neo.bootstrap(handle.trim(), password, operatorSecret) : await neo.signIn(handle.trim(), password);
 			password = operatorSecret = "";
@@ -188,29 +200,49 @@ function gate(reason, bootstrap = false) {
 			if (route().id === destination) render();
 			else navigate(destination);
 		} catch (ex) {
-			err.textContent = ex instanceof ApiError ? ex.message : "Could not reach the proxy";
-			err.classList.remove("hidden");
+			showError(ex instanceof ApiError ? (ex.status === 401 ? "That username and password don't match. Check them and try again." : ex.message) : "Could not reach NeoProxy. Check that it is running.");
+			const pw = form.querySelector('input[name="password"]');
+			pw?.select();
+			pw?.focus();
 		} finally {
 			busy = false;
 			submitBtn.disabled = false;
+			submitBtn.lastChild.textContent = bootstrap ? "Create the first admin" : "Sign in";
 		}
+	};
+	// A password field with a show/hide eye and a Caps Lock warning.
+	const secretField = (label, attrs, onValue, hint) => {
+		const caps = h("div", { class: "gate-caps", hidden: true }, icon("info", 12), "Caps Lock is on");
+		const el = input({ type: "password", spellcheck: "false", required: true, ...attrs, onInput: (e) => onValue(e.target.value) });
+		const eye = h("button", { type: "button", class: "gate-eye", "aria-label": `Show ${label.toLowerCase()}`, "aria-pressed": "false", onClick: () => {
+			const show = el.type === "password";
+			el.type = show ? "text" : "password";
+			eye.setAttribute("aria-pressed", String(show));
+			eye.setAttribute("aria-label", `${show ? "Hide" : "Show"} ${label.toLowerCase()}`);
+			eye.replaceChildren(icon(show ? "eyeOff" : "eye", 15));
+			el.focus();
+		} }, icon("eye", 15));
+		const capsCheck = (e) => { if (e.getModifierState) caps.hidden = !e.getModifierState("CapsLock"); };
+		el.addEventListener("keydown", capsCheck);
+		el.addEventListener("keyup", capsCheck);
+		el.addEventListener("blur", () => { caps.hidden = true; });
+		const f = field(label, h("div", { class: "gate-secret" }, el, eye), hint);
+		f.append(caps);
+		return f;
 	};
 	disposeGate?.();
 	const canvas = h("canvas", { class: "fabric", "aria-hidden": "true" });
-	const form = card({
-		rise: true,
-		body: h("form", { onSubmit: submit },
-			h("div", { class: "brand" }, mark(), "NeoProxy"),
-			h("h1", null, bootstrap ? "Set up NeoProxy" : "Sign in"),
-			h("p", { class: "lead" }, reason ?? (bootstrap ? "Create the first organization admin. Setup closes after this account exists." : "Use your NeoProxy username and password. Inference keys are for clients, not dashboard login.")),
-			field("Username", input({ name: "username", autocomplete: "username", required: true, autofocus: true, onInput: (e) => (handle = e.target.value) })),
-			field("Password", input({ name: "password", type: "password", autocomplete: bootstrap ? "new-password" : "current-password", required: true, onInput: (e) => (password = e.target.value) })),
-			bootstrap ? field("Operator management secret", input({ type: "password", autocomplete: "off", required: true, onInput: (e) => (operatorSecret = e.target.value) }), "Used once to authorize bootstrap. Never saved by this dashboard.") : null,
-			err,
-			h("div", { class: "row" }, btn(bootstrap ? "Back to sign in" : "First-time setup", { onClick: () => gate(null, !bootstrap) }), h("span", { class: "spacer" }), submitBtn),
-			h("div", { class: "foot" }, location.protocol === "https:" ? "Your session uses an HttpOnly cookie." : "Local HTTP is not encrypted. Do not use this connection across an untrusted network."),
-		),
-	});
+	const form = h("form", { class: "gate-card", onSubmit: submit, novalidate: true },
+		h("h1", null, bootstrap ? "Set up NeoProxy" : "Sign in"),
+		h("p", { class: "lead" }, reason ?? (bootstrap ? "Create the first organization admin. Setup closes once this account exists." : "Use your NeoProxy username and password. API keys are for apps, not for this dashboard.")),
+		field("Username", input({ name: "username", autocomplete: "username", autocapitalize: "off", spellcheck: "false", required: true, autofocus: true, onInput: (e) => (handle = e.target.value) })),
+		secretField("Password", { name: "password", autocomplete: bootstrap ? "new-password" : "current-password", minlength: bootstrap ? 12 : null, maxlength: bootstrap ? 72 : null }, (v) => (password = v), bootstrap ? "12 to 72 characters." : null),
+		bootstrap ? secretField("Operator management secret", { autocomplete: "off" }, (v) => (operatorSecret = v), "Used once to authorize setup. This dashboard never stores it.") : null,
+		err,
+		submitBtn,
+		h("p", { class: "gate-alt" }, bootstrap ? "Already have an account? " : "First time here? ", h("button", { type: "button", class: "gate-link", onClick: () => gate(null, !bootstrap) }, bootstrap ? "Sign in" : "Set up NeoProxy")),
+	);
+	const secure = location.protocol === "https:";
 	root.append(
 		h("div", { class: "gate" },
 			h("div", { class: "gate-hero" },
@@ -220,12 +252,16 @@ function gate(reason, bootstrap = false) {
 					h("p", null, "People ask for ", h("code", null, "neoproxy/"), h("code", { class: "vm" }, "default"), ". NeoProxy decides which account answers, within the share each person is allowed, and moves on when a window is spent."),
 					h("ul", { class: "gate-legend" },
 						h("li", null, h("span", { class: "sw people" }), "People and services"),
-						h("li", null, h("span", { class: "sw models" }), "Virtual models with fallback stages"),
+						h("li", null, h("span", { class: "sw models" }), "Virtual models and their fallbacks"),
 						h("li", null, h("span", { class: "sw providers" }), "Provider accounts and their usage windows"),
 					),
 				),
 			),
-			h("div", { class: "gate-form" }, form),
+			h("div", { class: "gate-form" },
+				h("div", { class: "brand" }, mark(), "NeoProxy"),
+				form,
+				h("div", { class: `gate-note ${secure ? "ok" : ""}` }, icon(secure ? "lock" : "unlock", 13), secure ? "Your session uses an HttpOnly cookie over HTTPS." : "This connection is plain HTTP. Use it only on a network you trust."),
+			),
 		),
 	);
 	disposeGate = fabric(canvas);
@@ -263,9 +299,16 @@ export async function render() {
 	const sidebarEl = sidebar(page, s);
 	const pageEl = h("div", { class: "page", id: "page" });
 	const panel = h("div", { class: "panel" }, pageEl);
+	// The first Tab stop: jump past the top bar and sidebar straight into the page.
+	const skip = h("button", { type: "button", class: "skip-link", onClick: () => {
+		const target = pageEl.querySelector("h1") ?? pageEl;
+		target.tabIndex = -1;
+		target.focus();
+	} }, "Skip to page");
 	const shell = h(
 		"div",
 		{ class: "shell" },
+		skip,
 		topbar(page, s, () => setMenu(!sidebarEl.classList.contains("open"))),
 		sidebarEl,
 		h("main", { class: "shell-main" }, panel),

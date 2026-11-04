@@ -43,7 +43,7 @@ func TestV0SaveUpgradesHistoricalV8Layout(t *testing.T) {
 	for _, version := range []string{"", "config-version: 8\n"} {
 		t.Run(version, func(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "config.yaml")
-			raw := version + "# Preserve provider settings\noauth: {providers: {codex: {response-steering: true, header-defaults: {user-agent: oauth-agent}}, xai: {inject-x-search: true}}}\n"
+			raw := version + "# Preserve provider settings\noauth: {providers: {codex: {response-steering: true}, xai: {inject-x-search: true}}}\n"
 			if err := os.WriteFile(file, []byte(raw), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -71,7 +71,7 @@ func TestV0SaveUpgradesHistoricalV8Layout(t *testing.T) {
 			if yamlPath(root, "upstream.codex.response-steering") == nil || yamlPath(root, "upstream.xai.inject-x-search") == nil || yamlPath(root, "server.port").Value != "8318" {
 				t.Fatal("v0 save did not restore canonical provider fields and updated port")
 			}
-			if !cfg.ForAPIKey().Codex.ResponseSteering || !cfg.ForAPIKey().XAI.InjectXSearch || cfg.ForAPIKey().CodexHeaderDefaults.UserAgent != "" || !cfg.Home.Enabled {
+			if !cfg.ForAPIKey().Codex.ResponseSteering || !cfg.ForAPIKey().XAI.InjectXSearch || !cfg.Home.Enabled {
 				t.Fatal("v0 save changed shared/OAuth scope or runtime-only state")
 			}
 			if !strings.Contains(string(data), "# Preserve provider settings") {

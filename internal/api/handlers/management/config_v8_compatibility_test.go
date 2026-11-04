@@ -87,16 +87,16 @@ func TestConfigV8HistoricalProviderSubtrees(t *testing.T) {
 	for _, tc := range []struct {
 		name, method, path, body      string
 		steering, buffering, optimize bool
-		agent                         string
+		sessions                      int
 	}{
-		{"patch old provider", http.MethodPatch, "oauth/providers/codex", `{"response-steering":false,"header-defaults":{"user-agent":"updated"}}`, false, true, true, "updated"},
-		{"replace old provider", http.MethodPut, "oauth/providers/codex", `{"response-steering":true}`, true, false, false, ""},
-		{"delete old provider", http.MethodDelete, "oauth/providers/codex", "", false, false, false, ""},
-		{"replace shared provider", http.MethodPut, "upstream/codex", `{"response-steering":false}`, false, false, true, "oauth-agent"},
+		{"patch old provider", http.MethodPatch, "oauth/providers/codex", `{"response-steering":false,"live-media-relay":{"max-sessions":20}}`, false, true, true, 20},
+		{"replace old provider", http.MethodPut, "oauth/providers/codex", `{"response-steering":true}`, true, false, false, 0},
+		{"delete old provider", http.MethodDelete, "oauth/providers/codex", "", false, false, false, 0},
+		{"replace shared provider", http.MethodPut, "upstream/codex", `{"response-steering":false}`, false, false, true, 12},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "config.yaml")
-			raw := "upstream: {codex: {response-steering: true, stream-bootstrap-buffering: true}, xai: {inject-x-search: true}}\noauth: {providers: {codex: {header-defaults: {user-agent: oauth-agent}}}}\nclient: {codex: {optimize-multi-agent-v2: true, enable-apply-patch: true}}\n"
+			raw := "upstream: {codex: {response-steering: true, stream-bootstrap-buffering: true}, xai: {inject-x-search: true}}\noauth: {providers: {codex: {live-media-relay: {max-sessions: 12}}}}\nclient: {codex: {optimize-multi-agent-v2: true, enable-apply-patch: true}}\n"
 			if err := os.WriteFile(file, []byte(raw), 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -126,10 +126,10 @@ func TestConfigV8HistoricalProviderSubtrees(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if loaded.Codex.ResponseSteering != tc.steering || loaded.Codex.StreamBootstrapBuffering != tc.buffering || loaded.Client.Codex.OptimizeMultiAgentV2 != tc.optimize || loaded.CodexHeaderDefaults.UserAgent != tc.agent {
+			if loaded.Codex.ResponseSteering != tc.steering || loaded.Codex.StreamBootstrapBuffering != tc.buffering || loaded.Client.Codex.OptimizeMultiAgentV2 != tc.optimize || loaded.Codex.LiveMediaRelay.MaxSessions != tc.sessions {
 				t.Fatal("historical subtree mutation did not preserve replacement/merge semantics")
 			}
-			if !loaded.XAI.InjectXSearch || !loaded.Client.Codex.EnableApplyPatch || loaded.ForAPIKey().CodexHeaderDefaults.UserAgent != "" {
+			if !loaded.XAI.InjectXSearch || !loaded.Client.Codex.EnableApplyPatch || loaded.ForAPIKey().Codex.LiveMediaRelay.MaxSessions != 0 {
 				t.Fatal("historical subtree mutation changed unrelated settings or OAuth scope")
 			}
 			data, err := os.ReadFile(file)
@@ -244,7 +244,7 @@ func TestV0SetterSavesByExistingVersion(t *testing.T) {
 		v8        bool
 	}{
 		{"legacy", "request-retry: 3\ncodex: {response-steering: true}\nxai: {inject-x-search: true}\nrouting: {strategy: fill-first}\n", false},
-		{"historical v8", "config-version: 8\noauth: {providers: {codex: {response-steering: true, header-defaults: {user-agent: oauth-agent}}, xai: {inject-x-search: true}}}\n", true},
+		{"historical v8", "config-version: 8\noauth: {providers: {codex: {response-steering: true, live-media-relay: {max-sessions: 12}}, xai: {inject-x-search: true}}}\n", true},
 		{"unversioned v8", "oauth: {providers: {codex: {response-steering: true}, xai: {inject-x-search: true}}}\n", true},
 		{"latest v8", "config-version: 8\nupstream: {codex: {response-steering: true}, xai: {inject-x-search: true}}\nrouting: {retry: {request-retry: 3}}\n", true},
 	} {
@@ -277,7 +277,7 @@ func TestV0SetterSavesByExistingVersion(t *testing.T) {
 				t.Fatal("v0 migrated a legacy-only file")
 			}
 			loaded, err := config.LoadConfig(file)
-			if err != nil || loaded.RequestRetry != 2 || !loaded.ForAPIKey().Codex.ResponseSteering || !loaded.ForAPIKey().XAI.InjectXSearch || loaded.CodexHeaderDefaults.UserAgent != cfg.CodexHeaderDefaults.UserAgent {
+			if err != nil || loaded.RequestRetry != 2 || !loaded.ForAPIKey().Codex.ResponseSteering || !loaded.ForAPIKey().XAI.InjectXSearch || loaded.Codex.LiveMediaRelay.MaxSessions != cfg.Codex.LiveMediaRelay.MaxSessions {
 				t.Fatalf("v0 save changed effective settings: %v", err)
 			}
 		})

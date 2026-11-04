@@ -1,24 +1,25 @@
-// Plugins: what this engine can actually do with them, what is installed, what
-// the store offers, and how to write one. Every claim on this page is read from
-// the engine (`plugins_enabled`, `plugins_dir`, the store response) or from the
-// source files it cites.
+// Plugins: whether this engine loads them, what is installed, what the store
+// offers, and how to write one. Every claim on this page is read from the engine
+// (`plugins_enabled`, `plugins_dir`, the store response) or from the source files
+// it cites. The three parts are tabs, so the page stays one screen tall.
 
-import { h, icon, fmtInt, plural } from "../lib/dom.js";
+import { h, icon, fmtInt, plural, debounce } from "../lib/dom.js";
 import { engine, invalidate, ApiError } from "../lib/client.js";
-import { pageHead, card, btn, iconBtn, badge, dot, toggle, search, select, empty, inspector, section, kv, copyLine, spinner, errorState, toast, confirm } from "../lib/components.js";
+import { pageHead, card, btn, iconBtn, badge, toggle, empty, inspector, section, kv, copyLine, spinner, errorState, toast, confirm } from "../lib/components.js";
 
 const REPO = "https://github.com/PsychedelicShayna/NeoProxy";
 const source = (path, dir = false) => `${REPO}/${dir ? "tree" : "blob"}/HEAD/${path}`;
 const STORE_PAGE = 12;
+const KINDS_SHOWN = 8;
 
 // The engine HTML-escapes strings it returns; we set text, so undo that.
 const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&#34;": '"' };
 const plain = (value) => String(value ?? "").replace(/&(?:amp|lt|gt|quot|#39|#34);/g, (entity) => ENTITIES[entity]);
 const nameOf = (plugin) => plain(plugin.metadata?.name || plugin.name || plugin.id);
 const repoUrl = (repo) => (!repo ? null : /^https?:/.test(repo) ? repo : `https://github.com/${repo}`);
-const debounce = (fn, ms = 140) => { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); }; };
 const link = (href, text) => h("a", { href, target: "_blank", rel: "noreferrer", class: "plug-link" }, text, icon("external", 12));
 const filePath = (path, dir) => link(source(path, dir), h("code", null, path));
+const titleCase = (s) => s.replace(/^./, (c) => c.toUpperCase());
 
 function failure(e) {
 	const body = e instanceof ApiError && e.body && typeof e.body === "object" ? e.body : null;
@@ -43,19 +44,19 @@ export async function render(ctx) {
 	let storeInfo = null;
 	let storeError = null;
 	let storeQuery = "";
-	let storeTag = "all";
+	let storeKind = "all";
 	let storeLimit = STORE_PAGE;
 	let selected = null;
 	let disposed = false;
 	let selectionRevision = 0;
+	let tab = ["installed", "store", "build"].includes(ctx.query?.get("tab")) ? ctx.query.get("tab") : null;
 	// Per-store-plugin outcome of the last install attempt, kept across repaints.
 	const outcomes = new Map();
 	const installing = new Set();
 
-	const statusBody = h("div", null, spinner());
+	const statusBody = h("div", { class: "plug-status" }, spinner());
 	const installedBody = h("div", null, spinner());
 	const storeBody = h("div", null, spinner());
-	const writeAnchor = h("div");
 
 	const loading = () => Boolean(installedInfo.plugins_enabled);
 	const dirText = () => plain(installedInfo.plugins_dir || storeInfo?.plugins_dir || "plugins");
@@ -71,11 +72,13 @@ export async function render(ctx) {
 		if (storeResult.status === "fulfilled") storeInfo = storeResult.value;
 		paintStatus();
 		paintInstalled();
+		paintKinds();
 		paintStore();
+		paintTabs();
 		if (selected && !installed().some((plugin) => plugin.id === selected)) closeInspector();
 	}
 
-	// ---------- is it on, and what is a plugin ----------
+	// ---------- is it on ----------
 
 	function paintStatus() {
 		if (installedError) { statusBody.replaceChildren(errorState(installedError, load)); return; }
@@ -88,31 +91,28 @@ export async function render(ctx) {
 				invalidate("plugin");
 				toast(value ? "Plugin loading is on" : "Plugin loading is off");
 				await load();
+				statusBody.querySelector(".switch")?.focus();
 			} catch (e) {
 				control.setAttribute("aria-checked", String(!value));
 				toast(failure(e).message, "bad");
 			} finally { control.disabled = false; }
 		}, "Load plugins");
+		statusBody.classList.toggle("on", on);
 		statusBody.replaceChildren(
-			h("div", { class: "plug-state" },
-				h("div", { class: "plug-state-text" },
-					h("div", { class: "plug-state-head" }, dot(on ? "ok" : ""), h("strong", null, on ? "Plugins are on for this engine" : "Plugins are off for this engine")),
-					h("p", { class: "ink-2", style: { margin: "4px 0 0" } }, on
-						? `Enabled plugins in ${dirText()} are loaded when the engine starts or its configuration reloads.`
-						: "Loading is controlled by plugins.enabled in config.yaml, which is off. You can install plugins now; none of them runs until this is switched on."),
+			h("div", { class: "plug-status-main" },
+				h("span", { class: `plug-status-icon ${on ? "on" : ""}` }, icon(on ? "check" : "power", 16)),
+				h("div", { class: "plug-status-text" },
+					h("div", { class: "plug-status-head" }, on ? "Plugins load on this engine" : "Plugins are off on this engine"),
+					h("p", null, on
+						? `Plugins switched on below run when the engine starts or reloads its settings.`
+						: "You can install plugins now; none of them runs until loading is on."),
 				),
 				control,
 			),
-			h("p", { class: "ink-2 plug-lede" },
-				"A plugin is a native shared library: ", h("code", null, ".so"), " on Linux, ", h("code", null, ".dylib"), " on macOS, ", h("code", null, ".dll"), " on Windows. The engine opens it from the plugins directory and runs it inside its own process, so a plugin sees every request and response. It can add a provider or sign-in flow, route or schedule requests, rewrite them, report usage, or serve its own management routes. NeoProxy runs fine with none."),
-			kv([
-				["Directory", h("div", null, copyLine(dirText(), "plugins directory"), h("div", { class: "hint" }, "Set by ", h("code", null, "plugins.dir"), ". A relative path is relative to the engine's working directory; ", h("code", null, "<dir>/<os>/<cpu>/"), " is searched before ", h("code", null, "<dir>"), "."))],
-				["Found there", plural(installed().length, "plugin")],
-				["Requirement", "Only a build of the engine made with cgo can load plugins. NeoProxy release builds are made with cgo."],
-			]),
-			h("div", { class: "row wrap plug-jumps" },
-				btn("Browse the store", { cls: "outline sm", icon: "arrowRight", onClick: () => storeCard.scrollIntoView({ behavior: "smooth", block: "start" }) }),
-				btn("Write your own", { cls: "outline sm", icon: "arrowRight", onClick: () => writeAnchor.scrollIntoView({ behavior: "smooth", block: "start" }) }),
+			h("dl", { class: "plug-facts" },
+				h("div", null, h("dt", null, "Folder"), h("dd", null, copyLine(dirText(), "plugin folder"))),
+				h("div", null, h("dt", null, "Found there"), h("dd", null, plural(installed().length, "plugin"))),
+				h("div", null, h("dt", null, "Needs"), h("dd", null, "An engine built with cgo, as release builds are")),
 			),
 		);
 	}
@@ -146,7 +146,7 @@ export async function render(ctx) {
 				const quota = await engine.get(`plugins/${encodeURIComponent(plugin.id)}/quota`, { query: { auth_index: authIndex } });
 				if (disposed || revision !== selectionRevision) return;
 				const pairs = quota && typeof quota === "object" ? Object.entries(quota) : [["Quota", quota]];
-				quotaBody.replaceChildren(kv(pairs.map(([key, value]) => [key, h("code", null, typeof value === "object" ? JSON.stringify(value) : String(value))])));
+				quotaBody.replaceChildren(kv(pairs.map(([key, value]) => [titleCase(key.replace(/[_-]+/g, " ")), value && typeof value === "object" ? kv(Object.entries(value).map(([k, v]) => [k, String(v)])) : h("code", null, String(value))])));
 			} catch (e) { if (!disposed && revision === selectionRevision) quotaBody.replaceChildren(errorState(e, loadQuota)); }
 		};
 		const clearQuota = btn("Clear quota", { cls: "danger", onClick: async () => {
@@ -165,17 +165,17 @@ export async function render(ctx) {
 		const repo = repoUrl(plugin.metadata?.github_repository);
 		const body = [
 			section("Plugin", kv([
-				["State", h("div", null, h("span", { class: "status" }, dot(state.kind), state.text), h("div", { class: "hint" }, state.hint))],
+				["State", h("div", null, h("span", { class: "status" }, h("span", { class: `dot ${state.kind}` }), state.text), h("div", { class: "hint" }, state.hint))],
 				["Version", h("code", null, plugin.metadata?.version || "not reported")],
 				plugin.metadata?.author ? ["Author", plain(plugin.metadata.author)] : null,
 				repo ? ["Source", link(repo, plain(plugin.metadata.github_repository))] : null,
-				["File", plugin.path ? h("code", null, plain(plugin.path)) : "not found in the plugins directory"],
+				["File", plugin.path ? h("code", null, plain(plugin.path)) : "not found in the plugin folder"],
 				["Adds", [plugin.supports_oauth ? `sign-in for ${plain(plugin.oauth_provider || "a provider")}` : null, plugin.supports_quota ? "quota reporting" : null, plugin.menus?.length ? `${plural(plugin.menus.length, "management page")}` : null].filter(Boolean).join(", ") || (plugin.registered ? "request handling" : "not known until it loads")],
 			])),
 		];
-		if (fields.length) body.push(section("Settings it reads", h("ul", { class: "plug-fields" }, fields.map((field) => h("li", null, h("code", null, field.name), field.type ? h("span", { class: "ink-3" }, ` ${field.type}`) : null, field.description ? h("div", { class: "ink-3" }, plain(field.description)) : null))), h("p", { class: "hint" }, "Set them under ", h("code", null, `plugins.configs.${plugin.id}`), " in ", h("a", { href: "#/config" }, "Configuration"), ".")));
+		if (fields.length) body.push(section("Settings it reads", h("ul", { class: "plug-fields" }, fields.map((field) => h("li", null, h("code", null, field.name), field.type ? h("span", { class: "ink-3" }, ` ${field.type}`) : null, field.description ? h("div", { class: "ink-3" }, plain(field.description)) : null))), h("p", { class: "hint" }, "Set them under ", h("code", null, `plugins.configs.${plugin.id}`), " in ", h("a", { href: "#/config?view=file" }, "Configuration"), ".")));
 		if (plugin.supports_quota) {
-			quotaBody.append(authIndex ? spinner() : h("p", { class: "ink-2" }, "Quota is tracked per credential; pick a credential on the Poolls page."));
+			quotaBody.append(authIndex ? spinner() : h("p", { class: "ink-2" }, "Quota is tracked per account; open an account on the Pool page to see it."));
 			body.push(section("Quota", quotaBody));
 		}
 		ctx.setInspector(inspector({ title: name, sub: plugin.id, onClose: closeInspector, body, foot: plugin.supports_quota && authIndex ? [clearQuota] : null }));
@@ -222,27 +222,29 @@ export async function render(ctx) {
 		const list = installed();
 		installedBody.replaceChildren(list.length
 			? h("div", { class: "list" }, list.map(installedRow))
-			: empty({ icon: "plug", title: "No plugins installed", hint: `Nothing in ${dirText()} yet. Install one from the store, or drop in a library you built.` }));
+			: empty({ icon: "plug", title: "No plugins installed", hint: `Nothing in ${dirText()} yet. Install one from the store, or drop in a library you built.`, action: h("div", { class: "row wrap plug-empty-acts" }, btn("Browse the store", { cls: "primary", icon: "search", onClick: () => setTab("store", true) }), btn("Build your own", { cls: "outline", onClick: () => setTab("build", true) })) }));
 	}
 
 	// ---------- store ----------
 
-	const tagOptions = () => {
+	// The most common kinds, merged across spelling, as one-click filters.
+	function kinds() {
 		const counts = new Map();
-		for (const plugin of storeInfo?.plugins ?? []) for (const tag of plugin.tags ?? []) {
-			const key = plain(tag).toLowerCase();
-			const entry = counts.get(key) ?? { label: plain(tag), n: 0 };
-			entry.n++;
-			counts.set(key, entry);
+		for (const plugin of storeInfo?.plugins ?? []) {
+			for (const key of new Set((plugin.tags ?? []).map((tag) => plain(tag).toLowerCase()))) {
+				const entry = counts.get(key) ?? { label: titleCase(key), n: 0 };
+				entry.n++;
+				counts.set(key, entry);
+			}
 		}
-		return [...counts.entries()].filter(([, entry]) => entry.n >= 3).sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0])).map(([key, entry]) => ({ value: key, label: `${entry.label[0].toUpperCase()}${entry.label.slice(1)} (${entry.n})` }));
-	};
+		return [...counts.entries()].sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0])).slice(0, KINDS_SHOWN).map(([value, entry]) => ({ value, ...entry }));
+	}
 
 	async function install(plugin, update) {
 		const name = plain(plugin.name || plugin.id);
 		const ok = await confirm({
 			title: `${update ? "Update" : "Install"} ${name}?`,
-			text: `The engine downloads ${plugin.version ? `version ${plain(plugin.version)} ` : "it "}from ${plain(plugin.repository || plugin.source_name || "the store")}, checks its checksum, and writes the library into ${dirText()}. It also switches the plugin on in config.yaml; it runs only while plugin loading is on. A plugin runs inside the engine with access to every request, so install code you trust.`,
+			text: `The engine downloads ${plugin.version ? `version ${plain(plugin.version)} ` : "it "}from ${plain(plugin.repository || plugin.source_name || "the store")}, checks its checksum, writes it into ${dirText()} and switches it on. A plugin runs inside the engine and sees every request, so install code you trust.`,
 			confirmLabel: update ? "Update plugin" : "Install plugin",
 		});
 		if (!ok) return;
@@ -251,7 +253,7 @@ export async function render(ctx) {
 		paintStore();
 		try {
 			const result = await engine.post(`plugins/store/${encodeURIComponent(plugin.id)}/install`, {}, { query: { source: plugin.source_id } });
-			outcomes.set(plugin.id, { kind: "ok", text: `Installed ${plain(result?.version || plugin.version || "")}`.trim() + (result?.path ? ` at ${plain(result.path)}.` : "."), more: result?.plugins_enabled === false ? "Plugin loading is off, so it will not run until you turn it on above." : result?.restart_required ? "Restart the engine to finish." : null });
+			outcomes.set(plugin.id, { kind: "ok", text: `Installed ${plain(result?.version || plugin.version || "")}`.trim() + (result?.path ? ` at ${plain(result.path)}.` : "."), more: result?.plugins_enabled === false ? "Plugin loading is off, so it will not run until you turn it on at the top." : result?.restart_required ? "Restart the engine to finish." : null });
 			toast(`${update ? "Updated" : "Installed"} ${name}`);
 		} catch (e) {
 			const { code, message } = failure(e);
@@ -272,20 +274,15 @@ export async function render(ctx) {
 		let action;
 		if (busy) action = btn("Installing…", { cls: "outline sm", disabled: true });
 		else if (has && plugin.update_available) action = btn(`Update to ${plain(plugin.version)}`, { cls: "primary sm", onClick: () => install(plugin, true) });
-		else if (has) action = badge(`installed${plugin.installed_version ? ` ${plain(plugin.installed_version)}` : ""}`, "ok");
+		else if (has) action = h("span", { class: "plug-installed" }, icon("check", 13), `Installed${plugin.installed_version ? ` ${plain(plugin.installed_version)}` : ""}`);
 		else action = btn("Install", { cls: "outline sm", icon: "download", onClick: () => install(plugin, false) });
+		const tags = [...new Set((plugin.tags ?? []).map((tag) => titleCase(plain(tag))))].slice(0, 3);
 		return h("article", { class: "plug-item" },
-			h("div", { class: "row plug-item-head" }, mark(name), h("div", { class: "lt" }, h("div", { class: "main" }, name), h("div", { class: "sub" }, plugin.author ? `by ${plain(plugin.author)}` : plugin.id))),
+			h("div", { class: "plug-item-head" }, mark(name), h("div", { class: "lt" }, h("div", { class: "main" }, name), h("div", { class: "sub" }, plugin.author ? `by ${plain(plugin.author)}` : plugin.id, plugin.version ? h("span", { class: "plug-ver" }, ` · v${plain(plugin.version).replace(/^v/, "")}`) : null))),
 			h("p", { class: "plug-desc" }, plain(plugin.description) || "No description."),
-			h("div", { class: "row wrap plug-meta" },
-				plugin.version ? badge(`v${plain(plugin.version).replace(/^v/, "")}`) : null,
-				plugin.license ? badge(plain(plugin.license), "outline") : null,
-				badge(plain(plugin.install_type || "unknown install"), "outline"),
-				(plugin.tags ?? []).slice(0, 2).map((tag) => badge(plain(tag), "violet")),
-				plugin.platforms?.length ? badge(plugin.platforms.map((p) => `${p.goos}/${p.goarch}`).join(", "), "outline") : null,
-			),
-			needsAuth ? h("p", { class: "plug-note warn" }, "This download needs credentials. Add a matching rule under ", h("code", null, "plugins.store-auth"), " in Configuration first, or the install fails.") : null,
-			h("div", { class: "row plug-foot" }, action, h("span", { class: "spacer" }), homepage ? link(homepage, "Source") : null),
+			tags.length ? h("div", { class: "plug-tags" }, tags.map((t) => h("span", { class: "plug-tag" }, t))) : null,
+			needsAuth ? h("p", { class: "plug-note warn" }, "This download needs credentials. Add a matching rule under ", h("code", null, "plugins.store-auth"), " in Configuration first.") : null,
+			h("div", { class: "plug-foot" }, action, h("span", { class: "spacer" }), homepage ? link(homepage, "Source") : null),
 			outcome ? h("div", { class: `plug-result ${outcome.kind}`, role: outcome.kind === "bad" ? "alert" : "status" },
 				h("div", { class: "plug-result-head" }, outcome.kind === "bad" ? "Install failed" : "Done", outcome.code ? h("code", null, outcome.code) : null, iconBtn("x", "Dismiss", () => { outcomes.delete(plugin.id); paintStore(); }, "sm")),
 				h("pre", { class: "plug-result-text" }, outcome.text),
@@ -293,67 +290,133 @@ export async function render(ctx) {
 		);
 	}
 
-	const storeToolbar = h("div", { class: "row wrap plug-toolbar" });
+	const kindBar = h("div", { class: "plug-kinds", role: "group", "aria-label": "Kind" });
 	const storeList = h("div");
 	const storeFoot = h("div", { class: "plug-more" });
-	const tagSelect = h("div");
+	const summary = h("span", { class: "plug-summary", role: "status" });
+	const storeSearch = h("input", { class: "input", type: "search", placeholder: "Search the store", "aria-label": "Search the store", autocomplete: "off" });
+	storeSearch.addEventListener("input", debounce(() => { storeQuery = storeSearch.value; storeLimit = STORE_PAGE; paintStore(); }, 120));
+	storeSearch.addEventListener("search", () => { if (!storeSearch.value) { storeQuery = ""; paintStore(); } });
+
+	// The kind buttons are built once per load and only re-marked, so focus and arrow keys survive a filter.
+	function paintKinds() {
+		const all = storeInfo?.plugins?.length ?? 0;
+		const options = [{ value: "all", label: "All", n: all }, ...kinds()];
+		kindBar.replaceChildren(...options.map((o) => h("button", { type: "button", class: "plug-kind", dataset: { kind: o.value }, "aria-pressed": String(storeKind === o.value), onClick: () => setKind(o.value) }, o.label, h("span", { class: "plug-kind-n" }, fmtInt(o.n)))));
+	}
+	function setKind(value) {
+		storeKind = value;
+		storeLimit = STORE_PAGE;
+		for (const b of kindBar.children) b.setAttribute("aria-pressed", String(b.dataset.kind === value));
+		paintStore();
+	}
+	kindBar.addEventListener("keydown", (e) => {
+		if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+		const items = [...kindBar.children];
+		const i = items.indexOf(document.activeElement);
+		if (i === -1) return;
+		e.preventDefault();
+		items[(i + (e.key === "ArrowRight" ? 1 : -1) + items.length) % items.length].focus();
+	});
+
 	function paintStore() {
 		if (storeError) { storeBody.replaceChildren(errorState(storeError, load)); return; }
 		if (!storeInfo) return;
 		const plugins = storeInfo.plugins ?? [];
 		const needle = storeQuery.trim().toLowerCase();
-		const rows = plugins.filter((plugin) => (storeTag === "all" || (plugin.tags ?? []).some((tag) => plain(tag).toLowerCase() === storeTag)) && (!needle || `${plugin.name} ${plugin.id} ${plugin.description} ${plugin.author}`.toLowerCase().includes(needle)));
-		tagSelect.replaceChildren(select([{ value: "all", label: "All kinds" }, ...tagOptions()], storeTag, (value) => { storeTag = value; storeLimit = STORE_PAGE; paintStore(); }, { "aria-label": "Filter by kind" }));
+		const rows = plugins.filter((plugin) => (storeKind === "all" || (plugin.tags ?? []).some((tag) => plain(tag).toLowerCase() === storeKind)) && (!needle || `${plugin.name} ${plugin.id} ${plugin.description} ${plugin.author} ${(plugin.tags ?? []).join(" ")}`.toLowerCase().includes(needle)));
 		const errors = storeInfo.source_errors ?? [];
 		storeList.replaceChildren(...[
 			errors.length ? h("div", { class: "plug-result bad", role: "alert" }, h("div", { class: "plug-result-head" }, "Some store sources did not load"), h("pre", { class: "plug-result-text" }, errors.map((err) => `${plain(err.source_name || err.source_id)}: ${plain(err.message)}`).join("\n"))) : null,
-			rows.length ? h("div", { class: "plug-grid" }, rows.slice(0, storeLimit).map(storeItem)) : empty({ icon: "search", title: plugins.length ? "No plugins match" : "The store is empty", hint: plugins.length ? "Try another word, or show all kinds." : "The configured store sources returned no plugins." }),
+			rows.length ? h("div", { class: "plug-grid" }, rows.slice(0, storeLimit).map(storeItem)) : empty({ icon: "search", title: plugins.length ? "No plugins match" : "The store is empty", hint: plugins.length ? "Try another word, or show all kinds." : "The configured store sources returned no plugins.", action: plugins.length && (needle || storeKind !== "all") ? btn("Show everything", { cls: "outline", onClick: () => { storeSearch.value = ""; storeQuery = ""; setKind("all"); } }) : null }),
 		].filter(Boolean));
-		storeFoot.replaceChildren(rows.length > storeLimit ? btn(`Show ${fmtInt(Math.min(STORE_PAGE * 2, rows.length - storeLimit))} more of ${fmtInt(rows.length - storeLimit)}`, { cls: "outline", onClick: () => { storeLimit += STORE_PAGE * 2; paintStore(); } }) : null);
-		summary.textContent = `${fmtInt(rows.length)} of ${fmtInt(plugins.length)} plugins${storeInfo.sources?.length ? ` from ${storeInfo.sources.map((src) => plain(src.name)).join(" and ")}` : ""}`;
+		storeFoot.replaceChildren(rows.length > storeLimit ? btn(`Show ${fmtInt(Math.min(STORE_PAGE * 2, rows.length - storeLimit))} more`, { cls: "outline", onClick: () => { storeLimit += STORE_PAGE * 2; paintStore(); } }) : null);
+		summary.textContent = `${fmtInt(Math.min(storeLimit, rows.length))} of ${fmtInt(rows.length)}${rows.length !== plugins.length ? ` matching` : ""}${storeInfo.sources?.length ? ` · from ${storeInfo.sources.map((src) => plain(src.name)).join(" and ")}` : ""}`;
 	}
-	const summary = h("span", { class: "ink-3", style: { fontSize: "12.5px" }, role: "status" });
-	storeToolbar.append(search("Search the store", debounce((value) => { storeQuery = value; storeLimit = STORE_PAGE; paintStore(); })), tagSelect, h("span", { class: "spacer" }), summary);
-	storeBody.replaceChildren(h("div", { class: "plug-store-wrap" },
-		h("div", { class: "plug-honest" },
-			icon("info", 15),
-			h("p", null, "The store does not publish which engine versions or OS and CPU a plugin supports. That is settled when you press Install: the engine looks for a release file built for its own OS and CPU and checks its checksum. If either is missing, the reason appears on that plugin's card. Installing does not prove a plugin works; once loaded, it shows as running under Installed.")),
-		storeToolbar, storeList, storeFoot));
-	const storeCard = card({ title: "Store", sub: "Community plugins published as GitHub releases.", body: storeBody, flush: true });
+	storeBody.replaceChildren(h("div", { class: "plug-store" },
+		h("div", { class: "plug-toolbar" }, h("div", { class: "search" }, icon("search", 15), storeSearch), summary),
+		kindBar,
+		storeList,
+		storeFoot,
+		h("details", { class: "plug-how" },
+			h("summary", null, icon("info", 14), "How installing works"),
+			h("p", null, "The store doesn't say which engine versions or systems a plugin supports. That is settled when you press Install: the engine looks for a release file built for its own system, checks its checksum, and tells you on the card if either is missing. Installing doesn't prove a plugin works; once loaded, it shows as running under Installed.")),
+	));
 
-	// ---------- write your own ----------
+	// ---------- build your own ----------
 
 	const steps = [
-		["Start from an example", h("span", null, "Copy ", filePath("examples/plugin/simple/go", true), " (the full skeleton) or a single-capability one such as ", filePath("examples/plugin/executor/go", true), ". It exports ", h("code", null, "cliproxy_plugin_init"), ", answers ", h("code", null, "plugin.register"), " with its metadata and the capabilities it implements, and handles the calls the engine sends. There are Go, C and Rust versions of each.")],
-		["Build a shared library", h("span", null, "With cgo on: ", h("code", { class: "plug-cmd" }, "go build -buildmode=c-shared -o my-plugin.so ."), " (", h("code", null, ".dylib"), " on macOS, ", h("code", null, ".dll"), " on Windows). ", h("code", null, "make -C examples/plugin build"), " does this for every example.")],
-		["Drop it in the directory", h("span", null, "Put it in ", h("code", null, dirText()), " as ", h("code", null, "<id>.so"), " or ", h("code", null, "<id>-v<version>.so"), " for the same OS and CPU as the engine. The id may use letters, digits, dot, dash and underscore. Switch on plugin loading above, press Reload, and switch the plugin on in Installed (", h("code", null, "plugins.configs.<id>.enabled"), ")."),],
+		["Start from an example", h("span", null, "Copy ", filePath("examples/plugin/simple/go", true), " (the full skeleton) or a single-capability one such as ", filePath("examples/plugin/executor/go", true), ". It exports ", h("code", null, "cliproxy_plugin_init"), ", answers ", h("code", null, "plugin.register"), " with its metadata, and handles the calls the engine sends. Each example exists in Go, C and Rust.")],
+		["Build a shared library", h("span", null, "With cgo on: ", h("code", { class: "plug-cmd" }, "go build -buildmode=c-shared -o my-plugin.so ."), " (", h("code", null, ".dylib"), " on macOS, ", h("code", null, ".dll"), " on Windows). ", h("code", null, "make -C examples/plugin build"), " builds every example.")],
+		["Drop it in the folder", () => h("span", null, "Put it in ", h("code", null, dirText()), " as ", h("code", null, "<id>.so"), " or ", h("code", null, "<id>-v<version>.so"), ", built for the engine's system. Turn on plugin loading at the top, press Reload, and switch the plugin on under Installed.")],
 	];
-	const writeBody = h("div", { class: "plug-write" },
+	const buildBody = () => h("div", { class: "plug-write" },
 		h("div", null,
-			h("p", { class: "ink-2", style: { marginTop: 0 } }, "Nothing here needs the store: any library that exports the entry point and speaks the JSON call protocol loads from the directory."),
-			h("ol", { class: "plug-steps" }, steps.map(([title, body]) => h("li", null, h("strong", null, title), h("div", { class: "ink-2" }, body)))),
+			h("p", { class: "ink-2", style: { marginTop: 0 } }, "A plugin is a native library (", h("code", null, ".so"), ", ", h("code", null, ".dylib"), " or ", h("code", null, ".dll"), ") the engine loads into its own process. It can add a provider or sign-in, route or schedule requests, rewrite them, report usage, or serve its own management pages. No store needed."),
+			h("ol", { class: "plug-steps" }, steps.map(([title, body]) => h("li", null, h("strong", null, title), h("div", { class: "ink-2" }, typeof body === "function" ? body() : body)))),
 		),
-		h("div", null,
-			h("div", { class: "plug-src-title" }, "Where it is defined in this repo"),
+		h("div", { class: "plug-src" },
+			h("div", { class: "plug-src-title" }, "Where it's defined"),
 			kv([
 				["Call protocol", h("div", null, filePath("sdk/pluginabi/types.go"), h("div", { class: "hint" }, "ABI and schema versions, method names such as ", h("code", null, "plugin.register"), "."))],
-				["Capability types", h("div", null, filePath("sdk/pluginapi/types.go"), h("div", { class: "hint" }, "Metadata, config fields, and the provider, executor, scheduler and router interfaces."))],
-				["Loader", h("div", null, filePath("internal/pluginhost/loader_unix.go"), h("div", { class: "hint" }, "Opens the library with dlopen and looks up ", h("code", null, "cliproxy_plugin_init"), ". Windows: ", h("code", null, "loader_windows.go"), "."))],
+				["Capabilities", h("div", null, filePath("sdk/pluginapi/types.go"), h("div", { class: "hint" }, "Metadata, settings, and the provider, executor, scheduler and router interfaces."))],
+				["Loader", h("div", null, filePath("internal/pluginhost/loader_unix.go"), h("div", { class: "hint" }, "Opens the library and looks up ", h("code", null, "cliproxy_plugin_init"), ". Windows: ", h("code", null, "loader_windows.go"), "."))],
 				["Discovery", h("div", null, filePath("internal/pluginhost/platform.go"), h("div", { class: "hint" }, "Which file names count, and the ", h("code", null, "<dir>/<os>/<cpu>/"), " lookup."))],
 				["Examples", h("div", null, filePath("examples/plugin", true), h("div", { class: "hint" }, "Each capability in Go, C and Rust, with a Makefile."))],
 			]),
 		),
 	);
-	writeAnchor.append(card({ title: "Write your own", sub: "A plugin is code you build, not something only the store can provide.", body: writeBody }));
+	const buildHost = h("div");
+
+	// ---------- tabs ----------
+
+	const panels = { installed: installedBody, store: storeBody, build: buildHost };
+	const tabBar = h("div", { class: "plug-tabs", role: "tablist", "aria-label": "Plugins" });
+	const panel = h("div", { class: "plug-panel", role: "tabpanel", tabindex: -1 });
+	const tabDefs = () => [
+		{ id: "installed", label: "Installed", n: installed().length },
+		{ id: "store", label: "Store", n: storeInfo?.plugins?.length ?? null },
+		{ id: "build", label: "Build your own", n: null },
+	];
+	function paintTabs() {
+		tab ??= installed().length ? "installed" : "store";
+		const focused = tabBar.contains(document.activeElement);
+		tabBar.replaceChildren(...tabDefs().map((t) => h("button", {
+			type: "button", role: "tab", id: `plug-tab-${t.id}`, "aria-selected": String(tab === t.id), tabindex: tab === t.id ? 0 : -1, "aria-controls": "plug-panel",
+			onClick: () => setTab(t.id),
+		}, t.label, t.n !== null ? h("span", { class: "plug-tab-n" }, fmtInt(t.n)) : null)));
+		panel.id = "plug-panel";
+		panel.setAttribute("aria-labelledby", `plug-tab-${tab}`);
+		if (tab === "build" && !buildHost.childElementCount) buildHost.append(buildBody());
+		if (panel.firstChild !== panels[tab]) panel.replaceChildren(panels[tab]);
+		if (focused) tabBar.querySelector('[aria-selected="true"]')?.focus();
+	}
+	function setTab(id, focusPanel = false) {
+		tab = id;
+		history.replaceState(null, "", `#/plugins?tab=${id}`);
+		paintTabs();
+		if (focusPanel) (id === "store" ? storeSearch : panel).focus({ preventScroll: true });
+	}
+	tabBar.addEventListener("keydown", (e) => {
+		const order = tabDefs().map((t) => t.id);
+		const i = order.indexOf(tab);
+		let next = null;
+		if (e.key === "ArrowRight") next = order[(i + 1) % order.length];
+		else if (e.key === "ArrowLeft") next = order[(i - 1 + order.length) % order.length];
+		else if (e.key === "Home") next = order[0];
+		else if (e.key === "End") next = order.at(-1);
+		if (!next) return;
+		e.preventDefault();
+		setTab(next);
+		tabBar.querySelector('[aria-selected="true"]')?.focus();
+	});
 
 	// ---------- page ----------
 
 	root.append(
-		pageHead({ title: "Plugins", desc: "Extensions that run inside this engine. This page shows whether plugins are on here, what is installed, what the store offers, and how to build your own.", actions: [btn("Reload", { icon: "refresh", cls: "outline", onClick: load })] }),
-		card({ title: "Plugins on this engine", body: statusBody }),
-		card({ title: "Installed", sub: "Switch a plugin on or off, or remove it. Click one for its details.", body: installedBody, flush: true }),
-		storeCard,
-		writeAnchor,
+		pageHead({ title: "Plugins", desc: "Native extensions that run inside the engine: new providers and sign-ins, routing, usage reports.", actions: [btn("Reload", { icon: "refresh", cls: "outline", onClick: load })] }),
+		card({ body: statusBody, cls: "plug-status-card" }),
+		h("div", { class: "plug-tabwrap" }, tabBar, panel),
 	);
 	const escape = (e) => { if (e.key === "Escape" && selected) closeInspector(); };
 	document.addEventListener("keydown", escape);
