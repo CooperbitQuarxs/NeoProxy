@@ -18,7 +18,7 @@ claude-code: {disable-cloaking-model-list: true}
 disable-claude-cloak-mode: true
 claude-header-defaults: {user-agent: client-agent, package-version: 1.2.3, runtime-version: v22.1.0, os: Linux, arch: arm64, timeout: '123', timezone: Asia/Shanghai, stabilize-device-profile: true}
 xai: {inject-x-search: true}
-oauth: {auth-dir: client-auth, auth-auto-refresh-workers: 3, providers: {codex: {header-defaults: {user-agent: oauth-agent, beta-features: oauth-beta}}}}
+oauth: {auth-dir: client-auth, auth-auto-refresh-workers: 3}
 api-keys: {codex: [{base-url: https://example.invalid, keys: [{api-key: test-key, disable-codex-cloaking: false}]}]}
 `)
 	canonical := []byte(`upstream:
@@ -29,14 +29,14 @@ api-keys: {codex: [{base-url: https://example.invalid, keys: [{api-key: test-key
     disable-claude-cloak-mode: true
     header-defaults: {user-agent: client-agent, package-version: 1.2.3, runtime-version: v22.1.0, os: Linux, arch: arm64, timeout: '123', timezone: Asia/Shanghai, stabilize-device-profile: true}
   xai: {inject-x-search: true}
-oauth: {auth-dir: client-auth, auth-auto-refresh-workers: 3, providers: {codex: {header-defaults: {user-agent: oauth-agent, beta-features: oauth-beta}}}}
+oauth: {auth-dir: client-auth, auth-auto-refresh-workers: 3}
 api-keys: {codex: [{base-url: https://example.invalid, keys: [{api-key: test-key, disable-codex-cloaking: false}]}]}
 `)
 	historical := []byte(`oauth:
   auth-dir: client-auth
   auth-auto-refresh-workers: 3
   providers:
-    codex: {disable-codex-cloaking: true, stream-bootstrap-buffering: true, stream-bootstrap-timeout: 10s, orphan-delegation-compatibility: true, model-level-cooling: true, response-steering: true, header-defaults: {user-agent: oauth-agent, beta-features: oauth-beta}}
+    codex: {disable-codex-cloaking: true, stream-bootstrap-buffering: true, stream-bootstrap-timeout: 10s, orphan-delegation-compatibility: true, model-level-cooling: true, response-steering: true}
     claude:
       model-level-cooling: true
       claude-code: {disable-cloaking-model-list: true}
@@ -68,8 +68,8 @@ api-keys: {codex: [{base-url: https://example.invalid, keys: [{api-key: test-key
 			if errDecode := yaml.Unmarshal(migrated, &doc); errDecode != nil {
 				t.Fatal(errDecode)
 			}
-			if yamlPath(doc.Content[0], "oauth.auth-dir") == nil || yamlPath(doc.Content[0], "upstream.claude.header-defaults.timezone") == nil || yamlPath(doc.Content[0], "oauth.providers.codex.header-defaults.user-agent") == nil {
-				t.Fatal("migration did not separate shared upstream fields from OAuth headers")
+			if yamlPath(doc.Content[0], "oauth.auth-dir") == nil || yamlPath(doc.Content[0], "upstream.claude.header-defaults.timezone") == nil {
+				t.Fatal("migration did not separate shared upstream fields from OAuth settings")
 			}
 			for _, alias := range v8Aliases {
 				if yamlPath(doc.Content[0], alias.old) != nil {
@@ -112,8 +112,8 @@ api-keys: {codex: [{base-url: https://example.invalid, keys: [{api-key: test-key
 							t.Fatalf("%s changed shared configuration: got %#v, want %#v", name, actual, expected)
 						}
 					}
-					if view.ForAPIKey().CodexHeaderDefaults.UserAgent != "" || view.CodexHeaderDefaults.UserAgent != "oauth-agent" || len(view.CodexKey) != 1 || view.CodexKey[0].DisableCodexCloaking == nil || *view.CodexKey[0].DisableCodexCloaking {
-						t.Fatal("OAuth-only headers or explicit key override lost their scope")
+					if len(view.CodexKey) != 1 || view.CodexKey[0].DisableCodexCloaking == nil || *view.CodexKey[0].DisableCodexCloaking {
+						t.Fatal("explicit key override lost its scope")
 					}
 				}
 			}

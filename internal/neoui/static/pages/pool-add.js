@@ -202,7 +202,9 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 					h("li", null, asDevice ? `A short code appears here; open ${site}'s device page on any machine and type it in.` : `${site}'s sign-in page opens in a new tab.`),
 					h("li", null, "Sign in with the account you want to share and approve access."),
 					h("li", null, flow === "code" ? `${site} can't send you back here, so copy the address its page hands off to (or the code in it) and paste it in this tab.` : "Come back to this tab. It notices the sign-in by itself and adds the account to the pool under your name.")),
-				sub.note && !asDevice ? h("p", { class: "pa-detail" }, sub.note) : null,
+				// Browser sign-ins all come back the same way; the catalog's notes for them
+				// repeat step 1 or describe the plumbing, so say the one thing a person needs.
+				asDevice ? null : flow === "browser" ? h("p", { class: "pa-detail" }, "If this page doesn't continue after you approve, copy the address your browser ends up on and paste it on the next screen.") : sub.note ? h("p", { class: "pa-detail" }, sub.note) : null,
 				error ? notice("bad", "Sign-in didn't complete", error) : null,
 				h("div", { class: "pa-actions" }, btn(asDevice ? "Get a code" : `Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) })),
 			);
@@ -243,7 +245,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 				r.url && !device ? h("p", { class: "pa-detail" }, "No tab opened? ", h("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "Open the sign-in page", icon("external", 12))) : null,
 				flow === "code"
 					? h("div", { class: "pa-stack" }, h("p", { class: "pa-detail" }, "After you approve, ", site, " tries to open its own app at an address starting with ", h("code", null, "zcode://"), ". Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the “Failed to launch” message."), pasteRow("zcode://zai-auth/callback?code=…", true))
-					: device ? null : h("details", { class: "pa-details" }, h("summary", null, "Signed in, but this page didn't move on?"), h("p", { class: "pa-detail" }, "If the provider's page ended on an address that didn't load (for example on another computer), copy that full address and paste it here."), pasteRow("http://localhost:…/callback?code=…  or just the code", false)),
+					: device ? null : h("div", { class: "pa-stack pa-fallback" }, h("p", { class: "pa-detail" }, "If this page doesn't continue after you approve, copy the address your browser ends up on and paste it here."), pasteRow("The address your browser ends up on, or just the code", false)),
 				note,
 				h("div", { class: "pa-actions" }, btn("Start over", { onClick: () => { stop(); dead = false; idle(); } })),
 			);
