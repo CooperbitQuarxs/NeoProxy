@@ -58,7 +58,7 @@ func TestOwnedAPIKeyUsesExistingEngineConfigurationAndStableAuthIdentity(t *test
 		}
 	})
 	ctx := neo.WithPrincipal(context.Background(), neo.Principal{UserID: "owner-a", Role: neo.RoleOwner, Session: true})
-	record, err := engine.CreateAccountAPIKey(ctx, "codex", "synthetic-provider-key-not-a-real-secret")
+	record, err := engine.CreateAccountAPIKey(ctx, coreauth.AccountKey{Provider: "codex", APIKey: "synthetic-provider-key-not-a-real-secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,13 +92,13 @@ func TestOwnedAPIKeyUsesExistingEngineConfigurationAndStableAuthIdentity(t *test
 	if !strings.Contains(string(data), "synthetic-provider-key-not-a-real-secret") {
 		t.Fatal("credential not persisted in existing engine config")
 	}
-	if _, err = engine.CreateAccountAPIKey(ctx, "codex", "synthetic-provider-key-not-a-real-secret"); !errors.Is(err, coreauth.ErrAccountKeyConflict) {
+	if _, err = engine.CreateAccountAPIKey(ctx, coreauth.AccountKey{Provider: "codex", APIKey: "synthetic-provider-key-not-a-real-secret"}); !errors.Is(err, coreauth.ErrAccountKeyConflict) {
 		t.Fatalf("duplicate key silently adopted: %v", err)
 	}
-	if _, err = engine.CreateAccountAPIKey(ctx, "https://arbitrary-upstream.invalid", "another-key"); !errors.Is(err, coreauth.ErrAccountKeyInvalid) {
+	if _, err = engine.CreateAccountAPIKey(ctx, coreauth.AccountKey{Provider: "https://arbitrary-upstream.invalid", APIKey: "another-key"}); !errors.Is(err, coreauth.ErrAccountKeyInvalid) {
 		t.Fatalf("owner chose arbitrary upstream: %v", err)
 	}
-	if _, err = engine.CreateAccountAPIKey(context.Background(), "codex", "another-key"); !errors.Is(err, coreauth.ErrAccountKeyInvalid) {
+	if _, err = engine.CreateAccountAPIKey(context.Background(), coreauth.AccountKey{Provider: "codex", APIKey: "another-key"}); !errors.Is(err, coreauth.ErrAccountKeyInvalid) {
 		t.Fatalf("operator request claimed owner without session: %v", err)
 	}
 }

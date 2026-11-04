@@ -399,6 +399,15 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 			s.manager.RegisterExecutor(s.sourceFactory(provider))
 		}
 		authID := sourceAuthID(id, a.ID)
+		// A dashboard detach removes one account from the pool without touching
+		// NeoPi; a dashboard pause keeps it listed but out of routing.
+		var localDisabled, detached bool
+		if errLocal := s.db.QueryRowContext(ctx, `SELECT disabled,detached FROM neo_access WHERE account_id=?`, AccountID(authID)).Scan(&localDisabled, &detached); errLocal != nil && !errors.Is(errLocal, sql.ErrNoRows) {
+			return fail(fmt.Errorf("read gateway account state failed"))
+		}
+		if detached {
+			continue
+		}
 		seen[authID] = true
 		windows := make([]Window, 0, len(a.Windows))
 		for _, native := range a.Windows {
@@ -416,7 +425,7 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 		if len(label) > 256 {
 			label = label[:256]
 		}
-		attrs := map[string]string{"neopi_source_id": id, "neopi_source_label": v.Label, "neopi_credential_id": a.ID, "neopi_provider": a.Provider, "neopi_windows": string(raw), "base_url": v.URL + "/v1"}
+		attrs := map[string]string{"neopi_source_id": id, "neopi_source_label": v.Label, "neopi_credential_id": a.ID, "neopi_provider": a.Provider, "neopi_state": a.State, "neopi_windows": string(raw), "base_url": v.URL + "/v1"}
 		// Install durable ownership before publishing runtime inventory. A concurrent
 		// snapshot cannot create a newly imported account without its default owner.
 		if _, err = s.db.ExecContext(ctx, `INSERT INTO neo_accounts(id,engine_auth_id,provider_id,owner_id) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET provider_id=excluded.provider_id,owner_id=COALESCE(neo_accounts.owner_id,excluded.owner_id)`, AccountID(authID), authID, provider, v.OwnerID); err != nil {
@@ -428,7 +437,7 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 			auth = current.Clone()
 			auth.Label, auth.Attributes = label, attrs
 		}
-		auth.Disabled = a.State != "healthy"
+		auth.Disabled = a.State != "healthy" || localDisabled
 		if auth.Disabled {
 			auth.Status = coreauth.StatusDisabled
 		} else if auth.Status == coreauth.StatusDisabled {

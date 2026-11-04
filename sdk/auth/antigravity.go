@@ -12,6 +12,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/browser"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/oauthpage"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -227,9 +228,13 @@ func startAntigravityCallbackServer(port int) (*http.Server, int, <-chan callbac
 		}
 		resultCh <- res
 		if res.Code != "" && res.Error == "" {
-			_, _ = w.Write([]byte("<h1>Login successful</h1><p>You can close this window.</p>"))
+			oauthpage.Write(w, http.StatusOK, oauthpage.Page{Provider: "antigravity", Success: true})
 		} else {
-			_, _ = w.Write([]byte("<h1>Login failed</h1><p>Please check the CLI output.</p>"))
+			detail := res.Error
+			if detail == "" {
+				detail = "No authorization code was returned."
+			}
+			oauthpage.Write(w, http.StatusOK, oauthpage.Page{Provider: "antigravity", Detail: detail})
 		}
 	})
 
