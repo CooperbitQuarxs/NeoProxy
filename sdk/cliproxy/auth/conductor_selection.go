@@ -1650,15 +1650,7 @@ func (m *Manager) GetExecutionSessionAuthByID(sessionID string, authID string) (
 }
 
 func canonicalSchedulingProvider(key string) string {
-	lower := strings.ToLower(strings.TrimSpace(key))
-	switch lower {
-	case "kimi.com":
-		return "kimi"
-	case "kimi.ai":
-		return "kimi-ai"
-	default:
-		return lower
-	}
+	return strings.ToLower(strings.TrimSpace(key))
 }
 
 func (m *Manager) executorLocked(provider string) (ProviderExecutor, bool) {
@@ -1672,12 +1664,6 @@ func (m *Manager) executorLocked(provider string) (ProviderExecutor, bool) {
 		lowerProvider := strings.ToLower(provider)
 		if lowerProvider != provider {
 			executor, okExecutor = m.executors[lowerProvider]
-		}
-	}
-	if !okExecutor {
-		switch strings.ToLower(provider) {
-		case "kimi-ai", "kimi.ai", "kimi.com":
-			executor, okExecutor = m.executors["kimi"]
 		}
 	}
 	if !okExecutor || executor == nil {

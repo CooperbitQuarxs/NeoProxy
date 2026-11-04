@@ -194,7 +194,7 @@ func TestApplyPatchBridgeLiveHTTPPreviewMatrix(t *testing.T) {
 	}{
 		{"custom-compat", "chat", false}, {"claude", "claude", false}, {"claude-oauth", "claude", false},
 		{"gemini-interactions", "interactions", false}, {"devin", "devin", false},
-		{"xai", "responses", false}, {"meta", "responses", false}, {"kimi", "responses", false},
+		{"xai", "responses", false}, {"meta", "responses", false},
 		{"gemini", "gemini", true}, {"vertex", "gemini", true}, {"antigravity", "antigravity", true},
 	} {
 		t.Run(tc.provider, func(t *testing.T) {
@@ -490,50 +490,6 @@ func TestApplyPatchBridgeOrdinaryFunctionControl(t *testing.T) {
 			arguments := gjson.GetBytes(response.Payload, path).String()
 			if arguments != args || !gjson.Valid(arguments) || bytes.Contains(response.Payload, []byte(`"custom_tool_call"`)) {
 				t.Fatalf("ordinary JSON function promoted to freeform: %s", response.Payload)
-			}
-		})
-	}
-}
-
-// Kimi selects its reused Chat and Claude executors for these ordinary clients.
-// Custom Responses clients select Kimi's Responses branch, covered by the HTTP matrix.
-func TestApplyPatchBridgeKimiReusedClientControls(t *testing.T) {
-	for _, source := range []sdktranslator.Format{sdktranslator.FormatOpenAI, sdktranslator.FormatClaude} {
-		t.Run(source.String(), func(t *testing.T) {
-			args := `{"input":"RAW_SECRET","extra":7}`
-			reply := applyPatchTestChatReply(args)
-			payload := []byte(`{"messages":[{"role":"user","content":"edit"}],"tools":[{"type":"function","function":{"name":"apply_patch","parameters":{"type":"object","properties":{"input":{"type":"string"},"extra":{"type":"integer"}}}}}]}`)
-			if source == sdktranslator.FormatClaude {
-				payload = []byte(`{"messages":[{"role":"user","content":"edit"}],"tools":[{"name":"apply_patch","input_schema":{"type":"object","properties":{"input":{"type":"string"},"extra":{"type":"integer"}}}}]}`)
-				reply = fmt.Sprintf("data: {\"type\":\"message_start\",\"message\":{\"id\":\"r1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"k2.5\",\"content\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n"+
-					"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"c1\",\"name\":\"apply_patch\",\"input\":{}}}\n\n"+
-					"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":%q}}\n\n"+
-					"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n"+
-					"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":1}}\n\n"+
-					"data: {\"type\":\"message_stop\"}\n\n", args)
-			}
-			_, auth, bodies := newApplyPatchCompatTestExecutor(t, reply)
-			auth.Provider = "kimi"
-			exec := NewKimiExecutor(&config.Config{}).ForAPIKey()
-			response, errExecute := exec.Execute(t.Context(), auth, cliproxyexecutor.Request{Model: "kimi-k2.5", Payload: payload}, cliproxyexecutor.Options{SourceFormat: source, OriginalRequest: payload})
-			if errExecute != nil {
-				t.Fatal(errExecute)
-			}
-			body := <-bodies
-			tool := gjson.GetBytes(body, "tools.0.function")
-			parameters := "parameters"
-			if source == sdktranslator.FormatClaude {
-				tool, parameters = gjson.GetBytes(body, "tools.0"), "input_schema"
-			}
-			if !tool.Get(parameters+".properties.extra").Exists() || strings.Contains(tool.Get("description").String(), "*** Begin Patch") || bytes.Contains(response.Payload, []byte("custom_tool_call")) || !bytes.Contains(response.Payload, []byte("RAW_SECRET")) {
-				t.Fatalf("ordinary reused client was promoted or restricted: request=%s response=%s", body, response.Payload)
-			}
-			arguments := gjson.GetBytes(response.Payload, "choices.0.message.tool_calls.0.function.arguments").String()
-			if source == sdktranslator.FormatClaude {
-				arguments = gjson.GetBytes(response.Payload, "content.0.input").Raw
-			}
-			if !gjson.Valid(arguments) || gjson.Get(arguments, "extra").Int() != 7 {
-				t.Fatalf("ordinary function lost valid JSON: %s", response.Payload)
 			}
 		})
 	}

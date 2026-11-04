@@ -1,0 +1,565 @@
+{
+  "source": "NeoPi OWN createDeviceCodeLogin/createRefresh (kimi-code)",
+  "kimiHeaders": {
+    "User-Agent": "KimiCLI/18.14.0",
+    "X-Msh-Platform": "kimi_cli",
+    "X-Msh-Version": "18.14.0",
+    "X-Msh-Device-Name": "blackswan",
+    "X-Msh-Device-Model": "Linux 7.1.4-arch1-1 x64",
+    "X-Msh-Os-Version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+    "X-Msh-Device-Id": "076a24ee34484447b04a9b8c795a9290"
+  },
+  "normalizations": [
+    "synthetic credentials only",
+    "Bun.sleep records requested waits without sleeping",
+    "expiry is compared relative to request time"
+  ],
+  "scenarios": [
+    {
+      "kind": "login",
+      "name": "pending-slow-down-then-authorized",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "authorization_pending"
+          }
+        },
+        {
+          "status": 400,
+          "body": {
+            "error": "slow_down"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "kimi-refresh-fake",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+            "scope": "kimi-code"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://www.kimi.com/code/authorize_device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "kimi-refresh-fake",
+        "expires": 1793831275368,
+        "accountId": "kimi-user-fake"
+      },
+      "before": 1793827975355,
+      "after": 1793827975368,
+      "waits": [
+        5000,
+        10000
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "access-denied",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "access_denied"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://www.kimi.com/code/authorize_device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "kimi-code device authorization was denied",
+      "before": 1793827975368,
+      "after": 1793827975369,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "expired-token",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "expired_token"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://www.kimi.com/code/authorize_device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "kimi-code device code expired; restart the login",
+      "before": 1793827975369,
+      "after": 1793827975370,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "unknown-error",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "invalid_client",
+            "error_description": "Client is not allowed"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://www.kimi.com/code/authorize_device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "kimi-code device token request failed: 400 Client is not allowed",
+      "before": 1793827975370,
+      "after": 1793827975370,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "device-rejected",
+      "deviceStatus": 400,
+      "device": {
+        "error": "invalid_client"
+      },
+      "polls": [],
+      "error": "kimi-code device authorization failed: 400 {\"error\":\"invalid_client\"}",
+      "before": 1793827975370,
+      "after": 1793827975371,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "missing-expires-in",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "r"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://www.kimi.com/code/authorize_device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "kimi-code token response missing expires_in",
+      "before": 1793827975371,
+      "after": 1793827975371,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/device_authorization",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "46",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "client_id=17e5f671-d194-4dfb-9706-5516cb48c098"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-rotates",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "kimi-refresh-rotated",
+            "expires_in": 3600,
+            "token_type": "Bearer",
+            "scope": "kimi-code"
+          }
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "kimi-refresh-rotated",
+        "expires": 1793831275372,
+        "accountId": "kimi-user-fake"
+      },
+      "before": 1793827975371,
+      "after": 1793827975372,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=refresh_token&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&refresh_token=kimi-refresh-stored"
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-keeps-unrotated",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "expires_in": 1800
+          }
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJ1c2VyX2lkIjoia2ltaS11c2VyLWZha2UiLCJzdWIiOiJraW1pLXN1Yi1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "kimi-refresh-stored",
+        "expires": 1793829475372,
+        "accountId": "kimi-user-fake"
+      },
+      "before": 1793827975372,
+      "after": 1793827975372,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=refresh_token&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&refresh_token=kimi-refresh-stored"
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-rejected",
+      "polls": [
+        {
+          "status": 401,
+          "body": {
+            "error": "invalid_grant",
+            "error_description": "Refresh token revoked"
+          }
+        }
+      ],
+      "error": "kimi-code token refresh failed: 401 {\"error\":\"invalid_grant\",\"error_description\":\"Refresh token revoked\"}",
+      "before": 1793827975372,
+      "after": 1793827975373,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.kimi.com/api/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.kimi.com",
+            "user-agent": "KimiCLI/18.14.0",
+            "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+            "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+            "x-msh-device-name": "blackswan",
+            "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+            "x-msh-platform": "kimi_cli",
+            "x-msh-version": "18.14.0"
+          },
+          "body": "grant_type=refresh_token&client_id=17e5f671-d194-4dfb-9706-5516cb48c098&refresh_token=kimi-refresh-stored"
+        }
+      ]
+    }
+  ]
+}

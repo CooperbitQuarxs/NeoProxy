@@ -218,8 +218,6 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"aistudio",
 		"antigravity",
 		"kimi",
-		"kimi-ai",
-		"kimi.ai",
 		"xai",
 		"grok-build",
 		"devin",
@@ -335,7 +333,7 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewAntigravityExecutor(cfg))
 	case "claude":
 		s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(cfg))
-	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
+	case "kimi":
 		s.coreManager.RegisterExecutor(executor.NewKimiExecutor(cfg))
 	case "xai":
 		// NeoPi serves xAI over HTTP SSE only; there is no upstream websocket.
