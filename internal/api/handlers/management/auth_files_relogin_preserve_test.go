@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -31,7 +32,7 @@ func TestSaveTokenRecord_PostPersistHookReceivesCanonicalClaudeOAuth(t *testing.
 		return nil
 	})
 
-	tokenStorage := &claude.ClaudeTokenStorage{
+	tokenStorage := &anthropicnpi.Credential{
 		AccessToken:  accessToken,
 		RefreshToken: "refresh-token",
 		LastRefresh:  "2026-03-09T00:00:00Z",
@@ -200,7 +201,7 @@ func TestSaveTokenRecord_MigratesMatchingLegacyClaudeCredential(t *testing.T) {
 		t.Fatalf("write legacy credential: %v", errWrite)
 	}
 
-	tokenStorage := &claude.ClaudeTokenStorage{
+	tokenStorage := &anthropicnpi.Credential{
 		AccessToken:      "new-token",
 		RefreshToken:     "new-refresh",
 		Email:            "user@example.com",

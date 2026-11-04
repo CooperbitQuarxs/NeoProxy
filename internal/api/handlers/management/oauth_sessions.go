@@ -385,8 +385,6 @@ func NormalizeOAuthProvider(provider string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "anthropic", "claude":
 		return "anthropic", nil
-	case "anthropic-npi":
-		return "anthropic-npi", nil
 	case "codex", "openai":
 		return "codex", nil
 	case "antigravity", "anti-gravity":

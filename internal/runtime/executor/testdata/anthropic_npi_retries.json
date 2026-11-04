@@ -4,41 +4,78 @@
   "random": 0.5,
   "cases": [
     {
-      "name": "http-400",
+      "name": "oauth/http-400",
       "status": 400,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-401",
+      "name": "api-key/http-400",
+      "status": 400,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-401",
       "status": 401,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-403",
+      "name": "api-key/http-401",
+      "status": 401,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-403",
       "status": 403,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-408",
+      "name": "api-key/http-403",
+      "status": 403,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-408",
       "status": 408,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -46,21 +83,47 @@
       "success": true
     },
     {
-      "name": "http-409",
+      "name": "api-key/http-408",
+      "status": 408,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-409",
       "status": 409,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-429",
+      "name": "api-key/http-409",
+      "status": 409,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-429",
       "status": 429,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -68,11 +131,25 @@
       "success": true
     },
     {
-      "name": "http-500",
+      "name": "api-key/http-429",
+      "status": 429,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-500",
       "status": 500,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -80,11 +157,25 @@
       "success": true
     },
     {
-      "name": "http-529",
+      "name": "api-key/http-500",
+      "status": 500,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-529",
       "status": 529,
       "headers": {},
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -92,61 +183,131 @@
       "success": true
     },
     {
-      "name": "http-400-retry-true",
+      "name": "api-key/http-529",
+      "status": 529,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-400-retry-true",
       "status": 400,
       "headers": {
         "x-should-retry": "true"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-400-retry-false",
+      "name": "api-key/http-400-retry-true",
+      "status": 400,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-400-retry-false",
       "status": 400,
       "headers": {
         "x-should-retry": "false"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-409-retry-true",
+      "name": "api-key/http-400-retry-false",
+      "status": 400,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-409-retry-true",
       "status": 409,
       "headers": {
         "x-should-retry": "true"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-409-retry-false",
+      "name": "api-key/http-409-retry-true",
+      "status": 409,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-409-retry-false",
       "status": 409,
       "headers": {
         "x-should-retry": "false"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "http-429-retry-true",
+      "name": "api-key/http-409-retry-false",
+      "status": 409,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-429-retry-true",
       "status": 429,
       "headers": {
         "x-should-retry": "true"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -154,13 +315,29 @@
       "success": true
     },
     {
-      "name": "http-429-retry-false",
+      "name": "api-key/http-429-retry-true",
+      "status": 429,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-429-retry-false",
       "status": 429,
       "headers": {
         "x-should-retry": "false"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -168,13 +345,29 @@
       "success": true
     },
     {
-      "name": "http-529-retry-true",
+      "name": "api-key/http-429-retry-false",
+      "status": 429,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-529-retry-true",
       "status": 529,
       "headers": {
         "x-should-retry": "true"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -182,13 +375,29 @@
       "success": true
     },
     {
-      "name": "http-529-retry-false",
+      "name": "api-key/http-529-retry-true",
+      "status": 529,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-529-retry-false",
       "status": 529,
       "headers": {
         "x-should-retry": "false"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -196,13 +405,29 @@
       "success": true
     },
     {
-      "name": "http-429-seconds",
+      "name": "api-key/http-529-retry-false",
+      "status": 529,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-429-seconds",
       "status": 429,
       "headers": {
         "retry-after": "2"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -210,39 +435,14 @@
       "success": true
     },
     {
-      "name": "http-429-short-hint",
+      "name": "api-key/http-429-seconds",
       "status": 429,
-      "headers": {
-        "retry-after": "0.1"
-      },
-      "body": "Transient failure",
-      "failures": 1,
-      "attempts": 2,
-      "waits": [
-        437.5
-      ],
-      "success": true
-    },
-    {
-      "name": "http-429-over-cap",
-      "status": 429,
-      "headers": {
-        "retry-after": "61"
-      },
-      "body": "Transient failure",
-      "failures": 1,
-      "attempts": 1,
-      "waits": [],
-      "success": false
-    },
-    {
-      "name": "http-529-seconds",
-      "status": 529,
       "headers": {
         "retry-after": "2"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": false,
       "attempts": 2,
       "waits": [
         2000
@@ -250,13 +450,14 @@
       "success": true
     },
     {
-      "name": "http-529-short-hint",
-      "status": 529,
+      "name": "oauth/http-429-short-hint",
+      "status": 429,
       "headers": {
         "retry-after": "0.1"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -264,19 +465,134 @@
       "success": true
     },
     {
-      "name": "http-529-over-cap",
+      "name": "api-key/http-429-short-hint",
+      "status": 429,
+      "headers": {
+        "retry-after": "0.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-429-over-cap",
+      "status": 429,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": true,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "api-key/http-429-over-cap",
+      "status": 429,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/http-529-seconds",
+      "status": 529,
+      "headers": {
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": true,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "api-key/http-529-seconds",
+      "status": 529,
+      "headers": {
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-529-short-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "0.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": true,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "api-key/http-529-short-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "0.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/http-529-over-cap",
       "status": 529,
       "headers": {
         "retry-after": "61"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "both-hints-use-maximum",
+      "name": "api-key/http-529-over-cap",
+      "status": 529,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/both-hints-use-maximum",
       "status": 529,
       "headers": {
         "retry-after-ms": "500",
@@ -284,6 +600,7 @@
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -291,13 +608,30 @@
       "success": true
     },
     {
-      "name": "fractional-ms-ceiling",
+      "name": "api-key/both-hints-use-maximum",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "500",
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/fractional-ms-ceiling",
       "status": 529,
       "headers": {
         "retry-after-ms": "2000.1"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2001
@@ -305,13 +639,29 @@
       "success": true
     },
     {
-      "name": "reset-seconds",
+      "name": "api-key/fractional-ms-ceiling",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "2000.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2001
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/reset-seconds",
       "status": 529,
       "headers": {
         "x-ratelimit-reset": "2"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -319,13 +669,29 @@
       "success": true
     },
     {
-      "name": "reset-ms",
+      "name": "api-key/reset-seconds",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/reset-ms",
       "status": 529,
       "headers": {
         "x-ratelimit-reset-ms": "2000"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -333,13 +699,29 @@
       "success": true
     },
     {
-      "name": "reset-epoch",
+      "name": "api-key/reset-ms",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset-ms": "2000"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/reset-epoch",
       "status": 529,
       "headers": {
         "x-ratelimit-reset": "1793750402"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -347,13 +729,29 @@
       "success": true
     },
     {
-      "name": "date-hint",
+      "name": "api-key/reset-epoch",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset": "1793750402"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/date-hint",
       "status": 529,
       "headers": {
         "retry-after": "Wed, 04 Nov 2026 00:00:02 GMT"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         2000
@@ -361,13 +759,29 @@
       "success": true
     },
     {
-      "name": "past-date-hint",
+      "name": "api-key/date-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "Wed, 04 Nov 2026 00:00:02 GMT"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/past-date-hint",
       "status": 529,
       "headers": {
         "retry-after": "Tue, 03 Nov 2026 23:59:58 GMT"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -375,13 +789,29 @@
       "success": true
     },
     {
-      "name": "invalid-numeric-hint",
+      "name": "api-key/past-date-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "Tue, 03 Nov 2026 23:59:58 GMT"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/invalid-numeric-hint",
       "status": 529,
       "headers": {
         "retry-after-ms": "2000ms"
       },
       "body": "Transient failure",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -389,11 +819,27 @@
       "success": true
     },
     {
-      "name": "retry-budget",
+      "name": "api-key/invalid-numeric-hint",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "2000ms"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/retry-budget",
       "status": 529,
       "headers": {},
       "body": "Overloaded",
       "failures": 100,
+      "isOAuth": true,
       "attempts": 11,
       "waits": [
         437.5,
@@ -410,51 +856,122 @@
       "success": false
     },
     {
-      "name": "account-rate-limit",
+      "name": "api-key/retry-budget",
+      "status": 529,
+      "headers": {},
+      "body": "Overloaded",
+      "failures": 100,
+      "isOAuth": false,
+      "attempts": 11,
+      "waits": [
+        437.5,
+        875,
+        1750,
+        3500,
+        7000,
+        7000,
+        7000,
+        7000,
+        7000,
+        7000
+      ],
+      "success": false
+    },
+    {
+      "name": "oauth/account-rate-limit",
       "status": 429,
       "headers": {},
       "body": "This request would exceed your account's rate limit. Please try again later.",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "monthly-spend-limit",
+      "name": "api-key/account-rate-limit",
+      "status": 429,
+      "headers": {},
+      "body": "This request would exceed your account's rate limit. Please try again later.",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/monthly-spend-limit",
       "status": 429,
       "headers": {},
       "body": "This request would exceed your account's monthly spend limit. Please try again later.",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "usage-limit-code",
+      "name": "api-key/monthly-spend-limit",
+      "status": 429,
+      "headers": {},
+      "body": "This request would exceed your account's monthly spend limit. Please try again later.",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/usage-limit-code",
       "status": 429,
       "headers": {},
       "body": "{\"type\":\"error\",\"error\":{\"type\":\"usage_limit_reached\",\"message\":\"Limit reached\"}}",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "quota-code",
+      "name": "api-key/usage-limit-code",
+      "status": 429,
+      "headers": {},
+      "body": "{\"type\":\"error\",\"error\":{\"type\":\"usage_limit_reached\",\"message\":\"Limit reached\"}}",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/quota-code",
       "status": 429,
       "headers": {},
       "body": "{\"type\":\"error\",\"error\":{\"type\":\"insufficient_quota\",\"message\":\"Quota exhausted\"}}",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-error-before-start",
+      "name": "api-key/quota-code",
+      "status": 429,
+      "headers": {},
+      "body": "{\"type\":\"error\",\"error\":{\"type\":\"insufficient_quota\",\"message\":\"Quota exhausted\"}}",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-error-before-start",
       "status": 200,
       "headers": {},
       "body": "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -462,11 +979,25 @@
       "success": true
     },
     {
-      "name": "sse-error-after-start",
+      "name": "api-key/sse-error-before-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-error-after-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -474,13 +1005,27 @@
       "success": true
     },
     {
-      "name": "sse-error-ignores-http-hint",
+      "name": "api-key/sse-error-after-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-error-ignores-http-hint",
       "status": 200,
       "headers": {
         "retry-after": "61"
       },
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -488,61 +1033,137 @@
       "success": true
     },
     {
-      "name": "sse-error-after-text-start",
+      "name": "api-key/sse-error-ignores-http-hint",
+      "status": 200,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-error-after-text-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-error-after-tool-start",
+      "name": "api-key/sse-error-after-text-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-error-after-tool-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-error-after-thinking-start",
+      "name": "api-key/sse-error-after-tool-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-error-after-thinking-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-error-after-server-tool-start",
+      "name": "api-key/sse-error-after-thinking-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-error-after-server-tool-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"tool_1\",\"name\":\"web_search\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-error-after-text",
+      "name": "api-key/sse-error-after-server-tool-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"tool_1\",\"name\":\"web_search\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-error-after-text",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Partial.\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-empty-transport",
+      "name": "api-key/sse-error-after-text",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Partial.\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-empty-transport",
       "status": 200,
       "headers": {},
       "body": "",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -550,11 +1171,25 @@
       "success": true
     },
     {
-      "name": "sse-truncated-after-start",
+      "name": "api-key/sse-empty-transport",
+      "status": 200,
+      "headers": {},
+      "body": "",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-truncated-after-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -562,21 +1197,47 @@
       "success": true
     },
     {
-      "name": "sse-truncated-after-text-start",
+      "name": "api-key/sse-truncated-after-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-truncated-after-text-start",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": false
     },
     {
-      "name": "sse-block-before-start",
+      "name": "api-key/sse-truncated-after-text-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "oauth/sse-block-before-start",
       "status": 200,
       "headers": {},
       "body": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         437.5
@@ -584,21 +1245,47 @@
       "success": true
     },
     {
-      "name": "sse-malformed-frame-then-valid",
+      "name": "api-key/sse-block-before-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/sse-malformed-frame-then-valid",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\n\nevent: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Captured.\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": true
     },
     {
-      "name": "empty-completion",
+      "name": "api-key/sse-malformed-frame-then-valid",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\n\nevent: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Captured.\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "oauth/empty-completion",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         500
@@ -606,11 +1293,25 @@
       "success": true
     },
     {
-      "name": "empty-completion-budget",
+      "name": "api-key/empty-completion",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        500
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/empty-completion-budget",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 100,
+      "isOAuth": true,
       "attempts": 3,
       "waits": [
         500,
@@ -619,31 +1320,70 @@
       "success": true
     },
     {
-      "name": "empty-completion-with-output",
+      "name": "api-key/empty-completion-budget",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 100,
+      "isOAuth": false,
+      "attempts": 3,
+      "waits": [
+        500,
+        1000
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/empty-completion-with-output",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": true
     },
     {
-      "name": "empty-max-tokens",
+      "name": "api-key/empty-completion-with-output",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "oauth/empty-max-tokens",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 1,
       "waits": [],
       "success": true
     },
     {
-      "name": "empty-pause-turn",
+      "name": "api-key/empty-max-tokens",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "oauth/empty-pause-turn",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"pause_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
       "attempts": 2,
       "waits": [
         500
@@ -651,11 +1391,36 @@
       "success": true
     },
     {
-      "name": "zero-argument-tool",
+      "name": "api-key/empty-pause-turn",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"pause_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
+      "attempts": 2,
+      "waits": [
+        500
+      ],
+      "success": true
+    },
+    {
+      "name": "oauth/zero-argument-tool",
       "status": 200,
       "headers": {},
       "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
       "failures": 1,
+      "isOAuth": true,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "api-key/zero-argument-tool",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "isOAuth": false,
       "attempts": 1,
       "waits": [],
       "success": true

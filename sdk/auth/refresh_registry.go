@@ -9,10 +9,6 @@ import (
 func init() {
 	registerRefreshLead("codex", func() Authenticator { return NewCodexAuthenticator() })
 	registerRefreshLead("claude", func() Authenticator { return NewClaudeAuthenticator() })
-	cliproxyauth.RegisterRefreshLeadProvider("anthropic-npi", func() *time.Duration {
-		lead := time.Minute
-		return &lead
-	})
 	registerRefreshLead("antigravity", func() Authenticator { return NewAntigravityAuthenticator() })
 	registerRefreshLead("kimi", func() Authenticator { return NewKimiAuthenticator() })
 	registerRefreshLead("kimi-ai", func() Authenticator { return NewKimiAIAuthenticator() })

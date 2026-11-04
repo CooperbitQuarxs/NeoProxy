@@ -30,13 +30,21 @@ const server = Bun.serve({hostname: "127.0.0.1", port: 0, async fetch(request) {
 const local = process.env.NEOPI_CAPTURE_URL ?? `http://127.0.0.1:${server.port}`;
 try {
   for (const official of [false, true]) {
+   for (const isOAuth of [true, false]) {
+    const apiKey = isOAuth ? token : "sk-ant-api-parity-fake";
     const baseUrl = official ? "https://api.anthropic.com" : local;
-    const model = buildModel({id:"claude-opus-5-5", name:"Claude Opus 5.5", api:"anthropic-messages", provider:"anthropic", baseUrl, reasoning:true, input:["text","image"], cost:{input:0,output:0,cacheRead:0,cacheWrite:0}, contextWindow:1000000, maxTokens:128000});
-    for (const name of ["plain-high", "custom-tool", "stream-high", "thinking-off"]) {
-      const text = name === "custom-tool" ? "Use lookup." : name === "stream-high" ? "Stream hello." : "Say hello.";
+   for (const modelId of ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-sonnet-4-5"]) {
+    const model = buildModel({id:modelId, name:modelId, api:"anthropic-messages", provider:"anthropic", baseUrl, reasoning:true, input:["text","image"], cost:{input:0,output:0,cacheRead:0,cacheWrite:0}, contextWindow:1000000, maxTokens:128000});
+    const names = isOAuth ? ["plain-high", "custom-tool", "stream-high", "thinking-off"] : ["plain-high", "custom-tool", "stream-high", "thinking-off", "plain", "system-metadata", "tool-history"];
+    if (modelId === "claude-opus-5-5") names.push("unicode");
+    for (const name of names) {
+      const text = name === "unicode" ? "A🙂BC\u2028def\u2029<>& \\u2028" : name === "custom-tool" ? "Use lookup." : name === "stream-high" ? "Stream hello." : "Say hello.";
       const tools = name === "custom-tool" ? [{name:"lookup",description:"Look up a term.",parameters:{type:"object",properties:{term:{type:"string"}},required:["term"]}}] : undefined;
       const off = name === "thinking-off";
-      const context = {messages:[{role:"user" as const,content:text,timestamp:0}], ...(tools ? {tools} : {})};
+      const plain = name === "plain" || name === "system-metadata" || name === "tool-history";
+      const messages: any[] = [{role:"user" as const,content:text,timestamp:0}];
+      if (name === "tool-history") messages.push({role:"assistant",content:[{type:"toolCall",id:"tool:1#🦊",name:"_lookup",arguments:{term:"a"}}],api:"anthropic-messages",provider:"anthropic",model:model.id,usage:{input:1,output:1,totalTokens:2,cost:{input:0,output:0,total:0}},stopReason:"toolUse",timestamp:0},{role:"toolResult",toolCallId:"tool:1#🦊",toolName:"_lookup",content:[{type:"text",text:"Found."}],isError:false,timestamp:0});
+      const context = {messages, ...(tools ? {tools} : {}), ...(name === "system-metadata" ? {systemPrompt:["A source system."]} : {})};
       let requestedURL = "";
       const redirectFetch = (async (input: any, init: any) => {
         requestedURL = input instanceof Request ? input.url : String(input);
@@ -46,13 +54,18 @@ try {
         headers.set("host", u.host);
         return fetch(local + u.pathname + u.search, {...init, headers, tls:undefined});
       }) as typeof fetch;
-      const result = await streamAnthropic(model, context, {apiKey:token,isOAuth:true,thinkingEnabled:!off,...(!off ? {effort:"high" as const} : {}),maxTokens:64,sessionId,metadata:{account_uuid:accountId},fetch:redirectFetch}).result();
+      const result = await streamAnthropic(model, context, {apiKey,isOAuth,...(!plain ? {thinkingEnabled:!off,...(!off ? {effort:"high" as const} : {})} : {}),maxTokens:64,sessionId,metadata:name === "system-metadata" ? {user_id:"caller-user"} : {account_uuid:accountId},fetch:redirectFetch}).result();
       if (result.stopReason !== "stop") throw new Error("Capture failed: " + result.errorMessage);
-      const input = {model:model.id,messages:[{role:"user",content:text}],max_tokens:64,...(off ? {thinking:{type:"disabled"}} : {thinking:{type:"adaptive"},output_config:{effort:"high"}}),...(tools ? {tools:tools.map(tool=>({name:tool.name,description:tool.description,input_schema:tool.parameters}))} : {})};
+      const wireMessages: any[] = [{role:"user",content:text}];
+      if (name === "tool-history") wireMessages.push({role:"assistant",content:[{type:"tool_use",id:"tool:1#🦊",name:"_lookup",input:{term:"a"}}]},{role:"user",content:[{type:"tool_result",tool_use_id:"tool:1#🦊",content:[{type:"text",text:"Found."}]}]});
+      const activeThinking = model.thinking?.mode === "anthropic-adaptive" ? {thinking:{type:"adaptive"},output_config:{effort:"high"}} : {thinking:{type:"enabled",budget_tokens:1024}};
+      const input = {model:model.id,messages:wireMessages,max_tokens:64,...(!plain ? (off ? {thinking:{type:"disabled"}} : activeThinking) : {}),...(tools ? {tools:tools.map(tool=>({name:tool.name,description:tool.description,input_schema:tool.parameters}))} : {}),...(name === "system-metadata" ? {system:[{type:"text",text:"A source system."}],metadata:{user_id:"caller-user"}} : {})};
       if (process.env.NEOPI_CAPTURE_URL) captured = await (await fetch(local+"/__capture/latest")).json();
-      fixtures.push({name:(official?"official/":"local/")+name, baseUrl, input, downstreamStream:name === "stream-high", requestedURL, ...captured});
+      fixtures.push({name:(modelId === "claude-opus-5-5" ? "" : modelId+"/")+(isOAuth?"oauth/":"api-key/")+(official?"official/":"local/")+name, isOAuth, apiKey, baseUrl, input, downstreamStream:name === "stream-high", requestedURL, ...captured});
     }
   }
+   }
+   }
   const installId = (await readFile(homedir()+"/.omp/install-id", "utf8")).trim();
   const output = {source:"NeoPi packages/ai/src/providers/anthropic.ts; Claude Code 2.1.280 / SDK 0.112.1", installId, sessionId, accountId, token, response:sse, fixtures};
   console.log(JSON.stringify(output,null,2));

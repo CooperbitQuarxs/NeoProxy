@@ -24,7 +24,6 @@ const (
 
 // staticModelsJSON mirrors the top-level structure of models.json.
 type staticModelsJSON struct {
-	Claude      []*ModelInfo `json:"claude"`
 	Gemini      []*ModelInfo `json:"gemini"`
 	Vertex      []*ModelInfo `json:"vertex"`
 	AIStudio    []*ModelInfo `json:"aistudio"`
@@ -39,24 +38,9 @@ type staticModelsJSON struct {
 	Meta        []*ModelInfo `json:"meta"`
 }
 
-// GetClaudeModels returns the standard Claude model definitions.
+// GetClaudeModels returns NeoPi's bundled Anthropic definitions.
 func GetClaudeModels() []*ModelInfo {
-	return cloneModelInfos(getModels().Claude)
-}
-
-// GetAnthropicNPIModels uses Claude's model ids but keeps the experimental
-// thinking contract separate: NeoPi accepts Off and projects it per model.
-func GetAnthropicNPIModels() []*ModelInfo {
-	models := GetClaudeModels()
-	for _, model := range models {
-		if model != nil && model.Thinking != nil {
-			model.Thinking.ZeroAllowed = true
-			if model.ID == "claude-sonnet-4-6" {
-				model.Thinking.Levels = []string{"low", "medium", "high"}
-			}
-		}
-	}
-	return models
+	return cloneModelInfos(claudeModels)
 }
 
 // GetGeminiModels returns the standard Gemini model definitions.
@@ -528,8 +512,6 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 	switch key {
 	case "claude":
 		return GetClaudeModels()
-	case "anthropic-npi":
-		return GetAnthropicNPIModels()
 	case "gemini":
 		return GetGeminiModels()
 	case "gemini-interactions":
@@ -594,7 +576,7 @@ func LookupStaticModelInfo(modelID string) *ModelInfo {
 
 	data := getModels()
 	allModels := [][]*ModelInfo{
-		data.Claude,
+		claudeModels,
 		data.Gemini,
 		data.Vertex,
 		data.AIStudio,
@@ -616,7 +598,7 @@ func LookupStaticModelInfo(modelID string) *ModelInfo {
 	// Dated and bracketed Claude variants (claude-sonnet-5-5-20261001,
 	// claude-opus-5-5[1m]) share the capabilities of their catalog entry.
 	for _, familyID := range claudeFamilyModelIDs(modelID) {
-		for _, m := range data.Claude {
+		for _, m := range claudeModels {
 			if m != nil && m.ID == familyID {
 				return cloneModelInfo(m)
 			}

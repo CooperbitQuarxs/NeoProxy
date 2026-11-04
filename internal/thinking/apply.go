@@ -250,11 +250,6 @@ func applyThinking(body, sourceBody []byte, model string, fromFormat string, toF
 
 	// 2. Route check: Get provider applier after target cleanup.
 	applier := GetProviderApplier(providerFormat)
-	// The experimental OAuth engine shares Claude's wire dialect, not its
-	// effort policy. Keep format parsing unchanged while selecting its applier.
-	if providerKey == "anthropic-npi" {
-		applier = GetProviderApplier(providerKey)
-	}
 	if applier == nil {
 		log.WithFields(log.Fields{
 			"provider": providerFormat,
@@ -564,9 +559,6 @@ func applyUserDefinedModel(body []byte, modelInfo *registry.ModelInfo, fromForma
 	}
 
 	applier := GetProviderApplier(toFormat)
-	if providerKey == "anthropic-npi" {
-		applier = GetProviderApplier(providerKey)
-	}
 	if applier == nil {
 		log.WithFields(log.Fields{
 			"model":    modelID,

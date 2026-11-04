@@ -146,18 +146,19 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "claude":
-		models = registry.GetClaudeModels()
 		if entry := resolveConfigClaudeKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildClaudeConfigModels(entry)
+			} else {
+				models = claudeModelInfos(s.claudeModelsForAuth(cfg, a, time.Now()))
 			}
 			if authKind == "apikey" {
 				excluded = entry.ExcludedModels
 			}
+		} else {
+			models = claudeModelInfos(s.claudeModelsForAuth(cfg, a, time.Now()))
 		}
 		models = applyExcludedModels(models, excluded)
-	case "anthropic-npi":
-		models = applyExcludedModels(registry.GetAnthropicNPIModels(), excluded)
 	case "codex":
 		if authKind == "apikey" {
 			if entry := resolveConfigCodexKeyForConfig(cfg, a); entry != nil {
@@ -347,10 +348,6 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	if len(models) > 0 {
 		models = applyOAuthSettingsForAuth(cfg, provider, authKind, models)
 		prefix, forcePrefix := a.Prefix, cfg != nil && cfg.ForceModelPrefix
-		if key == "anthropic-npi" {
-			// Never publish a bare model from the experimental subscription.
-			prefix, forcePrefix = "anthropic-npi", true
-		}
 		published = s.registerResolvedModelsForAuthFenced(a, fence, key, applyModelPrefixes(models, prefix, forcePrefix))
 		if strings.EqualFold(strings.TrimSpace(a.Provider), "antigravity") {
 			s.asyncProbeAntigravityCapabilities(ctx, a, key)

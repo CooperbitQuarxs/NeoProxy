@@ -1,15 +1,7 @@
 {
-  "claude-haiku-4-5-20251001": {
-    "thinking": {
-      "mode": "budget",
-      "efforts": [
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ]
-    },
+  "claude-3-5-sonnet-20240620": {
+    "reasoning": false,
+    "maxTokens": 8192,
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
@@ -39,17 +31,9 @@
       "stripImageInput": false
     }
   },
-  "claude-sonnet-4-5-20250929": {
-    "thinking": {
-      "mode": "budget",
-      "efforts": [
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ]
-    },
+  "claude-3-5-sonnet-20241022": {
+    "reasoning": false,
+    "maxTokens": 8192,
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
@@ -79,20 +63,14 @@
       "stripImageInput": false
     }
   },
-  "claude-sonnet-4-6": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high"
-      ]
-    },
+  "claude-3-haiku-20240307": {
+    "reasoning": false,
+    "maxTokens": 4096,
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
       "supportsContextManagement": true,
-      "supportsServerCompaction": true,
+      "supportsServerCompaction": false,
       "firstPartyProvider": true,
       "honorsClaudeCodeBetaKillSwitch": true,
       "supportsOutputEffort": true,
@@ -109,209 +87,6 @@
       "supportsBetweenToolsThinking": false,
       "supportsForcedToolChoice": true,
       "supportsSamplingParams": true,
-      "requiresToolResultId": false,
-      "requiresThinkingEnabled": false,
-      "replayUnsignedThinking": false,
-      "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": true,
-      "stripImageInput": false
-    }
-  },
-  "claude-opus-4-6": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high",
-        "max"
-      ]
-    },
-    "compat": {
-      "officialEndpoint": true,
-      "signingEndpoint": true,
-      "supportsContextManagement": true,
-      "supportsServerCompaction": true,
-      "firstPartyProvider": true,
-      "honorsClaudeCodeBetaKillSwitch": true,
-      "supportsOutputEffort": true,
-      "disableStrictTools": false,
-      "disableAdaptiveThinking": false,
-      "allowAnthropicHeaderOverrides": false,
-      "supportsEagerToolInputStreaming": true,
-      "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": false,
-      "supportsTurnScopedSystem": false,
-      "supportsMidConversationToolChanges": false,
-      "supportsPerMessageEffort": false,
-      "supportsThinkingBindingControls": false,
-      "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": true,
-      "requiresToolResultId": false,
-      "requiresThinkingEnabled": false,
-      "replayUnsignedThinking": false,
-      "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": true,
-      "stripImageInput": false
-    }
-  },
-  "claude-opus-4-7": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true
-    },
-    "compat": {
-      "officialEndpoint": true,
-      "signingEndpoint": true,
-      "supportsContextManagement": true,
-      "supportsServerCompaction": true,
-      "firstPartyProvider": true,
-      "honorsClaudeCodeBetaKillSwitch": true,
-      "supportsOutputEffort": true,
-      "disableStrictTools": false,
-      "disableAdaptiveThinking": false,
-      "allowAnthropicHeaderOverrides": false,
-      "supportsEagerToolInputStreaming": true,
-      "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": false,
-      "supportsTurnScopedSystem": false,
-      "supportsMidConversationToolChanges": false,
-      "supportsPerMessageEffort": false,
-      "supportsThinkingBindingControls": false,
-      "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": false,
-      "requiresToolResultId": false,
-      "requiresThinkingEnabled": false,
-      "replayUnsignedThinking": false,
-      "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": true,
-      "stripImageInput": false
-    }
-  },
-  "claude-opus-4-8": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true
-    },
-    "compat": {
-      "officialEndpoint": true,
-      "signingEndpoint": true,
-      "supportsContextManagement": true,
-      "supportsServerCompaction": true,
-      "firstPartyProvider": true,
-      "honorsClaudeCodeBetaKillSwitch": true,
-      "supportsOutputEffort": true,
-      "disableStrictTools": false,
-      "disableAdaptiveThinking": false,
-      "allowAnthropicHeaderOverrides": false,
-      "supportsEagerToolInputStreaming": true,
-      "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": true,
-      "supportsTurnScopedSystem": true,
-      "supportsMidConversationToolChanges": true,
-      "supportsPerMessageEffort": false,
-      "supportsThinkingBindingControls": false,
-      "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": false,
-      "requiresToolResultId": false,
-      "requiresThinkingEnabled": false,
-      "replayUnsignedThinking": false,
-      "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": true,
-      "stripImageInput": false
-    }
-  },
-  "claude-opus-5": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true
-    },
-    "compat": {
-      "officialEndpoint": true,
-      "signingEndpoint": true,
-      "supportsContextManagement": true,
-      "supportsServerCompaction": true,
-      "firstPartyProvider": true,
-      "honorsClaudeCodeBetaKillSwitch": true,
-      "supportsOutputEffort": true,
-      "disableStrictTools": false,
-      "disableAdaptiveThinking": false,
-      "allowAnthropicHeaderOverrides": false,
-      "supportsEagerToolInputStreaming": true,
-      "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": true,
-      "supportsTurnScopedSystem": true,
-      "supportsMidConversationToolChanges": true,
-      "supportsPerMessageEffort": true,
-      "supportsThinkingBindingControls": false,
-      "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": false,
-      "requiresToolResultId": false,
-      "requiresThinkingEnabled": false,
-      "replayUnsignedThinking": false,
-      "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": true,
-      "stripImageInput": false
-    }
-  },
-  "claude-sonnet-5": {
-    "thinking": {
-      "mode": "anthropic-adaptive",
-      "efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true
-    },
-    "compat": {
-      "officialEndpoint": true,
-      "signingEndpoint": true,
-      "supportsContextManagement": true,
-      "supportsServerCompaction": true,
-      "firstPartyProvider": true,
-      "honorsClaudeCodeBetaKillSwitch": true,
-      "supportsOutputEffort": true,
-      "disableStrictTools": false,
-      "disableAdaptiveThinking": false,
-      "allowAnthropicHeaderOverrides": false,
-      "supportsEagerToolInputStreaming": true,
-      "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": false,
-      "supportsTurnScopedSystem": false,
-      "supportsMidConversationToolChanges": false,
-      "supportsPerMessageEffort": false,
-      "supportsThinkingBindingControls": false,
-      "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": false,
       "requiresToolResultId": false,
       "requiresThinkingEnabled": false,
       "replayUnsignedThinking": false,
@@ -321,6 +96,8 @@
     }
   },
   "claude-fable-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
     "thinking": {
       "mode": "anthropic-adaptive",
       "efforts": [
@@ -362,6 +139,8 @@
     }
   },
   "claude-fable-5-1": {
+    "reasoning": true,
+    "maxTokens": 128000,
     "thinking": {
       "mode": "anthropic-adaptive",
       "efforts": [
@@ -403,24 +182,24 @@
       "stripImageInput": false
     }
   },
-  "claude-opus-5-5": {
+  "claude-haiku-4-5": {
+    "reasoning": true,
+    "maxTokens": 64000,
     "thinking": {
-      "mode": "anthropic-adaptive",
+      "mode": "budget",
       "efforts": [
+        "minimal",
         "low",
         "medium",
         "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true,
-      "prefixBinding": true
+        "xhigh"
+      ]
     },
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
       "supportsContextManagement": true,
-      "supportsServerCompaction": true,
+      "supportsServerCompaction": false,
       "firstPartyProvider": true,
       "honorsClaudeCodeBetaKillSwitch": true,
       "supportsOutputEffort": true,
@@ -429,14 +208,14 @@
       "allowAnthropicHeaderOverrides": false,
       "supportsEagerToolInputStreaming": true,
       "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": true,
-      "supportsTurnScopedSystem": true,
-      "supportsMidConversationToolChanges": true,
-      "supportsPerMessageEffort": true,
-      "supportsThinkingBindingControls": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
       "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": false,
-      "supportsSamplingParams": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
       "requiresToolResultId": false,
       "requiresThinkingEnabled": false,
       "replayUnsignedThinking": false,
@@ -445,24 +224,24 @@
       "stripImageInput": false
     }
   },
-  "claude-sonnet-5-5": {
+  "claude-haiku-4-5-20251001": {
+    "reasoning": true,
+    "maxTokens": 64000,
     "thinking": {
-      "mode": "anthropic-adaptive",
+      "mode": "budget",
       "efforts": [
+        "minimal",
         "low",
         "medium",
         "high",
-        "xhigh",
-        "max"
-      ],
-      "supportsDisplay": true,
-      "prefixBinding": true
+        "xhigh"
+      ]
     },
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
       "supportsContextManagement": true,
-      "supportsServerCompaction": true,
+      "supportsServerCompaction": false,
       "firstPartyProvider": true,
       "honorsClaudeCodeBetaKillSwitch": true,
       "supportsOutputEffort": true,
@@ -471,14 +250,14 @@
       "allowAnthropicHeaderOverrides": false,
       "supportsEagerToolInputStreaming": true,
       "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": true,
-      "supportsTurnScopedSystem": true,
-      "supportsMidConversationToolChanges": true,
-      "supportsPerMessageEffort": true,
-      "supportsThinkingBindingControls": true,
-      "supportsBetweenToolsThinking": true,
-      "supportsForcedToolChoice": false,
-      "supportsSamplingParams": false,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
       "requiresToolResultId": false,
       "requiresThinkingEnabled": false,
       "replayUnsignedThinking": false,
@@ -488,6 +267,8 @@
     }
   },
   "claude-haiku-5-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
     "thinking": {
       "mode": "anthropic-adaptive",
       "efforts": [
@@ -530,22 +311,25 @@
       "disabledThinking": "disabled"
     }
   },
-  "claude-opus-4-5-20251101": {
+  "claude-mythos-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
     "thinking": {
-      "mode": "anthropic-budget-effort",
+      "mode": "anthropic-adaptive",
       "efforts": [
-        "minimal",
         "low",
         "medium",
         "high",
-        "xhigh"
-      ]
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
     },
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
       "supportsContextManagement": true,
-      "supportsServerCompaction": false,
+      "supportsServerCompaction": true,
       "firstPartyProvider": true,
       "honorsClaudeCodeBetaKillSwitch": true,
       "supportsOutputEffort": true,
@@ -554,14 +338,14 @@
       "allowAnthropicHeaderOverrides": false,
       "supportsEagerToolInputStreaming": true,
       "supportsLongCacheRetention": true,
-      "supportsMidConversationSystem": false,
-      "supportsTurnScopedSystem": false,
-      "supportsMidConversationToolChanges": false,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
       "supportsPerMessageEffort": false,
       "supportsThinkingBindingControls": false,
       "supportsBetweenToolsThinking": false,
-      "supportsForcedToolChoice": true,
-      "supportsSamplingParams": true,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
       "requiresToolResultId": false,
       "requiresThinkingEnabled": false,
       "replayUnsignedThinking": false,
@@ -570,7 +354,52 @@
       "stripImageInput": false
     }
   },
-  "claude-opus-4-1-20250805": {
+  "claude-mythos-5-1": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-0": {
+    "reasoning": true,
+    "maxTokens": 32000,
     "thinking": {
       "mode": "budget",
       "efforts": [
@@ -610,7 +439,413 @@
       "stripImageInput": false
     }
   },
+  "claude-opus-4-1": {
+    "reasoning": true,
+    "maxTokens": 32000,
+    "thinking": {
+      "mode": "budget",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-1-20250805": {
+    "reasoning": false,
+    "maxTokens": 32000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
   "claude-opus-4-20250514": {
+    "reasoning": false,
+    "maxTokens": 32000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-5": {
+    "reasoning": true,
+    "maxTokens": 64000,
+    "thinking": {
+      "mode": "anthropic-budget-effort",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-5-20251101": {
+    "reasoning": true,
+    "maxTokens": 64000,
+    "thinking": {
+      "mode": "anthropic-budget-effort",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-6": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ]
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-7": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-4-8": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-5-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true,
+      "prefixBinding": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": true,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-sonnet-4-0": {
+    "reasoning": true,
+    "maxTokens": 64000,
     "thinking": {
       "mode": "budget",
       "efforts": [
@@ -651,6 +886,40 @@
     }
   },
   "claude-sonnet-4-20250514": {
+    "reasoning": false,
+    "maxTokens": 64000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-sonnet-4-5": {
+    "reasoning": true,
+    "maxTokens": 64000,
     "thinking": {
       "mode": "budget",
       "efforts": [
@@ -690,7 +959,9 @@
       "stripImageInput": false
     }
   },
-  "claude-3-7-sonnet-20250219": {
+  "claude-sonnet-4-5-20250929": {
+    "reasoning": true,
+    "maxTokens": 64000,
     "thinking": {
       "mode": "budget",
       "efforts": [
@@ -730,7 +1001,136 @@
       "stripImageInput": false
     }
   },
-  "claude-3-5-haiku-20241022": {
+  "claude-sonnet-4-6": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": true,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-sonnet-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": false,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-sonnet-5-5": {
+    "reasoning": true,
+    "maxTokens": 128000,
+    "thinking": {
+      "mode": "anthropic-adaptive",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsDisplay": true,
+      "prefixBinding": true
+    },
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": true,
+      "supportsBetweenToolsThinking": true,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-unfamiliar": {
+    "reasoning": false,
+    "maxTokens": 64000,
     "compat": {
       "officialEndpoint": true,
       "signingEndpoint": true,
@@ -756,7 +1156,167 @@
       "requiresThinkingEnabled": false,
       "replayUnsignedThinking": false,
       "escapeBuiltinToolNames": false,
-      "injectClaudeCodeInstruction": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-opus-6": {
+    "reasoning": false,
+    "maxTokens": 64000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-sonnet-6": {
+    "reasoning": false,
+    "maxTokens": 64000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": true,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-haiku-6": {
+    "reasoning": false,
+    "maxTokens": 64000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": false,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": false,
+      "supportsMidConversationToolChanges": false,
+      "supportsPerMessageEffort": false,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": true,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-fable-6": {
+    "reasoning": false,
+    "maxTokens": 128000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": true,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
+      "stripImageInput": false
+    }
+  },
+  "claude-mythos-6": {
+    "reasoning": false,
+    "maxTokens": 128000,
+    "compat": {
+      "officialEndpoint": true,
+      "signingEndpoint": true,
+      "supportsContextManagement": true,
+      "supportsServerCompaction": true,
+      "firstPartyProvider": true,
+      "honorsClaudeCodeBetaKillSwitch": true,
+      "supportsOutputEffort": true,
+      "disableStrictTools": false,
+      "disableAdaptiveThinking": false,
+      "allowAnthropicHeaderOverrides": false,
+      "supportsEagerToolInputStreaming": true,
+      "supportsLongCacheRetention": true,
+      "supportsMidConversationSystem": true,
+      "supportsTurnScopedSystem": true,
+      "supportsMidConversationToolChanges": true,
+      "supportsPerMessageEffort": true,
+      "supportsThinkingBindingControls": false,
+      "supportsBetweenToolsThinking": false,
+      "supportsForcedToolChoice": false,
+      "supportsSamplingParams": false,
+      "requiresToolResultId": false,
+      "requiresThinkingEnabled": false,
+      "replayUnsignedThinking": false,
+      "escapeBuiltinToolNames": false,
+      "injectClaudeCodeInstruction": true,
       "stripImageInput": false
     }
   }

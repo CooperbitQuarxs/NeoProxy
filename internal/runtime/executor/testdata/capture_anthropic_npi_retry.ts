@@ -6,7 +6,6 @@ if (!modules) throw new Error("NEOPI_SOURCE_MODULES is required");
 const { streamAnthropic } = await import(modules + "/pi-ai/src/providers/anthropic.ts");
 const { buildModel } = await import(modules + "/pi-catalog/src/build.ts");
 const fixture = JSON.parse(await readFile(new URL("anthropic_npi_requests.json", import.meta.url), "utf8"));
-const baseline = fixture.fixtures.find((item: any) => item.name === "official/plain-high");
 const now = Date.parse("2026-11-04T00:00:00Z");
 const originalNow = Date.now;
 const originalRandom = Math.random;
@@ -76,10 +75,12 @@ const model = buildModel({ id: "claude-opus-5-5", name: "Claude Opus 5.5", api: 
 try {
   const results = [];
   for (const test of cases) {
+   for (const isOAuth of [true, false]) {
+    const baseline = fixture.fixtures.find((item: any) => item.name === (isOAuth ? "oauth" : "api-key") + "/official/plain-high");
     await fetch(local + "/__retry/setup", { method: "POST", body: JSON.stringify(test) });
     const waits: number[] = [];
     const result = await streamAnthropic(model, { messages: [{ role: "user", content: "Say hello.", timestamp: 0 }] }, {
-      apiKey: fixture.token, isOAuth: true, thinkingEnabled: true, effort: "high", maxTokens: 64,
+      apiKey: isOAuth ? fixture.token : "sk-ant-api-parity-fake", isOAuth, thinkingEnabled: true, effort: "high", maxTokens: 64,
       sessionId: fixture.sessionId, metadata: { account_uuid: fixture.accountId },
       providerRetryWait: async (delay: number) => { waits.push(delay); },
       fetch: async (input: any, init: any) => {
@@ -94,8 +95,9 @@ try {
     for (const request of captured) {
       if (request.method !== baseline.method || request.path !== baseline.path || request.rawBody !== baseline.rawBody || JSON.stringify(Object.entries(request.headers).sort()) !== JSON.stringify(Object.entries(baseline.headers).sort())) throw new Error(`Wire request changed in ${test.name}`);
     }
-    results.push({ ...test, attempts: captured.length, waits, success: result.stopReason !== "error" && result.stopReason !== "aborted" });
+    results.push({ ...test, name:(isOAuth?"oauth/":"api-key/")+test.name, isOAuth, attempts: captured.length, waits, success: result.stopReason !== "error" && result.stopReason !== "aborted" });
   }
+   }
   console.log(JSON.stringify({ source: "NeoPi streamAnthropic: client maxRetries=0, provider max retries=10", now, random: 0.5, cases: results }, null, 2));
 } finally {
   Date.now = originalNow;

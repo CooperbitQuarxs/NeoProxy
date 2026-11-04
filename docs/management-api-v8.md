@@ -150,6 +150,41 @@ handling are unchanged.
 The dashboard's unified provider-access API (`/v8/neo/access`, session
 authenticated) is documented in [neo-access-api.md](neo-access-api.md).
 
+### Claude provider
+
+`claude` uses the NeoPi Anthropic implementation for both subscription OAuth
+and API keys; there is no separate experimental provider. The dashboard starts
+the same authorization-code flow at `/v8/neo/vault/login/claude` and accepts the
+returned `code#state` through its callback form. Existing Claude credential
+files keep their filenames, ownership and prefixes. Imported NeoPi credentials
+remain refresh-locked; model and usage discovery never refreshes them.
+
+Without an explicit configured model list, Claude merges NeoPi's bundled
+catalog with account-scoped `/v1/models` discovery. Successful discovery is
+cached for two hours; failures retain the last successful roster and are retried
+after five minutes. Changing the credential or endpoint invalidates that roster.
+Explicit model lists, aliases and exclusions remain operator-controlled.
+
+Provider-reported shared five-hour and weekly utilization feeds the dashboard
+and routing budgets. Missing or null readings are unknown, not zero. Model-scoped
+weekly caps and monetary extra usage are not promoted to account-wide percent
+budgets. Usage polling does not retry a 429 or move a rejected credential to a
+different host; canonical-host fallback is limited to absent usage endpoints.
+
+Source-backed acceptance compares request method, URL, headers and exact body
+bytes, including the billing signature. It does not establish identical native
+TLS fingerprints or HTTP framing between Bun and Go. Plain Messages requests
+also cannot reconstruct NeoPi-only history provenance, request controls or
+provider-session state; explicit wire controls are preserved instead. Runtime
+identity versions follow the captured NeoPi source.
+
+Model discovery is asynchronous and lifecycle-cancellable, but deliberately
+does not copy NeoPi's ten-second discovery deadline. The repository's explicit
+network rule requires: “after an upstream connection is established, do not set
+timeouts for any subsequent network behavior.” Optional account-profile,
+credit-reset and monetary-usage UI enrichment is not exposed through NeoProxy's
+shared-percentage budget projection.
+
 ### Sign in with ChatGPT (SIWC) binding
 
 SIWC is a second credential partition of an existing Codex credential, not a new

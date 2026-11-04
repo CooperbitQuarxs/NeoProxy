@@ -1,6 +1,6 @@
-// Package anthropicnpi implements the experimental NeoPi Anthropic subscription
-// flow independently of the existing claude provider. Wire constants and token
-// projection follow NeoPi's rules/auth/anthropic.kdl and oauth-code engine.
+// Package anthropicnpi implements the official Claude subscription OAuth flow.
+// Wire constants and token projection follow NeoPi's Anthropic auth rule and
+// OAuth engine; the package name is internal to NeoProxy.
 package anthropicnpi
 
 import (
@@ -20,12 +20,13 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
-	Provider     = "anthropic-npi"
+	Provider     = "claude"
 	AuthorizeURL = "https://claude.ai/oauth/authorize"
 	TokenURL     = "https://api.anthropic.com/v1/oauth/token"
 	BootstrapURL = "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8"
@@ -42,6 +43,8 @@ const (
 type Session struct {
 	State    string
 	Verifier string
+	// Redirect is the callback selected by the CLI; empty uses NeoPi's default.
+	Redirect string
 }
 
 func NewSession() (*Session, error) {
@@ -55,11 +58,17 @@ func NewSession() (*Session, error) {
 	}
 	return &Session{State: hex.EncodeToString(state[:]), Verifier: base64.RawURLEncoding.EncodeToString(verifier[:])}, nil
 }
+func (s *Session) redirectURI() string {
+	if s.Redirect != "" {
+		return s.Redirect
+	}
+	return RedirectURI
+}
 
 func (s *Session) AuthURL() string {
 	challenge := sha256.Sum256([]byte(s.Verifier))
 	params := url.Values{
-		"client_id": {ClientID}, "response_type": {"code"}, "redirect_uri": {RedirectURI},
+		"client_id": {ClientID}, "response_type": {"code"}, "redirect_uri": {s.redirectURI()},
 		"scope": {Scope}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])},
 		"code_challenge_method": {"S256"}, "state": {s.State}, "code": {"true"},
 	}
@@ -69,6 +78,9 @@ func (s *Session) AuthURL() string {
 type Credential struct {
 	Type                 string         `json:"type"`
 	Prefix               string         `json:"prefix"`
+	IDToken              string         `json:"id_token,omitempty"`
+	DeviceIDs            []string       `json:"claude_device_ids,omitempty"`
+	APIKey               string         `json:"-"`
 	AccessToken          string         `json:"access_token"`
 	RefreshToken         string         `json:"refresh_token"`
 	Expire               string         `json:"expired"`
@@ -77,17 +89,26 @@ type Credential struct {
 	AccountUUID          string         `json:"account_uuid,omitempty"`
 	OrganizationUUID     string         `json:"organization_uuid,omitempty"`
 	OrganizationName     string         `json:"organization_name,omitempty"`
+	OrgName              string         `json:"org_name,omitempty"`
 	ActiveOrganizationID string         `json:"activeOrganizationId,omitempty"`
 	InstallID            string         `json:"neopi_install_id"`
+	ExpirySkewed         bool           `json:"neopi_expiry_skewed,omitempty"`
 	Metadata             map[string]any `json:"-"`
 }
 
-func (c *Credential) SetMetadata(meta map[string]any) { c.Metadata = meta }
+func (c *Credential) SetMetadata(meta map[string]any) {
+	c.Metadata = meta
+	if prefix, ok := meta["prefix"].(string); ok {
+		c.Prefix = prefix
+	}
+}
 
 func (c *Credential) SaveTokenToFile(path string) error {
 	c.Type = Provider
-	c.Prefix = Provider
-	data, err := misc.MergeMetadata(c, c.Metadata)
+	if c.OrganizationName == "" {
+		c.OrganizationName = c.OrgName
+	}
+	data, err := CredentialMetadata(c)
 	if err != nil {
 		return err
 	}
@@ -98,7 +119,7 @@ func (c *Credential) SaveTokenToFile(path string) error {
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".anthropic-npi-*")
+	file, err := os.CreateTemp(filepath.Dir(path), ".claude-*")
 	if err != nil {
 		return err
 	}
@@ -115,11 +136,6 @@ func (c *Credential) SaveTokenToFile(path string) error {
 		return err
 	}
 	return os.Rename(file.Name(), path)
-}
-
-func (c *Credential) FileName() string {
-	identity := sha256.Sum256([]byte(c.AccountUUID + "\x00" + c.OrganizationUUID + "\x00" + c.Email))
-	return Provider + "-" + hex.EncodeToString(identity[:16]) + ".json"
 }
 
 type Client struct{ HTTP *http.Client }
@@ -166,21 +182,21 @@ func (c *Client) token(ctx context.Context, body any, refresh bool) (*Credential
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("anthropic-npi token transport: %w", err)
+		return nil, fmt.Errorf("claude token transport: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("anthropic-npi token endpoint returned HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("claude token endpoint returned HTTP %d", resp.StatusCode)
 	}
 	var token tokenResponse
 	if err = decodeJSON(resp, &token); err != nil {
-		return nil, fmt.Errorf("anthropic-npi token endpoint returned invalid JSON")
+		return nil, fmt.Errorf("claude token endpoint returned invalid JSON")
 	}
 	if token.Access == "" || token.Expires == nil {
-		return nil, fmt.Errorf("anthropic-npi token response is missing access_token or expires_in")
+		return nil, fmt.Errorf("claude token response is missing access_token or expires_in")
 	}
 	now := time.Now()
-	credential := &Credential{Type: Provider, Prefix: Provider, AccessToken: token.Access, RefreshToken: token.Refresh,
+	credential := &Credential{Type: Provider, ExpirySkewed: true, AccessToken: token.Access, RefreshToken: token.Refresh,
 		Expire:      now.Add(time.Duration(*token.Expires*float64(time.Second)) - ExpirySkew).UTC().Format(time.RFC3339Nano),
 		LastRefresh: now.UTC().Format(time.RFC3339Nano), Email: token.Account.Email, AccountUUID: token.Account.UUID}
 	if !refresh {
@@ -206,15 +222,23 @@ func (c *Client) Exchange(ctx context.Context, session *Session, code string) (*
 		RedirectURI string `json:"redirect_uri"`
 		Verifier    string `json:"code_verifier"`
 		State       string `json:"state"`
-	}{"authorization_code", ClientID, code, RedirectURI, session.Verifier, state}
+	}{"authorization_code", ClientID, code, session.redirectURI(), session.Verifier, state}
 	return c.token(ctx, body, false)
 }
 
 // Refresh deliberately makes one token request: a lost response may already
 // have rotated the refresh token. The executor serializes calls per credential.
+var refreshGroup singleflight.Group
+
 func (c *Client) Refresh(ctx context.Context, previous *Credential) (*Credential, error) {
+	if previous == nil {
+		return nil, fmt.Errorf("claude credential is missing")
+	}
+	if coreauth.IsRefreshLocked(&coreauth.Auth{Metadata: previous.Metadata}) {
+		return nil, coreauth.ErrRefreshLocked
+	}
 	if previous.RefreshToken == "" {
-		return nil, fmt.Errorf("anthropic-npi refresh token is missing")
+		return nil, fmt.Errorf("claude refresh token is missing")
 	}
 	body := struct {
 		GrantType      string `json:"grant_type"`
@@ -222,10 +246,16 @@ func (c *Client) Refresh(ctx context.Context, previous *Credential) (*Credential
 		RefreshToken   string `json:"refresh_token"`
 		OrganizationID string `json:"organization_id,omitempty"`
 	}{"refresh_token", ClientID, previous.RefreshToken, previous.ActiveOrganizationID}
-	credential, err := c.token(ctx, body, true)
+	// Hash the grouping key so the rotating secret is not retained as a map key.
+	key := sha256.Sum256([]byte(previous.RefreshToken + "\x00" + previous.ActiveOrganizationID))
+	value, err, _ := refreshGroup.Do(hex.EncodeToString(key[:]), func() (any, error) {
+		return c.token(ctx, body, true)
+	})
 	if err != nil {
 		return nil, err
 	}
+	// Every caller retains its own metadata and identity after the shared grant.
+	credential := *value.(*Credential)
 	if credential.RefreshToken == "" {
 		credential.RefreshToken = previous.RefreshToken
 	}
@@ -239,7 +269,12 @@ func (c *Client) Refresh(ctx context.Context, previous *Credential) (*Credential
 	credential.OrganizationName = previous.OrganizationName
 	credential.InstallID = previous.InstallID
 	credential.ActiveOrganizationID = previous.ActiveOrganizationID
-	return credential, nil
+	credential.Prefix = previous.Prefix
+	credential.IDToken = previous.IDToken
+	credential.DeviceIDs = previous.DeviceIDs
+	credential.OrgName = previous.OrgName
+	credential.Metadata = previous.Metadata
+	return &credential, nil
 }
 
 func (c *Client) bootstrap(ctx context.Context, credential *Credential, includeOrg bool) {

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
 type captureRequest struct {
@@ -34,14 +36,16 @@ func (r *captureTransport) RoundTrip(request *http.Request) (*http.Response, err
 	return r.base.RoundTrip(clone)
 }
 
-func TestAnthropicNPIOAuthCaptureParity(t *testing.T) {
+func TestClaudeOAuthCaptureParity(t *testing.T) {
 	data, err := os.ReadFile("testdata/oauth_capture.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var fixture struct {
-		AuthURL  string           `json:"authURL"`
-		Requests []captureRequest `json:"requests"`
+		AuthURL          string           `json:"authURL"`
+		Requests         []captureRequest `json:"requests"`
+		LegacyCredential map[string]any   `json:"legacyCredential"`
+		LegacyRequests   []captureRequest `json:"legacyRequests"`
 	}
 	if err = json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
@@ -119,9 +123,40 @@ func TestAnthropicNPIOAuthCaptureParity(t *testing.T) {
 	if RefreshLead != time.Minute {
 		t.Fatal("refresh lead must be sixty seconds")
 	}
+	legacy, err := CredentialFromAuth(&coreauth.Auth{Provider: "claude", Prefix: "team", Metadata: fixture.LegacyCredential})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.InstallID = "persistent-install-fake"
+	refreshedLegacy, err := client.Refresh(context.Background(), legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshedLegacy.Prefix != "team" || refreshedLegacy.IDToken != "legacy-id-fake" || refreshedLegacy.InstallID != legacy.InstallID || refreshedLegacy.OrganizationUUID != legacy.OrganizationUUID || refreshedLegacy.OrganizationName != "Legacy organization" || !reflect.DeepEqual(refreshedLegacy.DeviceIDs, legacy.DeviceIDs) {
+		t.Fatal("refresh lost legacy routing, identity, installation, or CLI metadata")
+	}
+	stored, err := CredentialMetadata(refreshedLegacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored["owner_id"] != "owner-parity" || stored["access_token"] != refreshedLegacy.AccessToken || stored["neopi_expiry_skewed"] != true {
+		t.Fatal("refresh failed to retain ownership or update authoritative token metadata")
+	}
+	for index, want := range fixture.LegacyRequests {
+		got := <-captured
+		if got.Method != want.Method || transport.urls[len(fixture.Requests)+index] != want.URL || !reflect.DeepEqual(got.Headers, want.Headers) {
+			t.Errorf("legacy refresh request %d method/URL/headers differ: %#v", index, got)
+		}
+		var a, b any
+		_ = json.Unmarshal(got.Body, &a)
+		_ = json.Unmarshal(want.Body, &b)
+		if !reflect.DeepEqual(a, b) {
+			t.Errorf("legacy refresh request %d body got %s want %s", index, got.Body, want.Body)
+		}
+	}
 }
 
-func TestAnthropicNPICredentialIsolation(t *testing.T) {
+func TestClaudeCredentialStorage(t *testing.T) {
 	credential := &Credential{AccessToken: "fake", RefreshToken: "fake", AccountUUID: "account", InstallID: "install"}
 	path := t.TempDir() + "/credential.json"
 	if err := credential.SaveTokenToFile(path); err != nil {
@@ -135,8 +170,8 @@ func TestAnthropicNPICredentialIsolation(t *testing.T) {
 	if err = json.Unmarshal(data, &stored); err != nil {
 		t.Fatal(err)
 	}
-	if stored["type"] != Provider || stored["prefix"] != Provider {
-		t.Fatalf("credential is not independently routed: %#v", stored)
+	if stored["type"] != "claude" || stored["prefix"] != "" {
+		t.Fatalf("credential changed official routing or blank prefix: %#v", stored)
 	}
 	info, err := os.Stat(path)
 	if err != nil {
@@ -154,7 +189,7 @@ func TestAnthropicNPICredentialIsolation(t *testing.T) {
 	}
 }
 
-func TestAnthropicNPIVersionAdoption(t *testing.T) {
+func TestClaudeVersionAdoption(t *testing.T) {
 	wireVersionState.Lock()
 	previous := wireVersionState.adopted
 	wireVersionState.adopted = ""

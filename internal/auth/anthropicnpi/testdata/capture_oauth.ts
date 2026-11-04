@@ -31,5 +31,10 @@ try {
   const refreshBefore = Date.now();
   const refreshed = await provider.refreshToken(credential);
   const refreshAfter = Date.now();
-  console.log(JSON.stringify({source:"NeoPi Anthropic declarative OAuth rule, oauth-code engine, refresh engine and bootstrap hook",authURL,before,after,credential,refreshBefore,refreshAfter,refreshed,requestedURLs,requests},null,2));
+  const loginRequests = requests.length;
+  // Project the existing Claude JSON shape into NeoPi's credential engine.
+  const legacyCredential = {type:"claude",prefix:"team",id_token:"legacy-id-fake",access_token:"sk-ant-oat-parity-fake",refresh_token:"refresh-parity-fake",expired:"2030-01-01T00:00:00Z",email:"parity@example.invalid",account_uuid:"22222222-2222-4222-8222-222222222222",organization_uuid:"44444444-4444-4444-8444-444444444444",org_name:"Legacy organization",claude_device_ids:["legacy-device-fake"],owner_id:"owner-parity"};
+  await provider.refreshToken({access:legacyCredential.access_token,refresh:legacyCredential.refresh_token,expires:Date.parse(legacyCredential.expired),email:legacyCredential.email,accountId:legacyCredential.account_uuid,orgId:legacyCredential.organization_uuid,orgName:legacyCredential.org_name});
+  const normalized = requests.map((request: any,index) => ({method:request.method,url:requestedURLs[index],headers:request.headers,body:request.body}));
+  console.log(JSON.stringify({source:"NeoPi OWN Anthropic auth rule, OAuth-code/refresh engines and bootstrap hook; capture_oauth.ts with fake credentials only",authURL,before,after,credential,refreshBefore,refreshAfter,refreshed,requests:normalized.slice(0,loginRequests),legacyCredential,legacyRequests:normalized.slice(loginRequests),storedExpirySkewMillis:300000},null,2));
 } finally { globalThis.fetch = nativeFetch; server.stop(true); }

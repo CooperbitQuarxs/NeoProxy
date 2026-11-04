@@ -1,33 +1,149 @@
 {
-  "source": "NeoPi Anthropic declarative OAuth rule, oauth-code engine, refresh engine and bootstrap hook; captured by capture_oauth.ts",
-  "authURL": "https://claude.ai/oauth/authorize?client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback&scope=org%3Acreate_api_key+user%3Aprofile+user%3Ainference+user%3Asessions%3Aclaude_code+user%3Amcp_servers+user%3Afile_upload&code_challenge=CXyB6PRfuWF0N__gW6iG4Ul9M5SEruGndneK9Y-cgP8&code_challenge_method=S256&state=d6cac6f23442265597444da31d9be1d7&code=true",
+  "source": "NeoPi OWN Anthropic auth rule, OAuth-code/refresh engines and bootstrap hook; capture_oauth.ts with fake credentials only",
+  "authURL": "https://claude.ai/oauth/authorize?client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A54545%2Fcallback&scope=org%3Acreate_api_key+user%3Aprofile+user%3Ainference+user%3Asessions%3Aclaude_code+user%3Amcp_servers+user%3Afile_upload&code_challenge=jmUZm1QurJGt0lnYaObB-tMytxf7pcB8v-JQuJcfE3c&code_challenge_method=S256&state=9379b88c4fedca6587e842e84c35780d&code=true",
+  "before": 1793793396164,
+  "after": 1793793396199,
+  "credential": {
+    "access": "sk-ant-oat-parity-fake",
+    "refresh": "refresh-parity-fake",
+    "expires": 1793796696196,
+    "accountId": "22222222-2222-4222-8222-222222222222",
+    "email": "parity@example.invalid",
+    "orgId": "44444444-4444-4444-8444-444444444444",
+    "orgName": "Parity organization"
+  },
+  "refreshBefore": 1793793396199,
+  "refreshAfter": 1793793396201,
+  "refreshed": {
+    "access": "sk-ant-oat-parity-fake",
+    "refresh": "refresh-parity-fake",
+    "expires": 1793796696201,
+    "accountId": "22222222-2222-4222-8222-222222222222",
+    "email": "parity@example.invalid"
+  },
   "requests": [
     {
       "method": "POST",
       "url": "https://api.anthropic.com/v1/oauth/token",
-      "headers": {"accept":"*/*","accept-encoding":"gzip, deflate, br, zstd","connection":"keep-alive","content-length":"351","content-type":"application/json","host":"api.anthropic.com","user-agent":"Bun/1.3.14"},
-      "body": {"grant_type":"authorization_code","client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","code":"code-parity-fake","redirect_uri":"http://localhost:54545/callback","code_verifier":"eAr3jQ2WpjmUQccbBnEwuCJgARsQa8IQHqSttxh0YkJq3-LH2GRqVXVl8_0Yy_GDuTcwNrMMS83lUlKwcJbu_P8mXDLuDtXr3SZ2PYvZwked03WmVfdHHAf2q0jK290j","state":"d6cac6f23442265597444da31d9be1d7"}
+      "headers": {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "connection": "keep-alive",
+        "content-length": "351",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "Bun/1.3.14"
+      },
+      "body": {
+        "grant_type": "authorization_code",
+        "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        "code": "code-parity-fake",
+        "redirect_uri": "http://localhost:54545/callback",
+        "code_verifier": "kkeSXx5BzLkO5xmKVFhg9P04Shs7qJwG6XVA2CxDtyXRQqM2M-3iLTUObTIjluUqH3eMQwavaRD0B2Z3ryYVMVlXTvF_CZhVrxHUG0JqhptXNc5KniHzd6xg4rxpVlEd",
+        "state": "9379b88c4fedca6587e842e84c35780d"
+      }
     },
     {
       "method": "GET",
       "url": "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8",
-      "headers": {"accept":"application/json, text/plain, */*","accept-encoding":"gzip, deflate, br, zstd","anthropic-beta":"oauth-2025-04-20","authorization":"Bearer sk-ant-oat-parity-fake","connection":"keep-alive","content-type":"application/json","host":"api.anthropic.com","user-agent":"claude-code/2.1.280"},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "anthropic-beta": "oauth-2025-04-20",
+        "authorization": "Bearer sk-ant-oat-parity-fake",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "claude-code/2.1.280"
+      },
       "body": null
     },
     {
       "method": "POST",
       "url": "https://api.anthropic.com/v1/oauth/token",
-      "headers": {"accept":"*/*","accept-encoding":"gzip, deflate, br, zstd","anthropic-beta":"oauth-2025-04-20","connection":"keep-alive","content-length":"119","content-type":"application/json","host":"api.anthropic.com","user-agent":"anthropic-sdk-typescript/0.112.1 userOAuthProvider"},
-      "body": {"grant_type":"refresh_token","client_id":"9d1c250a-e61b-44d9-88ed-5944d1962f5e","refresh_token":"refresh-parity-fake"}
+      "headers": {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "anthropic-beta": "oauth-2025-04-20",
+        "connection": "keep-alive",
+        "content-length": "119",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "anthropic-sdk-typescript/0.112.1 userOAuthProvider"
+      },
+      "body": {
+        "grant_type": "refresh_token",
+        "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        "refresh_token": "refresh-parity-fake"
+      }
     },
     {
       "method": "GET",
       "url": "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8",
-      "headers": {"accept":"application/json, text/plain, */*","accept-encoding":"gzip, deflate, br, zstd","anthropic-beta":"oauth-2025-04-20","authorization":"Bearer sk-ant-oat-parity-fake","connection":"keep-alive","content-type":"application/json","host":"api.anthropic.com","user-agent":"claude-code/2.1.280"},
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "anthropic-beta": "oauth-2025-04-20",
+        "authorization": "Bearer sk-ant-oat-parity-fake",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "claude-code/2.1.280"
+      },
       "body": null
     }
   ],
-  "identity": {"account_uuid":"22222222-2222-4222-8222-222222222222","email":"parity@example.invalid","organization_uuid":"44444444-4444-4444-8444-444444444444","organization_name":"Parity organization"},
-  "expiresIn": 3600,
+  "legacyCredential": {
+    "type": "claude",
+    "prefix": "team",
+    "id_token": "legacy-id-fake",
+    "access_token": "sk-ant-oat-parity-fake",
+    "refresh_token": "refresh-parity-fake",
+    "expired": "2030-01-01T00:00:00Z",
+    "email": "parity@example.invalid",
+    "account_uuid": "22222222-2222-4222-8222-222222222222",
+    "organization_uuid": "44444444-4444-4444-8444-444444444444",
+    "org_name": "Legacy organization",
+    "claude_device_ids": [
+      "legacy-device-fake"
+    ],
+    "owner_id": "owner-parity"
+  },
+  "legacyRequests": [
+    {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/oauth/token",
+      "headers": {
+        "accept": "*/*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "anthropic-beta": "oauth-2025-04-20",
+        "connection": "keep-alive",
+        "content-length": "119",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "anthropic-sdk-typescript/0.112.1 userOAuthProvider"
+      },
+      "body": {
+        "grant_type": "refresh_token",
+        "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+        "refresh_token": "refresh-parity-fake"
+      }
+    },
+    {
+      "method": "GET",
+      "url": "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8",
+      "headers": {
+        "accept": "application/json, text/plain, */*",
+        "accept-encoding": "gzip, deflate, br, zstd",
+        "anthropic-beta": "oauth-2025-04-20",
+        "authorization": "Bearer sk-ant-oat-parity-fake",
+        "connection": "keep-alive",
+        "content-type": "application/json",
+        "host": "api.anthropic.com",
+        "user-agent": "claude-code/2.1.280"
+      },
+      "body": null
+    }
+  ],
   "storedExpirySkewMillis": 300000
 }

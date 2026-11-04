@@ -103,10 +103,16 @@ func shouldClearKimiThinkingReplayAfterError(err error) bool {
 		return false
 	}
 	var upstreamStatus statusErr
-	if !errors.As(err, &upstreamStatus) {
+	var claudeStatus *neoPiUpstreamError
+	var statusCode int
+	switch {
+	case errors.As(err, &upstreamStatus):
+		statusCode = upstreamStatus.StatusCode()
+	case errors.As(err, &claudeStatus):
+		statusCode = claudeStatus.StatusCode()
+	default:
 		return false
 	}
-	statusCode := upstreamStatus.StatusCode()
 	return statusCode == 400 || statusCode == 422
 }
 

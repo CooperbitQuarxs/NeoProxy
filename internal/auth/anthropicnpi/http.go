@@ -62,5 +62,16 @@ func decodeJSON(response *http.Response, target any) error {
 	default:
 		return fmt.Errorf("unsupported OAuth response encoding")
 	}
-	return json.NewDecoder(io.LimitReader(reader, 1<<20)).Decode(target)
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("unexpected data after JSON response")
+	}
+	return nil
 }
