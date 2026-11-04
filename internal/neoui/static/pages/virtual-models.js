@@ -674,7 +674,7 @@ async function editor(ctx, id) {
 								update();
 							},
 						}),
-						meterRing(a, { size: 26, kind: s.window, budget: s.perAccount }),
+						meterRing(a, { size: 26, kind: s.window, budget: limitOf(a) }),
 						h(
 							"div",
 							{ class: "lt" },
@@ -699,7 +699,8 @@ async function editor(ctx, id) {
 		const sentencePool = h("p", { class: "vm-sentence" });
 		const meterNote = h("div", { class: "vm-note" });
 		function renderSentences() {
-			sentenceEach.replaceChildren("Draw from each account while its ", WINDOW_WORDS[s.window], " usage is below ", bold(fmtPct(s.perAccount, null)), ".");
+			const overrides = Object.keys(s.accountLimits ?? {}).length;
+			sentenceEach.replaceChildren("Draw from each account while its ", WINDOW_WORDS[s.window], " usage is below ", bold(fmtPct(s.perAccount, null)), overrides ? ` by default; ${overrides === 1 ? "one account has" : `${overrides} accounts have`} its own number above.` : ".");
 			sentencePool.replaceChildren("Skip this stage once the pool averages ", bold(fmtPct(s.cap, null)), ".");
 			const picked = stagePool(s, vault.accounts);
 			const unmetered = picked.filter((a) => !meterFor(a, s.window)).length;
