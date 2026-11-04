@@ -18,6 +18,7 @@ import moonshot from "@lobehub/icons-static-svg/icons/moonshot.svg";
 import ollama from "@lobehub/icons-static-svg/icons/ollama.svg";
 import openai from "@lobehub/icons-static-svg/icons/openai.svg";
 import openrouter from "@lobehub/icons-static-svg/icons/openrouter.svg";
+import qwen from "@lobehub/icons-static-svg/icons/qwen.svg";
 import together from "@lobehub/icons-static-svg/icons/together.svg";
 import zai from "@lobehub/icons-static-svg/icons/zai.svg";
 
@@ -49,6 +50,8 @@ const LOGOS: Record<string, string> = {
 	fireworks,
 	cerebras,
 	zai,
+	qwen,
+	"alibaba-token-plan": qwen,
 	zhipu: zai,
 	ollama,
 };

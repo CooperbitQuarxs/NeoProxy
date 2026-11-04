@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -61,7 +63,7 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 	defer resp.Body.Close()
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
-		return nil, accessErr(http.StatusBadRequest, "The provider rejected this key (HTTP %d). Check that the whole key was pasted and that it is still active.", resp.StatusCode)
+		return nil, &AccessError{Status: http.StatusBadRequest, keyRejected: true, Message: fmt.Sprintf("The provider rejected this key (HTTP %d). Check that the whole key was pasted and that it is still active.", resp.StatusCode)}
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, accessErr(http.StatusBadRequest, "%s has no model list at %s. Check the base URL; OpenAI-compatible servers usually end in /v1.", parsed.Host, parsed.Path+"/models")
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
@@ -105,4 +107,55 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 	}
 	sort.Strings(models)
 	return models, nil
+}
+
+// validateCatalogKey lists the models a key can use at base and returns the
+// endpoint that accepted it. A provider with regional endpoints is tried region
+// by region (preferred first, when it is one of them), because its keys are
+// region-locked. Models the provider lists but chat clients cannot use are
+// dropped so they never reach the model list.
+func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, []string, error) {
+	candidates := []string{base}
+	if regions := catalogRegions(info.ID); len(regions) > 0 {
+		preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
+		if preferred != "" && !slices.Contains(regions, preferred) {
+			return "", nil, accessErr(http.StatusBadRequest, "%s keys work only at its regional endpoints (%s); %s is not one of them.", info.Name, strings.Join(regions, ", "), preferred)
+		}
+		candidates = make([]string, 0, len(regions))
+		if preferred != "" {
+			candidates = append(candidates, preferred)
+		}
+		for _, region := range regions {
+			if region != preferred {
+				candidates = append(candidates, region)
+			}
+		}
+	}
+	var models []string
+	var err error
+	for _, candidate := range candidates {
+		if models, err = listUpstreamModels(ctx, info.APIKey.Style, candidate, key); err == nil {
+			base = candidate
+			break
+		}
+		var rejected *AccessError
+		if !errors.As(err, &rejected) || !rejected.keyRejected {
+			return "", nil, err
+		}
+	}
+	if err != nil {
+		if len(candidates) > 1 {
+			return "", nil, accessErr(http.StatusBadRequest, "%s rejected this key in every region. Check that the whole key was pasted and that its subscription is active.", info.Name)
+		}
+		return "", nil, err
+	}
+	if len(info.skipModels) > 0 {
+		models = slices.DeleteFunc(models, func(id string) bool {
+			return slices.ContainsFunc(info.skipModels, func(prefix string) bool { return strings.HasPrefix(id, prefix) })
+		})
+		if len(models) == 0 {
+			return "", nil, accessErr(http.StatusBadRequest, "%s accepted the key but lists no chat models for it.", info.Name)
+		}
+	}
+	return base, models, nil
 }

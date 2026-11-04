@@ -274,7 +274,8 @@ func (h *HTTP) accessDelete(c *gin.Context) {
 
 // APIKeyRequest is POST /v8/neo/access/api-key. BaseURL is honoured only for the
 // "custom" provider and only for administrators: choosing an upstream that the
-// server will call with a key is an administrative decision.
+// server will call with a key is an administrative decision. For a provider with
+// regional endpoints it only selects which known region is tried first.
 type APIKeyRequest struct {
 	Provider   string   `json:"provider"`
 	APIKey     string   `json:"apiKey"`
@@ -409,6 +410,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		return AccessItem{}, err
 	}
 	base := catalogBaseURL(info.ID)
+	preferred := ""
 	if info.APIKey.EditableBaseURL {
 		if p.Role != neo.RoleAdmin {
 			return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
@@ -417,9 +419,10 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		if base == "" {
 			return AccessItem{}, accessErr(http.StatusBadRequest, "Enter the server's base URL, for example http://localhost:11434/v1 for Ollama.")
 		}
+	} else {
+		preferred = req.BaseURL
 	}
-	base = strings.TrimRight(base, "/")
-	models, err := listUpstreamModels(ctx, info.APIKey.Style, base, key)
+	base, models, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)
 	if err != nil {
 		return AccessItem{}, err
 	}

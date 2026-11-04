@@ -46,6 +46,13 @@ type ProviderInfo struct {
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
+	// regions are regional endpoints of one product whose keys each authenticate
+	// at exactly one of them; validation keeps the first that accepts the key.
+	// APIKey.BaseURL is the first region.
+	regions []string
+	// skipModels are model-id prefixes the provider lists but chat clients
+	// cannot use (image, audio, video and embedding SKUs).
+	skipModels []string
 }
 
 const providerChroma = 0.13
@@ -55,6 +62,13 @@ var (
 	claudePlans  = []ProviderPlan{{"pro", "Claude Pro", 20}, {"max5x", "Claude Max 5x", 100}, {"max20x", "Claude Max 20x", 200}}
 	grokPlans    = []ProviderPlan{{"supergrok", "SuperGrok", 30}, {"supergrok-heavy", "SuperGrok Heavy", 300}}
 	googlePlans  = []ProviderPlan{{"google-ai-pro", "Google AI Pro", 20}, {"google-ai-ultra", "Google AI Ultra", 250}}
+)
+
+// QwenCloud Token Plan endpoints. Keys are region-locked: a China (Beijing) key
+// is rejected by the International (Singapore) endpoint and vice versa.
+const (
+	qwenTokenPlanIntlURL = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+	qwenTokenPlanCNURL   = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 )
 
 // Default monthly values when nothing more specific is known.
@@ -126,6 +140,11 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.z.ai/api/paas/v4", "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"), Plans: []ProviderPlan{}},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
+	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 285, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:     openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
+		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
+		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
+		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},
@@ -138,6 +157,13 @@ var catalogBaseURL = func(id string) string {
 		return p.APIKey.BaseURL
 	}
 	return ""
+}
+
+// catalogRegions resolves a catalogue provider's regional endpoints (nil for
+// single-endpoint providers). Tests may replace it like catalogBaseURL.
+var catalogRegions = func(id string) []string {
+	p, _ := catalogProvider(id)
+	return p.regions
 }
 
 func catalogProvider(id string) (ProviderInfo, bool) {
