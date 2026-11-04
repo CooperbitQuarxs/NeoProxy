@@ -9,6 +9,7 @@ import { Mosaic, GhostMosaic } from "./Mosaic";
 import { AccessList } from "./AccessList";
 import { AccessSheet } from "./AccessSheet";
 import { AddAccessDialog } from "./AddAccess";
+import { hasBudget } from "./Budget";
 import { KIND_COPY, healthCopy, personName } from "./copy";
 
 export function PoolPage({ session }: PageProps) {
@@ -28,7 +29,7 @@ export function PoolPage({ session }: PageProps) {
 	const total = items.reduce((n, i) => n + i.plan.monthlyUSD, 0);
 	const contributors = new Set(items.map((i) => i.ownerId).filter(Boolean)).size;
 	const models = new Set(items.flatMap((i) => i.models)).size;
-	const attention = items.filter((i) => i.health !== "healthy" || i.refresh === "locked");
+	const attention = items.map((i) => ({ item: i, why: attentionFor(i) })).filter((a): a is { item: AccessItem; why: Attention } => !!a.why);
 	const kindsPresent = new Set(items.map((i) => i.kind));
 	const providerTotals = new Map<string, number>();
 	for (const i of items) providerTotals.set(i.provider, (providerTotals.get(i.provider) ?? 0) + i.plan.monthlyUSD);
@@ -130,21 +131,20 @@ export function PoolPage({ session }: PageProps) {
 			)}
 
 			{attention.length > 0 && (
-				<Section title="Needs attention" description="Access that isn't serving requests normally, or that will stop on its own.">
+				<Section title="Needs attention" description="Access that isn't serving requests normally, that will stop on its own, or that virtual models can't use yet.">
 					<div className="attention">
-						{attention.map((item) => {
-							const h = healthCopy(item);
+						{attention.map(({ item, why }) => {
 							const info = providerInfo(item.provider, providers);
 							return (
-								<button key={item.id} className={`attention-item tone-${item.refresh === "locked" && h.tone === "good" ? "warn" : h.tone}`} onClick={() => setSelectedId(item.id)}>
+								<button key={item.id} className={`attention-item tone-${why.tone}`} onClick={() => setSelectedId(item.id)}>
 									<span className="legend-swatch" style={{ background: providerColor(item.provider, info.hue) }} />
 									<span className="grow">
 										<strong>
 											{info.name}, {personName(item.ownerId, people)}
 										</strong>
-										<span className="muted">{item.refresh === "locked" && item.health === "healthy" ? "Imported with refresh locked; it will expire unless re-imported or signed in separately." : h.explain}</span>
+										<span className="muted">{why.text}</span>
 									</span>
-									<span className="attention-label">{item.refresh === "locked" && item.health === "healthy" ? "Will expire" : h.label}</span>
+									<span className="attention-label">{why.label}</span>
 								</button>
 							);
 						})}
@@ -164,7 +164,7 @@ export function PoolPage({ session }: PageProps) {
 				</p>
 			)}
 
-			<AccessSheet item={selected} people={people} providers={providers} admin={admin} onClose={() => setSelectedId(undefined)} onSignInSeparately={(p) => openAdd("subscription", p)} />
+			<AccessSheet item={selected} people={people} providers={providers} admin={admin} userId={session.userId} onClose={() => setSelectedId(undefined)} onSignInSeparately={(p) => openAdd("subscription", p)} />
 			<AddAccessDialog
 				open={adding.open}
 				initialMethod={adding.method}
@@ -176,4 +176,15 @@ export function PoolPage({ session }: PageProps) {
 			/>
 		</>
 	);
+}
+
+type Attention = { label: string; text: string; tone: "warn" | "bad" | "idle" };
+
+// Most urgent reason first: broken, then expiring on its own, then unusable by virtual models.
+function attentionFor(item: AccessItem): Attention | null {
+	const h = healthCopy(item);
+	if (item.health !== "healthy") return { label: h.label, text: h.explain, tone: h.tone === "good" ? "warn" : h.tone };
+	if (item.refresh === "locked") return { label: "Will expire", text: "Imported with refresh locked; it stops when the copied sign-in expires unless you re-import it or sign in separately.", tone: "warn" };
+	if (!hasBudget(item)) return { label: "No budget", text: "Virtual models skip access without a token budget. Open it to set one.", tone: "warn" };
+	return null;
 }

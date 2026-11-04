@@ -1,6 +1,6 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, del, get, patch, post, put } from "./client";
-import type { AccessItem, AccessResponse, Health, NeoPiSource, Person, ProviderInfo, Session } from "./types";
+import type { AccessItem, AccessResponse, Health, NeoPiSource, Person, ProviderInfo, Session, UsageWindow, WindowKind } from "./types";
 import { FALLBACK_PROVIDERS, canonicalProvider, planFor, providerInfo } from "../lib/providers";
 
 export const queryClient = new QueryClient({
@@ -56,7 +56,7 @@ export function useCore() {
 }
 
 // ---------- access (the pool) ----------
-type LegacyAccount = { id: string; providerId: string; ownerId?: string; label?: string; plan?: string; state?: string; modelIds?: string[]; sourceId?: string; kind?: string };
+type LegacyAccount = { id: string; providerId: string; ownerId?: string; label?: string; plan?: string; state?: string; modelIds?: string[]; sourceId?: string; kind?: string; windows?: UsageWindow[]; providerWindows?: UsageWindow[] };
 type LegacyVault = { accounts: LegacyAccount[]; providers: Array<{ id: string; kind?: string }> };
 type LegacyCredential = {
 	id: string;
@@ -121,6 +121,8 @@ async function composeLegacy(): Promise<AccessResponse> {
 			refresh: source ? "neopi" : kind === "subscription" ? "auto" : "none",
 			neopiSource: source ? { id: source.id, name: source.name } : undefined,
 			models: a.modelIds ?? [],
+			windows: a.windows ?? [],
+			providerWindows: a.providerWindows ?? [],
 			usage: { requests24h, failed24h: buckets.reduce((n, b) => n + b.fail, 0), buckets },
 			createdAt: cred?.created_at ? Date.parse(cred.created_at) : undefined,
 			actions: ["reassign", "setPlan", "disable", "remove", ...(kind === "subscription" ? (["refresh"] as const) : [])],
@@ -184,6 +186,16 @@ export function useUpdateAccess() {
 export function useRemoveAccess() {
 	const qc = useQueryClient();
 	return useMutation({ mutationFn: (item: AccessItem) => del(`access/${encodeURIComponent(item.id)}`), onSuccess: () => invalidateAccess(qc) });
+}
+
+// A budget window lets virtual models draw from this access: tokens per period.
+export function useConfigureWindow() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: (v: { item: AccessItem; kind: WindowKind; capacityTokens: number; startsAt: number }) =>
+			put(`vault/accounts/${encodeURIComponent(v.item.id)}/windows/${encodeURIComponent(v.kind)}`, { capacityTokens: v.capacityTokens, startsAt: v.startsAt }),
+		onSuccess: () => invalidateAccess(qc),
+	});
 }
 
 export function useReimport() {

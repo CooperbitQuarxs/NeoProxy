@@ -6,6 +6,7 @@ import { providerColor, providerInfo } from "../lib/providers";
 import { Button, Chip, Dialog, Field, Input, Notice, Select, StatusDot } from "../ui/components";
 import { useToast } from "../ui/toast";
 import { Spark } from "./AccessList";
+import { BudgetSection } from "./Budget";
 import { KIND_COPY, REFRESH_COPY, healthCopy, personName } from "./copy";
 
 export function AccessSheet({
@@ -13,6 +14,7 @@ export function AccessSheet({
 	people,
 	providers,
 	admin,
+	userId,
 	onClose,
 	onSignInSeparately,
 }: {
@@ -20,6 +22,7 @@ export function AccessSheet({
 	people: Person[];
 	providers: ProviderInfo[];
 	admin: boolean;
+	userId: string;
 	onClose: () => void;
 	onSignInSeparately: (provider: string) => void;
 }) {
@@ -38,7 +41,7 @@ export function AccessSheet({
 			title={it ? <SheetTitle item={it} providers={providers} /> : ""}
 			description={it ? KIND_COPY[it.kind].noun + (it.neopiSource ? `, via ${it.neopiSource.name}` : "") : undefined}
 		>
-			{it && <SheetBody item={it} people={people} providers={providers} admin={admin} onClose={onClose} onSignInSeparately={onSignInSeparately} />}
+			{it && <SheetBody item={it} people={people} providers={providers} admin={admin} userId={userId} onClose={onClose} onSignInSeparately={onSignInSeparately} />}
 		</Dialog>
 	);
 }
@@ -58,6 +61,7 @@ function SheetBody({
 	people,
 	providers,
 	admin,
+	userId,
 	onClose,
 	onSignInSeparately,
 }: {
@@ -65,6 +69,7 @@ function SheetBody({
 	people: Person[];
 	providers: ProviderInfo[];
 	admin: boolean;
+	userId: string;
 	onClose: () => void;
 	onSignInSeparately: (provider: string) => void;
 }) {
@@ -152,6 +157,8 @@ function SheetBody({
 					<dd>{ago(item.usage.lastUsedAt)}</dd>
 				</div>
 			</dl>
+
+			<BudgetSection item={item} canEdit={admin || item.ownerId === userId} />
 
 			{admin && (
 				<div className="sheet-form">

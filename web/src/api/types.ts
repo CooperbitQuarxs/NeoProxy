@@ -11,6 +11,22 @@ export interface Plan {
 	source?: "detected" | "admin" | "default";
 }
 
+export type WindowKind = "5h" | "day" | "week" | "month";
+
+/** A usage window: NeoProxy's own token meter (source "configured-metered") or provider-reported quota. */
+export interface UsageWindow {
+	kind: WindowKind | string;
+	known: boolean;
+	source?: string;
+	unit?: string;
+	capacity?: number;
+	usedTokens?: number;
+	/** Fraction from 0 to 1. */
+	used?: number;
+	startsAt?: number;
+	resetsAt?: number;
+}
+
 export interface AccessItem {
 	id: string;
 	provider: string;
@@ -25,6 +41,10 @@ export interface AccessItem {
 	neopiSource?: { id: string; name: string };
 	models: string[];
 	usage: { requests24h: number; failed24h: number; lastUsedAt?: number; buckets?: Array<{ t: number; ok: number; fail: number }> };
+	/** Budgets virtual models draw within; a stage only uses access with a window of its kind. */
+	windows?: UsageWindow[];
+	/** Quota as reported by the provider itself. */
+	providerWindows?: UsageWindow[];
 	createdAt?: number;
 	actions: AccessAction[];
 }

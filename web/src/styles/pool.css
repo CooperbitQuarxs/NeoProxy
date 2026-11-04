@@ -865,3 +865,116 @@
 .accepted .faint {
 	font-size: 12.5px;
 }
+
+/* ---------- Budget windows ---------- */
+.budget {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding-top: 18px;
+	border-top: 1px solid var(--line);
+}
+.budget .sheet-h3 {
+	margin-bottom: 0;
+}
+.budget-lede {
+	font-size: 13px;
+}
+.meter {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.meter-head {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+	font-size: 13px;
+}
+.meter-head .faint {
+	font-size: 12.5px;
+}
+.meter-bar {
+	height: 8px;
+	border-radius: 999px;
+	background: var(--sunken);
+	box-shadow: inset 0 0 0 1px var(--line);
+	overflow: hidden;
+}
+.meter-bar span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: var(--good);
+	transition: width 400ms var(--ease-out);
+}
+.meter-bar.tone-warn span {
+	background: var(--warn);
+}
+.meter-bar.tone-bad span {
+	background: var(--bad);
+}
+.provider-quota {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px 14px;
+	border-radius: 12px;
+	background: var(--raised);
+}
+.provider-quota .faint {
+	font-size: 12.5px;
+}
+.budget-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 16px;
+	border-radius: 12px;
+	border: 1px solid var(--line-strong);
+	background: var(--raised);
+}
+.budget-actions {
+	justify-content: flex-end;
+}
+.segmented {
+	display: inline-flex;
+	padding: 3px;
+	border-radius: var(--r-control);
+	background: var(--sunken);
+	border: 1px solid var(--line);
+	gap: 2px;
+}
+.segment {
+	border: 0;
+	background: none;
+	padding: 6px 12px;
+	border-radius: 7px;
+	color: var(--ink-2);
+	font-weight: 560;
+	cursor: pointer;
+	transition: background-color 140ms, color 140ms;
+}
+.segment:hover {
+	color: var(--ink);
+}
+.segment.is-on {
+	background: var(--surface);
+	color: var(--ink);
+	box-shadow: 0 0 0 1px var(--line-strong);
+}
+.preset {
+	border: 1px solid var(--line);
+	background: var(--sunken);
+	color: var(--ink-2);
+	border-radius: 999px;
+	padding: 3px 11px;
+	font-size: 12.5px;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+}
+.preset:hover,
+.preset.is-on {
+	border-color: var(--accent);
+	color: var(--ink);
+}
