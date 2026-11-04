@@ -5,7 +5,7 @@
 
 import { h, icon, replace, fmtInt } from "../lib/dom.js";
 import { neo, ApiError } from "../lib/client.js";
-import { btn, field, input, search, seg, dialog, copyLine } from "../lib/components.js";
+import { btn, field, input, search, seg, dialog, copyLine, toast } from "../lib/components.js";
 
 export const KIND_COPY = {
 	subscription: {
@@ -186,24 +186,31 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 		const stop = () => { dead = true; clearTimeout(timer); };
 		onLeave(stop);
 
+		// Some providers (Codex) also offer a device code for headless machines or
+		// browsers on another computer; the catalog says so with modes/deviceFlow.
+		const offersDevice = flow !== "device" && (sub.deviceFlow === true || (Array.isArray(sub.modes) && sub.modes.includes("device")));
+		let mode = flow === "device" ? "device" : "browser";
 		const idle = (error) => {
+			const asDevice = mode === "device";
 			replace(box, 
+				offersDevice ? seg([{ value: "browser", label: "In this browser" }, { value: "device", label: "With a code" }], mode, (v) => { mode = v; idle(); }) : null,
 				h("ol", { class: "pa-steps" },
-					h("li", null, flow === "device" ? `A short code appears here; confirm it on ${site}'s site.` : `${site}'s sign-in page opens in a new tab.`),
+					h("li", null, asDevice ? `A short code appears here; open ${site}'s device page on any machine and type it in.` : `${site}'s sign-in page opens in a new tab.`),
 					h("li", null, "Sign in with the account you want to share and approve access."),
 					h("li", null, flow === "code" ? `${site} can't send you back here, so copy the address its page hands off to (or the code in it) and paste it in this tab.` : "Come back to this tab. It notices the sign-in by itself and adds the account to the pool under your name.")),
-				sub.note ? h("p", { class: "pa-detail" }, sub.note) : null,
+				sub.note && !asDevice ? h("p", { class: "pa-detail" }, sub.note) : null,
 				error ? notice("bad", "Sign-in didn't complete", error) : null,
-				h("div", { class: "pa-actions" }, btn(`Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) })),
+				h("div", { class: "pa-actions" }, btn(asDevice ? "Get a code" : `Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) })),
 			);
 		};
 
 		function start(button) {
-			// Open the tab inside the click so browsers don't block it.
-			popup = window.open("about:blank", "_blank");
+			// Open the tab inside the click so browsers don't block it (not for a
+			// device code, which is typed on another machine).
+			popup = mode === "device" ? null : window.open("about:blank", "_blank");
 			button.disabled = true;
 			button.lastChild.textContent = "Starting…";
-			neo.startLogin(p.id).then((r) => {
+			neo.startLogin(p.id, mode === "device" ? { mode: "device" } : undefined).then((r) => {
 				if (dead) { popup?.close(); return; }
 				if (r.url && popup) popup.location.href = r.url;
 				else popup?.close();
@@ -212,7 +219,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 		}
 
 		function waiting(r) {
-			const device = r.status === "ok" && !!r.user_code;
+			const device = r.flow === "device" || (r.status === "ok" && !!r.user_code);
+			const verify = r.verification_uri_complete || r.verification_uri || r.verification_url || null;
 			let code = "";
 			const note = h("div");
 			const submit = async (e) => {
@@ -226,12 +234,12 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			};
 			const pasteRow = (placeholder, primary) => h("div", { class: "pa-inline" }, input({ mono: true, placeholder, autocomplete: "off", onInput: (e) => { code = e.target.value; } }), btn("Finish sign-in", { cls: primary ? "primary" : "", onClick: submit }));
 			replace(box, 
-				h("div", { class: "pa-waiting" }, h("span", { class: "pa-pulse" }), h("div", null, h("strong", null, `Waiting for ${site} sign-in`), h("p", { class: "pa-detail" }, flow === "code" ? "Finish on the tab that just opened, then paste the address it ends on below." : "Finish on the tab that just opened. This updates on its own."))),
-				r.user_code ? h("div", { class: "pa-code" }, h("span", { class: "pa-detail" }, `Confirm this code on ${site}'s page`), h("span", { class: "pa-code-value mono" }, r.user_code)) : null,
-				r.url ? h("p", { class: "pa-detail" }, "No tab opened? ", h("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "Open the sign-in page", icon("external", 12))) : null,
+				h("div", { class: "pa-waiting" }, h("span", { class: "pa-pulse" }), h("div", null, h("strong", null, `Waiting for ${site} sign-in`), h("p", { class: "pa-detail" }, device ? "Approve the code on the provider's page; this updates on its own." : flow === "code" ? "Finish on the tab that just opened, then paste the address it ends on below." : "Finish on the tab that just opened. This updates on its own."))),
+				r.user_code ? h("div", { class: "pa-code" }, h("span", { class: "pa-detail" }, verify ? ["Open ", h("a", { href: verify, target: "_blank", rel: "noopener noreferrer" }, verify.replace(/^https?:\/\//, "")), " on any machine and enter this code"] : `Confirm this code on ${site}'s page`), h("span", { class: "pa-code-value mono" }, r.user_code), btn("Copy", { cls: "sm", onClick: async () => { try { await navigator.clipboard.writeText(r.user_code); toast("Code copied"); } catch { toast("Could not copy", "bad"); } } })) : null,
+				r.url && !device ? h("p", { class: "pa-detail" }, "No tab opened? ", h("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "Open the sign-in page", icon("external", 12))) : null,
 				flow === "code"
 					? h("div", { class: "pa-stack" }, h("p", { class: "pa-detail" }, "After you approve, ", site, " tries to open its own app at an address starting with ", h("code", null, "zcode://"), ". Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the “Failed to launch” message."), pasteRow("zcode://zai-auth/callback?code=…", true))
-					: device ? null : h("details", { class: "pa-details" }, h("summary", null, "Signed in, but this page didn't move on?"), h("p", { class: "pa-detail" }, "If the provider's page ended on an address that didn't load (for example on another computer), copy that full address and paste it here."), pasteRow("http://localhost:1455/auth/callback?code=…", false)),
+					: device ? null : h("details", { class: "pa-details" }, h("summary", null, "Signed in, but this page didn't move on?"), h("p", { class: "pa-detail" }, "If the provider's page ended on an address that didn't load (for example on another computer), copy that full address and paste it here."), pasteRow("http://localhost:…/callback?code=…  or just the code", false)),
 				note,
 				h("div", { class: "pa-actions" }, btn("Start over", { onClick: () => { stop(); dead = false; idle(); } })),
 			);
