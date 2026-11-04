@@ -2,7 +2,7 @@
 export type AccessKind = "subscription" | "apiKey" | "neopi" | "imported" | "file";
 export type Health = "healthy" | "cooling" | "limited" | "error" | "expired" | "disabled";
 export type RefreshMode = "auto" | "locked" | "neopi" | "none";
-export type AccessAction = "reassign" | "setPlan" | "disable" | "remove" | "refresh" | "reimport" | "signInSeparately";
+export type AccessAction = "reassign" | "setPlan" | "disable" | "remove" | "refresh" | "reimport" | "signInSeparately" | "download";
 
 export interface Plan {
 	id: string;

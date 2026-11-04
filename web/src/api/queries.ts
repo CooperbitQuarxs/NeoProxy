@@ -262,7 +262,7 @@ export function useSaveSource() {
 }
 
 // ---------- NeoPi import ----------
-export type ImportCandidate = { credentialId: string; provider: string; neoproxyProvider: string | null; kind: "apiKey" | "subscription"; label: string; plan?: string; importable: boolean; reason?: string; alreadyImported?: string };
+export type ImportCandidate = { credentialId: string; provider: string; neoproxyProvider: string | null; kind: "apiKey" | "subscription"; label: string; plan?: string; expiresAt?: number; importable: boolean; reason?: string; alreadyImported?: string | null };
 export function useImportCandidates(profile: string | undefined, enabled: boolean) {
 	return useQuery({
 		queryKey: ["import", profile ?? ""],
@@ -274,7 +274,7 @@ export function useImportCandidates(profile: string | undefined, enabled: boolea
 export function useImport() {
 	const qc = useQueryClient();
 	return useMutation({
-		mutationFn: (v: { profile?: string; credentialIds: string[]; ownerId?: string }) => post<{ items: AccessItem[] }>("access/import/neopi", v),
+		mutationFn: (v: { profile?: string; credentialIds: string[]; ownerId?: string }) => post<{ items: AccessItem[]; failed?: Array<{ credentialId: string; error: string }> }>("access/import/neopi", v),
 		onSuccess: () => invalidateAccess(qc),
 	});
 }

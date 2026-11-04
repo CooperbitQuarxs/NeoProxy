@@ -462,7 +462,20 @@ function ImportFlow({ session, people, onDone, onSignIn }: { session: Session; p
 			const r = await doImport.mutateAsync({ profile: profile.trim() || undefined, credentialIds: [...picked], ownerId: owner });
 			onDone("Imported from NeoPi", (
 				<>
-					<p>{r.items?.length ?? picked.size} credentials are now in the pool.</p>
+					<p>
+						{r.items?.length ?? picked.size} {r.items?.length === 1 ? "credential is" : "credentials are"} now in the pool.
+					</p>
+					{r.failed && r.failed.length > 0 && (
+						<Notice tone="warn" title={`${r.failed.length} couldn't be imported`}>
+							<ul className="import-failed">
+								{r.failed.map((f) => (
+									<li key={f.credentialId}>
+										{list.find((c) => c.credentialId === f.credentialId)?.label ?? f.credentialId}: {f.error}
+									</li>
+								))}
+							</ul>
+						</Notice>
+					)}
 					{lockedPicked > 0 && (
 						<p className="faint">
 							{lockedPicked} signed-in {lockedPicked === 1 ? "account was" : "accounts were"} imported with refresh locked and marked with a lock in the pool. Re-import them after NeoPi refreshes, or sign in separately to give NeoProxy its own.
@@ -531,7 +544,7 @@ function ImportFlow({ session, people, onDone, onSignIn }: { session: Session; p
 													<span className="faint">{c.reason ?? "Not supported"}</span>
 												) : c.kind === "subscription" ? (
 													<span className="warn-text">
-														<Icon name="lock" size={13} /> Refresh locked
+														<Icon name="lock" size={13} /> Refresh locked{c.expiresAt ? `, ${expiresIn(c.expiresAt)}` : ""}
 													</span>
 												) : (
 													<span className="faint">API key, copies fully</span>
@@ -567,6 +580,13 @@ function ImportFlow({ session, people, onDone, onSignIn }: { session: Session; p
 			)}
 		</div>
 	);
+}
+
+function expiresIn(ms: number) {
+	const h = Math.round((ms - Date.now()) / 3_600_000);
+	if (h < 1) return "expires within the hour";
+	if (h < 48) return `expires in ${h} h`;
+	return `expires in ${Math.round(h / 24)} days`;
 }
 
 // ---------- Upload a credential file ----------
