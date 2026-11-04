@@ -246,9 +246,10 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 			unhealthy = true
 			continue
 		}
-		if used < st.PerAccount*allot && !state.blocked[st.ID][a.ID] {
+		budget := st.accountLimit(a.ID) * allot
+		if used < budget && !state.blocked[st.ID][a.ID] {
 			candidates = append(candidates, a)
-			trail.Candidates = append(trail.Candidates, Candidate{AccountID: a.ID, Window: st.Window, Metered: metered, Used: used, Budget: st.PerAccount * allot})
+			trail.Candidates = append(trail.Candidates, Candidate{AccountID: a.ID, Window: st.Window, Metered: metered, Used: used, Budget: budget})
 		}
 	}
 	if trail.Metered > 0 {
