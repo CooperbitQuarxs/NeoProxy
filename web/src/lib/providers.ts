@@ -111,7 +111,7 @@ export function providerInfo(id: string, catalog: ProviderInfo[] = FALLBACK_PROV
 export function providerColor(id: string, hue?: number, alpha?: number) {
 	const info = providerInfo(id);
 	const h = hue ?? info.hue;
-	const c = info.neutral ? "0.02" : "var(--provider-c)";
+	const c = info.neutral || info.chroma === 0 ? "0.02" : "var(--provider-c)";
 	return `oklch(var(--provider-l) ${c} ${h}${alpha !== undefined ? ` / ${alpha}` : ""})`;
 }
 

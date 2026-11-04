@@ -54,10 +54,12 @@ export interface ProviderInfo {
 	name: string;
 	vendor: string;
 	hue: number;
+	/** 0 means a neutral, near-grey provider color (xAI, custom servers). */
+	chroma?: number;
 	neutral?: boolean;
 	methods: Array<"subscription" | "apiKey">;
 	subscription?: { flow: "browser" | "device"; note?: string };
-	apiKey?: { style: "openai" | "anthropic" | "gemini"; baseUrl: string; editableBaseUrl?: boolean; keyHint?: string; getKeyUrl?: string };
+	apiKey?: { style: "openai" | "anthropic" | "gemini"; baseUrl: string; editableBaseUrl?: boolean; keyOptional?: boolean; keyHint?: string; getKeyUrl?: string };
 	plans?: Plan[];
 }
 

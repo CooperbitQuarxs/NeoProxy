@@ -367,7 +367,7 @@ function ApiKeyFlow({ session, people, legacy, onDone }: { session: Session; peo
 				</Notice>
 			)}
 			<div className="row flow-actions">
-				<Button variant="primary" size="lg" busy={add.isPending} disabled={!key.trim() && !editable} onClick={submit}>
+				<Button variant="primary" size="lg" busy={add.isPending} disabled={!key.trim() && !(info?.apiKey?.keyOptional ?? editable)} onClick={submit}>
 					Check and add key
 				</Button>
 			</div>
