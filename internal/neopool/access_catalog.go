@@ -95,7 +95,7 @@ func device(note string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta, nous-portal).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -164,8 +164,9 @@ var providerCatalog = []ProviderInfo{
 		}},
 	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://ai-gateway.vercel.sh/v1", "vck_...", "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys"), Plans: []ProviderPlan{}},
-	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://inference-api.nousresearch.com/v1", "sk-...", "https://portal.nousresearch.com/"), Plans: []ProviderPlan{}},
+	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed."),
+		APIKey:       openAIKey("https://inference-api.nousresearch.com/v1", "sk-...", "https://portal.nousresearch.com/"), Plans: []ProviderPlan{}},
 	// Marineris is a self-hosted gateway, so its address is chosen per key;
 	// the default is the gateway's own documented listen address.
 	{ID: "marineris", Name: "Marineris", Vendor: "Marineris gateway", Hue: 35, Chroma: providerChroma, Methods: []string{"apiKey"},

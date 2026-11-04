@@ -88,7 +88,7 @@ func (h *HTTP) login(c *gin.Context) {
 	}
 	provider := c.Param("provider")
 	switch provider {
-	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "kimi-ai", "devin", "xai", "meta":
+	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "kimi-ai", "devin", "xai", "meta", "nous-portal":
 	default:
 		poolError(c, 400, "unsupported login provider")
 		return

@@ -324,6 +324,30 @@ func TestGrokBuildImportsAsXAISignIn(t *testing.T) {
 	}
 }
 
+func TestNousPortalSignInImportsRefreshLocked(t *testing.T) {
+	hour := float64(time.Now().Add(time.Hour).UnixMilli())
+	profile, _ := newProfile(t, []fixtureRow{{"nous-portal", "oauth", map[string]any{"access": "nous-fixture-access", "refresh": "nous-fixture-refresh", "expires": hour}, ""}})
+	creds, err := Read(context.Background(), profile)
+	if err != nil || len(creds) != 1 {
+		t.Fatalf("Read = %d, %v", len(creds), err)
+	}
+	now := time.Now()
+	if got := Describe(creds[0], now); !got.Importable || got.Kind != KindSubscription || got.NeoProxyProvider == nil || *got.NeoProxyProvider != "nous-portal" {
+		t.Fatalf("nous-portal sign-in = %+v", got)
+	}
+	file, err := BuildAuthFile(creds[0], profile, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta map[string]any
+	if err = json.Unmarshal(file.Data, &meta); err != nil {
+		t.Fatal(err)
+	}
+	if file.Provider != "nous-portal" || meta["type"] != "nous-portal" || meta["access_token"] != "nous-fixture-access" || meta[coreauth.MetadataRefreshLocked] != true || strings.Contains(string(file.Data), "nous-fixture-refresh") {
+		t.Fatalf("nous-portal auth file = %s", file.Data)
+	}
+}
+
 func TestProfileValidationAndReadOnly(t *testing.T) {
 	profile, db := newProfile(t, []fixtureRow{{"openrouter", "api_key", map[string]any{"key": "sk-or-v1-fixture5678"}, ""}})
 	before, _ := os.ReadDir(profile)
