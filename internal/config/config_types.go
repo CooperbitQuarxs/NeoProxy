@@ -182,14 +182,6 @@ const (
 	ClaudeClientRequestIDPassthrough = "passthrough"
 )
 
-// CodexHeaderDefaults configures fallback header values injected into Codex
-// model requests for OAuth/file-backed auth when the client omits them.
-// UserAgent applies to HTTP and websocket requests; BetaFeatures only applies to websockets.
-type CodexHeaderDefaults struct {
-	UserAgent    string `yaml:"user-agent" json:"user-agent"`
-	BetaFeatures string `yaml:"beta-features" json:"beta-features"`
-}
-
 // XAIConfig configures provider-wide xAI request behavior.
 type XAIConfig struct {
 	// InjectXSearch injects xAI's native x_search tool when the request does not declare it.

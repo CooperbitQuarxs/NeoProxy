@@ -524,7 +524,6 @@ func TestV8MigrationPreservesEmptyLegacyContainers(t *testing.T) {
 		{"credential-concurrency", "credentials.concurrency"}, {"credential-in-flight", "credentials.in-flight"},
 		{"streaming", "requests.streaming"}, {"payload", "requests.payload"},
 		{"codex", "oauth.providers.codex"}, {"codex.live-media-relay", "oauth.providers.codex.live-media-relay"},
-		{"codex-header-defaults", "oauth.providers.codex.header-defaults"},
 		{"claude", "upstream.claude"}, {"claude-code", "upstream.claude"},
 		{"claude-header-defaults", "upstream.claude.header-defaults"},
 		{"antigravity", "oauth.providers.antigravity"}, {"antigravity.connection-pool", "oauth.providers.antigravity.connection-pool"},

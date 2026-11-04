@@ -1136,9 +1136,7 @@ func TestApplyCodexWebsocketHeadersDefaultsToCodexCloaking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.Config{
-				CodexHeaderDefaults: config.CodexHeaderDefaults{UserAgent: "config-ua"},
-			}
+			cfg := &config.Config{}
 			ctx := contextWithGinHeaders(map[string]string{
 				"User-Agent": "client-ua",
 				"Originator": "client-origin",
@@ -1334,14 +1332,8 @@ func TestApplyCodexWebsocketHeadersPrefersExistingHeadersOverClient(t *testing.T
 	}
 }
 
-func TestApplyCodexWebsocketHeadersIgnoresConfigForAPIKeyAuth(t *testing.T) {
-	cfg := &config.Config{
-		Codex: config.CodexConfig{DisableCodexCloaking: true},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "config-ua",
-			BetaFeatures: "config-beta",
-		},
-	}
+func TestApplyCodexWebsocketHeadersOmitsIdentityForAPIKeyAuth(t *testing.T) {
+	cfg := &config.Config{Codex: config.CodexConfig{DisableCodexCloaking: true}}
 	auth := &cliproxyauth.Auth{
 		Provider:   "codex",
 		Attributes: map[string]string{"api_key": "sk-test"},
@@ -1578,11 +1570,7 @@ func TestApplyCodexHeadersDefaultsToCodexCloaking(t *testing.T) {
 	}
 	req.Header.Set("User-Agent", "existing-ua")
 	req.Header.Set("Originator", "existing-origin")
-	cfg := &config.Config{
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent: "config-ua",
-		},
-	}
+	cfg := &config.Config{}
 	auth := &cliproxyauth.Auth{
 		Provider: "codex",
 		Attributes: map[string]string{
@@ -1625,9 +1613,6 @@ func TestApplyCodexHeaders_EmptyAPIKey_OmitsAuthorizationAndOAuthHeaders(t *test
 		Codex: config.CodexConfig{
 			DisableCodexCloaking: true,
 		},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent: "oauth-default-ua",
-		},
 	}
 	applyCodexHeaders(req, auth, "", false, cfg)
 
@@ -1639,9 +1624,6 @@ func TestApplyCodexHeaders_EmptyAPIKey_OmitsAuthorizationAndOAuthHeaders(t *test
 	}
 	if got := req.Header.Get("Originator"); got != "" {
 		t.Fatalf("Originator = %q, want empty for API key auth_kind when client originator omitted", got)
-	}
-	if got := req.Header.Get("User-Agent"); got == "oauth-default-ua" {
-		t.Fatalf("User-Agent unexpectedly used OAuth default UA %q for API key auth_kind", got)
 	}
 }
 
@@ -1660,10 +1642,6 @@ func TestApplyCodexWebsocketHeaders_EmptyAPIKey_OmitsAuthorizationAndOAuthHeader
 		Codex: config.CodexConfig{
 			DisableCodexCloaking: true,
 		},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "oauth-default-ua",
-			BetaFeatures: "oauth-beta",
-		},
 	}
 	headers := applyCodexWebsocketHeaders(context.Background(), nil, auth, "", cfg, false)
 	if got := headers.Get("Authorization"); got != "" {
@@ -1677,9 +1655,6 @@ func TestApplyCodexWebsocketHeaders_EmptyAPIKey_OmitsAuthorizationAndOAuthHeader
 	}
 	if got := headers.Get("x-codex-beta-features"); got != "" {
 		t.Fatalf("x-codex-beta-features = %q, want empty for API key auth_kind", got)
-	}
-	if got := headers.Get("User-Agent"); got == "oauth-default-ua" {
-		t.Fatalf("User-Agent unexpectedly used OAuth default UA %q for API key auth_kind", got)
 	}
 }
 

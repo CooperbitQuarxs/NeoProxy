@@ -4,7 +4,7 @@
 
 import { h, icon, fmtAgo } from "../lib/dom.js";
 import { neo, engine, ApiError } from "../lib/client.js";
-import { btn, field, input, seg, toast, dialog, confirm } from "../lib/components.js";
+import { btn, field, input, seg, select, toast, dialog, confirm } from "../lib/components.js";
 import { jsonView } from "../lib/json.js";
 
 const ENDPOINTS = [
@@ -44,8 +44,24 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 	};
 
 	// ---- left: the recipe ----
-	const modelInput = input({ mono: true, list: "pool-test-models", placeholder: models[0] ? `e.g. ${models[0]}` : "model id as the provider names it", value: state.model, autocomplete: "off", onInput: (e) => { state.model = e.target.value.trim(); syncPayload(); } });
-	const datalist = h("datalist", { id: "pool-test-models" }, models.slice(0, 400).map((m) => h("option", { value: m })));
+	// Model: a plain select of what the account lists, "Automatic" first, and
+	// "Another model…" for an id the account does not list.
+	const OTHER = "\u0000other";
+	const pickedOther = !!state.model && !models.includes(state.model);
+	const otherInput = input({ mono: true, placeholder: "model id as the provider names it", value: pickedOther ? state.model : "", autocomplete: "off", spellcheck: "false", "aria-label": "Model id", onInput: (e) => { state.model = e.target.value.trim(); syncPayload(); } });
+	const otherRow = h("div", { class: `test-other ${pickedOther || !models.length ? "" : "hidden"}` }, otherInput);
+	const modelSelect = models.length ? select(
+		[{ value: "", label: "Automatic: a cheap model this account lists" }, ...models.slice(0, 400).map((m) => ({ value: m, label: m })), { value: OTHER, label: "Another model…" }],
+		pickedOther ? OTHER : state.model,
+		(v) => {
+			const other = v === OTHER;
+			otherRow.classList.toggle("hidden", !other);
+			state.model = other ? otherInput.value.trim() : v;
+			syncPayload();
+			if (other) otherInput.focus();
+		},
+		{ "aria-label": "Model" }) : null;
+	const modelInput = modelSelect ?? otherInput;
 	const promptInput = h("textarea", { class: "input", rows: 3, onInput: (e) => { state.prompt = e.target.value; syncPayload(); } }, state.prompt);
 	const payloadInput = h("textarea", { class: "input mono pool-test-payload", rows: 12, spellcheck: "false", onInput: (e) => { state.payloadText = e.target.value; state.payloadMode = true; payloadNote(); } });
 	const payloadError = h("div", { class: "error", style: { display: "none" } });
@@ -75,11 +91,14 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 	if (!state.payloadMode) syncPayload(true);
 	else payloadInput.value = state.payloadText;
 
-	// ---- right: the stage track ----
+	// ---- right: the request's steps, once there is something to show ----
 	const track = h("ol", { class: "test-track", "aria-live": "polite" });
 	const outcome = h("div", { class: "test-outcome" });
+	const resultCol = h("div", { class: "test-result idle" }, track, outcome);
 	function renderTrack(result) {
 		track.replaceChildren();
+		resultCol.classList.toggle("idle", !state.running && !result);
+		if (!state.running && !result) return;
 		const byId = new Map((result?.stages ?? []).map((s) => [s.id, s]));
 		let failed = false;
 		STAGES.forEach((st, i) => {
@@ -106,7 +125,7 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 	function renderOutcome(result) {
 		outcome.replaceChildren();
 		if (!result) {
-			outcome.append(h("p", { class: "ink-3" }, "Nothing sent yet. The reply, or the provider's exact answer when it refuses, appears here."));
+			if (!state.running) outcome.append(h("div", { class: "test-empty" }, icon("play", 16), h("div", null, "Send the test to follow it here: the key or sign-in check, the request, the provider and its reply.")));
 			return;
 		}
 		if (result.unavailable) {
@@ -148,10 +167,21 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		return body;
 	}
 	const sendBtn = btn("Send test", { icon: "play", cls: "primary", onClick: send });
-	const saveBtn = btn(saved ? "Save as this account's test" : "Save as this account's test", { icon: "check", cls: "outline", onClick: save });
-	const resetBtn = btn("Forget saved test", { cls: "ghost sm", onClick: forget, title: "Go back to the automatic choice of model" });
-	resetBtn.style.display = saved ? "" : "none";
-	const savedNote = h("div", { class: "hint" }, saved ? `Saved ${fmtAgo(saved.updatedAt)}. The row's Test button uses this recipe.` : "Not saved. The row's Test button picks a cheap-looking model on its own, which can be the wrong one.");
+	const saveBtn = btn(saved ? "Update the account's Test" : "Use as the account's Test", { icon: "check", cls: "ghost sm", onClick: save });
+	const resetBtn = btn("Forget the saved Test", { cls: "ghost sm", onClick: forget, title: "Go back to the automatic choice of model" });
+	const savedNote = h("div", { class: "hint test-save-note" });
+	state.saved = !!saved;
+	state.savedAt = saved?.updatedAt ?? null;
+	// Save is offered once a send worked; the note says what saving does.
+	function paintSave() {
+		const worked = !!state.result?.ok;
+		saveBtn.style.display = worked ? "" : "none";
+		resetBtn.style.display = state.saved ? "" : "none";
+		savedNote.textContent = state.saved
+			? `This is the account's Test${state.savedAt ? `, saved ${fmtAgo(state.savedAt)}` : ""}: the row's Test button sends exactly this.`
+			: worked ? "Save makes this the account's Test: the row's Test button will send exactly this." : "";
+	}
+	paintSave();
 
 	async function send() {
 		let body;
@@ -172,6 +202,7 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		sendBtn.disabled = false;
 		renderTrack(state.result);
 		renderOutcome(state.result);
+		paintSave();
 		onChange?.();
 	}
 	async function save() {
@@ -181,8 +212,9 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		try {
 			await engine.put(`/v8/neo/access/${encodeURIComponent(a.id)}/test/config`, { endpoint: body.endpoint, model: body.model, prompt: body.prompt ?? "", payload: body.payload });
 			toast("Saved. Test on this account now sends this.");
-			savedNote.textContent = "Saved just now. The row's Test button uses this recipe.";
-			resetBtn.style.display = "";
+			state.saved = true;
+			state.savedAt = Date.now();
+			paintSave();
 			onChange?.();
 		} catch (e) { toast(e.message, "bad"); }
 	}
@@ -190,8 +222,8 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		if (!(await confirm({ title: "Forget the saved test?", text: "Test goes back to picking a cheap-looking model automatically.", confirmLabel: "Forget" }))) return;
 		try {
 			await engine.del(`/v8/neo/access/${encodeURIComponent(a.id)}/test/config`);
-			savedNote.textContent = "Not saved. The row's Test button picks a model on its own.";
-			resetBtn.style.display = "none";
+			state.saved = false;
+			paintSave();
 			toast("Saved test forgotten");
 			onChange?.();
 		} catch (e) { toast(e.message, "bad"); }
@@ -199,16 +231,16 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 
 	const dlg = dialog({
 		title: `Test ${a.label}`,
-		sub: `${provider?.name ?? providerId} · one request, straight to this credential, outside every budget. Pick what to send, then watch where it gets to.`,
+		sub: `${provider?.name ?? providerId} · one request straight to this account. It does not count against anyone's limits.`,
 		body: h("div", { class: "test-grid" },
 			h("div", { class: "test-recipe" },
 				field("Endpoint", h("div", null, endpointSeg, h("div", { class: "hint" }, "Sent to ", endpointPath, " in that protocol."))),
-				field("Model", h("div", null, modelInput, datalist), models.length ? `${models.length} models listed for this account; type any other id the provider accepts.` : "Type the model id as the provider names it."),
+				field("Model", h("div", { class: "test-model" }, modelSelect, otherRow), models.length ? "Automatic picks a cheap-looking model. Pick one to test a specific model." : "Type the model id as the provider names it."),
 				field("Prompt", promptInput),
 				payloadDetails,
-				h("div", { class: "test-actions" }, sendBtn, saveBtn, resetBtn),
+				h("div", { class: "test-actions" }, sendBtn, saveBtn, h("span", { class: "spacer" }), resetBtn),
 				savedNote),
-			h("div", { class: "test-result" }, track, outcome)),
+			resultCol),
 		actions: (close) => [btn("Close", { onClick: close })],
 		onClose: () => { state.running = false; clearTimeout(state.timer); },
 	});

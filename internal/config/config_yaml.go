@@ -63,6 +63,7 @@ func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...boo
 		removeLegacyAuthBlock(original.Content[0])
 		removeRemovedIntegrationKeys(original.Content[0])
 		removeLegacyGenerativeLanguageKeys(original.Content[0])
+		removeRetiredCodexHeaderDefaults(original.Content[0])
 	}
 	removeLegacyOpenAICompatAPIKeys(original.Content[0])
 
@@ -938,6 +939,16 @@ func removeLegacyGenerativeLanguageKeys(root *yaml.Node) {
 		return
 	}
 	removeMapKey(root, "generative-language-api-key")
+}
+
+// removeRetiredCodexHeaderDefaults drops the legacy Codex fallback headers.
+// Codex OAuth requests now carry the client's own headers, so the key has no
+// runtime effect. v8 migration comments it out instead (unknown-field handling).
+func removeRetiredCodexHeaderDefaults(root *yaml.Node) {
+	if root == nil || root.Kind != yaml.MappingNode {
+		return
+	}
+	removeMapKey(root, "codex-header-defaults")
 }
 
 func removeLegacyAuthBlock(root *yaml.Node) {
