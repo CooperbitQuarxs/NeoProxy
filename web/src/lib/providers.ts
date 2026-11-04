@@ -86,7 +86,20 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 	{ id: "fireworks", name: "Fireworks", vendor: "Fireworks AI", hue: 15, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.fireworks.ai/inference/v1", keyHint: "fw_…", getKeyUrl: "https://fireworks.ai/account/api-keys" } },
 	{ id: "cerebras", name: "Cerebras", vendor: "Cerebras", hue: 95, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.cerebras.ai/v1", keyHint: "csk-…", getKeyUrl: "https://cloud.cerebras.ai" } },
 	{ id: "moonshot", name: "Moonshot API", vendor: "Moonshot", hue: 340, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.moonshot.ai/v1", keyHint: "sk-…", getKeyUrl: "https://platform.moonshot.ai/console/api-keys" } },
-	{ id: "zai", name: "Z.ai", vendor: "Zhipu", hue: 190, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.z.ai/api/paas/v4", keyHint: "…", getKeyUrl: "https://z.ai/manage-apikey/apikey-list" } },
+	{
+		id: "zai",
+		name: "Z.ai",
+		vendor: "Zhipu AI",
+		hue: 190,
+		methods: ["subscription", "apiKey"],
+		subscription: { flow: "code", note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires." },
+		apiKey: { style: "openai", baseUrl: "https://api.z.ai/api/coding/paas/v4", keyHint: "32 hex digits, a dot, then more", getKeyUrl: "https://z.ai/manage-apikey/apikey-list" },
+		plans: [
+			{ id: "lite", name: "GLM Coding Plan Lite", monthlyUSD: 18 },
+			{ id: "pro", name: "GLM Coding Plan Pro", monthlyUSD: 80 },
+			{ id: "max", name: "GLM Coding Plan Max", monthlyUSD: 168 },
+		],
+	},
 	{ id: "nanogpt", name: "NanoGPT", vendor: "NanoGPT", hue: 150, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://nano-gpt.com/api/v1", keyHint: "…", getKeyUrl: "https://nano-gpt.com/api" } },
 	{
 		id: "alibaba-token-plan",

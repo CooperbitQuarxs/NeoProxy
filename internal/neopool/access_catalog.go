@@ -3,6 +3,8 @@ package neopool
 import (
 	"regexp"
 	"strings"
+
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 )
 
 // ProviderPlan is a subscription tier or budget with its default monthly value.
@@ -13,8 +15,10 @@ type ProviderPlan struct {
 }
 
 // ProviderSubscription describes the existing engine sign-in for a provider.
-// Flow is "browser" (provider page in a new tab, redirect back) or "device"
-// (provider page plus a short code the person confirms).
+// Flow is "browser" (provider page in a new tab, redirect back), "device"
+// (provider page plus a short code the person confirms) or "code" (provider
+// page in a new tab; the provider cannot redirect back, so the person pastes
+// the final address or code into NeoProxy).
 type ProviderSubscription struct {
 	Flow string `json:"flow"`
 	Note string `json:"note"`
@@ -62,6 +66,9 @@ var (
 	claudePlans  = []ProviderPlan{{"pro", "Claude Pro", 20}, {"max5x", "Claude Max 5x", 100}, {"max20x", "Claude Max 20x", 200}}
 	grokPlans    = []ProviderPlan{{"supergrok", "SuperGrok", 30}, {"supergrok-heavy", "SuperGrok Heavy", 300}}
 	googlePlans  = []ProviderPlan{{"google-ai-pro", "Google AI Pro", 20}, {"google-ai-ultra", "Google AI Ultra", 250}}
+	// GLM Coding Plan list prices (monthly billing); ids match the level Z.ai's
+	// quota API reports.
+	zaiPlans = []ProviderPlan{{"lite", "GLM Coding Plan Lite", 18}, {"pro", "GLM Coding Plan Pro", 80}, {"max", "GLM Coding Plan Max", 168}}
 )
 
 // QwenCloud Token Plan endpoints. Keys are region-locked: a China (Beijing) key
@@ -89,7 +96,7 @@ func device(note string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta, zai).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -136,8 +143,12 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
-	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.z.ai/api/paas/v4", "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"), Plans: []ProviderPlan{}},
+	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
+	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
+	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: &ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."},
+		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
+		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
 	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 285, Chroma: providerChroma, Methods: []string{"apiKey"},

@@ -58,7 +58,8 @@ export interface ProviderInfo {
 	chroma?: number;
 	neutral?: boolean;
 	methods: Array<"subscription" | "apiKey">;
-	subscription?: { flow: "browser" | "device"; note?: string };
+	/** "code": the provider cannot redirect back, so the person pastes the final address or code. */
+	subscription?: { flow: "browser" | "device" | "code"; note?: string };
 	apiKey?: { style: "openai" | "anthropic" | "gemini"; baseUrl: string; editableBaseUrl?: boolean; keyOptional?: boolean; keyHint?: string; getKeyUrl?: string };
 	plans?: Plan[];
 }
