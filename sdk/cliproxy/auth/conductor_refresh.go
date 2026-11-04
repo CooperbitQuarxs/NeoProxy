@@ -847,15 +847,15 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 		exec, _ = m.executorLocked(executorKeyFromAuth(auth))
 	}
 	m.mu.RUnlock()
+	if auth != nil && IsRefreshLocked(auth) && (registrationEpoch == 0 || auth.RegistrationEpoch == registrationEpoch) {
+		m.markRefreshLocked(id, auth.RegistrationEpoch, failedAccessToken)
+		return nil, ErrRefreshLocked
+	}
 	if auth == nil || exec == nil {
 		return nil, errors.New("auth or executor not found")
 	}
 	if registrationEpoch != 0 && auth.RegistrationEpoch != registrationEpoch {
 		return nil, errors.New("auth registration changed before refresh")
-	}
-	if IsRefreshLocked(auth) {
-		m.markRefreshLocked(id, auth.RegistrationEpoch, failedAccessToken)
-		return nil, ErrRefreshLocked
 	}
 	if hasDisabledInvalidGrantFailure(auth) && !forceRefresh {
 		return nil, errors.New("auth is disabled with invalid grant")
