@@ -27,7 +27,6 @@ type staticModelsJSON struct {
 	Gemini      []*ModelInfo `json:"gemini"`
 	Vertex      []*ModelInfo `json:"vertex"`
 	AIStudio    []*ModelInfo `json:"aistudio"`
-	Kimi        []*ModelInfo `json:"kimi"`
 	Antigravity []*ModelInfo `json:"antigravity"`
 	XAI         []*ModelInfo `json:"xai"`
 	Devin       []*ModelInfo `json:"devin"`
@@ -52,11 +51,6 @@ func GetGeminiVertexModels() []*ModelInfo {
 // GetAIStudioModels returns model definitions for AI Studio.
 func GetAIStudioModels() []*ModelInfo {
 	return cloneModelInfos(getModels().AIStudio)
-}
-
-// GetKimiModels returns the standard Kimi (Moonshot AI) model definitions.
-func GetKimiModels() []*ModelInfo {
-	return cloneModelInfos(getModels().Kimi)
 }
 
 // GetAntigravityModels returns the standard Antigravity model definitions.
@@ -498,8 +492,8 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 		return GetAIStudioModels()
 	case "codex":
 		return GetCodexModels()
-	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
-		return GetKimiModels()
+	case "kimi":
+		return KimiBundledModels()
 	case "antigravity":
 		return GetAntigravityModels()
 	case "xai", "x-ai", "grok":
@@ -557,7 +551,7 @@ func LookupStaticModelInfo(modelID string) *ModelInfo {
 		data.Vertex,
 		data.AIStudio,
 		GetCodexModels(),
-		data.Kimi,
+		KimiBundledModels(),
 		data.Antigravity,
 		data.XAI,
 		GetDevinModels(),

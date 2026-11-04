@@ -24,8 +24,6 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 		h.RequestAntigravityToken(c)
 	case "kimi":
 		h.RequestKimiToken(c)
-	case "kimi-ai":
-		h.RequestKimiAIToken(c)
 	case "xai":
 		h.RequestXAIToken(c)
 	case "grok-build":

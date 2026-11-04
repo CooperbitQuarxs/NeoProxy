@@ -100,8 +100,6 @@ func task6Executor(provider string) cliproxyauth.ProviderExecutor {
 		return NewGeminiVertexExecutor(cfg)
 	case "antigravity":
 		return NewAntigravityExecutor(cfg)
-	case "kimi-chat":
-		return NewKimiExecutor(cfg)
 	default:
 		return NewOpenAICompatExecutor(provider, cfg)
 	}
@@ -138,7 +136,7 @@ func assertTask6FailedStream(t *testing.T, chunks <-chan cliproxyexecutor.Stream
 }
 
 func TestApplyPatchActualProviderErrorAndEOF(t *testing.T) {
-	for _, provider := range []string{"custom-compat", "claude", "claude-oauth", "gemini", "gemini-interactions", "vertex", "antigravity", "kimi-chat"} {
+	for _, provider := range []string{"custom-compat", "claude", "claude-oauth", "gemini", "gemini-interactions", "vertex", "antigravity"} {
 		for _, mode := range []string{"nonstream", "stream", "eof", "empty", "scanner"} {
 			t.Run(provider+"/"+mode, func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -184,10 +182,6 @@ func TestApplyPatchActualProviderErrorAndEOF(t *testing.T) {
 					req.Model = "claude-sonnet-4-6"
 				}
 				opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: req.Payload}
-				if provider == "kimi-chat" {
-					opts.SourceFormat = sdktranslator.FormatOpenAI
-					opts.ResponseFormat = sdktranslator.FormatOpenAIResponse
-				}
 				if mode == "nonstream" {
 					response, errExecute := exec.Execute(context.Background(), auth, req, opts)
 					if len(response.Payload) != 0 {
@@ -324,7 +318,7 @@ func task6CaptureFailureUsageWithCheck(t *testing.T, id string, check func(usage
 }
 
 func TestApplyPatchResponsesInvalidTerminalUsage(t *testing.T) {
-	for _, provider := range []string{"xai", "meta", "kimi"} {
+	for _, provider := range []string{"xai", "meta"} {
 		t.Run(provider, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/event-stream")
@@ -337,8 +331,6 @@ func TestApplyPatchResponsesInvalidTerminalUsage(t *testing.T) {
 				exec = NewXAIExecutor(&config.Config{})
 			case "meta":
 				exec = NewMetaExecutor(&config.Config{})
-			case "kimi":
-				exec = NewKimiExecutor(&config.Config{})
 			}
 			auth := &cliproxyauth.Auth{ID: "task6-invalid-terminal", Provider: provider, Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 			checkUsage := task6CaptureFailureUsage(t, auth.ID)
@@ -444,7 +436,7 @@ data: {"type":"response.completed","response":{"output":[{"type":"function_call"
 }
 
 func TestApplyPatchHTTPGatewayErrorMatrix(t *testing.T) {
-	for _, provider := range []string{"custom-compat", "claude", "claude-oauth", "gemini", "gemini-interactions", "vertex", "antigravity", "devin", "xai", "meta", "kimi"} {
+	for _, provider := range []string{"custom-compat", "claude", "claude-oauth", "gemini", "gemini-interactions", "vertex", "antigravity", "devin", "xai", "meta"} {
 		for _, mode := range []string{"nonstream", "stream", "eof"} {
 			t.Run(provider+"/"+mode, func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -469,11 +461,7 @@ func TestApplyPatchHTTPGatewayErrorMatrix(t *testing.T) {
 						_, _ = w.Write(task6DevinFrames(`{"input":7,"secret":"RAW_SECRET"}`, false, trailer))
 						return
 					}
-					if provider == "xai" || provider == "meta" || provider == "kimi" {
-						if provider == "kimi" && mode == "nonstream" {
-							_, _ = io.WriteString(w, `{"output":[{"type":"function_call","name":"apply_patch","arguments":"{}"}]}`)
-							return
-						}
+					if provider == "xai" || provider == "meta" {
 						w.Header().Set("Content-Type", "text/event-stream")
 						_, _ = io.WriteString(w, "data: {\"type\":\"response.created\",\"response\":{\"id\":\"r\"}}\n\n")
 						if mode == "eof" {
@@ -497,8 +485,6 @@ func TestApplyPatchHTTPGatewayErrorMatrix(t *testing.T) {
 					exec = NewXAIExecutor(&config.Config{})
 				case "meta":
 					exec = NewMetaExecutor(&config.Config{})
-				case "kimi":
-					exec = NewKimiExecutor(&config.Config{})
 				}
 				auth := &cliproxyauth.Auth{ID: "task6-http-" + provider + mode, Provider: exec.Identifier(), Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 				if provider == "claude-oauth" {

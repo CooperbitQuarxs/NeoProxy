@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
@@ -13,48 +12,28 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// kimiRefreshLead is the duration before token expiry when refresh should occur.
+// kimiRefreshLead keeps the proactive refresh loop ahead of the stored expiry
+// (already five minutes early, as NeoPi stores it); NeoPi itself refreshes
+// once that expiry passes, just before the next request.
 var kimiRefreshLead = 5 * time.Minute
 
-// KimiAuthenticator implements the OAuth device flow login for Kimi (Moonshot AI).
-type KimiAuthenticator struct {
-	domain   string
-	provider string
-}
+// KimiAuthenticator runs NeoPi's Kimi Code device-code sign-in.
+type KimiAuthenticator struct{}
 
-// NewKimiAuthenticator constructs a new Kimi authenticator for kimi.com.
+// NewKimiAuthenticator constructs the Kimi Code authenticator.
 func NewKimiAuthenticator() Authenticator {
-	return &KimiAuthenticator{domain: kimi.KimiDefaultDomain, provider: "kimi"}
+	return &KimiAuthenticator{}
 }
 
-// NewKimiAIAuthenticator constructs a new Kimi authenticator for kimi.ai with provider "kimi-ai".
-func NewKimiAIAuthenticator() Authenticator {
-	return &KimiAuthenticator{domain: kimi.KimiAIDomain, provider: "kimi-ai"}
-}
+// Provider returns the provider key for Kimi Code.
+func (KimiAuthenticator) Provider() string { return kimi.Type }
 
-// NewKimiAIDotAuthenticator constructs a new Kimi authenticator for kimi.ai with provider "kimi.ai".
-func NewKimiAIDotAuthenticator() Authenticator {
-	return &KimiAuthenticator{domain: kimi.KimiAIDomain, provider: "kimi.ai"}
-}
-
-// Provider returns the provider key for kimi.
-func (a KimiAuthenticator) Provider() string {
-	if a.provider != "" {
-		return a.provider
-	}
-	if kimi.IsKimiAIDomain(a.domain) {
-		return "kimi-ai"
-	}
-	return "kimi"
-}
-
-// RefreshLead returns the duration before token expiry when refresh should occur.
-// Kimi tokens expire and need to be refreshed before expiry.
+// RefreshLead returns the duration before the stored expiry to refresh.
 func (KimiAuthenticator) RefreshLead() *time.Duration {
 	return &kimiRefreshLead
 }
 
-// Login initiates the Kimi device flow authentication.
+// Login runs the device-code flow and returns the signed-in account.
 func (a KimiAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cliproxy auth: configuration is required")
@@ -62,105 +41,56 @@ func (a KimiAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *
 	if opts == nil {
 		opts = &LoginOptions{}
 	}
-
-	domain := a.domain
-	if domain == "" {
-		domain = kimi.KimiDefaultDomain
-	}
-	isAI := kimi.IsKimiAIDomain(domain)
-	displayName := "Kimi"
-	providerKey := a.Provider()
-	filePrefix := "kimi"
-	baseURL := kimi.KimiAPIBaseURL
-	if isAI {
-		displayName = "Kimi.ai"
-		filePrefix = "kimi-ai"
-		baseURL = kimi.KimiAIAPIBaseURL
-	}
-
-	authSvc := kimi.NewKimiAuthWithDomain(cfg, domain)
-
-	// Start the device flow
-	fmt.Printf("Starting %s authentication...\n", displayName)
+	authSvc := kimi.NewAuth(cfg, "")
+	fmt.Println("Starting Kimi authentication...")
 	deviceCode, err := authSvc.StartDeviceFlow(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("kimi: failed to start device flow: %w", err)
 	}
-
-	// Display the verification URL
 	verificationURL := deviceCode.VerificationURIComplete
 	if verificationURL == "" {
 		verificationURL = deviceCode.VerificationURI
 	}
-
 	fmt.Printf("\nTo authenticate, please visit:\n%s\n\n", verificationURL)
 	if deviceCode.UserCode != "" {
 		fmt.Printf("User code: %s\n\n", deviceCode.UserCode)
 	}
-
-	// Try to open the browser automatically
-	if !opts.NoBrowser {
-		if browser.IsAvailable() {
-			if errOpen := browser.OpenURL(verificationURL); errOpen != nil {
-				log.Warnf("Failed to open browser automatically: %v", errOpen)
-			} else {
-				fmt.Println("Browser opened automatically.")
-			}
+	if !opts.NoBrowser && browser.IsAvailable() {
+		if errOpen := browser.OpenURL(verificationURL); errOpen != nil {
+			log.Warnf("Failed to open browser automatically: %v", errOpen)
+		} else {
+			fmt.Println("Browser opened automatically.")
 		}
 	}
-
 	fmt.Println("Waiting for authorization...")
-	if deviceCode.ExpiresIn > 0 {
-		fmt.Printf("(This will timeout in %d seconds if not authorized)\n", deviceCode.ExpiresIn)
-	}
-
-	// Wait for user authorization
-	authBundle, err := authSvc.WaitForAuthorization(ctx, deviceCode)
+	credential, err := authSvc.PollForToken(ctx, deviceCode)
 	if err != nil {
 		return nil, fmt.Errorf("kimi: %w", err)
 	}
+	fmt.Println("\nKimi authentication successful!")
+	return KimiAuthRecord(credential), nil
+}
 
-	// Create the token storage
-	tokenStorage := authSvc.CreateTokenStorage(authBundle)
-	if isAI {
-		tokenStorage.Type = providerKey
-	}
-
-	// Build metadata with token information
+// KimiAuthRecord is the auth record of a signed-in Kimi Code account.
+func KimiAuthRecord(credential *kimi.Credential) *coreauth.Auth {
+	storage := kimi.NewTokenStorage(credential)
 	metadata := map[string]any{
-		"type":          providerKey,
-		"access_token":  authBundle.TokenData.AccessToken,
-		"refresh_token": authBundle.TokenData.RefreshToken,
-		"token_type":    authBundle.TokenData.TokenType,
-		"scope":         authBundle.TokenData.Scope,
+		"type":          kimi.Type,
+		"access_token":  storage.AccessToken,
+		"refresh_token": storage.RefreshToken,
+		"expired":       storage.Expired,
 		"timestamp":     time.Now().UnixMilli(),
-		"domain":        domain,
-		"base_url":      baseURL,
 	}
-
-	if authBundle.TokenData.ExpiresAt > 0 {
-		exp := time.Unix(authBundle.TokenData.ExpiresAt, 0).UTC().Format(time.RFC3339)
-		metadata["expired"] = exp
+	if storage.AccountID != "" {
+		metadata["account_id"] = storage.AccountID
 	}
-	if strings.TrimSpace(authBundle.DeviceID) != "" {
-		metadata["device_id"] = strings.TrimSpace(authBundle.DeviceID)
-	}
-
-	// Generate a unique filename
-	fileName := fmt.Sprintf("%s-%d.json", filePrefix, time.Now().UnixMilli())
-
-	fmt.Printf("\n%s authentication successful!\n", displayName)
-
+	fileName := fmt.Sprintf("%s-%d.json", kimi.Type, time.Now().UnixMilli())
 	return &coreauth.Auth{
 		ID:       fileName,
-		Provider: providerKey,
+		Provider: kimi.Type,
 		FileName: fileName,
-		Label:    fmt.Sprintf("%s User", displayName),
-		Storage:  tokenStorage,
+		Label:    "Kimi User",
+		Storage:  storage,
 		Metadata: metadata,
-		Attributes: map[string]string{
-			"base_url": baseURL,
-			"domain":   domain,
-		},
-	}, nil
+	}
 }

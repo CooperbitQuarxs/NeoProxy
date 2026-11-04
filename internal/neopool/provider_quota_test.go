@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -122,6 +123,36 @@ func TestQuotaCodexUsageShape(t *testing.T) {
 	week := windowByKind(t, windows, "week")
 	if week.UsedTokens != 80 || week.Used != .8 || week.ResetsAt != resetAt*1000 || week.Source != "provider-reported" {
 		t.Fatalf("week window: %+v", week)
+	}
+}
+
+// Kimi gates on the first 5h and the first 7d limit, as NeoPi's ranking reads
+// them: later duplicates and non-gating windows never become budgets, and a
+// limit without a duration spans its window's default.
+func TestQuotaKimiWindowsFollowNeoPiRanking(t *testing.T) {
+	reset := time.Date(2026, 11, 9, 0, 0, 0, 0, time.UTC)
+	fraction := func(v float64) *float64 { return &v }
+	windows := kimiUsageWindows(&kimiauth.Usage{Limits: []kimiauth.UsageLimit{
+		{Label: "Weekly limit", WindowID: "7d", ResetsAt: reset, UsedFraction: fraction(.37)},
+		{Label: "5h limit", WindowID: "5h", DurationMs: (5 * time.Hour).Milliseconds(), ResetsAt: reset, UsedFraction: fraction(.12)},
+		{Label: "Total quota", WindowID: "7d", UsedFraction: fraction(.99)},
+		{Label: "Daily", WindowID: "1d", UsedFraction: fraction(1)},
+		{Label: "Monthly total", WindowID: "limit_month_total", UsedFraction: fraction(1)},
+	}})
+	if len(windows) != 2 {
+		t.Fatalf("windows = %+v, want 5h and week only", windows)
+	}
+	week := windowByKind(t, windows, "week")
+	if !week.Known || week.Used != .37 || week.ResetsAt != reset.UnixMilli() || week.StartsAt != reset.Add(-7*24*time.Hour).UnixMilli() {
+		t.Fatalf("week window: %+v", week)
+	}
+	five := windowByKind(t, windows, "5h")
+	if five.Used != .12 || five.StartsAt != reset.Add(-5*time.Hour).UnixMilli() {
+		t.Fatalf("5h window: %+v", five)
+	}
+	unknown := kimiUsageWindows(&kimiauth.Usage{Limits: []kimiauth.UsageLimit{{Label: "5h limit", WindowID: "5h"}}})
+	if len(unknown) != 1 || unknown[0].Known || unknown[0].Kind != "5h" {
+		t.Fatalf("fractionless limit: %+v", unknown)
 	}
 }
 

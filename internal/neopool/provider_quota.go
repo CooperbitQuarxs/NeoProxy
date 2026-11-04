@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
@@ -127,6 +129,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "codex"
 	case "xai":
 		return "xai"
+	case "kimi":
+		return "kimi"
 	}
 	return ""
 }
@@ -280,6 +284,43 @@ func zaiUsageWindows(usage *zaiauth.Usage) []Window {
 	return out
 }
 
+// kimiUsageWindows adapts NeoPi's Kimi Code report the way its ranking
+// strategy reads it: the first 5h limit and the first 7d limit gate the
+// account; a limit without a duration spans its window's default. A limit
+// without a fraction is reported but unknown to routing.
+func kimiUsageWindows(usage *kimiauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	windows := map[string]struct {
+		kind     string
+		duration time.Duration
+	}{"5h": {"5h", 5 * time.Hour}, "7d": {"week", 7 * 24 * time.Hour}}
+	seen := map[string]bool{}
+	for _, limit := range usage.Limits {
+		window, ok := windows[limit.WindowID]
+		if !ok || seen[limit.WindowID] {
+			continue
+		}
+		seen[limit.WindowID] = true
+		if limit.UsedFraction == nil {
+			out = append(out, Window{Kind: window.kind, Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+			continue
+		}
+		duration := window.duration
+		if limit.DurationMs > 0 {
+			duration = time.Duration(limit.DurationMs) * time.Millisecond
+		}
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() {
+			startsAt = limit.ResetsAt.Add(-duration)
+		}
+		out = append(out, percentWindow(window.kind, *limit.UsedFraction*100, startsAt, limit.ResetsAt))
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -327,6 +368,21 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return zaiUsageWindows(usage), nil
+	case "kimi":
+		// NeoPi skips the probe while the stored token is expired; the next
+		// poll carries the refreshed one.
+		if expires, ok := a.ExpirationTime(); ok && !expires.After(now) {
+			return nil, fmt.Errorf("kimi usage: access token expired")
+		}
+		authDir := ""
+		if path := a.Attributes[coreauth.AttributePath]; path != "" {
+			authDir = filepath.Dir(path)
+		}
+		usage, err := kimiauth.FetchUsage(ctx, client, authDir, token, now)
+		if err != nil {
+			return nil, err
+		}
+		return kimiUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }

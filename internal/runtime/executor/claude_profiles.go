@@ -3,6 +3,7 @@ package executor
 import (
 	_ "embed"
 	"encoding/json"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -48,11 +49,16 @@ type neoPiProfile struct {
 // wire relative to Anthropic's own endpoint.
 type neoPiThirdParty struct {
 	efforts        []string
-	budgetEffort   bool // thinking mode anthropic-budget-effort: the effort ships beside the budget
 	requiresEffort bool
 	outputEffort   bool
 	toolResultID   bool
 	images         bool
+	// promptCacheUserID: NeoPi sends Kimi Code's prompt-cache key as
+	// metadata.user_id when the caller sets none.
+	promptCacheUserID bool
+	// headers are provider identity headers (Kimi's fingerprint) applied over
+	// the default set.
+	headers http.Header
 }
 
 var neoPiProfiles = func() map[string]neoPiProfile {

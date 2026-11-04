@@ -1,668 +1,345 @@
-// Package kimi provides authentication and token management for Kimi (Moonshot AI) API.
-// It handles the RFC 8628 OAuth2 Device Authorization Grant flow for secure authentication.
+// Package kimi is NeoPi's Kimi Code sign-in (auth rule kimi-code): the device
+// authorization grant against auth.kimi.com and the refresh-token grant, both
+// carrying the kimi-fingerprint headers.
 package kimi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/buildinfo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 )
 
 const (
-	// kimiClientID is Kimi Code's OAuth client ID.
-	kimiClientID = "17e5f671-d194-4dfb-9706-5516cb48c098"
+	// ClientID is the Kimi CLI's public OAuth client.
+	ClientID = "17e5f671-d194-4dfb-9706-5516cb48c098"
+	// OAuthBaseURL hosts the device and token endpoints.
+	OAuthBaseURL = "https://auth.kimi.com"
+	// DeviceAuthorizationURL starts the device grant.
+	DeviceAuthorizationURL = OAuthBaseURL + "/api/oauth/device_authorization"
+	// TokenURL serves the device and refresh grants.
+	TokenURL = OAuthBaseURL + "/api/oauth/token"
+	// APIBaseURL is the Kimi Code Anthropic Messages base (the OpenAI base
+	// without its /v1 suffix).
+	APIBaseURL = "https://api.kimi.com/coding"
+	// ModelsURL is Kimi Code's model discovery endpoint.
+	ModelsURL = APIBaseURL + "/v1/models"
+	// DeviceCodeGrantType is the OAuth2 device authorization grant (RFC 8628).
+	DeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code"
+	// providerID names the provider in NeoPi's messages.
+	providerID = "kimi-code"
 
-	// KimiDefaultDomain is the default domain for Kimi (.com).
-	KimiDefaultDomain = "kimi.com"
-	// KimiAIDomain is the domain for Kimi.ai.
-	KimiAIDomain = "kimi.ai"
-
-	// KimiOAuthHost is the OAuth server endpoint for Kimi (.com).
-	KimiOAuthHost = "https://auth.kimi.com"
-	// KimiAIOAuthHost is the OAuth server endpoint for Kimi.ai.
-	KimiAIOAuthHost = "https://auth.kimi.ai"
-
-	// kimiOAuthHost is kept for internal backward compatibility.
-	kimiOAuthHost = KimiOAuthHost
-	// kimiDeviceCodeURL is the endpoint for requesting device codes for Kimi (.com).
-	kimiDeviceCodeURL = kimiOAuthHost + "/api/oauth/device_authorization"
-	// kimiTokenURL is the endpoint for exchanging device codes for tokens for Kimi (.com).
-	kimiTokenURL = kimiOAuthHost + "/api/oauth/token"
-
-	// KimiAPIBaseURL is the base URL for Kimi (.com) API requests.
-	KimiAPIBaseURL = "https://api.kimi.com/coding"
-	// KimiAIAPIBaseURL is the base URL for Kimi.ai API requests.
-	KimiAIAPIBaseURL = "https://api.kimi.ai/coding"
-
-	// defaultPollInterval is the default interval for polling token endpoint.
 	defaultPollInterval = 5 * time.Second
-	// maxPollDuration is the maximum time to wait for user authorization.
-	maxPollDuration = 15 * time.Minute
-	// refreshThresholdSeconds is when to refresh token before expiry (5 minutes).
-	refreshThresholdSeconds = 300
+	minimumPollInterval = time.Second
+	slowDownIncrement   = 5 * time.Second
+	requestTimeout      = 30 * time.Second
+	// expiryMargin is how much earlier than the server's expires_in NeoPi
+	// treats a token as expired.
+	expiryMargin = 5 * time.Minute
 )
 
-var kimiRefreshGroup singleflight.Group
-
-// IsKimiAIDomain checks whether a domain or provider string represents kimi.ai.
-func IsKimiAIDomain(domain string) bool {
-	d := strings.ToLower(strings.TrimSpace(domain))
-	return d == "kimi.ai" || d == "ai" || d == "kimi-ai" || strings.HasSuffix(d, ".kimi.ai")
+// DeviceCodeResponse is the device authorization response.
+type DeviceCodeResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
 }
 
-// IsKimiComDomain checks whether a domain or provider string represents kimi.com.
-func IsKimiComDomain(domain string) bool {
-	d := strings.ToLower(strings.TrimSpace(domain))
-	return d == "kimi.com" || d == "com" || d == "kimi" || strings.HasSuffix(d, ".kimi.com")
+// Credential is NeoPi's stored OAuth credential.
+type Credential struct {
+	AccessToken  string
+	RefreshToken string
+	Expires      time.Time
+	AccountID    string
 }
 
-func isKimiAIHost(rawURL string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+// Auth runs the sign-in and refresh grants.
+type Auth struct {
+	httpClient *http.Client
+	authDir    string
+	now        func() time.Time
+	// wait sleeps between polls; tests record the requested waits.
+	wait func(ctx context.Context, delay time.Duration) error
+}
+
+var refreshGroup singleflight.Group
+
+// NewAuth uses the configured proxy (or proxyURL when set) and the config's
+// auth directory for the device id.
+func NewAuth(cfg *config.Config, proxyURL string) *Auth {
+	var sdkCfg config.SDKConfig
+	authDir := ""
+	effective := strings.TrimSpace(proxyURL)
+	if cfg != nil {
+		sdkCfg = cfg.SDKConfig
+		authDir = cfg.AuthDir
+		if effective == "" {
+			effective = strings.TrimSpace(cfg.ProxyURL)
+		}
+	}
+	sdkCfg.ProxyURL = effective
+	return NewAuthWithHTTPClient(util.SetProxy(&sdkCfg, &http.Client{}), authDir)
+}
+
+// NewAuthWithHTTPClient sends every request through client.
+func NewAuthWithHTTPClient(client *http.Client, authDir string) *Auth {
+	return &Auth{httpClient: client, authDir: authDir, now: time.Now, wait: sleepContext}
+}
+
+func sleepContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+// formField is one URLSearchParams entry; order is preserved on the wire.
+type formField struct{ name, value string }
+
+func encodeForm(fields ...formField) string {
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		escape := func(value string) string {
+			value = strings.ReplaceAll(url.QueryEscape(value), "~", "%7E")
+			return strings.ReplaceAll(value, "%2A", "*")
+		}
+		parts = append(parts, escape(field.name)+"="+escape(field.value))
+	}
+	return strings.Join(parts, "&")
+}
+
+// postForm is postTokenRequest: a form POST with Bun's defaults and the
+// fingerprint headers.
+func (a *Auth) postForm(ctx context.Context, endpoint string, fields ...formField) (int, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(encodeForm(fields...)))
 	if err != nil {
-		return false
+		return 0, nil, err
 	}
-	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	return host == "kimi.ai" || host == "api.kimi.ai" || host == "auth.kimi.ai" || strings.HasSuffix(host, ".kimi.ai")
-}
-
-func isKimiComHost(rawURL string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	req.Header.Set("Connection", "keep-alive")
+	for name, values := range CommonHeaders(a.authDir) {
+		req.Header[name] = values
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return false
-	}
-	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
-	return host == "kimi.com" || host == "api.kimi.com" || host == "auth.kimi.com" || strings.HasSuffix(host, ".kimi.com")
-}
-
-// NormalizeKimiDomain canonicalizes a domain string to "kimi.ai" or "kimi.com".
-func NormalizeKimiDomain(domain string) string {
-	if IsKimiAIDomain(domain) {
-		return KimiAIDomain
-	}
-	return KimiDefaultDomain
-}
-
-// ResolveKimiOAuthHost returns the OAuth host for the given domain.
-func ResolveKimiOAuthHost(domain string) string {
-	if IsKimiAIDomain(domain) {
-		return KimiAIOAuthHost
-	}
-	return KimiOAuthHost
-}
-
-// ResolveKimiAPIBaseURL returns the API base URL for the given domain.
-func ResolveKimiAPIBaseURL(domain string) string {
-	if IsKimiAIDomain(domain) {
-		return KimiAIAPIBaseURL
-	}
-	return KimiAPIBaseURL
-}
-
-// ResolveKimiDomainFromAuth detects whether an Auth represents kimi.ai or kimi.com.
-// Explicit configurations (domain, base_url, type) take precedence over file names.
-func ResolveKimiDomainFromAuth(auth *cliproxyauth.Auth) string {
-	if auth == nil {
-		return KimiDefaultDomain
-	}
-	// 1. Attributes
-	if auth.Attributes != nil {
-		if dom := auth.Attributes["domain"]; dom != "" {
-			if IsKimiAIDomain(dom) {
-				return KimiAIDomain
-			}
-			if IsKimiComDomain(dom) {
-				return KimiDefaultDomain
-			}
+		if ctx.Err() == context.DeadlineExceeded {
+			return 0, nil, fmt.Errorf("Timed out waiting for %s", endpoint)
 		}
-		if bu := auth.Attributes["base_url"]; bu != "" {
-			if isKimiAIHost(bu) {
-				return KimiAIDomain
-			}
-			if isKimiComHost(bu) {
-				return KimiDefaultDomain
-			}
-		}
+		return 0, nil, fmt.Errorf("%s request to %s failed: %w", providerID, endpoint, err)
 	}
-	// 2. Metadata
-	if auth.Metadata != nil {
-		if dom, ok := auth.Metadata["domain"].(string); ok && strings.TrimSpace(dom) != "" {
-			if IsKimiAIDomain(dom) {
-				return KimiAIDomain
-			}
-			if IsKimiComDomain(dom) {
-				return KimiDefaultDomain
-			}
-		}
-		if bu, ok := auth.Metadata["base_url"].(string); ok && strings.TrimSpace(bu) != "" {
-			if isKimiAIHost(bu) {
-				return KimiAIDomain
-			}
-			if isKimiComHost(bu) {
-				return KimiDefaultDomain
-			}
-		}
-		if t, ok := auth.Metadata["type"].(string); ok && strings.TrimSpace(t) != "" {
-			if IsKimiAIDomain(t) {
-				return KimiAIDomain
-			}
-			if IsKimiComDomain(t) {
-				return KimiDefaultDomain
-			}
-		}
+	defer func() { _ = resp.Body.Close() }()
+	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
+	if err != nil {
+		return 0, nil, err
 	}
-	// 3. Storage
-	if storage, ok := auth.Storage.(*KimiTokenStorage); ok && storage != nil {
-		if storage.Domain != "" {
-			if IsKimiAIDomain(storage.Domain) {
-				return KimiAIDomain
-			}
-			if IsKimiComDomain(storage.Domain) {
-				return KimiDefaultDomain
-			}
-		}
-		if storage.BaseURL != "" {
-			if isKimiAIHost(storage.BaseURL) {
-				return KimiAIDomain
-			}
-			if isKimiComHost(storage.BaseURL) {
-				return KimiDefaultDomain
-			}
-		}
-		if storage.Type != "" {
-			if IsKimiAIDomain(storage.Type) {
-				return KimiAIDomain
-			}
-			if IsKimiComDomain(storage.Type) {
-				return KimiDefaultDomain
-			}
-		}
-	}
-	// 4. Provider
-	if auth.Provider != "" {
-		if IsKimiAIDomain(auth.Provider) {
-			return KimiAIDomain
-		}
-		if IsKimiComDomain(auth.Provider) {
-			return KimiDefaultDomain
-		}
-	}
-	// 5. File name fallback when no explicit domain information is present
-	id := strings.ToLower(auth.ID)
-	fileName := strings.ToLower(auth.FileName)
-	if strings.Contains(id, "kimi-ai") || strings.Contains(id, "kimi.ai") ||
-		strings.Contains(fileName, "kimi-ai") || strings.Contains(fileName, "kimi.ai") {
-		return KimiAIDomain
-	}
-	return KimiDefaultDomain
+	defer func() { _ = decoded.Close() }()
+	body, err := io.ReadAll(io.LimitReader(decoded, 1<<20))
+	return resp.StatusCode, body, err
 }
 
-// IsKimiAIAuth reports whether the provided auth targets kimi.ai.
-func IsKimiAIAuth(auth *cliproxyauth.Auth) bool {
-	return IsKimiAIDomain(ResolveKimiDomainFromAuth(auth))
-}
-
-// KimiAuth handles Kimi authentication flow.
-type KimiAuth struct {
-	deviceClient *DeviceFlowClient
-	cfg          *config.Config
-	domain       string
-}
-
-// NewKimiAuth creates a new KimiAuth service instance for kimi.com.
-func NewKimiAuth(cfg *config.Config) *KimiAuth {
-	return NewKimiAuthWithDomain(cfg, KimiDefaultDomain)
-}
-
-// NewKimiAIAuth creates a new KimiAuth service instance for kimi.ai.
-func NewKimiAIAuth(cfg *config.Config) *KimiAuth {
-	return NewKimiAuthWithDomain(cfg, KimiAIDomain)
-}
-
-// NewKimiAuthWithDomain creates a new KimiAuth service instance for the specified domain.
-func NewKimiAuthWithDomain(cfg *config.Config, domain string) *KimiAuth {
-	normDomain := NormalizeKimiDomain(domain)
-	return &KimiAuth{
-		deviceClient: NewDeviceFlowClientWithDomain(cfg, normDomain),
-		cfg:          cfg,
-		domain:       normDomain,
-	}
-}
-
-// StartDeviceFlow initiates the device flow authentication.
-func (k *KimiAuth) StartDeviceFlow(ctx context.Context) (*DeviceCodeResponse, error) {
-	return k.deviceClient.RequestDeviceCode(ctx)
-}
-
-// WaitForAuthorization polls for user authorization and returns the auth bundle.
-func (k *KimiAuth) WaitForAuthorization(ctx context.Context, deviceCode *DeviceCodeResponse) (*KimiAuthBundle, error) {
-	tokenData, err := k.deviceClient.PollForToken(ctx, deviceCode)
+// StartDeviceFlow requests a device code.
+func (a *Auth) StartDeviceFlow(ctx context.Context) (*DeviceCodeResponse, error) {
+	status, body, err := a.postForm(ctx, DeviceAuthorizationURL, formField{"client_id", ClientID})
 	if err != nil {
 		return nil, err
 	}
-
-	return &KimiAuthBundle{
-		TokenData: tokenData,
-		DeviceID:  k.deviceClient.deviceID,
-	}, nil
-}
-
-// CreateTokenStorage creates a new KimiTokenStorage from auth bundle.
-func (k *KimiAuth) CreateTokenStorage(bundle *KimiAuthBundle) *KimiTokenStorage {
-	expired := ""
-	if bundle.TokenData.ExpiresAt > 0 {
-		expired = time.Unix(bundle.TokenData.ExpiresAt, 0).UTC().Format(time.RFC3339)
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("%s device authorization failed: %d %s", providerID, status, strings.TrimSpace(string(body)))
 	}
-	tType := "kimi"
-	domain := KimiDefaultDomain
-	if k != nil && IsKimiAIDomain(k.domain) {
-		tType = "kimi-ai"
-		domain = KimiAIDomain
-	}
-	return &KimiTokenStorage{
-		AccessToken:  bundle.TokenData.AccessToken,
-		RefreshToken: bundle.TokenData.RefreshToken,
-		TokenType:    bundle.TokenData.TokenType,
-		Scope:        bundle.TokenData.Scope,
-		DeviceID:     strings.TrimSpace(bundle.DeviceID),
-		Expired:      expired,
-		Type:         tType,
-		Domain:       domain,
-		BaseURL:      ResolveKimiAPIBaseURL(domain),
-	}
-}
-
-// DeviceFlowClient handles the OAuth2 device flow for Kimi.
-type DeviceFlowClient struct {
-	httpClient *http.Client
-	cfg        *config.Config
-	deviceID   string
-	domain     string
-	oauthHost  string
-}
-
-// NewDeviceFlowClient creates a new device flow client.
-func NewDeviceFlowClient(cfg *config.Config) *DeviceFlowClient {
-	return NewDeviceFlowClientWithDomain(cfg, KimiDefaultDomain)
-}
-
-// NewDeviceFlowClientWithDomain creates a new device flow client for the specified domain.
-func NewDeviceFlowClientWithDomain(cfg *config.Config, domain string) *DeviceFlowClient {
-	return NewDeviceFlowClientWithDomainDeviceIDAndProxyURL(cfg, domain, "", "")
-}
-
-// NewDeviceFlowClientWithDeviceID creates a new device flow client with the specified device ID.
-func NewDeviceFlowClientWithDeviceID(cfg *config.Config, deviceID string) *DeviceFlowClient {
-	return NewDeviceFlowClientWithDomainDeviceIDAndProxyURL(cfg, KimiDefaultDomain, deviceID, "")
-}
-
-// NewDeviceFlowClientWithDeviceIDAndProxyURL creates a new device flow client with a proxy override.
-// proxyURL takes precedence over cfg.ProxyURL when non-empty.
-func NewDeviceFlowClientWithDeviceIDAndProxyURL(cfg *config.Config, deviceID string, proxyURL string) *DeviceFlowClient {
-	return NewDeviceFlowClientWithDomainDeviceIDAndProxyURL(cfg, KimiDefaultDomain, deviceID, proxyURL)
-}
-
-// NewDeviceFlowClientWithDomainDeviceIDAndProxyURL creates a new device flow client with domain, device ID, and proxy override.
-func NewDeviceFlowClientWithDomainDeviceIDAndProxyURL(cfg *config.Config, domain string, deviceID string, proxyURL string) *DeviceFlowClient {
-	client := &http.Client{Timeout: 30 * time.Second}
-	effectiveProxyURL := strings.TrimSpace(proxyURL)
-	var sdkCfg config.SDKConfig
-	if cfg != nil {
-		sdkCfg = cfg.SDKConfig
-		if effectiveProxyURL == "" {
-			effectiveProxyURL = strings.TrimSpace(cfg.ProxyURL)
-		}
-	}
-	sdkCfg.ProxyURL = effectiveProxyURL
-	client = util.SetProxy(&sdkCfg, client)
-
-	resolvedDeviceID := strings.TrimSpace(deviceID)
-	if resolvedDeviceID == "" {
-		resolvedDeviceID = getOrCreateDeviceID()
-	}
-	normDomain := NormalizeKimiDomain(domain)
-	oauthHost := ResolveKimiOAuthHost(normDomain)
-	return &DeviceFlowClient{
-		httpClient: client,
-		cfg:        cfg,
-		deviceID:   resolvedDeviceID,
-		domain:     normDomain,
-		oauthHost:  oauthHost,
-	}
-}
-
-func (c *DeviceFlowClient) deviceCodeURL() string {
-	if c.oauthHost != "" {
-		return c.oauthHost + "/api/oauth/device_authorization"
-	}
-	return ResolveKimiOAuthHost(c.domain) + "/api/oauth/device_authorization"
-}
-
-func (c *DeviceFlowClient) tokenURL() string {
-	if c.oauthHost != "" {
-		return c.oauthHost + "/api/oauth/token"
-	}
-	return ResolveKimiOAuthHost(c.domain) + "/api/oauth/token"
-}
-
-// SetHTTPClient overrides the internal HTTP client.
-func (c *DeviceFlowClient) SetHTTPClient(client *http.Client) {
-	if client != nil {
-		c.httpClient = client
-	}
-}
-
-// getOrCreateDeviceID returns an in-memory device ID for the current authentication flow.
-func getOrCreateDeviceID() string {
-	return uuid.New().String()
-}
-
-// getDeviceModel returns a device model string.
-func getDeviceModel() string {
-	osName := runtime.GOOS
-	arch := runtime.GOARCH
-
-	switch osName {
-	case "darwin":
-		return fmt.Sprintf("macOS %s", arch)
-	case "windows":
-		return fmt.Sprintf("Windows %s", arch)
-	case "linux":
-		return fmt.Sprintf("Linux %s", arch)
-	default:
-		return fmt.Sprintf("%s %s", osName, arch)
-	}
-}
-
-// getHostname returns the machine hostname.
-func getHostname() string {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "unknown"
-	}
-	return hostname
-}
-
-// commonHeaders returns headers required for Kimi API requests.
-func (c *DeviceFlowClient) commonHeaders() map[string]string {
-	return map[string]string{
-		"X-Msh-Platform":     "CLIProxyAPI",
-		"X-Msh-Version":      buildinfo.Version,
-		"X-Msh-Device-Name":  getHostname(),
-		"X-Msh-Device-Model": getDeviceModel(),
-		"X-Msh-Device-Id":    c.deviceID,
-	}
-}
-
-// RequestDeviceCode initiates the device flow by requesting a device code from Kimi.
-func (c *DeviceFlowClient) RequestDeviceCode(ctx context.Context) (*DeviceCodeResponse, error) {
-	data := url.Values{}
-	data.Set("client_id", kimiClientID)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.deviceCodeURL(), strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to create device code request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	for k, v := range c.commonHeaders() {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: device code request failed: %w", err)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Errorf("kimi device code: close body error: %v", errClose)
-		}
-	}()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to read device code response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("kimi: device code request failed with status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
 	var deviceCode DeviceCodeResponse
-	if err = json.Unmarshal(bodyBytes, &deviceCode); err != nil {
-		return nil, fmt.Errorf("kimi: failed to parse device code response: %w", err)
+	_ = json.Unmarshal(body, &deviceCode)
+	if deviceCode.UserCode == "" || deviceCode.DeviceCode == "" || deviceCode.VerificationURI == "" {
+		return nil, fmt.Errorf("%s device authorization response missing required fields", providerID)
 	}
-
 	return &deviceCode, nil
 }
 
-// PollForToken polls the token endpoint until the user authorizes or the device code expires.
-func (c *DeviceFlowClient) PollForToken(ctx context.Context, deviceCode *DeviceCodeResponse) (*KimiTokenData, error) {
+// PollForToken is pollOAuthDeviceCodeFlow: the first poll is immediate,
+// slow_down adds five seconds, and the code's expiry ends it.
+func (a *Auth) PollForToken(ctx context.Context, deviceCode *DeviceCodeResponse) (*Credential, error) {
 	if deviceCode == nil {
-		return nil, fmt.Errorf("kimi: device code is nil")
+		return nil, errors.New("kimi device code: response is nil")
 	}
-
-	interval := time.Duration(deviceCode.Interval) * time.Second
-	if interval < defaultPollInterval {
-		interval = defaultPollInterval
+	interval := defaultPollInterval
+	if deviceCode.Interval > 0 {
+		interval = time.Duration(deviceCode.Interval) * time.Second
 	}
-
-	deadline := time.Now().Add(maxPollDuration)
+	interval = max(interval, minimumPollInterval)
+	var deadline time.Time
 	if deviceCode.ExpiresIn > 0 {
-		codeDeadline := time.Now().Add(time.Duration(deviceCode.ExpiresIn) * time.Second)
-		if codeDeadline.Before(deadline) {
-			deadline = codeDeadline
+		deadline = a.now().Add(time.Duration(deviceCode.ExpiresIn) * time.Second)
+	}
+	expired := func() bool { return !deadline.IsZero() && !a.now().Before(deadline) }
+	slowDowns := 0
+	for !expired() {
+		if ctx.Err() != nil {
+			return nil, errors.New("Login cancelled")
 		}
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("kimi: context cancelled: %w", ctx.Err())
-		case <-ticker.C:
-			if time.Now().After(deadline) {
-				return nil, fmt.Errorf("kimi: device code expired")
-			}
-
-			token, pollErr, shouldContinue := c.exchangeDeviceCode(ctx, deviceCode.DeviceCode)
-			if token != nil {
-				return token, nil
-			}
-			if !shouldContinue {
-				return nil, pollErr
-			}
-			// Continue polling
+		pollCtx, cancel := ctx, context.CancelFunc(func() {})
+		if !deadline.IsZero() {
+			pollCtx, cancel = context.WithDeadline(ctx, deadline)
 		}
-	}
-}
-
-// exchangeDeviceCode attempts to exchange the device code for an access token.
-// Returns (token, error, shouldContinue).
-func (c *DeviceFlowClient) exchangeDeviceCode(ctx context.Context, deviceCode string) (*KimiTokenData, error, bool) {
-	data := url.Values{}
-	data.Set("client_id", kimiClientID)
-	data.Set("device_code", deviceCode)
-	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL(), strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to create token request: %w", err), false
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	for k, v := range c.commonHeaders() {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: token request failed: %w", err), false
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Errorf("kimi token exchange: close body error: %v", errClose)
+		status, body, err := a.postForm(pollCtx, TokenURL,
+			formField{"grant_type", DeviceCodeGrantType}, formField{"client_id", ClientID}, formField{"device_code", deviceCode.DeviceCode})
+		cancel()
+		if ctx.Err() != nil {
+			return nil, errors.New("Login cancelled")
 		}
-	}()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to read token response: %w", err), false
-	}
-
-	// Parse response - Kimi returns 200 for both success and pending states
-	var oauthResp struct {
-		Error            string  `json:"error"`
-		ErrorDescription string  `json:"error_description"`
-		AccessToken      string  `json:"access_token"`
-		RefreshToken     string  `json:"refresh_token"`
-		TokenType        string  `json:"token_type"`
-		ExpiresIn        float64 `json:"expires_in"`
-		Scope            string  `json:"scope"`
-	}
-
-	if err = json.Unmarshal(bodyBytes, &oauthResp); err != nil {
-		return nil, fmt.Errorf("kimi: failed to parse token response: %w", err), false
-	}
-
-	if oauthResp.Error != "" {
-		switch oauthResp.Error {
+		if err != nil {
+			if expired() {
+				break
+			}
+			return nil, err
+		}
+		var payload map[string]any
+		_ = json.Unmarshal(body, &payload)
+		errorCode, hasError := payload["error"]
+		if status >= 200 && status < 300 && !hasError {
+			return a.credential(body, "")
+		}
+		if expired() {
+			break
+		}
+		switch errorCode {
 		case "authorization_pending":
-			return nil, nil, true // Continue polling
 		case "slow_down":
-			return nil, nil, true // Continue polling (with increased interval handled by caller)
+			slowDowns++
+			interval = max(minimumPollInterval, interval+slowDownIncrement)
 		case "expired_token":
-			return nil, fmt.Errorf("kimi: device code expired"), false
+			return nil, fmt.Errorf("%s device code expired; restart the login", providerID)
 		case "access_denied":
-			return nil, fmt.Errorf("kimi: access denied by user"), false
+			return nil, fmt.Errorf("%s device authorization was denied", providerID)
 		default:
-			return nil, fmt.Errorf("kimi: OAuth error: %s - %s", oauthResp.Error, oauthResp.ErrorDescription), false
+			detail := ""
+			if description, ok := payload["error_description"].(string); ok {
+				detail = description
+			} else if code, ok := errorCode.(string); ok {
+				detail = code
+			}
+			return nil, errors.New(strings.TrimSpace(fmt.Sprintf("%s device token request failed: %d %s", providerID, status, detail)))
+		}
+		wait := interval
+		if !deadline.IsZero() {
+			if wait = min(wait, deadline.Sub(a.now())); wait <= 0 {
+				break
+			}
+		}
+		if a.wait(ctx, wait) != nil {
+			return nil, errors.New("Login cancelled")
 		}
 	}
-
-	if oauthResp.AccessToken == "" {
-		return nil, fmt.Errorf("kimi: empty access token in response"), false
+	if slowDowns > 0 {
+		return nil, errors.New("Device flow timed out after one or more slow_down responses. This is often caused by clock drift in WSL or VM environments. Please sync or restart the VM clock and try again.")
 	}
-
-	var expiresAt int64
-	if oauthResp.ExpiresIn > 0 {
-		expiresAt = time.Now().Unix() + int64(oauthResp.ExpiresIn)
-	}
-
-	return &KimiTokenData{
-		AccessToken:  oauthResp.AccessToken,
-		RefreshToken: oauthResp.RefreshToken,
-		TokenType:    oauthResp.TokenType,
-		ExpiresAt:    expiresAt,
-		Scope:        oauthResp.Scope,
-	}, nil, false
+	return nil, errors.New("Device flow timed out")
 }
 
-// RefreshToken exchanges a refresh token for a new access token.
-func (c *DeviceFlowClient) RefreshToken(ctx context.Context, refreshToken string) (*KimiTokenData, error) {
-	if strings.TrimSpace(refreshToken) == "" {
-		return nil, fmt.Errorf("kimi: refresh token is required")
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	refreshToken = strings.TrimSpace(refreshToken)
-	flightKey := c.tokenURL() + ":" + refreshToken
-
-	result, err, _ := kimiRefreshGroup.Do(flightKey, func() (interface{}, error) {
-		return c.refreshTokenSingleFlight(context.WithoutCancel(ctx), refreshToken)
+// Refresh is the auth rule's refresh-token grant. Concurrent refreshes of one
+// token share a flight.
+func (a *Auth) Refresh(ctx context.Context, refreshToken string) (*Credential, error) {
+	result, err, _ := refreshGroup.Do(refreshToken, func() (any, error) {
+		ctx := context.WithoutCancel(ctx)
+		status, body, err := a.postForm(ctx, TokenURL, formField{"grant_type", "refresh_token"}, formField{"client_id", ClientID}, formField{"refresh_token", refreshToken})
+		if err != nil {
+			return nil, err
+		}
+		if status < 200 || status >= 300 {
+			return nil, &RefreshError{Status: status, Message: fmt.Sprintf("%s token refresh failed: %d %s", providerID, status, jsPrefix(string(body), 500))}
+		}
+		return a.credential(body, refreshToken)
 	})
 	if err != nil {
 		return nil, err
 	}
-	tokenData, ok := result.(*KimiTokenData)
-	if !ok || tokenData == nil {
-		return nil, fmt.Errorf("kimi: refresh token failed: invalid single-flight result")
-	}
-	return tokenData, nil
+	return result.(*Credential), nil
 }
 
-func (c *DeviceFlowClient) refreshTokenSingleFlight(ctx context.Context, refreshToken string) (*KimiTokenData, error) {
-	data := url.Values{}
-	data.Set("client_id", kimiClientID)
-	data.Set("grant_type", "refresh_token")
-	data.Set("refresh_token", refreshToken)
+// RefreshError is a non-2xx refresh-token grant.
+type RefreshError struct {
+	Status  int
+	Message string
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL(), strings.NewReader(data.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to create refresh request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	for k, v := range c.commonHeaders() {
-		req.Header.Set(k, v)
-	}
+func (e *RefreshError) Error() string { return e.Message }
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: refresh request failed: %w", err)
+// credential is mapCredentials for the kimi-code rule: access, refresh (the
+// stored one when not rotated), expiry five minutes early, and the account id
+// from the access token's user_id or sub claim.
+func (a *Auth) credential(body []byte, previousRefresh string) (*Credential, error) {
+	var tokens struct {
+		AccessToken  string   `json:"access_token"`
+		RefreshToken string   `json:"refresh_token"`
+		ExpiresIn    *float64 `json:"expires_in"`
 	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Errorf("kimi refresh token: close body error: %v", errClose)
+	if json.Unmarshal(body, &tokens) != nil || tokens.AccessToken == "" {
+		return nil, fmt.Errorf("%s token response missing access_token", providerID)
+	}
+	if tokens.ExpiresIn == nil {
+		return nil, fmt.Errorf("%s token response missing expires_in", providerID)
+	}
+	refresh := tokens.RefreshToken
+	if refresh == "" {
+		refresh = previousRefresh
+	}
+	expires := a.now().Add(time.Duration(*tokens.ExpiresIn*float64(time.Second)) - expiryMargin)
+	return &Credential{AccessToken: tokens.AccessToken, RefreshToken: refresh, Expires: expires, AccountID: AccountID(tokens.AccessToken)}, nil
+}
+
+// AccountID reads the user_id, else sub, claim of a JWT access token.
+func AccountID(accessToken string) string {
+	parts := strings.Split(accessToken, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[1], "="))
+	if err != nil {
+		return ""
+	}
+	var claims map[string]any
+	if json.Unmarshal(payload, &claims) != nil {
+		return ""
+	}
+	for _, name := range []string{"user_id", "sub"} {
+		if value, ok := claims[name].(string); ok && value != "" {
+			return value
 		}
-	}()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("kimi: failed to read refresh response: %w", err)
 	}
+	return ""
+}
 
-	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("kimi: refresh token rejected (status %d)", resp.StatusCode)
+// jsPrefix is String.prototype.slice(0, n) over UTF-16 code units.
+func jsPrefix(text string, n int) string {
+	units := 0
+	for index, r := range text {
+		width := 1
+		if r > 0xFFFF {
+			width = 2
+		}
+		if units+width > n {
+			return text[:index]
+		}
+		units += width
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("kimi: refresh failed with status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	var tokenResp struct {
-		AccessToken  string  `json:"access_token"`
-		RefreshToken string  `json:"refresh_token"`
-		TokenType    string  `json:"token_type"`
-		ExpiresIn    float64 `json:"expires_in"`
-		Scope        string  `json:"scope"`
-	}
-
-	if err = json.Unmarshal(bodyBytes, &tokenResp); err != nil {
-		return nil, fmt.Errorf("kimi: failed to parse refresh response: %w", err)
-	}
-
-	if tokenResp.AccessToken == "" {
-		return nil, fmt.Errorf("kimi: empty access token in refresh response")
-	}
-
-	var expiresAt int64
-	if tokenResp.ExpiresIn > 0 {
-		expiresAt = time.Now().Unix() + int64(tokenResp.ExpiresIn)
-	}
-
-	return &KimiTokenData{
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		TokenType:    tokenResp.TokenType,
-		ExpiresAt:    expiresAt,
-		Scope:        tokenResp.Scope,
-	}, nil
+	return text
 }

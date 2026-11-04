@@ -21,6 +21,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
+	sdkAuth "github.com/router-for-me/CLIProxyAPI/v8/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 	log "github.com/sirupsen/logrus"
@@ -640,45 +641,16 @@ func buildMetaAuthRecord(bundle *metaauth.MetaAuthBundle, tokenStorage *metaauth
 	}
 }
 
+// RequestKimiToken starts NeoPi's Kimi Code device-code sign-in.
 func (h *Handler) RequestKimiToken(c *gin.Context) {
-	domain := kimi.KimiDefaultDomain
-	if qDomain := strings.TrimSpace(c.Query("domain")); qDomain != "" {
-		domain = qDomain
-	} else if qChan := strings.TrimSpace(c.Query("channel")); qChan != "" {
-		domain = qChan
-	}
-	h.requestKimiTokenWithDomain(c, domain)
-}
-
-func (h *Handler) RequestKimiAIToken(c *gin.Context) {
-	h.requestKimiTokenWithDomain(c, kimi.KimiAIDomain)
-}
-
-func (h *Handler) requestKimiTokenWithDomain(c *gin.Context, domain string) {
 	ctx := context.Background()
 	ctx = PopulateAuthContext(ctx, c)
+	const providerName = "kimi"
 
-	isAI := kimi.IsKimiAIDomain(domain)
-	displayName := "Kimi"
-	providerName := "kimi"
-	filePrefix := "kimi"
-	statePrefix := "kmi"
-	baseURL := kimi.KimiAPIBaseURL
-	if isAI {
-		displayName = "Kimi.ai"
-		providerName = "kimi-ai"
-		filePrefix = "kimi-ai"
-		statePrefix = "kmi-ai"
-		baseURL = kimi.KimiAIAPIBaseURL
-	}
+	fmt.Println("Initializing Kimi authentication...")
 
-	fmt.Printf("Initializing %s authentication...\n", displayName)
-
-	state := fmt.Sprintf("%s-%d", statePrefix, time.Now().UnixNano())
-	// Initialize Kimi auth service
-	kimiAuth := kimi.NewKimiAuthWithDomain(h.cfg, domain)
-
-	// Generate authorization URL
+	state := fmt.Sprintf("kmi-%d", time.Now().UnixNano())
+	kimiAuth := kimi.NewAuth(h.cfg, "")
 	deviceFlow, errStartDeviceFlow := kimiAuth.StartDeviceFlow(ctx)
 	if errStartDeviceFlow != nil {
 		log.Errorf("Failed to generate authorization URL: %v", errStartDeviceFlow)
@@ -697,57 +669,20 @@ func (h *Handler) requestKimiTokenWithDomain(c *gin.Context, domain string) {
 		defer cancelPoll()
 		go watchOAuthSessionCancel(pollCtx, cancelPoll, state, providerName)
 
-		fmt.Printf("Waiting for %s authentication...\n", displayName)
-		authBundle, errWaitForAuthorization := kimiAuth.WaitForAuthorization(pollCtx, deviceFlow)
-		if errWaitForAuthorization != nil {
+		fmt.Println("Waiting for Kimi authentication...")
+		credential, errPoll := kimiAuth.PollForToken(pollCtx, deviceFlow)
+		if errPoll != nil {
 			if !IsOAuthSessionPending(state, providerName) {
 				return
 			}
-			SetOAuthSessionError(state, oauthSessionErrorWithCause("Authentication failed", errWaitForAuthorization))
-			fmt.Printf("%s authentication failed: %v\n", displayName, errWaitForAuthorization)
+			SetOAuthSessionError(state, oauthSessionErrorWithCause("Authentication failed", errPoll))
+			fmt.Printf("Kimi authentication failed: %v\n", errPoll)
 			return
 		}
 		if !IsOAuthSessionPending(state, providerName) {
 			return
 		}
-
-		// Create token storage
-		tokenStorage := kimiAuth.CreateTokenStorage(authBundle)
-		if isAI {
-			tokenStorage.Type = providerName
-		}
-
-		metadata := map[string]any{
-			"type":          providerName,
-			"access_token":  authBundle.TokenData.AccessToken,
-			"refresh_token": authBundle.TokenData.RefreshToken,
-			"token_type":    authBundle.TokenData.TokenType,
-			"scope":         authBundle.TokenData.Scope,
-			"timestamp":     time.Now().UnixMilli(),
-			"domain":        domain,
-			"base_url":      baseURL,
-		}
-		if authBundle.TokenData.ExpiresAt > 0 {
-			expired := time.Unix(authBundle.TokenData.ExpiresAt, 0).UTC().Format(time.RFC3339)
-			metadata["expired"] = expired
-		}
-		if strings.TrimSpace(authBundle.DeviceID) != "" {
-			metadata["device_id"] = strings.TrimSpace(authBundle.DeviceID)
-		}
-
-		fileName := fmt.Sprintf("%s-%d.json", filePrefix, time.Now().UnixMilli())
-		record := &coreauth.Auth{
-			ID:       fileName,
-			Provider: providerName,
-			FileName: fileName,
-			Label:    fmt.Sprintf("%s User", displayName),
-			Storage:  tokenStorage,
-			Metadata: metadata,
-			Attributes: map[string]string{
-				"base_url": baseURL,
-				"domain":   domain,
-			},
-		}
+		record := sdkAuth.KimiAuthRecord(credential)
 		if errGuard := guardOAuthSessionPendingForSave(state, providerName); errGuard != nil {
 			return
 		}
@@ -759,7 +694,6 @@ func (h *Handler) requestKimiTokenWithDomain(c *gin.Context, domain string) {
 		}
 
 		fmt.Printf("Authentication successful! Token saved to %s\n", savedPath)
-		fmt.Printf("You can now use %s services through this CLI\n", displayName)
 		CompleteOAuthSession(state)
 	}()
 

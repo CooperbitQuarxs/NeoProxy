@@ -25,8 +25,6 @@ func newDefaultAuthManager() *sdkAuth.Manager {
 		sdkAuth.NewClaudeAuthenticator(),
 		sdkAuth.NewAntigravityAuthenticator(),
 		sdkAuth.NewKimiAuthenticator(),
-		sdkAuth.NewKimiAIAuthenticator(),
-		sdkAuth.NewKimiAIDotAuthenticator(),
 		sdkAuth.NewXAIAuthenticator(),
 		sdkAuth.NewDevinAuthenticator(),
 		sdkAuth.NewMetaAuthenticator(),
@@ -651,6 +649,7 @@ func (s *Service) applyCoreAuthRemoval(ctx context.Context, id string) {
 	GlobalModelRegistry().UnregisterClient(id)
 	s.cancelStaleAntigravityProbes(id)
 	forgetXAIModelDiscovery(provider, id)
+	forgetKimiModelDiscovery(id)
 	s.forgetClaudeModelDiscovery(id)
 	s.forgetCodexModelDiscovery(id)
 	if strings.EqualFold(provider, "codex") {

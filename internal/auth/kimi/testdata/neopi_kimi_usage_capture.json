@@ -1,0 +1,291 @@
+{
+  "source": "NeoPi OWN kimiUsageProvider",
+  "token": "kimi-usage-capture-token",
+  "kimiHeaders": {
+    "User-Agent": "KimiCLI/18.14.0",
+    "X-Msh-Platform": "kimi_cli",
+    "X-Msh-Version": "18.14.0",
+    "X-Msh-Device-Name": "blackswan",
+    "X-Msh-Device-Model": "Linux 7.1.4-arch1-1 x64",
+    "X-Msh-Os-Version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+    "X-Msh-Device-Id": "076a24ee34484447b04a9b8c795a9290"
+  },
+  "scenarios": [
+    {
+      "name": "weekly-and-5h",
+      "payload": {
+        "usage": {
+          "limit": "100",
+          "used": "37",
+          "remaining": "63",
+          "resetTime": "2100-01-01T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 300,
+              "timeUnit": "TIME_UNIT_MINUTE"
+            },
+            "detail": {
+              "limit": "100",
+              "used": "12",
+              "remaining": "88",
+              "resetTime": "2100-01-01T00:00:00Z"
+            }
+          }
+        ]
+      },
+      "limits": [
+        {
+          "label": "Weekly limit",
+          "windowId": "7d",
+          "durationMs": null,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.37
+        },
+        {
+          "label": "5h limit",
+          "windowId": "5h",
+          "durationMs": 18000000,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.12
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    },
+    {
+      "name": "remaining-only-and-aggregates",
+      "payload": {
+        "usage": {
+          "limit": 2000,
+          "remaining": 500,
+          "resetTime": "2100-01-01T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 5,
+              "timeUnit": "TIME_UNIT_HOUR"
+            },
+            "detail": {
+              "limit": 50,
+              "remaining": 50
+            }
+          },
+          {
+            "name": "Daily",
+            "window": {
+              "duration": 1,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 10,
+              "used": 15,
+              "resetAt": 4102444800
+            }
+          }
+        ],
+        "usages": {
+          "limit_5h": {
+            "used_ratio": 0.9
+          },
+          "limit_month_total": {
+            "used_ratio": 0.25,
+            "resetTime": "2100-01-01T00:00:00Z"
+          },
+          "limit_month_code": {
+            "used_ratio": 1.4
+          }
+        }
+      },
+      "limits": [
+        {
+          "label": "Weekly limit",
+          "windowId": "7d",
+          "durationMs": null,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.75
+        },
+        {
+          "label": "5h limit",
+          "windowId": "5h",
+          "durationMs": 18000000,
+          "resetsAt": null,
+          "usedFraction": 0
+        },
+        {
+          "label": "Daily",
+          "windowId": "1d",
+          "durationMs": 86400000,
+          "resetsAt": 4102444800000,
+          "usedFraction": 1
+        },
+        {
+          "label": "Monthly total",
+          "windowId": "limit_month_total",
+          "durationMs": null,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.25
+        },
+        {
+          "label": "Monthly code",
+          "windowId": "limit_month_code",
+          "durationMs": null,
+          "resetsAt": null,
+          "usedFraction": 1
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    },
+    {
+      "name": "total-quota",
+      "payload": {
+        "totalQuota": {
+          "limit": 1000,
+          "used": 250,
+          "window": {
+            "duration": 7,
+            "timeUnit": "TIME_UNIT_DAY"
+          }
+        }
+      },
+      "limits": [
+        {
+          "label": "Total quota",
+          "windowId": "7d",
+          "durationMs": 604800000,
+          "resetsAt": null,
+          "usedFraction": 0.25
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    },
+    {
+      "name": "no-plan",
+      "payload": {},
+      "limits": null,
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    },
+    {
+      "name": "invalid-response",
+      "payload": {
+        "usage": {
+          "note": "nothing"
+        }
+      },
+      "limits": null,
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    },
+    {
+      "name": "http-error",
+      "status": 401,
+      "payload": {
+        "error": "unauthorized"
+      },
+      "limits": null,
+      "request": {
+        "method": "GET",
+        "url": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "Bearer kimi-usage-capture-token",
+          "connection": "keep-alive",
+          "host": "api.kimi.com",
+          "user-agent": "KimiCLI/18.14.0",
+          "x-msh-device-id": "076a24ee34484447b04a9b8c795a9290",
+          "x-msh-device-model": "Linux 7.1.4-arch1-1 x64",
+          "x-msh-device-name": "blackswan",
+          "x-msh-os-version": "#1 SMP PREEMPT_DYNAMIC Sat, 18 Jul 2026 17:30:57 +0000",
+          "x-msh-platform": "kimi_cli",
+          "x-msh-version": "18.14.0"
+        }
+      }
+    }
+  ]
+}

@@ -172,8 +172,12 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 
 		models = s.codexModelsForAuth(cfg, a, time.Now())
 		models = applyExcludedModels(models, excluded)
-	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
-		models = registry.GetKimiModels()
+	case "kimi":
+		var stale bool
+		models, stale = kimiDiscoveredModels(a, time.Now())
+		if stale {
+			s.queueKimiModelDiscovery(a)
+		}
 		models = applyExcludedModels(models, excluded)
 	case "xai", executor.GrokBuildProvider:
 		entry := resolveConfigXAIKeyForConfig(cfg, a)

@@ -39,7 +39,12 @@ type ZaiExecutor struct {
 func NewZaiExecutor(provider string, cfg *config.Config) *ZaiExecutor {
 	messages := NewClaudeExecutor(cfg)
 	messages.provider = provider
-	messages.catalog = registry.ZaiNeoPiModel
+	messages.thirdParty = &neoPiThirdPartyProvider{
+		catalog: func(_ cliproxyexecutor.Request, model string) *registry.NeoPiModel {
+			return registry.ZaiNeoPiModel(model)
+		},
+		bearer: zaiAPIKey,
+	}
 	return &ZaiExecutor{ClaudeExecutor: messages, cfg: cfg, counter: NewOpenAICompatExecutor(provider, cfg)}
 }
 
@@ -116,49 +121,6 @@ func (e *ZaiExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth
 		return e.streamCompletions(ctx, auth, req, opts, row)
 	}
 	return e.ClaudeExecutor.ExecuteStream(ctx, auth, req, opts)
-}
-
-// prepareThirdParty shapes an Anthropic Messages request for a catalog row
-// NeoPi serves over Anthropic Messages with an API key.
-func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*neoPiPrepared, error) {
-	credential, err := neoPiCredential(auth)
-	if err != nil {
-		return nil, err
-	}
-	if credential.APIKey == "" {
-		return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no API key"}
-	}
-	model := thinking.ParseSuffix(req.Model).ModelName
-	row := e.catalog(model)
-	if row == nil || row.API != "anthropic-messages" {
-		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: model %s is not served over Anthropic Messages", e.Identifier(), model)}
-	}
-	original := req.Payload
-	if len(opts.OriginalRequest) > 0 {
-		original = opts.OriginalRequest
-	}
-	originalTranslated, translated, err := helps.TranslateRequestPairReturningError(ctx, opts.Headers, e.cfg, opts.SourceFormat, sdktranslator.FormatClaude, model, original, req.Payload, true, helps.APIKeyModelIsCompat(req))
-	if err != nil {
-		return nil, err
-	}
-	if translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "claude", e.Identifier()); err != nil {
-		return nil, err
-	}
-	session := neoPiSession(opts, translated)
-	if session == "" {
-		// NeoPi's streamSimple always carries an inference session id.
-		session = helps.ProviderSessionUUID(e.Identifier(), req.Metadata, opts.Metadata)
-	}
-	identity := neoPiWireIdentity{SessionID: session, APIKey: true}
-	base := strings.TrimRight(row.BaseURL, "/")
-	body, headers, err := projectNeoPiAnthropic(translated, model, base, "", identity, neoPiThirdPartyProfile(row))
-	if err != nil {
-		return nil, err
-	}
-	finalize := helps.NewPayloadFinalizer(e.cfg, e.Identifier(), model, "claude", "", originalTranslated, req, opts)
-	body = finalize(body)
-	neoPiApplyHeaders(headers, auth, opts.Headers, credential, base, ctx)
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, finalize: finalize}, nil
 }
 
 type zaiCompletionsPrepared struct {

@@ -5,12 +5,12 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopiversion"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 )
 
-// NeoPiUserAgent is USER_AGENT of the NeoPi build these ports follow: Shayna's
-// running nightly (a842643e, 18.14.0).
-const NeoPiUserAgent = "npi/18.14.0"
+// NeoPiUserAgent is USER_AGENT of the NeoPi build these ports follow.
+const NeoPiUserAgent = "npi/" + neopiversion.Version
 
 // firstEventTimeoutSeconds is NeoPi's default first-event watchdog (300s),
 // announced to the server as X-Stainless-Timeout.
