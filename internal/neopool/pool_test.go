@@ -84,6 +84,42 @@ func (f *fixture) reservation(id string, index int, tokens int64) Reservation {
 	return Reservation{ID: id, RequestID: "request-" + id, UserID: "user-a", VirtualModelID: "vm-test", StageID: "stage-one", AccountID: f.accounts[index].ID, AccountIDs: []string{f.accounts[0].ID, f.accounts[1].ID}, Window: "day", Tokens: tokens, PerAccount: 1, Cap: 1}
 }
 
+func TestInventoryProviderPrefixIsIdempotent(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		registry string
+		want     string
+	}{
+		{"plain", "pool-test-model", "codex/pool-test-model"},
+		{"prefixed", "codex/pool-test-model", "codex/pool-test-model"},
+		{"different provider", "other/pool-test-model", "codex/other/pool-test-model"},
+		{"partial prefix", "codex-extra/pool-test-model", "codex/codex-extra/pool-test-model"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			for _, account := range f.accounts {
+				registry.GetGlobalRegistry().RegisterClient(account.EngineAuthID, "codex", []*registry.ModelInfo{{ID: tc.registry}})
+			}
+			snapshot, err := f.pool.Snapshot(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(snapshot.Models) != 1 {
+				t.Fatalf("models = %+v", snapshot.Models)
+			}
+			model := snapshot.Models[0]
+			if model.ID != tc.want || model.Served != "neoproxy/"+tc.want || model.Name != tc.registry {
+				t.Fatalf("model address or engine name changed: %+v", model)
+			}
+			for _, account := range snapshot.Accounts {
+				if len(account.ModelIDs) != 1 || account.ModelIDs[0] != tc.want {
+					t.Fatalf("account model address = %v", account.ModelIDs)
+				}
+			}
+		})
+	}
+}
+
 func TestInventoryUsesRealEngineAndUnknownQuota(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
