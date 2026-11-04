@@ -14,12 +14,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// LoadConfig reads a YAML configuration file from the given path,
+// LoadConfig reads a TOML or YAML configuration file from the given path,
 // unmarshals it into a Config struct, applies environment variable overrides,
 // and returns it.
 //
 // Parameters:
-//   - configFile: The path to the YAML configuration file
+//   - configFile: The path to the TOML or YAML configuration file
 //
 // Returns:
 //   - *Config: The loaded configuration
@@ -41,9 +41,12 @@ func ComputeSourceHash(data []byte) string {
 // copies stay identical. When the plaintext cannot be removed it returns an error and
 // leaves configFile untouched, so every later attempt refuses the file again.
 func PrepareConfigFileForUpload(configFile string) error {
-	data, errRead := os.ReadFile(configFile)
+	data, raw, _, errRead := ReadConfigFile(configFile)
 	if errRead != nil {
-		return errRead
+		if raw == nil {
+			return errRead
+		}
+		return fmt.Errorf("failed to parse config file: %w", errRead)
 	}
 	prepared, errPrepare := prepareConfigForUpload(data)
 	if errPrepare != nil {
@@ -52,7 +55,7 @@ func PrepareConfigFileForUpload(configFile string) error {
 	if bytes.Equal(prepared, data) {
 		return nil
 	}
-	if errWrite := os.WriteFile(configFile, prepared, 0600); errWrite != nil {
+	if errWrite := WriteConfigFile(configFile, prepared, 0600); errWrite != nil {
 		return fmt.Errorf("failed to write prepared config file: %w", errWrite)
 	}
 	return nil
@@ -151,46 +154,9 @@ func managementSecretKeyPath(data []byte) []string {
 	return []string{"remote-management", "secret-key"}
 }
 
-// LoadConfigOptional reads YAML from configFile.
-// If optional is true and the file is missing, it returns an empty Config.
-// If optional is true and the file is empty or invalid, it returns an empty Config.
-func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
-	// Read the entire configuration file into memory.
-	data, err := os.ReadFile(configFile)
-	if err != nil {
-		if optional {
-			if os.IsNotExist(err) || errors.Is(err, syscall.EISDIR) {
-				// Missing and optional: return empty config (cloud deploy standby).
-				cfg := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
-				cfg.NormalizePluginsConfig()
-				cfg.NormalizeClaudeConfig()
-				return cfg, nil
-			}
-		}
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	// In cloud deploy mode (optional=true), if file is empty or contains only whitespace, return empty config.
-	if optional && len(bytes.TrimSpace(data)) == 0 {
-		cfg := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
-		cfg.NormalizePluginsConfig()
-		cfg.NormalizeClaudeConfig()
-		return cfg, nil
-	}
-
-	if errValidate := validateCredentialWeightYAML(data); errValidate != nil {
-		if optional {
-			cfgOptional := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
-			cfgOptional.NormalizePluginsConfig()
-			cfgOptional.NormalizeClaudeConfig()
-			return cfgOptional, nil
-		}
-		return nil, errValidate
-	}
-
-	// Unmarshal the YAML data into the Config struct.
-	var cfg Config
-	// Set defaults before unmarshal so that absent keys keep defaults.
+// applyLoadDefaults sets the values a config file decodes over, so that absent
+// keys keep these defaults.
+func applyLoadDefaults(cfg *Config) {
 	cfg.Host = "" // Default empty: binds to all interfaces (IPv4 + IPv6)
 	cfg.LoggingToFile = false
 	cfg.LogsMaxTotalSizeMB = 0
@@ -209,6 +175,61 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	cfg.Discovery.Subtypes = []string{"_chat-completions", "_responses", "_messages", "_generate-content", "_interactions"}
 	cfg.RemoteManagement.PanelGitHubRepository = DefaultPanelGitHubRepository
 	cfg.CredentialInFlight = DefaultCredentialInFlightConfig()
+}
+
+// LoadConfigOptional reads TOML or YAML from configFile; DetectConfigFormat
+// decides which. A TOML file is converted to the equivalent YAML document and
+// decoded through the same path, so both formats load identically.
+// If optional is true and the file is missing, it returns an empty Config.
+// If optional is true and the file is empty or invalid, it returns an empty Config.
+func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
+	// Read the entire configuration file into memory.
+	raw, err := os.ReadFile(configFile)
+	if err != nil {
+		if optional {
+			if os.IsNotExist(err) || errors.Is(err, syscall.EISDIR) {
+				// Missing and optional: return empty config (cloud deploy standby).
+				cfg := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
+				cfg.NormalizePluginsConfig()
+				cfg.NormalizeClaudeConfig()
+				return cfg, nil
+			}
+		}
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// In cloud deploy mode (optional=true), if file is empty or contains only whitespace, return empty config.
+	if optional && len(bytes.TrimSpace(raw)) == 0 {
+		cfg := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
+		cfg.NormalizePluginsConfig()
+		cfg.NormalizeClaudeConfig()
+		return cfg, nil
+	}
+
+	data, errConvert := ConfigToYAML(raw, DetectConfigFormat(configFile, raw))
+	if errConvert != nil {
+		if optional {
+			cfgOptional := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
+			cfgOptional.NormalizePluginsConfig()
+			cfgOptional.NormalizeClaudeConfig()
+			return cfgOptional, nil
+		}
+		return nil, fmt.Errorf("failed to parse config file: %w", errConvert)
+	}
+
+	if errValidate := validateCredentialWeightYAML(data); errValidate != nil {
+		if optional {
+			cfgOptional := &Config{CredentialInFlight: DefaultCredentialInFlightConfig()}
+			cfgOptional.NormalizePluginsConfig()
+			cfgOptional.NormalizeClaudeConfig()
+			return cfgOptional, nil
+		}
+		return nil, errValidate
+	}
+
+	// Unmarshal the YAML data into the Config struct.
+	var cfg Config
+	applyLoadDefaults(&cfg)
 	if err = yaml.Unmarshal(data, &cfg); err != nil {
 		if optional {
 			// In cloud deploy mode, if YAML parsing fails, return empty config instead of error.
@@ -336,7 +357,7 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 
 	// Only conflicting legacy fields are removed on load. A legacy-only document
 	// stays legacy until a v8 configuration write explicitly migrates it.
-	current, errRead := os.ReadFile(configFile)
+	current, _, _, errRead := ReadConfigFile(configFile)
 	if errRead != nil {
 		return nil, errRead
 	}
@@ -345,14 +366,14 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 		return nil, errLayout
 	}
 	if changed {
-		if errWrite := os.WriteFile(configFile, cleaned, 0600); errWrite != nil {
+		if errWrite := WriteConfigFile(configFile, cleaned, 0600); errWrite != nil {
 			return nil, fmt.Errorf("clean conflicting config fields: %w", errWrite)
 		}
 	}
 
 	// Record the exact bytes this config was parsed from, so a consumer can tell
 	// it apart from a newer version of the file.
-	cfg.SourceHash = ComputeSourceHash(data)
+	cfg.SourceHash = ComputeSourceHash(raw)
 
 	// Return the populated configuration struct.
 	return &cfg, nil

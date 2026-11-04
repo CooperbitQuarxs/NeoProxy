@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	coreusage "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
 )
@@ -41,6 +42,9 @@ func (s *Server) initNeo(injected *neo.Store) {
 		}
 	}
 	s.neoHTTP = neo.NewHTTP(s.neoStore)
+	if configFilePath := s.configFilePath; strings.TrimSpace(configFilePath) != "" {
+		s.neoHTTP.ConfigFormat = func() string { return string(config.ConfigFileFormat(configFilePath)) }
+	}
 }
 func (s *Server) neoManagementMiddleware() gin.HandlerFunc {
 	if s.neoHTTP == nil {
