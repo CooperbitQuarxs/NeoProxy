@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/devinwire"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
@@ -32,7 +33,10 @@ func TestPayloadFinalizerDefaultsUseOriginalAndNormalizeBeforeRules(t *testing.T
 }
 
 func TestPayloadFinalizerDevinBusinessFieldsAndCredentials(t *testing.T) {
-	wire := BuildDevinGetChatMessageRequest("secret-token", "device", "model", "system", []DevinPrompt{{MessageID: "id", Source: 1, Content: "hello"}}, []DevinTool{{Name: "f", Parameters: []byte(`{"type":"object"}`)}}, nil, 1024, "session", "cascade", nil)
+	wire := devinwire.ChatRequest{Metadata: devinwire.CLIMetadata("secret-token", ""), Prompt: "system",
+		Prompts: []devinwire.Prompt{{MessageID: "id", Source: devinwire.SourceUser, Prompt: "hello"}}, ChatModelUID: "model",
+		Configuration: devinwire.Configuration{MaxTokens: 1024}, Tools: []devinwire.Tool{{Name: "f", JSONSchema: `{"type":"object"}`}},
+		CascadeID: "cascade"}.Encode()
 	unchanged, _, errUnchanged := FinalizeDevinPayload(wire, func(body []byte) []byte { return body })
 	if errUnchanged != nil || !bytes.Equal(unchanged, wire) {
 		t.Fatalf("no-op changed protobuf: %v", errUnchanged)

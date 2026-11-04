@@ -320,12 +320,8 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["access_token"] = access
 		meta["token_type"] = "Bearer"
 	case "devin":
-		token := access
-		if !strings.HasPrefix(token, "devin-session-token$") {
-			token = "devin-session-token$" + token
-		}
-		meta["api_key"] = token
-		meta["session_token"] = token
+		// Stored as NeoPi stores it; the executor adds the wire prefix.
+		meta["api_key"] = access
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "org_id", str(c.data, "orgId"))
 	case "cursor":

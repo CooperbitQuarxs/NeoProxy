@@ -22,7 +22,6 @@ config-version = 8
 [models]
 catalog = ""
 codex-catalog = ""
-devin-catalog = ""
 
 # Listener, TLS, network discovery, and server operation.
 [server]
@@ -1138,12 +1137,6 @@ antigravity-credits = true
 # When true, validates full Claude protobuf tree (Field 2 -> Field 1 structure).
 # When false (default), only checks R/E prefix + base64 + first byte 0x12.
 # signature-bypass-strict: false
-
-# Devin provider behavior.
-# devin:
-#   sensitive-words:             # optional: words to obfuscate with zero-width characters in system instructions and prompts
-#     - "API"
-#     - "proxy"
 
 # Image and video behavior.
 [multimedia]

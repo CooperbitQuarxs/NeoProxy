@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 )
@@ -22,249 +23,88 @@ func TestDevinAuthenticatorProviderAndRefreshLead(t *testing.T) {
 	if authenticator.Provider() != "devin" {
 		t.Fatalf("Provider() = %q, want devin", authenticator.Provider())
 	}
-	lead := authenticator.RefreshLead()
-	if lead != nil {
-		t.Fatalf("RefreshLead() = %v, want nil for permanent tokens", lead)
-	}
-}
-
-func TestDevinAuthenticatorHeadlessManualTokenLogin(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/v3/self":
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"user_name":"token-user","user_id":"uid-token","org_id":"org-token"}`))
-		case devinauth.DevinGetUserStatusPath:
-			w.WriteHeader(http.StatusServiceUnavailable)
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer mockServer.Close()
-
-	authSvc := devinauth.NewDevinAuthService(mockServer.Client())
-	authSvc.SetAPIBaseURL(mockServer.URL)
-	authSvc.SetServerBaseURL(mockServer.URL)
-
-	authenticator := NewDevinAuthenticator()
-	authenticator.AuthService = authSvc
-	cfg := &config.Config{}
-
-	mockPrompt := func(prompt string) (string, error) {
-		return "devin-session-token$eyJmock.session.token", nil
-	}
-
-	opts := &LoginOptions{
-		NoBrowser: true,
-		Prompt:    mockPrompt,
-	}
-
-	auth, err := authenticator.Login(context.Background(), cfg, opts)
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-
-	if auth.Provider != "devin" {
-		t.Errorf("auth.Provider = %q, want devin", auth.Provider)
-	}
-	if auth.Attributes["api_key"] != "devin-session-token$eyJmock.session.token" {
-		t.Errorf("api_key = %q, want expected", auth.Attributes["api_key"])
-	}
-	if auth.Label != "Devin (token-user)" {
-		t.Errorf("auth.Label = %q, want 'Devin (token-user)'", auth.Label)
+	if lead := authenticator.RefreshLead(); lead != nil {
+		t.Fatalf("RefreshLead() = %v, want nil: NeoPi's Devin credential has no refresh grant", lead)
 	}
 }
 
 func TestDevinAuthenticatorHeadlessPromptNil(t *testing.T) {
-	authenticator := NewDevinAuthenticator()
-	cfg := &config.Config{}
-
-	opts := &LoginOptions{
-		NoBrowser: true,
-		Prompt:    nil,
-	}
-
-	_, err := authenticator.Login(context.Background(), cfg, opts)
-	if err == nil {
-		t.Fatal("expected error when prompt is nil, got nil")
-	}
-	if !strings.Contains(err.Error(), "requires an interactive prompt") {
-		t.Errorf("unexpected error message: %v", err)
+	_, err := NewDevinAuthenticator().Login(context.Background(), &config.Config{}, &LoginOptions{NoBrowser: true})
+	if err == nil || !strings.Contains(err.Error(), "requires an interactive prompt") {
+		t.Fatalf("error = %v, want interactive prompt requirement", err)
 	}
 }
 
-func TestDevinAuthenticatorHeadlessManualCodeLogin(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/auth/cli/token":
-			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			if body["code"] != "devin-cli-auth-code-123" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`{"error":"invalid_code"}`))
-				return
-			}
-			if body["code_verifier"] == "" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`{"error":"missing_verifier"}`))
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"token":"eyJtest.manual.code.token"}`))
-
-		case "/v3/self":
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"user_name":"test-user","user_id":"uid-123","org_id":"org-456"}`))
-
-		case devinauth.DevinGetUserStatusPath:
+// tokenServer answers the code exchange for wantCode and leaves seat
+// management unavailable, so the record falls back to a digest identity.
+func tokenServer(t *testing.T, wantCode, token string) (*devinauth.DevinAuthService, *bool) {
+	t.Helper()
+	exchanged := false
+	authSvc := newTestDevinAuthService(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/auth/cli/token" {
 			w.WriteHeader(http.StatusServiceUnavailable)
-
-		default:
-			w.WriteHeader(http.StatusNotFound)
+			return
 		}
-	}))
-	defer mockServer.Close()
-
-	authSvc := devinauth.NewDevinAuthService(mockServer.Client())
-	authSvc.SetAPIBaseURL(mockServer.URL)
-	authSvc.SetServerBaseURL(mockServer.URL)
-
-	authenticator := NewDevinAuthenticator()
-	authenticator.AuthService = authSvc
-	cfg := &config.Config{}
-
-	mockPrompt := func(prompt string) (string, error) {
-		return "devin-cli-auth-code-123", nil
-	}
-
-	opts := &LoginOptions{
-		NoBrowser: true,
-		Prompt:    mockPrompt,
-	}
-
-	auth, err := authenticator.Login(context.Background(), cfg, opts)
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-
-	if auth.Provider != "devin" {
-		t.Errorf("auth.Provider = %q, want devin", auth.Provider)
-	}
-	expectedToken := "devin-session-token$eyJtest.manual.code.token"
-	if auth.Attributes["api_key"] != expectedToken {
-		t.Errorf("api_key = %q, want %q", auth.Attributes["api_key"], expectedToken)
-	}
-	expectedLabel := "Devin (test-user)"
-	if auth.Label != expectedLabel {
-		t.Errorf("auth.Label = %q, want %q", auth.Label, expectedLabel)
-	}
+		exchanged = true
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body["code"] != wantCode || body["code_verifier"] == "" {
+			t.Errorf("token request body = %v, want code %q with a verifier", body, wantCode)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"token":"` + token + `"}`))
+	})
+	return authSvc, &exchanged
 }
 
-func TestDevinAuthenticatorHeadlessManualCallbackURLLogin(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/auth/cli/token":
-			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				return
+func TestDevinAuthenticatorHeadlessCodeLogin(t *testing.T) {
+	for name, paste := range map[string]string{
+		"bare code":                  "devin-cli-auth-code-123",
+		"quoted code":                `"devin-cli-auth-code-123"`,
+		"callback URL without state": "http://127.0.0.1:59653/callback?code=devin-cli-auth-code-123",
+	} {
+		t.Run(name, func(t *testing.T) {
+			authSvc, _ := tokenServer(t, "devin-cli-auth-code-123", "eyJtest.manual.token")
+			authenticator := NewDevinAuthenticator()
+			authenticator.AuthService = authSvc
+			auth, err := authenticator.Login(context.Background(), &config.Config{}, &LoginOptions{
+				NoBrowser: true,
+				Prompt:    func(string) (string, error) { return paste, nil },
+			})
+			if err != nil {
+				t.Fatalf("Login failed: %v", err)
 			}
-			if body["code"] != "parsed-callback-code" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`{"error":"invalid_code"}`))
-				return
+			if auth.Provider != "devin" || auth.Attributes["api_key"] != "eyJtest.manual.token" || auth.Metadata["api_key"] != "eyJtest.manual.token" {
+				t.Fatalf("stored credential = %s %v, want the raw session token", auth.Provider, auth.Attributes)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"token":"eyJtest.callback.token"}`))
-
-		case "/v3/self":
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"user_name":"url-user","user_id":"uid-url","org_id":"org-url"}`))
-
-		case devinauth.DevinGetUserStatusPath:
-			w.WriteHeader(http.StatusServiceUnavailable)
-
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer mockServer.Close()
-
-	authSvc := devinauth.NewDevinAuthService(mockServer.Client())
-	authSvc.SetAPIBaseURL(mockServer.URL)
-	authSvc.SetServerBaseURL(mockServer.URL)
-
-	authenticator := NewDevinAuthenticator()
-	authenticator.AuthService = authSvc
-	cfg := &config.Config{}
-
-	mockPrompt := func(prompt string) (string, error) {
-		// User accidentally pastes the full callback URL from browser address bar
-		return "http://127.0.0.1:12345/callback?code=parsed-callback-code", nil
-	}
-
-	opts := &LoginOptions{
-		NoBrowser: true,
-		Prompt:    mockPrompt,
-	}
-
-	auth, err := authenticator.Login(context.Background(), cfg, opts)
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-
-	expectedToken := "devin-session-token$eyJtest.callback.token"
-	if auth.Attributes["api_key"] != expectedToken {
-		t.Errorf("api_key = %q, want %q", auth.Attributes["api_key"], expectedToken)
-	}
-	expectedLabel := "Devin (url-user)"
-	if auth.Label != expectedLabel {
-		t.Errorf("auth.Label = %q, want %q", auth.Label, expectedLabel)
+			if auth.Metadata["expired"] == nil {
+				t.Fatal("record carries no projected expiry")
+			}
+		})
 	}
 }
 
 func TestDevinAuthenticatorHeadlessEmptyInputAborts(t *testing.T) {
-	authenticator := NewDevinAuthenticator()
-	cfg := &config.Config{}
-
-	mockPrompt := func(prompt string) (string, error) {
-		return "", nil
-	}
-
-	opts := &LoginOptions{
+	_, err := NewDevinAuthenticator().Login(context.Background(), &config.Config{}, &LoginOptions{
 		NoBrowser: true,
-		Prompt:    mockPrompt,
-	}
-
-	_, err := authenticator.Login(context.Background(), cfg, opts)
-	if err == nil {
-		t.Fatal("expected error on empty input, got nil")
-	}
-	if !strings.Contains(err.Error(), "canceled") {
-		t.Errorf("expected cancellation error message, got: %v", err)
+		Prompt:    func(string) (string, error) { return "", nil },
+	})
+	if err == nil || !strings.Contains(err.Error(), "canceled") {
+		t.Fatalf("error = %v, want cancellation", err)
 	}
 }
 
 func TestParseDevinManualPaste(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		expectedState string
-		wantCode      string
-		wantToken     string
-		wantErr       string
-		wantSentinel  error
+		name, input, expectedState, wantCode, wantErr string
+		wantSentinel                                  error
 	}{
 		{name: "empty", input: "  "},
 		{name: "quoted empty", input: `"   "`},
-		{name: "session token", input: "devin-session-token$eyJabc", wantToken: "devin-session-token$eyJabc"},
-		{name: "jwt", input: "eyJabc.def", wantToken: "eyJabc.def"},
-		{name: "quoted jwt", input: `"eyJabc"`, wantToken: "eyJabc"},
 		{name: "raw code", input: "devin-cli-auth-code-123", wantCode: "devin-cli-auth-code-123"},
 		{name: "quoted code", input: `"quoted-code-xyz"`, wantCode: "quoted-code-xyz"},
+		{name: "code with echoed state", input: "code-1#state-1", wantCode: "code-1#state-1"},
 		{name: "callback without state", input: "http://127.0.0.1:9/callback?code=c1", wantCode: "c1"},
 		{name: "callback matching state", input: "http://127.0.0.1:9/callback?code=c1&state=abc", expectedState: "abc", wantCode: "c1"},
 		{name: "callback mismatched state", input: "http://127.0.0.1:9/callback?code=stolen-code&state=other", expectedState: "abc", wantErr: "state mismatch"},
@@ -274,7 +114,7 @@ func TestParseDevinManualPaste(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, token, errPaste := parseDevinManualPaste(tt.input, tt.expectedState)
+			code, errPaste := parseDevinManualPaste(tt.input, tt.expectedState)
 			if tt.wantErr != "" {
 				if errPaste == nil || !strings.Contains(errPaste.Error(), tt.wantErr) {
 					t.Fatalf("error = %v, want substring %q", errPaste, tt.wantErr)
@@ -284,20 +124,19 @@ func TestParseDevinManualPaste(t *testing.T) {
 				}
 				return
 			}
-			if errPaste != nil {
-				t.Fatalf("unexpected error: %v", errPaste)
-			}
-			if code != tt.wantCode || token != tt.wantToken {
-				t.Fatalf("code=%q token=%q, want code=%q token=%q", code, token, tt.wantCode, tt.wantToken)
+			if errPaste != nil || code != tt.wantCode {
+				t.Fatalf("code=%q err=%v, want code=%q", code, errPaste, tt.wantCode)
 			}
 		})
 	}
 }
 
+// TestDevinAuthenticatorHeadlessAuthURL: without a browser the login prints
+// NeoPi's authorize URL for the rule's loopback callback, and the pasted
+// redirect completes it.
 func TestDevinAuthenticatorHeadlessAuthURL(t *testing.T) {
-	authenticator := NewDevinAuthenticator()
 	out := captureStdout(t, func() {
-		_, _ = authenticator.Login(context.Background(), &config.Config{}, &LoginOptions{
+		_, _ = NewDevinAuthenticator().Login(context.Background(), &config.Config{}, &LoginOptions{
 			NoBrowser: true,
 			Prompt:    func(string) (string, error) { return "", nil },
 		})
@@ -309,39 +148,26 @@ func TestDevinAuthenticatorHeadlessAuthURL(t *testing.T) {
 			break
 		}
 	}
-	if authURL == "" {
-		t.Fatalf("printed output did not contain auth URL:\n%s", out)
-	}
 	parsed, errParse := url.Parse(authURL)
-	if errParse != nil {
-		t.Fatal(errParse)
+	if authURL == "" || errParse != nil {
+		t.Fatalf("printed output did not contain an auth URL:\n%s", out)
 	}
 	q := parsed.Query()
-	if q.Get("redirect_uri") != "" {
-		t.Fatalf("headless URL still has redirect_uri=%q", q.Get("redirect_uri"))
+	if parsed.Host != "app.devin.ai" || q.Get("redirect_uri") != "http://127.0.0.1:59653/callback" || q.Has("cli_pkce_marker") {
+		t.Fatalf("unexpected authorize URL %s", authURL)
 	}
-	if q.Get("cli_pkce_marker") != "1" {
-		t.Fatalf("cli_pkce_marker=%q", q.Get("cli_pkce_marker"))
+	if _, errUUID := uuid.Parse(q.Get("state")); errUUID != nil {
+		t.Fatalf("state %q is not a uuid", q.Get("state"))
 	}
-	if q.Get("code_challenge_method") != "S256" || q.Get("prompt") != "select_account" || q.Get("state") == "" {
-		t.Fatalf("unexpected query: %s", parsed.RawQuery)
-	}
-	if !strings.HasSuffix(parsed.RawQuery, "&cli_pkce_marker=1") || strings.Contains(parsed.RawQuery, "redirect_uri=") {
-		t.Fatalf("raw query order/content mismatch: %s", parsed.RawQuery)
+	if !strings.HasPrefix(parsed.RawQuery, "response_type=code&redirect_uri=") || !strings.HasSuffix(parsed.RawQuery, "&prompt=select_account") {
+		t.Fatalf("query order differs from NeoPi's: %s", parsed.RawQuery)
 	}
 }
 
 func TestDevinAuthenticatorHeadlessStateMismatch(t *testing.T) {
-	var exchanged bool
-	authSvc := newTestDevinAuthService(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/auth/cli/token" {
-			exchanged = true
-		}
-		w.WriteHeader(http.StatusServiceUnavailable)
-	})
+	authSvc, exchanged := tokenServer(t, "unused", "eyJunused")
 	authenticator := NewDevinAuthenticator()
 	authenticator.AuthService = authSvc
-
 	_, err := authenticator.Login(context.Background(), &config.Config{}, &LoginOptions{
 		NoBrowser: true,
 		Prompt: func(string) (string, error) {
@@ -351,14 +177,13 @@ func TestDevinAuthenticatorHeadlessStateMismatch(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "state mismatch") {
 		t.Fatalf("error = %v, want state mismatch", err)
 	}
-	if exchanged {
-		t.Fatal("token exchange should not run on CSRF mismatch")
+	if *exchanged {
+		t.Fatal("token exchange ran on a CSRF mismatch")
 	}
 }
 
 func TestDevinAuthenticatorHeadlessOAuthErrorURL(t *testing.T) {
-	authenticator := NewDevinAuthenticator()
-	_, err := authenticator.Login(context.Background(), &config.Config{}, &LoginOptions{
+	_, err := NewDevinAuthenticator().Login(context.Background(), &config.Config{}, &LoginOptions{
 		NoBrowser: true,
 		Prompt: func(string) (string, error) {
 			return "http://127.0.0.1:9/callback?error=access_denied&error_description=user%20denied", nil
@@ -366,46 +191,6 @@ func TestDevinAuthenticatorHeadlessOAuthErrorURL(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "access_denied") {
 		t.Fatalf("error = %v, want access_denied oauth error", err)
-	}
-}
-
-func TestDevinAuthenticatorHeadlessQuotedCode(t *testing.T) {
-	authSvc := newTestDevinAuthService(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/auth/cli/token":
-			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			if body["code"] != "quoted-code-xyz" {
-				t.Errorf("code = %q", body["code"])
-				w.WriteHeader(http.StatusBadRequest)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"token":"eyJquoted.token"}`))
-		case "/v3/self":
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"user_name":"quoted-user"}`))
-		case devinauth.DevinGetUserStatusPath:
-			w.WriteHeader(http.StatusServiceUnavailable)
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	})
-	authenticator := NewDevinAuthenticator()
-	authenticator.AuthService = authSvc
-
-	auth, err := authenticator.Login(context.Background(), &config.Config{}, &LoginOptions{
-		NoBrowser: true,
-		Prompt:    func(string) (string, error) { return `"quoted-code-xyz"`, nil },
-	})
-	if err != nil {
-		t.Fatalf("quoted code login failed: %v", err)
-	}
-	if auth.Attributes["api_key"] != "devin-session-token$eyJquoted.token" {
-		t.Fatalf("api_key = %q", auth.Attributes["api_key"])
 	}
 }
 
