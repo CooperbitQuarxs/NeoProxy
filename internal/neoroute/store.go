@@ -175,6 +175,9 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 	if !virtualName.MatchString(v.Name) {
 		return fmt.Errorf("invalid virtual model name")
 	}
+	if v.Name == "fields" {
+		return fmt.Errorf("virtual model name \"fields\" is reserved")
+	}
 	if inventory.providers[v.Name] {
 		return fmt.Errorf("virtual name collides with provider")
 	}
@@ -236,8 +239,13 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 		if st.Per != "user" && st.Per != "all" {
 			return fmt.Errorf("invalid budget scope")
 		}
-		if st.Effort != nil && !slices.Contains([]string{"low", "medium", "high", "max"}, *st.Effort) {
-			return fmt.Errorf("invalid effort")
+		if err = validateEfforts(st); err != nil {
+			return err
+		}
+		if st.Condition != nil {
+			if err = validateCondition(st.Condition); err != nil {
+				return fmt.Errorf("stage %q %w", st.ID, err)
+			}
 		}
 		ids := make(map[string]bool, len(st.Accounts.IDs))
 		for _, id := range st.Accounts.IDs {

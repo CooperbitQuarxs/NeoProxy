@@ -138,9 +138,10 @@ func TestPoolPolicyCapCountsConcurrentReservations(t *testing.T) {
 	f := realRoutingFixture(t)
 	vm := f.model()
 	request := neoroute.Request{Protocol: "openai-response", Body: []byte(`{"input":"concurrent allocation","max_output_tokens":128}`)}
-	// Exactly one bound fits under the fractional cap; two never do.
+	// The cap is the pool's average over its two metered accounts: one in-flight
+	// bound averages to half a bound and fits; a second never does.
 	bound := len(request.Body) + 128
-	vm.Script = fmt.Sprintf(`function stage_cap(ctx) return %.12f end`, float64(bound+1)/1000000)
+	vm.Script = fmt.Sprintf(`function stage_cap(ctx) return %.12f end`, (float64(bound)/2+1)/1000000)
 	vm.Stages[0].Lua = &neoroute.LuaPolicy{Cap: "stage_cap"}
 	vm = f.save(t, vm, true)
 	f.grant(t, vm.ID, true)

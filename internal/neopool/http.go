@@ -60,6 +60,7 @@ func (h *HTTP) Register(group *gin.RouterGroup) {
 	group.GET("/vault", h.vault)
 	group.PATCH("/vault/providers/:id", h.providerExposure)
 	group.GET("/models", h.models)
+	group.POST("/models/exposure", h.modelExposures)
 	group.PATCH("/models/*id", h.modelExposure)
 	group.PATCH("/vault/accounts/:id", h.assign)
 	group.PUT("/vault/accounts/:id/windows/:kind", h.configureWindow)
@@ -232,6 +233,32 @@ func (h *HTTP) exposure(c *gin.Context, provider bool) {
 }
 func (h *HTTP) providerExposure(c *gin.Context) { h.exposure(c, true) }
 func (h *HTTP) modelExposure(c *gin.Context)    { h.exposure(c, false) }
+
+// modelExposures serves or hides many models in one request:
+// {"set": {"<model id>": true|false, ...}} (at most 5000 entries).
+func (h *HTTP) modelExposures(c *gin.Context) {
+	p, ok := session(c)
+	if !ok {
+		return
+	}
+	if p.Role != "admin" {
+		poolError(c, 403, "organization administrator required")
+		return
+	}
+	var body struct {
+		Set map[string]bool `json:"set"`
+	}
+	if c.ShouldBindJSON(&body) != nil || len(body.Set) == 0 || len(body.Set) > 5000 {
+		poolError(c, 400, "set must map 1 to 5000 model ids to booleans")
+		return
+	}
+	unknown, err := h.pool.SetModelExposures(c.Request.Context(), body.Set)
+	if err != nil {
+		respondError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"changed": len(body.Set) - len(unknown), "unknown": unknown})
+}
 func (h *HTTP) assign(c *gin.Context) {
 	p, ok := session(c)
 	if !ok {

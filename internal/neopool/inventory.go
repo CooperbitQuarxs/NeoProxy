@@ -197,6 +197,46 @@ func (s *Store) SetExposure(ctx context.Context, id string, exposed, provider bo
 	return err
 }
 
+// SetModelExposures flips many models at once in one transaction: curating a
+// catalogue of hundreds must not be hundreds of round trips. Unknown ids are
+// reported back and skipped; the known ones are still applied.
+func (s *Store) SetModelExposures(ctx context.Context, set map[string]bool) (unknown []string, err error) {
+	snapshot, err := s.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	known := make(map[string]bool, len(snapshot.Models))
+	for _, m := range snapshot.Models {
+		known[m.ID] = true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO neo_model_exposure(id,exposed) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET exposed=excluded.exposed`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+	for id, exposed := range set {
+		if !known[id] {
+			unknown = append(unknown, id)
+			continue
+		}
+		if _, err = stmt.ExecContext(ctx, id, exposed); err != nil {
+			return nil, err
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		return nil, err
+	}
+	s.notifyLocked()
+	return unknown, nil
+}
+
 // Stats enforces ownership in SQL, independent of any client-supplied filters.
 func (s *Store) Stats(ctx context.Context, userID string, admin bool) ([]AccountStats, error) {
 	query := `WITH owned AS (

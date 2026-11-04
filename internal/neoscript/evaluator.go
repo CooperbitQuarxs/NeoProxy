@@ -159,8 +159,9 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 
 // The estimate includes worst-case JSON string escaping and collection overhead.
 // ScriptInput is value-only; this walk does not invoke custom marshal methods.
+// The depth bound admits a stage condition tree nested to its validated limit.
 func boundedValue(v reflect.Value, remaining *int, depth int) bool {
-	if depth > 16 {
+	if depth > 32 {
 		return false
 	}
 	*remaining -= 32
@@ -197,7 +198,16 @@ func boundedValue(v reflect.Value, remaining *int, depth int) bool {
 				return false
 			}
 		}
-	case reflect.Map, reflect.Func, reflect.Chan, reflect.UnsafePointer:
+	case reflect.Map:
+		if v.Len() > MaxInput/32 {
+			return false
+		}
+		for iter := v.MapRange(); iter.Next(); {
+			if !boundedValue(iter.Key(), remaining, depth+1) || !boundedValue(iter.Value(), remaining, depth+1) {
+				return false
+			}
+		}
+	case reflect.Func, reflect.Chan, reflect.UnsafePointer:
 		return false
 	}
 	return *remaining >= 0

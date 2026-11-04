@@ -69,6 +69,10 @@ type VirtualModel struct {
 //   - A grant's allotment (0..1) multiplies both for that person.
 //   - Used is the provider's value, else tokens/capacity of the local meter:
 //     account-wide when Per is "all", the person's own usage when "user".
+//   - Condition, when set, decides whether the stage serves the request at all
+//     (request fields) and which accounts may serve it (account fields).
+//   - Effort forces one reasoning effort. Otherwise Efforts is the allowed set:
+//     a caller effort in it passes through, anything else becomes its highest.
 type Stage struct {
 	ID            string             `json:"id"`
 	Model         string             `json:"model"`
@@ -80,6 +84,8 @@ type Stage struct {
 	Window        string             `json:"window"`
 	Per           string             `json:"per"`
 	Effort        *string            `json:"effort"`
+	Efforts       []string           `json:"efforts,omitempty"`
+	Condition     *Condition         `json:"condition,omitempty"`
 	Lua           *LuaPolicy         `json:"lua,omitempty"`
 }
 
@@ -107,22 +113,26 @@ type Terminal struct {
 
 // Candidate is an account the stage may draw from. Metered is false when the
 // account has no meter for Window (Used is then 0 and the account is always
-// available).
+// available). Reason "condition" marks an account listed for explanation that
+// the stage condition excluded; it is never drawn from.
 type Candidate struct {
 	AccountID string  `json:"accountId"`
 	Window    string  `json:"window"`
 	Metered   bool    `json:"metered"`
 	Used      float64 `json:"used"`
 	Budget    float64 `json:"budget"`
+	Reason    string  `json:"reason,omitempty"`
 }
 
 // TrailStep: for a stage, Total is the average used fraction across the Metered
-// accounts considered (0 when none are metered) and is compared against Cap.
+// accounts considered (0 when none are metered) and is compared against Cap;
+// Window is the stage's window kind those fractions are of.
 type TrailStep struct {
 	Kind          string              `json:"kind"`
 	Index         int                 `json:"index,omitempty"`
 	StageID       string              `json:"stageId,omitempty"`
 	Model         string              `json:"model,omitempty"`
+	Window        string              `json:"window,omitempty"`
 	Total         float64             `json:"total,omitempty"`
 	Metered       int                 `json:"metered,omitempty"`
 	Cap           float64             `json:"cap,omitempty"`
@@ -136,6 +146,9 @@ type TrailStep struct {
 	Asked         string              `json:"asked,omitempty"`
 	FailureStatus int                 `json:"failureStatus,omitempty"`
 	Policy        *ScriptPolicyResult `json:"policy,omitempty"`
+	// excluded are the accounts the condition removed, appended to Candidates
+	// (Reason "condition") only once the decision no longer draws from them.
+	excluded []Candidate
 }
 
 // Stage zero values are meaningful: preserve index 0, a zero cap and an empty
@@ -243,6 +256,22 @@ type ScriptInput struct {
 	VirtualModel VirtualModel    `json:"virtualModel"`
 	Stages       []ScriptStage   `json:"stages"`
 	Accounts     []ScriptAccount `json:"accounts"`
+	User         ScriptUser      `json:"user"`
+	Time         ScriptTime      `json:"time"`
+	// Effort is the caller's reasoning effort, "" when it set none.
+	Effort string `json:"effort,omitempty"`
+}
+type ScriptUser struct {
+	ID     string `json:"id"`
+	Handle string `json:"handle"`
+	Role   string `json:"role"`
+}
+
+// ScriptTime is the decision's clock in server local time.
+type ScriptTime struct {
+	Weekday string `json:"weekday"`
+	Hour    int    `json:"hour"`
+	Date    string `json:"date"`
 }
 type ScriptStage struct {
 	StageID    string      `json:"stageId"`
