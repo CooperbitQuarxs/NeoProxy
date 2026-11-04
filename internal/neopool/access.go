@@ -26,9 +26,15 @@ type AccessItem struct {
 	ImportedFrom  *ImportedFrom   `json:"importedFrom,omitempty"`
 	NeoPiSource   *NeoPiSourceRef `json:"neopiSource,omitempty"`
 	Models        []string        `json:"models"`
-	Usage         AccessUsage     `json:"usage"`
-	CreatedAt     int64           `json:"createdAt"`
-	Actions       []string        `json:"actions"`
+	// Windows are the configured local token meters (source "configured-metered");
+	// virtual model stages only draw from accounts with a window of their kind.
+	// Configure them with PUT /v8/neo/vault/accounts/:id/windows/:kind.
+	Windows []Window `json:"windows"`
+	// ProviderWindows are provider-reported quota windows (NeoPi gateways).
+	ProviderWindows []Window    `json:"providerWindows"`
+	Usage           AccessUsage `json:"usage"`
+	CreatedAt       int64       `json:"createdAt"`
+	Actions         []string    `json:"actions"`
 }
 
 type ImportedFrom struct {
@@ -340,11 +346,17 @@ func (h *HTTP) buildAccessItem(p neo.Principal, a *coreauth.Auth, account *Accou
 	if kind == "neopi" {
 		provider = catalogProviderID(a.Attributes["neopi_provider"], "")
 	}
-	item := AccessItem{ID: AccountID(a.ID), Provider: provider, Kind: kind, Models: []string{}, CreatedAt: row.CreatedAt}
+	item := AccessItem{ID: AccountID(a.ID), Provider: provider, Kind: kind, Models: []string{}, Windows: []Window{}, ProviderWindows: []Window{}, CreatedAt: row.CreatedAt}
 	state, cooldown := "", int64(0)
 	if account != nil {
 		item.OwnerID = account.OwnerID
 		item.Models = account.ModelIDs
+		if account.Windows != nil {
+			item.Windows = account.Windows
+		}
+		if account.ProviderWindows != nil {
+			item.ProviderWindows = account.ProviderWindows
+		}
 		state, cooldown = account.State, account.CooldownUntil
 	} else {
 		st, next := coreauth.CredentialHealth(a, "", now)

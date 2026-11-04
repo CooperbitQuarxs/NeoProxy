@@ -268,6 +268,15 @@ func TestAccessAPIKeysValidateRouteAndStayScoped(t *testing.T) {
 	if len(owner.Items) != 1 || owner.Items[0].ID != router.ID || len(owner.People) != 1 || owner.People[0].ID != "owner-a" {
 		t.Fatalf("owner sees other contributions: %+v", owner)
 	}
+	if len(owner.Items[0].Windows) != 0 || owner.Items[0].ProviderWindows == nil {
+		t.Fatalf("unconfigured windows: %+v", owner.Items[0])
+	}
+	// Budget windows keep using the pool account ID through the existing route.
+	f.json("owner-a", "PUT", "/v8/neo/vault/accounts/"+router.ID+"/windows/day", `{"capacityTokens":1000,"startsAt":0}`, 204)
+	metered := listOf(t, f.json("owner-a", "GET", "/v8/neo/access", "", 200)).Items[0]
+	if len(metered.Windows) != 1 || metered.Windows[0].Kind != "day" || metered.Windows[0].Source != "configured-metered" || metered.Windows[0].Capacity != 1000 || !metered.Windows[0].Known {
+		t.Fatalf("configured window missing from access item: %+v", metered.Windows)
+	}
 	if strings.Contains(strings.Join(owner.Items[0].Actions, ","), "setPlan") || !strings.Contains(strings.Join(owner.Items[0].Actions, ","), "remove") {
 		t.Fatalf("owner actions: %v", owner.Items[0].Actions)
 	}
