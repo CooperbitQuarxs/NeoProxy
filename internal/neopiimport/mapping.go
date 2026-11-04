@@ -54,7 +54,7 @@ var apiKeyRoutes = map[string]route{
 	"vercel-ai-gateway":  {target: "custom", baseURL: "https://ai-gateway.vercel.sh/v1"},
 	"opencode-go":        {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
 	"opencode-zen":       {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
-	"alibaba-token-plan": {reason: "Alibaba Token Plan stores a session bundle, not a plain API key."},
+	"alibaba-token-plan": {target: "alibaba-token-plan"},
 	"sakana":             {reason: "Sakana is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
 	"abliteration":       {reason: "Abliteration is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
 }
@@ -147,6 +147,9 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			return "This key is bound to a custom request origin in NeoPi, which NeoProxy cannot reproduce."
 		}
 		if apiKeyValue(c) == "" {
+			if c.Provider == "alibaba-token-plan" && str(c.data, "key") != "" {
+				return "NeoPi's QwenCloud Token Plan record holds no key NeoProxy recognizes."
+			}
 			return "NeoPi's record has no key."
 		}
 	case r.kind == KindSubscription:
@@ -192,7 +195,13 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: r.baseURL, Label: label(c, r)}, nil
+	baseURL := r.baseURL
+	if c.Provider == "alibaba-token-plan" {
+		// The region the key belongs to; NeoProxy tries it first.
+		key, _ := parseTokenPlanKey(str(c.data, "key"))
+		baseURL = key.baseURL
+	}
+	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r)}, nil
 }
 
 // AuthFile is an imported subscription in the engine's native auth-file format.
@@ -291,6 +300,13 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 func apiKeyValue(c Credential) string {
 	if c.Type == "oauth" {
 		return str(c.data, "access")
+	}
+	if c.Provider == "alibaba-token-plan" {
+		key, ok := parseTokenPlanKey(str(c.data, "key"))
+		if !ok {
+			return ""
+		}
+		return key.token
 	}
 	return str(c.data, "key")
 }

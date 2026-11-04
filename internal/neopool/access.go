@@ -89,6 +89,9 @@ type AccessList struct {
 type AccessError struct {
 	Status  int
 	Message string
+	// keyRejected marks an upstream 401/403 on a key, so a provider with
+	// regional endpoints can try the next region.
+	keyRejected bool
 }
 
 func (e *AccessError) Error() string { return e.Message }

@@ -88,6 +88,20 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 	{ id: "moonshot", name: "Moonshot API", vendor: "Moonshot", hue: 340, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.moonshot.ai/v1", keyHint: "sk-…", getKeyUrl: "https://platform.moonshot.ai/console/api-keys" } },
 	{ id: "zai", name: "Z.ai", vendor: "Zhipu", hue: 190, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.z.ai/api/paas/v4", keyHint: "…", getKeyUrl: "https://z.ai/manage-apikey/apikey-list" } },
 	{ id: "nanogpt", name: "NanoGPT", vendor: "NanoGPT", hue: 150, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://nano-gpt.com/api/v1", keyHint: "…", getKeyUrl: "https://nano-gpt.com/api" } },
+	{
+		id: "alibaba-token-plan",
+		name: "QwenCloud Token Plan",
+		vendor: "Qwen",
+		hue: 285,
+		methods: ["apiKey"],
+		apiKey: { style: "openai", baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", keyHint: "sk-sp-… (International or China key)", getKeyUrl: "https://home.qwencloud.com/billing/subscription/token-plan-individual" },
+		plans: [
+			{ id: "lite", name: "Token Plan Lite", monthlyUSD: 6 },
+			{ id: "essential", name: "Token Plan Essential", monthlyUSD: 10 },
+			{ id: "standard", name: "Token Plan Standard", monthlyUSD: 18 },
+			{ id: "pro", name: "Token Plan Pro", monthlyUSD: 68 },
+		],
+	},
 	{ id: "custom", name: "Other OpenAI-compatible server", vendor: "Custom", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "", editableBaseUrl: true, keyHint: "Leave empty if the server needs none" } },
 ];
 
