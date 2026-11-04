@@ -358,16 +358,8 @@ func (s *Service) registerModelRefreshCallback() {
 
 		providerSet := make(map[string]bool, len(changedProviders))
 		for _, p := range changedProviders {
-			norm := strings.ToLower(strings.TrimSpace(p))
-			if norm != "" {
+			if norm := strings.ToLower(strings.TrimSpace(p)); norm != "" {
 				providerSet[norm] = true
-				switch norm {
-				case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
-					providerSet["kimi"] = true
-					providerSet["kimi-ai"] = true
-					providerSet["kimi.ai"] = true
-					providerSet["kimi.com"] = true
-				}
 			}
 		}
 

@@ -48,6 +48,14 @@ func (e ZaiExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
 	return &e
 }
 
+// ForAPIKey keeps the Kimi Code routing for the same reason as Z.ai.
+func (e KimiExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
+	e.cfg = e.cfg.ForAPIKey()
+	e.ClaudeExecutor = e.ClaudeExecutor.ForAPIKey().(*ClaudeExecutor)
+	e.counter = e.counter.ForAPIKey().(*OpenAICompatExecutor)
+	return &e
+}
+
 func (e CodexWebsocketsExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
 	if e.CodexExecutor != nil {
 		e.CodexExecutor = e.CodexExecutor.ForAPIKey().(*CodexExecutor)

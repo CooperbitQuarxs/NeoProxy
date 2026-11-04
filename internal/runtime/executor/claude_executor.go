@@ -34,12 +34,21 @@ type ClaudeExecutor struct {
 	cfg      *config.Config
 	refresh  *singleflight.Group
 	provider string
-	// catalog resolves NeoPi's model record for a provider NeoPi serves over
-	// Anthropic Messages with an API key (Z.ai); nil for Claude itself.
-	catalog func(model string) *registry.NeoPiModel
-	wait    func(context.Context, time.Duration) error
-	now     func() time.Time
-	random  func() float64
+	// thirdParty describes a provider NeoPi serves over Anthropic Messages
+	// (Z.ai, Kimi Code); nil for Claude itself.
+	thirdParty *neoPiThirdPartyProvider
+	wait       func(context.Context, time.Duration) error
+	now        func() time.Time
+	random     func() float64
+}
+
+// neoPiThirdPartyProvider is what prepareThirdParty needs from a provider:
+// the NeoPi record of the requested model, the bearer the account
+// authenticates with, and any identity headers NeoPi adds for it.
+type neoPiThirdPartyProvider struct {
+	catalog func(req cliproxyexecutor.Request, model string) *registry.NeoPiModel
+	bearer  func(auth *cliproxyauth.Auth) string
+	headers func() http.Header
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {
@@ -115,7 +124,7 @@ type neoPiPrepared struct {
 }
 
 func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, countOnly ...bool) (*neoPiPrepared, error) {
-	if e.catalog != nil {
+	if e.thirdParty != nil {
 		return e.prepareThirdParty(ctx, auth, req, opts)
 	}
 	credential, err := neoPiCredential(auth)
@@ -134,9 +143,6 @@ func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, r
 	}
 	model := thinking.ParseSuffix(req.Model).ModelName
 	model = strings.TrimPrefix(model, anthropicnpi.Provider+"/")
-	if e.Identifier() == "kimi" {
-		model = normalizeKimiUpstreamModel(model)
-	}
 	original := req.Payload
 	if len(opts.OriginalRequest) > 0 {
 		original = opts.OriginalRequest
@@ -161,21 +167,7 @@ func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, r
 		}
 	}
 	base := neoPiBaseURL(auth)
-	var body []byte
-	var headers http.Header
-	if e.Identifier() == "kimi" {
-		body, err = helps.KimiMessagesRequest(translated, req.Model, model)
-		headers = http.Header{
-			"Content-Type":      {"application/json"},
-			"Accept":            {"text/event-stream"},
-			"Anthropic-Version": {"2023-06-01"},
-		}
-		if betas := opts.Headers.Values("Anthropic-Beta"); len(betas) > 0 {
-			headers.Set("Anthropic-Beta", strings.Join(betas, ","))
-		}
-	} else {
-		body, headers, err = projectNeoPiRequest(translated, model, base, anthropicnpi.WireVersion(), identity)
-	}
+	body, headers, err := projectNeoPiRequest(translated, model, base, anthropicnpi.WireVersion(), identity)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +183,7 @@ func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, r
 	}
 	neoPiApplyHeaders(headers, auth, opts.Headers, credential, base, ctx)
 	path := "/v1/messages"
-	if oauth || e.Identifier() == "kimi" {
+	if oauth {
 		path += "?beta=true"
 	}
 	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + path, model: model, identity: identity, base: base, oauth: oauth, finalize: finalize}, nil
@@ -631,9 +623,6 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		if err != nil {
 			return result, err
 		}
-		if e.Identifier() == "kimi" {
-			data = neoPiSet(data, "model", req.Model)
-		}
 	} else {
 		var state any
 		data = sdktranslator.TranslateNonStream(ctx, sdktranslator.FromString("claude"), format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.body, data, &state)
@@ -674,9 +663,6 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 			line := append([]byte("data: "), data...)
 			usage.ObserveClaudeStream(line)
 			reporter.ObserveResponseModel(line)
-			if format == sdktranslator.FormatClaude && e.Identifier() == "kimi" && gjson.GetBytes(data, "type").String() == "message_start" {
-				data = neoPiSet(data, "message.model", req.Model)
-			}
 			chunks := [][]byte{neoPiFrame(data)}
 			if format != sdktranslator.FromString("claude") {
 				chunks = sdktranslator.TranslateStream(ctx, sdktranslator.FromString("claude"), format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.body, line, &state)
@@ -724,7 +710,7 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	}
 	body := prepared.body
 	path := "/v1/messages/count_tokens"
-	if prepared.oauth || e.Identifier() == "kimi" {
+	if prepared.oauth {
 		path += "?beta=true"
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, prepared.base+path, bytes.NewReader(body))

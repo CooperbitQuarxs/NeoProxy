@@ -151,7 +151,7 @@ func TestPluginStaticModelAvailabilityFollowsCredentials(t *testing.T) {
 func TestRegisterModelsForAuth_PluginStaticExclusionsDoNotMatchNativeAliases(t *testing.T) {
 	const provider = "kimi"
 	const nativeAlias = "native-alias"
-	catalog := registry.GetKimiModels()
+	catalog := registry.KimiBundledModels()
 	if len(catalog) == 0 {
 		t.Fatal("kimi catalog is empty")
 	}

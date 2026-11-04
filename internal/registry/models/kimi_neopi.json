@@ -1,0 +1,324 @@
+{
+  "source": "NeoPi OWN getBundledModels(kimi-code) via the OpenAI/Anthropic shim",
+  "models": [
+    {
+      "id": "k3",
+      "name": "K3",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 131072,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high",
+          "max"
+        ],
+        "effortMap": {
+          "max": "max"
+        },
+        "mode": "anthropic-adaptive",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": true,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false,
+        "streamIdleTimeoutMs": 300000
+      }
+    },
+    {
+      "id": "k3-256k",
+      "name": "K3-256k",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 262144,
+      "maxTokens": 131072,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high",
+          "max"
+        ],
+        "effortMap": {
+          "max": "max"
+        },
+        "mode": "anthropic-adaptive",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": true,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false,
+        "streamIdleTimeoutMs": 300000
+      }
+    },
+    {
+      "id": "k3.1-pro",
+      "name": "K3.1 Pro",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 131072,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high",
+          "max"
+        ],
+        "effortMap": {
+          "max": "max"
+        },
+        "mode": "anthropic-adaptive",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": true,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false,
+        "streamIdleTimeoutMs": 300000
+      }
+    },
+    {
+      "id": "k3.1-pro-highspeed",
+      "name": "K3.1 Pro Highspeed 2x Usage Cost",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 131072,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high",
+          "max"
+        ],
+        "effortMap": {
+          "max": "max"
+        },
+        "mode": "anthropic-adaptive",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": true,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false,
+        "streamIdleTimeoutMs": 300000
+      }
+    },
+    {
+      "id": "kimi-for-coding",
+      "name": "K2.8 Preview",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 32768,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high",
+          "max"
+        ],
+        "mode": "anthropic-adaptive",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    },
+    {
+      "id": "kimi-for-coding-highspeed",
+      "name": "K2.7 Code Highspeed",
+      "api": "anthropic-messages",
+      "provider": "kimi-code",
+      "baseUrl": "https://api.kimi.com/coding",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 262144,
+      "maxTokens": 32768,
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": false,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    }
+  ]
+}

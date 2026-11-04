@@ -45,7 +45,6 @@ var brands = map[string]brand{
 	"gemini":      {"Gemini", "G", 255, false},
 	"xai":         {"Grok", "G", 0, true},
 	"kimi":        {"Kimi", "K", 340, false},
-	"kimi-ai":     {"Kimi", "K", 340, false},
 	"devin":       {"Devin", "D", 205, false},
 	"meta":        {"Meta AI", "M", 280, false},
 }

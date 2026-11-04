@@ -55,15 +55,13 @@ func task6RepairExecutor(provider string) cliproxyauth.ProviderExecutor {
 	switch provider {
 	case "meta":
 		return NewMetaExecutor(&config.Config{})
-	case "kimi":
-		return NewKimiExecutor(&config.Config{})
 	default:
 		return NewXAIExecutor(&config.Config{})
 	}
 }
 
 func TestApplyPatchRepairResponsesSourceTerminalHTTP(t *testing.T) {
-	for _, provider := range []string{"xai", "meta", "kimi"} {
+	for _, provider := range []string{"xai", "meta"} {
 		for _, mode := range []string{"args-eof", "item-eof", "empty", "done", "response.completed", "response.incomplete", "response.done"} {
 			t.Run(provider+"/"+mode, func(t *testing.T) {
 				body := task6RepairSSE(task6RepairSource(mode))
@@ -202,12 +200,8 @@ func TestApplyPatchRepairGatewayInitializesGinTestMode(t *testing.T) {
 }
 
 func TestApplyPatchRepairResponsesSourceTerminalNonStream(t *testing.T) {
-	for _, provider := range []string{"xai", "meta", "kimi"} {
+	for _, provider := range []string{"xai", "meta"} {
 		for _, mode := range []string{"args-eof", "item-eof", "empty", "done"} {
-			if provider == "kimi" && mode != "empty" {
-				// Kimi's non-stream endpoint returns JSON, not a buffered SSE response.
-				continue
-			}
 			t.Run(provider+"/"+mode, func(t *testing.T) {
 				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = io.WriteString(w, task6RepairSSE(task6RepairSource(mode)))
@@ -235,18 +229,14 @@ func TestApplyPatchRepairResponsesSourceTerminalNonStream(t *testing.T) {
 }
 
 func TestApplyPatchRepairOrdinaryEmptyHTTPPassthrough(t *testing.T) {
-	for _, provider := range []string{"xai", "meta", "kimi"} {
+	for _, provider := range []string{"xai", "meta"} {
 		t.Run(provider, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 			defer server.Close()
 			exec := task6RepairExecutor(provider)
 			auth := &cliproxyauth.Auth{Provider: provider, Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
-			response, errExecute := exec.Execute(t.Context(), auth, cliproxyexecutor.Request{Model: "grok-4", Payload: []byte(`{"input":"ordinary","tools":[{"type":"function","name":"apply_patch"}]}`)}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse})
-			if provider == "kimi" {
-				if errExecute != nil || len(response.Payload) != 0 {
-					t.Fatalf("ordinary Kimi response changed: %s %v", response.Payload, errExecute)
-				}
-			} else if status, okStatus := errExecute.(interface{ StatusCode() int }); !okStatus || status.StatusCode() != http.StatusRequestTimeout {
+			_, errExecute := exec.Execute(t.Context(), auth, cliproxyexecutor.Request{Model: "grok-4", Payload: []byte(`{"input":"ordinary","tools":[{"type":"function","name":"apply_patch"}]}`)}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse})
+			if status, okStatus := errExecute.(interface{ StatusCode() int }); !okStatus || status.StatusCode() != http.StatusRequestTimeout {
 				t.Fatalf("ordinary disconnect changed: %v", errExecute)
 			}
 		})

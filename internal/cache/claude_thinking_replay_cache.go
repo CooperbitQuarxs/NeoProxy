@@ -49,7 +49,12 @@ type claudeThinkingReplayEntry struct {
 }
 
 // ClaudeThinkingReplaySnapshot identifies the exact replay generation read for one request.
-type ClaudeThinkingReplaySnapshot = KimiThinkingReplaySnapshot
+type ClaudeThinkingReplaySnapshot struct {
+	raw        []byte
+	generation string
+	loaded     bool
+	found      bool
+}
 
 type claudeThinkingReplayHomeValue struct {
 	Generation string            `json:"generation"`
@@ -63,7 +68,15 @@ var (
 	claudeThinkingReplayTotalBytes int
 )
 
-var currentClaudeThinkingReplayKVClient = func() (kimiThinkingReplayKVClient, bool, error) {
+type claudeThinkingReplayKVClient interface {
+	KVGet(ctx context.Context, key string) ([]byte, bool, error)
+	KVSet(ctx context.Context, key string, value []byte, opts homekv.KVSetOptions) (bool, error)
+	KVDel(ctx context.Context, keys ...string) (int64, error)
+	KVCompareAndSwap(ctx context.Context, key string, expected []byte, expectedExists bool, value []byte, ttl time.Duration) (bool, error)
+	KVExpire(ctx context.Context, key string, ttl time.Duration) (bool, error)
+}
+
+var currentClaudeThinkingReplayKVClient = func() (claudeThinkingReplayKVClient, bool, error) {
 	return homekv.CurrentKVClient()
 }
 
@@ -282,7 +295,7 @@ func ClearClaudeThinkingReplayCache() {
 	claudeThinkingReplayMu.Unlock()
 }
 
-func readOrReserveClaudeThinkingReplayHomeValue(ctx context.Context, client kimiThinkingReplayKVClient, key string) ([]byte, error) {
+func readOrReserveClaudeThinkingReplayHomeValue(ctx context.Context, client claudeThinkingReplayKVClient, key string) ([]byte, error) {
 	for attempt := 0; attempt < 4; attempt++ {
 		raw, found, errGet := client.KVGet(ctx, key)
 		if errGet != nil {

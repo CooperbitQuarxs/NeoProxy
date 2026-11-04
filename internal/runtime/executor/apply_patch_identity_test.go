@@ -138,7 +138,7 @@ func applyPatchIdentitySource(interactions bool, first, boundary string, snapsho
 }
 
 func TestApplyPatchNamedLateIdentityActualTransports(t *testing.T) {
-	for _, transport := range []string{"xai", "meta", "kimi", "interactions"} {
+	for _, transport := range []string{"xai", "meta", "interactions"} {
 		for _, first := range []string{"item", "call", "neither", "neither-item-first", "neither-call-first"} {
 			for _, boundary := range []string{"delta", "item", "terminal"} {
 				for _, snapshot := range []bool{false, true} {
@@ -218,7 +218,7 @@ func applyPatchIdentityExecutor(t *testing.T, transport string, source [][]byte)
 }
 
 func TestApplyPatchNamedLateIdentityActualFailures(t *testing.T) {
-	for _, transport := range []string{"xai", "meta", "kimi", "interactions"} {
+	for _, transport := range []string{"xai", "meta", "interactions"} {
 		for _, mode := range []string{"item-conflict", "call-conflict", "partial-snapshot", "invalid-snapshot", "eof"} {
 			t.Run(transport+"/"+mode, func(t *testing.T) {
 				interactions := transport == "interactions"
@@ -285,7 +285,7 @@ func TestApplyPatchNamedLateIdentityActualFailures(t *testing.T) {
 }
 
 func TestApplyPatchNamedLateIdentityActualInterleaved(t *testing.T) {
-	for _, transport := range []string{"xai", "meta", "kimi", "interactions"} {
+	for _, transport := range []string{"xai", "meta", "interactions"} {
 		t.Run(transport, func(t *testing.T) {
 			interactions := transport == "interactions"
 			first := applyPatchIdentitySource(interactions, "item", "item", false)

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	xxHash64 "github.com/pierrec/xxHash/xxHash64"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -411,7 +412,8 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	} else if off {
 		wireThinking = json.RawMessage(`{"type":"disabled"}`)
 	}
-	if party != nil && !party.budgetEffort {
+	// Only budget mode carries no effort; adaptive and budget+effort send it.
+	if party != nil && profile.Thinking.Mode == "budget" {
 		effort = ""
 	}
 	if profile.Thinking.PrefixBinding && profile.Compat.SupportsThinkingBindingControls {
@@ -450,6 +452,10 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		metadata = jsjson.Object(jsjson.Field{Name: "user_id", Value: jsjson.Marshal(neoPiUserID(root.Get("metadata.user_id").String(), identity))})
 	} else if userID := root.Get("metadata.user_id"); userID.Type == gjson.String && userID.String() != "" {
 		metadata = jsjson.Object(jsjson.Field{Name: "user_id", Value: jsjson.Marshal(userID.String())})
+	} else if party != nil && party.promptCacheUserID {
+		if key := codexwire.NormalizePromptCacheKey(identity.SessionID); key != "" {
+			metadata = jsjson.Object(jsjson.Field{Name: "user_id", Value: jsjson.Marshal(key)})
+		}
 	}
 	var wireSystem, wireTools json.RawMessage
 	if len(system) > 0 {
