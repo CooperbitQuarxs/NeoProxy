@@ -209,6 +209,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	case "devin":
 		models = registry.GetDevinModels()
 		models = applyExcludedModels(models, excluded)
+	case "nous-portal":
+		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
 		models = registry.GetMetaModels()
 		if entry := resolveConfigMetaKeyForConfig(cfg, a); entry != nil {
@@ -220,6 +222,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 			}
 		}
 		models = applyExcludedModels(models, excluded)
+	case "cursor":
+		models = applyExcludedModels(s.cursorModelsForAuth(a), excluded)
 	default:
 		// Handle OpenAI-compatibility providers by name using config
 		if cfg != nil {

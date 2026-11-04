@@ -1,9 +1,11 @@
-// Provider marks from LobeHub's MIT-licensed icon set (@lobehub/icons-static-svg).
-// Monochrome SVGs, inlined by Vite and drawn as a mask so they take the ink color.
+// Provider marks from LobeHub's MIT-licensed icon set (@lobehub/icons-static-svg),
+// plus our own where the set has none (assets/). Monochrome SVGs, inlined by Vite
+// and drawn as a mask so they take the ink color.
 import anthropic from "@lobehub/icons-static-svg/icons/anthropic.svg";
 import antigravity from "@lobehub/icons-static-svg/icons/antigravity.svg";
 import cerebras from "@lobehub/icons-static-svg/icons/cerebras.svg";
 import claude from "@lobehub/icons-static-svg/icons/claude.svg";
+import cursor from "@lobehub/icons-static-svg/icons/cursor.svg";
 import deepseek from "@lobehub/icons-static-svg/icons/deepseek.svg";
 import devin from "@lobehub/icons-static-svg/icons/devin.svg";
 import fireworks from "@lobehub/icons-static-svg/icons/fireworks.svg";
@@ -11,21 +13,27 @@ import gemini from "@lobehub/icons-static-svg/icons/gemini.svg";
 import google from "@lobehub/icons-static-svg/icons/google.svg";
 import grok from "@lobehub/icons-static-svg/icons/grok.svg";
 import groq from "@lobehub/icons-static-svg/icons/groq.svg";
+import huggingface from "@lobehub/icons-static-svg/icons/huggingface.svg";
 import kimi from "@lobehub/icons-static-svg/icons/kimi.svg";
 import meta from "@lobehub/icons-static-svg/icons/meta.svg";
 import mistral from "@lobehub/icons-static-svg/icons/mistral.svg";
 import moonshot from "@lobehub/icons-static-svg/icons/moonshot.svg";
+import nousresearch from "@lobehub/icons-static-svg/icons/nousresearch.svg";
+import nvidia from "@lobehub/icons-static-svg/icons/nvidia.svg";
 import ollama from "@lobehub/icons-static-svg/icons/ollama.svg";
 import openai from "@lobehub/icons-static-svg/icons/openai.svg";
 import openrouter from "@lobehub/icons-static-svg/icons/openrouter.svg";
 import qwen from "@lobehub/icons-static-svg/icons/qwen.svg";
 import together from "@lobehub/icons-static-svg/icons/together.svg";
+import vercel from "@lobehub/icons-static-svg/icons/vercel.svg";
 import zai from "@lobehub/icons-static-svg/icons/zai.svg";
+import opencodeGo from "../assets/opencode-go.svg";
 
 const LOGOS: Record<string, string> = {
 	codex: openai,
 	openai,
 	"openai-codex": openai,
+	"opencode-go": opencodeGo,
 	claude,
 	anthropic: claude,
 	"anthropic-api": anthropic,
@@ -41,6 +49,7 @@ const LOGOS: Record<string, string> = {
 	"kimi-code": kimi,
 	moonshot,
 	devin,
+	cursor,
 	meta,
 	openrouter,
 	deepseek,
@@ -53,6 +62,11 @@ const LOGOS: Record<string, string> = {
 	qwen,
 	"alibaba-token-plan": qwen,
 	zhipu: zai,
+	huggingface,
+	nvidia,
+	"vercel-ai-gateway": vercel,
+	vercel,
+	"nous-portal": nousresearch,
 	ollama,
 };
 

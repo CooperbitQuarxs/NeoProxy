@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
 // ProviderPlan is a subscription tier or budget with its default monthly value.
@@ -57,6 +59,9 @@ type ProviderInfo struct {
 	// skipModels are model-id prefixes the provider lists but chat clients
 	// cannot use (image, audio, video and embedding SKUs).
 	skipModels []string
+	// upstreamErrors seeds that openai-compatibility entry's error
+	// classification with provider quirks.
+	upstreamErrors []config.RequestScopedErrorRule
 }
 
 const providerChroma = 0.13
@@ -69,6 +74,9 @@ var (
 	// GLM Coding Plan list prices (monthly billing); ids match the level Z.ai's
 	// quota API reports.
 	zaiPlans = []ProviderPlan{{"lite", "GLM Coding Plan Lite", 18}, {"pro", "GLM Coding Plan Pro", 80}, {"max", "GLM Coding Plan Max", 168}}
+	// Cursor's plans on The X Subscription, then the legacy plans existing subscribers keep
+	// (cursor.com/help/account-and-billing/pricing).
+	cursorPlans = []ProviderPlan{{"plus", "Cursor Plus", 8}, {"premium", "Cursor Premium", 30}, {"super", "Cursor Super", 100}, {"ultra", "Cursor Ultra", 200}, {"pro", "Cursor Pro (legacy)", 20}, {"pro-plus", "Cursor Pro+ (legacy)", 60}}
 )
 
 // QwenCloud Token Plan endpoints. Keys are region-locked: a China (Beijing) key
@@ -96,7 +104,7 @@ func device(note string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta, zai).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -161,6 +169,30 @@ var providerCatalog = []ProviderInfo{
 		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
 		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
 		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://router.huggingface.co/v1", "hf_...", "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained"), Plans: []ProviderPlan{}},
+	// NVIDIA's free catalogue keeps listing models an account cannot call
+	// (404 "Function ... Not found for account") or that reached end of life
+	// (410 Gone). Those concern the requested model only, never the whole key.
+	{ID: "nvidia", Name: "NVIDIA NIM", Vendor: "NVIDIA", Hue: 135, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://build.nvidia.com/settings/api-keys"), Plans: []ProviderPlan{},
+		upstreamErrors: []config.RequestScopedErrorRule{
+			{Status: 404, Match: []string{"Not Found", "not found"}, Action: "stop"},
+			{Status: 410, Match: []string{"Gone", "end of life"}, Action: "stop"},
+		}},
+	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://ai-gateway.vercel.sh/v1", "vck_...", "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys"), Plans: []ProviderPlan{}},
+	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed."),
+		APIKey:       openAIKey("https://inference-api.nousresearch.com/v1", "sk-...", "https://portal.nousresearch.com/"), Plans: []ProviderPlan{}},
+	// Marineris is a self-hosted gateway, so its address is chosen per key;
+	// the default is the gateway's own documented listen address.
+	{ID: "marineris", Name: "Marineris", Vendor: "Marineris gateway", Hue: 35, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://192.168.50.50:8801/v1", EditableBaseURL: true, KeyHint: "mrn_... (issued by the gateway's administrator)"},
+		Plans:  []ProviderPlan{}},
+	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 0, Chroma: 0, Methods: []string{"subscription"},
+		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed."),
+		Plans:        cursorPlans},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},
@@ -205,6 +237,27 @@ func catalogPlan(provider, planID string) (ProviderPlan, bool) {
 }
 
 var compatSuffix = regexp.MustCompile(`-\d+$`)
+
+// accessProviderID is the catalogue ID an engine credential is shown under.
+// NeoPi-served credentials keep NeoPi's provider name; custom OpenAI-compatible
+// entries whose address is a known provider's fixed API (for example keys
+// imported before that provider had its own entry) show as that provider.
+func accessProviderID(a *coreauth.Auth, kind string) string {
+	if kind == "neopi" {
+		return catalogProviderID(a.Attributes["neopi_provider"], "")
+	}
+	id := catalogProviderID(a.Provider, a.Attributes["compat_name"])
+	if id != "custom" {
+		return id
+	}
+	base := strings.TrimRight(strings.TrimSpace(a.Attributes["base_url"]), "/")
+	for _, p := range providerCatalog {
+		if p.engine == "" && p.APIKey != nil && !p.APIKey.EditableBaseURL && base != "" && strings.EqualFold(p.APIKey.BaseURL, base) {
+			return p.ID
+		}
+	}
+	return id
+}
 
 // catalogProviderID maps an engine provider (or a NeoPi provider name) to the
 // catalogue ID shown to people. Unknown engine providers keep their own ID.

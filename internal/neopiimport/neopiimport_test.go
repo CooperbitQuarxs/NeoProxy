@@ -80,13 +80,14 @@ func fixture(t *testing.T) (string, map[string]Credential) {
 		"https://api.openai.com/auth":    map[string]any{"chatgpt_plan_type": "pro", "chatgpt_account_id": "acct-fixture"},
 		"https://api.openai.com/profile": map[string]any{"email": "codex@example.test"},
 	})
+	cursorAccess := fakeJWT(t, map[string]any{"exp": time.Now().Add(time.Hour).Unix(), "sub": "auth0|user_fixture"})
 	rows := []fixtureRow{
 		{"openai-codex", "oauth", map[string]any{"access": codexAccess, "refresh": "fixture-refresh-codex", "expires": hour}, ""},
 		{"anthropic", "oauth", map[string]any{"access": "sk-ant-oat01-fixture", "refresh": "fixture-refresh-claude", "expires": hour, "email": "claude@example.test", "orgId": "org-fixture", "orgName": "Fixture Org"}, ""},
 		{"anthropic", "api_key", map[string]any{"key": "sk-ant-api03-fixturekey1234"}, ""},
 		{"openrouter", "api_key", map[string]any{"key": "sk-or-v1-fixture5678"}, ""},
 		{"huggingface", "api_key", map[string]any{"key": "hf_fixturekey90ab"}, ""},
-		{"cursor", "oauth", map[string]any{"access": "cursor-fixture", "refresh": "x", "expires": hour}, ""},
+		{"cursor", "oauth", map[string]any{"access": cursorAccess, "refresh": "fixture-refresh-cursor", "expires": hour, "email": "cursor@example.test"}, ""},
 		{"google-antigravity", "oauth", map[string]any{"access": "ya29.fixture", "refresh": "x", "expires": hour, "email": "ag@example.test"}, ""},
 		{"google-antigravity", "oauth", map[string]any{"access": "ya29.fixture2", "refresh": "x", "expires": hour, "email": "ag2@example.test", "projectId": "proj-fixture"}, ""},
 		{"zai", "oauth", map[string]any{"access": "zai-minted.fixturekeyzz99", "refresh": "", "expires": 0, "email": "zai@example.test"}, ""},
@@ -97,8 +98,19 @@ func fixture(t *testing.T) (string, map[string]Credential) {
 		{"kimi-code", "oauth", map[string]any{"access": "kimi-fixture-access", "refresh": "x", "expires": hour}, ""},
 		{"devin", "oauth", map[string]any{"access": "devin-fixture-token", "refresh": "devin-fixture-token", "expires": hour, "apiEndpoint": "https://api.devin.ai"}, ""},
 		{"openai", "api_key", map[string]any{"key": "sk-fixture-pinned-0000", "tlsTrust": map[string]any{"ca": "x"}}, ""},
+		{"nvidia", "api_key", map[string]any{"key": "nvapi-fixturekey1717"}, ""},
+		{"vercel-ai-gateway", "api_key", map[string]any{"key": "vck_fixturekey1818"}, ""},
+		{"marineris", "api_key", map[string]any{"key": "mrn_fixturekey1919"}, ""},
 	}
 	dir, _ := newProfile(t, rows)
+	// NeoPi's Marineris extension keeps the gateway address beside the profile,
+	// unnormalized as a person typed it at /login.
+	if err := os.MkdirAll(filepath.Join(dir, "extensions", "marineris"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "extensions", "marineris", "config.json"), []byte(`{"baseUrl":"127.0.0.1:18801/"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	creds, err := Read(context.Background(), dir)
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -125,18 +137,21 @@ func TestDescribeMapsEveryProvider(t *testing.T) {
 		{"2", "anthropic", KindSubscription, "claude", "claude@example.test", "", true, ""},
 		{"3", "anthropic", KindAPIKey, "claude", "…1234", "", true, ""},
 		{"4", "openrouter", KindAPIKey, "openrouter", "…5678", "", true, ""},
-		{"5", "huggingface", KindAPIKey, "custom", "…90ab", "", true, ""},
-		{"6", "cursor", KindSubscription, "", "NeoPi credential 6", "", false, "Cursor"},
+		{"5", "huggingface", KindAPIKey, "huggingface", "…90ab", "", true, ""},
+		{"6", "cursor", KindSubscription, "cursor", "cursor@example.test", "", true, ""},
 		{"7", "google-antigravity", KindSubscription, "antigravity", "ag@example.test", "", false, "project"},
 		{"8", "google-antigravity", KindSubscription, "antigravity", "ag2@example.test", "", true, ""},
 		{"9", "zai", KindAPIKey, "zai", "zai@example.test", "", true, ""},
 		{"10", "openai-codex", KindSubscription, "codex", "NeoPi credential 10", "", false, "expired"},
 		{"11", "openrouter", KindAPIKey, "openrouter", "…0000", "", false, "disabled"},
-		{"12", "nous-portal", KindAPIKey, "", "…0000", "", false, "no matching provider"},
+		{"12", "nous-portal", KindAPIKey, "nous-portal", "…0000", "", true, ""},
 		{"13", "xai-oauth", KindSubscription, "xai", "xai@example.test", "", true, ""},
 		{"14", "kimi-code", KindSubscription, "kimi", "NeoPi credential 14", "", true, ""},
 		{"15", "devin", KindSubscription, "devin", "NeoPi credential 15", "", true, ""},
 		{"16", "openai", KindAPIKey, "codex", "…0000", "", false, "TLS"},
+		{"17", "nvidia", KindAPIKey, "nvidia", "…1717", "", true, ""},
+		{"18", "vercel-ai-gateway", KindAPIKey, "vercel-ai-gateway", "…1818", "", true, ""},
+		{"19", "marineris", KindAPIKey, "marineris", "…1919", "", true, ""},
 	}
 	for _, w := range want {
 		got := Describe(creds[w.id], now)
@@ -199,6 +214,12 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 			}
 			return ""
 		}},
+		{"6", "cursor", func(m map[string]any) string {
+			if m["access_token"] == nil || m["user_id"] != "user_fixture" || m["base_url"] != "https://api2.cursor.sh" || m["email"] != "cursor@example.test" {
+				return "cursor token/user/base URL missing"
+			}
+			return ""
+		}},
 	} {
 		file, err := BuildAuthFile(creds[tc.id], profile, now, now)
 		if err != nil {
@@ -237,9 +258,6 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 			t.Fatalf("%s: engine expiry %v %v", tc.provider, exp, okExp)
 		}
 	}
-	if _, err := BuildAuthFile(creds["6"], profile, now, now); !errors.Is(err, ErrNotImportable) {
-		t.Fatalf("cursor: err = %v, want ErrNotImportable", err)
-	}
 	if _, err := BuildAuthFile(creds["3"], profile, now, now); !errors.Is(err, ErrNotImportable) {
 		t.Fatalf("api key as auth file: err = %v, want ErrNotImportable", err)
 	}
@@ -251,15 +269,19 @@ func TestBuildAPIKey(t *testing.T) {
 	for _, tc := range []struct{ id, provider, key, baseURL string }{
 		{"3", "claude", "sk-ant-api03-fixturekey1234", ""},
 		{"4", "openrouter", "sk-or-v1-fixture5678", ""},
-		{"5", "custom", "hf_fixturekey90ab", "https://router.huggingface.co/v1"},
+		{"5", "huggingface", "hf_fixturekey90ab", ""},
 		{"9", "zai", "zai-minted.fixturekeyzz99", ""},
+		{"12", "nous-portal", "nous-fixture-key-0000", ""},
+		{"17", "nvidia", "nvapi-fixturekey1717", ""},
+		{"18", "vercel-ai-gateway", "vck_fixturekey1818", ""},
+		{"19", "marineris", "mrn_fixturekey1919", "http://127.0.0.1:18801/v1"},
 	} {
 		got, err := BuildAPIKey(creds[tc.id], now)
 		if err != nil || got.Provider != tc.provider || got.APIKey != tc.key || got.BaseURL != tc.baseURL {
 			t.Fatalf("credential %s = %+v, %v", tc.id, got, err)
 		}
 	}
-	for _, id := range []string{"1", "11", "12", "16"} {
+	for _, id := range []string{"1", "11", "16"} {
 		if _, err := BuildAPIKey(creds[id], now); !errors.Is(err, ErrNotImportable) {
 			t.Fatalf("credential %s: err = %v, want ErrNotImportable", id, err)
 		}
@@ -309,6 +331,30 @@ func TestGrokBuildImportsAsGrokBuildSignIn(t *testing.T) {
 	auths, err := synthesizer.SynthesizeAuthFile(&synthesizer.SynthesisContext{Config: cfg, AuthDir: cfg.AuthDir, Now: now, IDGenerator: synthesizer.NewStableIDGenerator()}, filepath.Join(cfg.AuthDir, file.FileName), file.Data)
 	if err != nil || len(auths) == 0 || auths[0].Provider != "grok-build" || !coreauth.IsRefreshLocked(auths[0]) {
 		t.Fatalf("engine synthesis = %+v, %v", auths, err)
+	}
+}
+
+func TestNousPortalSignInImportsRefreshLocked(t *testing.T) {
+	hour := float64(time.Now().Add(time.Hour).UnixMilli())
+	profile, _ := newProfile(t, []fixtureRow{{"nous-portal", "oauth", map[string]any{"access": "nous-fixture-access", "refresh": "nous-fixture-refresh", "expires": hour}, ""}})
+	creds, err := Read(context.Background(), profile)
+	if err != nil || len(creds) != 1 {
+		t.Fatalf("Read = %d, %v", len(creds), err)
+	}
+	now := time.Now()
+	if got := Describe(creds[0], now); !got.Importable || got.Kind != KindSubscription || got.NeoProxyProvider == nil || *got.NeoProxyProvider != "nous-portal" {
+		t.Fatalf("nous-portal sign-in = %+v", got)
+	}
+	file, err := BuildAuthFile(creds[0], profile, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var meta map[string]any
+	if err = json.Unmarshal(file.Data, &meta); err != nil {
+		t.Fatal(err)
+	}
+	if file.Provider != "nous-portal" || meta["type"] != "nous-portal" || meta["access_token"] != "nous-fixture-access" || meta[coreauth.MetadataRefreshLocked] != true || strings.Contains(string(file.Data), "nous-fixture-refresh") {
+		t.Fatalf("nous-portal auth file = %s", file.Data)
 	}
 }
 

@@ -128,6 +128,28 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 			{ id: "pro", name: "Token Plan Pro", monthlyUSD: 68 },
 		],
 	},
+	{ id: "huggingface", name: "Hugging Face", vendor: "Hugging Face", hue: 85, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://router.huggingface.co/v1", keyHint: "hf_…", getKeyUrl: "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained" } },
+	{ id: "nvidia", name: "NVIDIA NIM", vendor: "NVIDIA", hue: 135, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://integrate.api.nvidia.com/v1", keyHint: "nvapi-…", getKeyUrl: "https://build.nvidia.com/settings/api-keys" } },
+	{ id: "vercel-ai-gateway", name: "Vercel AI Gateway", vendor: "Vercel", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://ai-gateway.vercel.sh/v1", keyHint: "vck_…", getKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys" } },
+	{ id: "nous-portal", name: "Nous Portal", vendor: "Nous Research", hue: 320, methods: ["subscription", "apiKey"], subscription: { flow: "device", note: "Shows a code to confirm on the Nous Portal." }, apiKey: { style: "openai", baseUrl: "https://inference-api.nousresearch.com/v1", keyHint: "sk-…", getKeyUrl: "https://portal.nousresearch.com/" } },
+	{ id: "marineris", name: "Marineris", vendor: "Marineris gateway", hue: 35, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "http://192.168.50.50:8801/v1", editableBaseUrl: true, keyHint: "mrn_… (issued by the gateway's administrator)" } },
+	{
+		id: "cursor",
+		name: "Cursor",
+		vendor: "Anysphere",
+		hue: 0,
+		neutral: true,
+		methods: ["subscription"],
+		subscription: { flow: "browser", note: "Opens Cursor's sign-in page in a new tab." },
+		plans: [
+			{ id: "plus", name: "Cursor Plus", monthlyUSD: 8 },
+			{ id: "premium", name: "Cursor Premium", monthlyUSD: 30 },
+			{ id: "super", name: "Cursor Super", monthlyUSD: 100 },
+			{ id: "ultra", name: "Cursor Ultra", monthlyUSD: 200 },
+			{ id: "pro", name: "Cursor Pro (legacy)", monthlyUSD: 20 },
+			{ id: "pro-plus", name: "Cursor Pro+ (legacy)", monthlyUSD: 60 },
+		],
+	},
 	{ id: "custom", name: "Other OpenAI-compatible server", vendor: "Custom", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "", editableBaseUrl: true, keyHint: "Leave empty if the server needs none" } },
 ];
 

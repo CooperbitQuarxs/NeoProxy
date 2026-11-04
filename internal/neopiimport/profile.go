@@ -40,6 +40,9 @@ type Credential struct {
 	// UpdatedAt is epoch milliseconds of NeoPi's last write to the row.
 	UpdatedAt int64
 	data      map[string]any
+	// baseURL is the provider address NeoPi stores beside the credential in the
+	// profile (Marineris), or empty.
+	baseURL string
 }
 
 // DefaultProfile returns the profile NeoPi itself uses for the user running
@@ -124,6 +127,7 @@ func Read(ctx context.Context, profile string) ([]Credential, error) {
 			return nil, fmt.Errorf("read NeoPi credentials: %w", err)
 		}
 		c.ID = strconv.FormatInt(id, 10)
+		c.baseURL = profileBaseURL(profile, c.Provider)
 		if updatedAt.Valid {
 			c.UpdatedAt = updatedAt.Int64 * 1000
 		}
