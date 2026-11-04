@@ -26,15 +26,20 @@ type AccessItem struct {
 	ImportedFrom  *ImportedFrom   `json:"importedFrom,omitempty"`
 	NeoPiSource   *NeoPiSourceRef `json:"neopiSource,omitempty"`
 	Models        []string        `json:"models"`
-	// Windows are the configured local token meters (source "configured-metered");
-	// virtual model stages only draw from accounts with a window of their kind.
+	// Windows are the configured local token meters (source "configured-metered").
+	// A stage meters an account by its provider-reported window of the stage's
+	// kind, else by a local window of that kind; an account with neither is
+	// unmetered and always eligible for the stage.
 	// Configure them with PUT /v8/neo/vault/accounts/:id/windows/:kind.
 	Windows []Window `json:"windows"`
-	// ProviderWindows are provider-reported quota windows (NeoPi gateways).
+	// ProviderWindows are provider-reported quota windows (NeoPi gateways);
+	// they take precedence over a local meter of the same kind.
 	ProviderWindows []Window    `json:"providerWindows"`
 	Usage           AccessUsage `json:"usage"`
 	CreatedAt       int64       `json:"createdAt"`
 	Actions         []string    `json:"actions"`
+	// LastProbe is the last POST /access/:id/test result since the server started.
+	LastProbe *AccessProbe `json:"lastProbe,omitempty"`
 }
 
 type ImportedFrom struct {
@@ -408,6 +413,7 @@ func (h *HTTP) buildAccessItem(p neo.Principal, a *coreauth.Auth, account *Accou
 		item.Refresh = "none"
 	}
 	item.Usage = accessUsage(a, ledger, now)
+	item.LastProbe = h.probes.get(item.ID)
 	item.Actions = accessActions(p, kind, item.OwnerID != "" && item.OwnerID == p.UserID, credentialFilePath(a, kind) != "")
 	return item
 }

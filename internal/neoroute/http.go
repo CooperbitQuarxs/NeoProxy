@@ -257,7 +257,7 @@ func (s *Store) usageHTTP(c *gin.Context) {
 		if !found {
 			continue
 		}
-		window, known := windowFor(account, u.Window, s.now().UnixMilli())
+		window, known := localWindow(account, u.Window, s.now().UnixMilli())
 		if !known || window.StartsAt != u.StartsAt || window.ResetsAt != u.ResetsAt {
 			continue
 		}

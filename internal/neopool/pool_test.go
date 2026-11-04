@@ -380,8 +380,12 @@ func TestUnknownMeterAndCalendarBoundaries(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
 	f.assign(t, 0, "owner-a")
-	if err := f.pool.Reserve(ctx, f.reservation("unknown", 0, 1)); !errors.Is(err, ErrUnavailable) {
-		t.Fatalf("invented a quota denominator: %v", err)
+	// No local meter means unmetered: reserved without inventing a denominator.
+	if err := f.pool.Reserve(ctx, f.reservation("unknown", 0, 1)); err != nil {
+		t.Fatalf("unmetered account refused: %v", err)
+	}
+	if rows, err := f.pool.Usage(ctx, ""); err != nil || len(rows) != 0 {
+		t.Fatalf("unmetered attempt invented usage: %+v %v", rows, err)
 	}
 	direct := f.reservation("direct", 0, 0)
 	direct.BudgetFree = true

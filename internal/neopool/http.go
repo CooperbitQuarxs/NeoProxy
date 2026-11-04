@@ -29,6 +29,8 @@ type EngineLogin interface {
 type HTTP struct {
 	pool            *Store
 	management      EngineLogin
+	probe           ProbeFunc
+	probes          probeLog
 	visibleAccounts func(context.Context, neo.Principal) ([]string, error)
 }
 

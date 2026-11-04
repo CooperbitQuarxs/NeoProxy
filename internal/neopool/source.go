@@ -248,6 +248,12 @@ func (s *Store) StartSources() {
 	s.sourceCancel = cancel
 	s.sourceDone = make(chan struct{})
 	done := s.sourceDone
+	s.quotaDone = make(chan struct{})
+	quotaDone := s.quotaDone
+	go func() {
+		defer close(quotaDone)
+		s.pollQuota(ctx)
+	}()
 	go func() {
 		defer close(done)
 		var pending sync.Map
@@ -289,6 +295,7 @@ func (s *Store) StopSources() {
 	if s.sourceCancel != nil {
 		s.sourceCancel()
 		<-s.sourceDone
+		<-s.quotaDone
 		s.sourceCancel = nil
 	}
 }

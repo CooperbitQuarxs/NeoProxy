@@ -55,8 +55,11 @@ type Account struct {
 	Windows         []Window `json:"windows"`
 }
 
-// Window describes a locally configured token meter, NOT a claimed upstream quota.
-// Missing provider measurements are represented by no windows, never zero use.
+// Window is one usage meter of an account for a window kind: either a provider
+// report (Account.ProviderWindows; Used is the provider's fraction, Capacity 0)
+// or a locally configured token meter (Account.Windows; Used = UsedTokens/Capacity).
+// A kind with no window means the account is unmetered for it, never zero use
+// claimed from the provider.
 type Window struct {
 	Kind       string  `json:"kind"`
 	Known      bool    `json:"known"`

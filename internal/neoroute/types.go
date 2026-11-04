@@ -56,6 +56,17 @@ type VirtualModel struct {
 	UpdatedAt   int64    `json:"updatedAt"`
 	UpdatedBy   string   `json:"updatedBy"`
 }
+
+// Stage is one step of a virtual model's fallback chain. Budget model:
+//   - An account has a meter per Window kind (5h|day|week|month): the
+//     provider-reported window, else a local configured token meter, else none
+//     (unmetered: always eligible, never counted toward Cap).
+//   - PerAccount: draw from an account while its used fraction is below it.
+//   - Cap: skip the whole stage once the average used fraction across its
+//     metered accounts reaches it.
+//   - A grant's allotment (0..1) multiplies both for that person.
+//   - Used is the provider's value, else tokens/capacity of the local meter:
+//     account-wide when Per is "all", the person's own usage when "user".
 type Stage struct {
 	ID         string       `json:"id"`
 	Model      string       `json:"model"`
@@ -81,17 +92,27 @@ type Terminal struct {
 	Message string `json:"message"`
 	Model   string `json:"model,omitempty"`
 }
+
+// Candidate is an account the stage may draw from. Metered is false when the
+// account has no meter for Window (Used is then 0 and the account is always
+// available).
 type Candidate struct {
 	AccountID string  `json:"accountId"`
+	Window    string  `json:"window"`
+	Metered   bool    `json:"metered"`
 	Used      float64 `json:"used"`
 	Budget    float64 `json:"budget"`
 }
+
+// TrailStep: for a stage, Total is the average used fraction across the Metered
+// accounts considered (0 when none are metered) and is compared against Cap.
 type TrailStep struct {
 	Kind          string              `json:"kind"`
 	Index         int                 `json:"index,omitempty"`
 	StageID       string              `json:"stageId,omitempty"`
 	Model         string              `json:"model,omitempty"`
 	Total         float64             `json:"total,omitempty"`
+	Metered       int                 `json:"metered,omitempty"`
 	Cap           float64             `json:"cap,omitempty"`
 	Candidates    []Candidate         `json:"candidates,omitempty"`
 	Chosen        string              `json:"chosen,omitempty"`
@@ -120,9 +141,10 @@ func (t TrailStep) MarshalJSON() ([]byte, error) {
 		plain
 		Index      int         `json:"index"`
 		Total      float64     `json:"total"`
+		Metered    int         `json:"metered"`
 		Cap        float64     `json:"cap"`
 		Candidates []Candidate `json:"candidates"`
-	}{plain(t), t.Index, t.Total, t.Cap, candidates})
+	}{plain(t), t.Index, t.Total, t.Metered, t.Cap, candidates})
 }
 
 type Decision struct {

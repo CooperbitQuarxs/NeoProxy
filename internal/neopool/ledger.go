@@ -107,11 +107,20 @@ func (s *Store) reserveTx(ctx context.Context, tx *sql.Tx, r Reservation, fresh 
 	}
 	now := s.now().UnixMilli()
 	var start, reset, capacity int64
-	if !r.BudgetFree {
-		var anchor int64
-		if err = tx.QueryRowContext(ctx, `SELECT capacity,anchor FROM neo_account_windows WHERE account_id=? AND kind=?`, r.AccountID, r.Window).Scan(&capacity, &anchor); err != nil {
-			return ErrUnavailable
+	// An account with no local meter of this kind is unmetered: the resolver
+	// already admitted it (provider-reported or no quota), so there is no local
+	// denominator to check or debit; the attempt is still recorded.
+	var anchor int64
+	metered := !r.BudgetFree
+	if metered {
+		err = tx.QueryRowContext(ctx, `SELECT capacity,anchor FROM neo_account_windows WHERE account_id=? AND kind=?`, r.AccountID, r.Window).Scan(&capacity, &anchor)
+		if err == sql.ErrNoRows {
+			metered = false
+		} else if err != nil {
+			return err
 		}
+	}
+	if metered {
 		start, reset, err = windowBounds(r.Window, anchor, now)
 		if err != nil {
 			return err
