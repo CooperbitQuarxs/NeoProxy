@@ -19,6 +19,7 @@ require (
 	github.com/libp2p/zeroconf/v2 v2.2.0
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/minio/minio-go/v7 v7.0.66
+	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/pion/ice/v4 v4.3.0
 	github.com/pion/interceptor v0.1.45
 	github.com/pion/rtp v1.10.4
@@ -109,7 +110,6 @@ require (
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/pierrec/xxHash v0.1.5
 	github.com/pjbgf/sha1cd v0.6.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect

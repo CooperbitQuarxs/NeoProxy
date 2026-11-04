@@ -107,9 +107,21 @@ CGO_ENABLED=1 go build -o neoproxy ./cmd/server
 
 `CGO_ENABLED=0` can compile a binary with a nonfunctional SQLite stub; do not ship
 or use it as an office backend. The portable Linux release keeps CGO enabled and
-links musl statically instead. Configuration follows `config.example.yaml`;
+links musl statically instead. Configuration follows `config.example.toml`
+(the same template as `config.example.yaml`);
 [the setup instructions](docs/downloads.md) create a minimal private local instance
 without shipping placeholder client keys.
+
+TOML is the preferred configuration format. YAML still loads unchanged: the format
+follows the file extension (`.toml`, `.yaml`/`.yml`; other names are sniffed), and
+without `--config` the engine uses `config.toml` from the working directory, falling
+back to `config.yaml`. Saves from the dashboard, the management API and hot reload
+keep the file in the format it was loaded from. Convert an existing file with
+`neoproxy config convert --to toml config.yaml` (writes `config.toml` beside it,
+with a header naming the source; `--to yaml` converts back), then start with
+`--config config.toml`. TOML has no `null`, so a YAML `null` becomes an omitted key
+that takes its default; the converter refuses a file where that would change a
+setting.
 
 The dashboard's identity state uses SQLite in the engine data directory
 (`NEOPROXY_DATA_DIR` overrides it). Native Windows drive paths and directory names

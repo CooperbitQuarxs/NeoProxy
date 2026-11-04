@@ -98,19 +98,42 @@ func (h *Handler) GetLatestVersion(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"latest-version": version})
 }
 
+// WriteConfig writes the YAML document data to the config file at path in that
+// file's format: a TOML config file stays TOML.
 func WriteConfig(path string, data []byte) error {
+	encoded, err := EncodeConfig(path, data)
+	if err != nil {
+		return err
+	}
+	return writeConfigBytes(path, encoded)
+}
+
+// EncodeConfig returns the bytes WriteConfig stores for the YAML document data:
+// v8 documents in the latest layout, rendered in the format of the config file
+// at path.
+func EncodeConfig(path string, data []byte) ([]byte, error) {
 	var doc yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return err
+		return nil, err
 	}
 	if len(doc.Content) > 0 && config.IsV8ConfigLayout(doc.Content[0]) {
 		var err error
 		data, _, err = config.NormalizeConfigLayout(data, true)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	data = config.NormalizeCommentIndentation(data)
+	format := config.ConfigFileFormat(path)
+	if format == config.ConfigFormatYAML {
+		return config.NormalizeCommentIndentation(data), nil
+	}
+	// TOML rendering needs the comment indentation to attribute comments to keys.
+	return config.ConfigFromYAML(data, format)
+}
+
+// writeConfigBytes truncates and rewrites path in place, retaining the inode of
+// a mounted configuration file.
+func writeConfigBytes(path string, data []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
@@ -181,12 +204,17 @@ func (h *Handler) PutConfigYAML(c *gin.Context) {
 }
 
 // GetConfigYAML returns the raw config.yaml file bytes without re-encoding.
-// It preserves comments and original formatting/styles.
+// It preserves comments and original formatting/styles. A TOML config file is
+// served as its YAML view, comments included.
 func (h *Handler) GetConfigYAML(c *gin.Context) {
-	data, err := os.ReadFile(h.configFilePath)
+	data, raw, format, err := config.ReadConfigFile(h.configFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not_found", "message": "config file not found"})
+			return
+		}
+		if raw != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid_config", "message": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "read_failed", "message": err.Error()})
@@ -195,6 +223,7 @@ func (h *Handler) GetConfigYAML(c *gin.Context) {
 	c.Header("Content-Type", "application/yaml; charset=utf-8")
 	c.Header("Cache-Control", "no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("X-Config-Format", string(format))
 	// Write raw bytes as-is
 	_, _ = c.Writer.Write(data)
 }

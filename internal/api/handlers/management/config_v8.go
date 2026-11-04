@@ -20,6 +20,10 @@ const ConfigV8ContextKey = "management.config-v8"
 // ConfigV8 serves the persisted configuration using v8 names. GET is a view;
 // only a successful configuration mutation migrates the stored document.
 //
+// /config.yaml and /config.toml exchange the whole document in that syntax,
+// whichever format the config file uses: a write is converted to and saved in
+// the config file's format, reported in the X-Config-Format response header.
+//
 // Reads return an ETag holding the SHA-256 of the on-disk config bytes.
 // Writes honour an optional If-Match against that token, so a client can
 // detect that another writer saved after its read (412) instead of silently
@@ -27,9 +31,14 @@ const ConfigV8ContextKey = "management.config-v8"
 func (h *Handler) ConfigV8(c *gin.Context) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	raw, err := os.ReadFile(h.configFilePath)
-	if err != nil {
+	source, raw, fileFormat, err := config.ReadConfigFile(h.configFilePath)
+	if raw == nil && err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "read_failed"})
+		return
+	}
+	c.Header("X-Config-Format", string(fileFormat))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid_config", "message": err.Error()})
 		return
 	}
 	diskHash := config.ComputeSourceHash(raw)
@@ -38,7 +47,7 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 		c.JSON(http.StatusPreconditionFailed, gin.H{"error": "precondition_failed"})
 		return
 	}
-	data, _, err := config.NormalizeConfigLayout(raw, true)
+	data, _, err := config.NormalizeConfigLayout(source, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid_config", "message": err.Error()})
 		return
@@ -54,10 +63,18 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 	if path != "" {
 		parts = strings.Split(path, "/")
 	}
-	yamlRequest := strings.HasSuffix(c.FullPath(), "/config.yaml")
+	// A document request names the syntax of the whole-document body: YAML or TOML.
+	var documentFormat config.ConfigFormat
+	switch {
+	case strings.HasSuffix(c.FullPath(), "/config.yaml"):
+		documentFormat = config.ConfigFormatYAML
+	case strings.HasSuffix(c.FullPath(), "/config.toml"):
+		documentFormat = config.ConfigFormatTOML
+	}
+	documentRequest := documentFormat != ""
 	if c.Request.Method == http.MethodGet {
 		config.ProjectV8ConfigAliases(root, strings.Join(parts, "."))
-		if !yamlRequest {
+		if !documentRequest {
 			if servers := configV8Node(root, v8ICEServersPath); servers != nil && servers.Kind == yaml.SequenceNode {
 				for _, server := range servers.Content {
 					deleteConfigV8Path(server, []string{"username"})
@@ -73,8 +90,13 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 		}
 		c.Header("Cache-Control", "no-store")
 		c.Header("ETag", configV8ETag(diskHash))
-		if yamlRequest {
-			c.Data(http.StatusOK, "application/yaml; charset=utf-8", data)
+		if documentRequest {
+			document, errConvert := config.ConfigFromYAML(data, documentFormat)
+			if errConvert != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "convert_failed", "message": errConvert.Error()})
+				return
+			}
+			c.Data(http.StatusOK, documentFormat.ContentType(), document)
 			return
 		}
 		var result any
@@ -102,13 +124,24 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 			c.JSON(clienterror.HTTPStatusFromErrorOr(errRead, http.StatusBadRequest), gin.H{"error": "invalid_body"})
 			return
 		}
-		if !yamlRequest && !json.Valid(body) {
+		if !documentRequest && !json.Valid(body) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_json"})
 			return
 		}
+		if documentFormat == config.ConfigFormatTOML {
+			// Decode exactly as the loader decodes a TOML config file.
+			if body, err = config.ConfigToYAML(body, config.ConfigFormatTOML); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body", "message": err.Error()})
+				return
+			}
+		}
 		var update yaml.Node
 		if err = yaml.Unmarshal(body, &update); err != nil || len(update.Content) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_body"})
+			response := gin.H{"error": "invalid_body"}
+			if err != nil {
+				response["message"] = err.Error()
+			}
+			c.JSON(http.StatusBadRequest, response)
 			return
 		}
 		stripAPIKeysAuthIndexesFromUpdate(parts, &update)
@@ -151,7 +184,7 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_config", "message": err.Error()})
 		return
 	}
-	if !yamlRequest && c.Request.Method != http.MethodDelete {
+	if !documentRequest && c.Request.Method != http.MethodDelete {
 		preserveV8TURNSecrets(root, before)
 	}
 	// Revisions are owned by Home and must not become ordinary editable settings.
@@ -193,8 +226,15 @@ func (h *Handler) ConfigV8(c *gin.Context) {
 	}
 	// Save the validated canonical tree directly: projecting runtime defaults
 	// back onto it loses explicit nulls, empty maps, and opaque plugin settings.
-	// WriteConfig retains the inode of a mounted configuration file.
-	if err = WriteConfig(h.configFilePath, data); err != nil {
+	// The tree is rendered in the config file's format first, so a document TOML
+	// cannot express is rejected before anything is written.
+	encoded, err := EncodeConfig(h.configFilePath, data)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid_config", "message": err.Error()})
+		return
+	}
+	// writeConfigBytes retains the inode of a mounted configuration file.
+	if err = writeConfigBytes(h.configFilePath, encoded); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "write_failed", "message": err.Error()})
 		return
 	}
