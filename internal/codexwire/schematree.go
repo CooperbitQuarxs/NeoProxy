@@ -1322,12 +1322,19 @@ func enforceStrictSchema(schema *jmap, cache map[*jmap]*jmap, active map[*jmap]b
 	return result, nil
 }
 
-// functionToolSchema is convertOpenAICodexResponsesTools' parameter path:
-// toolWireSchema, sanitizeSchemaForOpenAIResponses, then adaptSchemaForStrict.
-func functionToolSchema(parameters gjson.Result, strict bool) (json.RawMessage, bool) {
+// ToolParametersSchema is the Responses function-tool parameter path shared by
+// NeoPi's OpenAI providers: toolWireSchema, sanitizeSchemaForOpenAIResponses,
+// flattenExclusiveRequiredRootUnion when the provider rejects object-root
+// unions, then adaptSchemaForStrict. It reports whether strict mode held.
+func ToolParametersSchema(parameters gjson.Result, strict, flattenRootUnion bool) (json.RawMessage, bool) {
 	wire := postProcessSchema(upgradeSchema(decodeTree(parameters)))
-	sanitized := sanitizeResponsesSchema(gjson.ParseBytes(encodeTree(wire)))
-	upgraded := upgradeSchema(decodeTree(gjson.ParseBytes(sanitized)))
+	sanitized := decodeTree(gjson.ParseBytes(sanitizeResponsesSchema(gjson.ParseBytes(encodeTree(wire)))))
+	if flattenRootUnion {
+		if root, ok := asMap(sanitized); ok {
+			sanitized = flattenExclusiveRequiredRootUnion(root)
+		}
+	}
+	upgraded := upgradeSchema(sanitized)
 	if !strict {
 		return encodeTree(upgraded), false
 	}
@@ -1337,4 +1344,61 @@ func functionToolSchema(parameters gjson.Result, strict bool) (json.RawMessage, 
 	}
 	enforced, effective := tryEnforceStrictSchema(root)
 	return encodeTree(enforced), effective
+}
+
+// flattenExclusiveRequiredRootUnion drops an object-root anyOf/oneOf whose
+// branches are only typeless required-key fragments (xAI rejects them).
+func flattenExclusiveRequiredRootUnion(schema *jmap) any {
+	unionKey := ""
+	if _, ok := schema.get("anyOf").([]any); ok {
+		unionKey = "anyOf"
+	} else if _, ok = schema.get("oneOf").([]any); ok {
+		unionKey = "oneOf"
+	}
+	if unionKey == "" {
+		return schema
+	}
+	union := schema.get(unionKey).([]any)
+	if len(union) == 0 {
+		return schema
+	}
+	typedObject := schema.get("type") == "object"
+	if types, ok := schema.get("type").([]any); ok {
+		for _, t := range types {
+			typedObject = typedObject || t == "object"
+		}
+	}
+	if _, hasProperties := asMap(schema.get("properties")); !typedObject && !hasProperties {
+		return schema
+	}
+	for _, branch := range union {
+		if !isExclusiveRequiredBranch(branch) {
+			return schema
+		}
+	}
+	flattened := schema.clone()
+	flattened.del(unionKey)
+	return flattened
+}
+
+func isExclusiveRequiredBranch(value any) bool {
+	branch, ok := asMap(value)
+	if !ok || branch.has("type") {
+		return false
+	}
+	required, ok := branch.get("required").([]any)
+	if !ok || len(required) == 0 {
+		return false
+	}
+	for _, name := range required {
+		if text, isText := name.(string); !isText || text == "" {
+			return false
+		}
+	}
+	for _, key := range branch.keys {
+		if key != "required" && key != "description" && key != "title" {
+			return false
+		}
+	}
+	return true
 }

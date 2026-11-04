@@ -32,6 +32,9 @@ func (e *XAIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req 
 	if xaiIsSpeechRequest(opts) {
 		return e.executeSpeech(ctx, auth, req, opts)
 	}
+	if model := e.xaiNeoPiModel(auth, req); model != nil {
+		return e.executeXaiNeoPi(ctx, auth, model, req, opts)
+	}
 
 	token, _ := xaiCreds(auth)
 	baseURL := xaiChatBaseURL(auth)

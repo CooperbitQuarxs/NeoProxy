@@ -98,6 +98,10 @@ type ModelInfo struct {
 	// Codex carries account-scoped discovery metadata and NeoPi wire policies.
 	Codex *CodexModel `json:"-"`
 
+	// NeoPi carries the NeoPi-resolved model (wire API, limits, compat) for
+	// providers whose requests are shaped by a NeoPi port.
+	NeoPi *NeoPiModel `json:"-"`
+
 	// Thinking holds provider-specific reasoning/thinking budget capabilities.
 	// This is optional and currently used for Gemini thinking budget normalization.
 	Thinking *ThinkingSupport `json:"thinking,omitempty"`
@@ -824,6 +828,7 @@ func cloneModelInfo(model *ModelInfo) *ModelInfo {
 	}
 	copyModel := *model
 	copyModel.Codex = model.Codex.Clone()
+	copyModel.NeoPi = model.NeoPi.Clone()
 	if model.NativeCapabilities != nil {
 		copyCapabilities := *model.NativeCapabilities
 		if model.NativeCapabilities.WebSearch != nil {

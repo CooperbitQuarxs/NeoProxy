@@ -175,23 +175,18 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		models = registry.GetKimiModels()
 		models = applyExcludedModels(models, excluded)
 	case "xai", executor.GrokBuildProvider:
-		if xaiUsesModelDiscovery(a) {
-			var stale bool
-			models, stale = xaiDiscoveredModels(a, time.Now())
-			if stale {
-				s.queueXAIModelDiscovery(a)
-			}
-			models = applyExcludedModels(models, excluded)
+		entry := resolveConfigXAIKeyForConfig(cfg, a)
+		if entry != nil && authKind == "apikey" {
+			excluded = entry.ExcludedModels
+		}
+		if entry != nil && len(entry.Models) > 0 {
+			models = applyExcludedModels(buildXAIConfigModels(entry), excluded)
 			break
 		}
-		models = registry.GetXAIModels()
-		if entry := resolveConfigXAIKeyForConfig(cfg, a); entry != nil {
-			if len(entry.Models) > 0 {
-				models = buildXAIConfigModels(entry)
-			}
-			if authKind == "apikey" {
-				excluded = entry.ExcludedModels
-			}
+		var stale bool
+		models, stale = xaiDiscoveredModels(a, time.Now())
+		if stale {
+			s.queueXAIModelDiscovery(a)
 		}
 		models = applyExcludedModels(models, excluded)
 	case "devin":

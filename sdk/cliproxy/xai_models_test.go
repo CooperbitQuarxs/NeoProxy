@@ -31,7 +31,7 @@ func TestXAIModelDiscoveryScope(t *testing.T) {
 	}{
 		{&coreauth.Auth{ID: "gb", Provider: "grok-build", Attributes: map[string]string{"auth_kind": "oauth"}}, true},
 		{&coreauth.Auth{ID: "x-oauth", Provider: "xai", Attributes: map[string]string{"auth_kind": "oauth"}}, true},
-		{&coreauth.Auth{ID: "x-key", Provider: "xai", Attributes: map[string]string{"auth_kind": "apikey", "api_key": "k"}}, false},
+		{&coreauth.Auth{ID: "x-key", Provider: "xai", Attributes: map[string]string{"auth_kind": "apikey", "api_key": "k"}}, true},
 		{&coreauth.Auth{ID: "c", Provider: "codex"}, false},
 	} {
 		if got := xaiUsesModelDiscovery(tc.auth); got != tc.want {

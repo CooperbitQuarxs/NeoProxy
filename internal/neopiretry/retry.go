@@ -268,6 +268,9 @@ type Options struct {
 	DefaultDelay func(attempt int) time.Duration
 	Now          func() time.Time
 	Wait         func(ctx context.Context, delay time.Duration) error
+	// ShouldRetry is the caller's shouldRetryResponse gate over a retryable
+	// status and its body; nil retries every retryable status.
+	ShouldRetry func(response *http.Response, body string) bool
 }
 
 // Sleep waits for delay or until ctx is done.
@@ -328,6 +331,9 @@ func Do(ctx context.Context, send func(attempt int) (*http.Response, error), opt
 		_ = response.Body.Close()
 		response.Body = io.NopCloser(bytes.NewReader(body))
 		if errRead != nil {
+			return response, nil
+		}
+		if opts.ShouldRetry != nil && !opts.ShouldRetry(response, string(body)) {
 			return response, nil
 		}
 		delay := fallback(attempt)
