@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopigateway"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -43,6 +44,9 @@ type SourceInput struct {
 	Bearer  string `json:"bearer"`
 	OwnerID string `json:"ownerId"`
 	Enabled bool   `json:"enabled"`
+	// ConnectionLink (`npi auth-gateway link`) replaces URL and Bearer; its
+	// name becomes the label when Label is empty.
+	ConnectionLink string `json:"connectionLink"`
 }
 
 type sourceWindow struct {
@@ -117,6 +121,19 @@ func (s *Store) SaveSource(ctx context.Context, id string, in SourceInput) (Sour
 	if err != nil {
 		return Source{}, err
 	}
+	if link := strings.TrimSpace(in.ConnectionLink); link != "" {
+		if in.URL != "" || in.Bearer != "" {
+			return Source{}, fmt.Errorf("%w: send either a connection link or a URL and bearer, not both", neopigateway.ErrInvalidLink)
+		}
+		parsed, linkErr := neopigateway.ParseLink(link)
+		if linkErr != nil {
+			return Source{}, linkErr
+		}
+		in.URL, in.Bearer = parsed.BaseURL, parsed.Token
+		if strings.TrimSpace(in.Label) == "" {
+			in.Label = parsed.Name
+		}
+	}
 	base, err := normalizeSourceURL(in.URL)
 	if err != nil {
 		return Source{}, err
@@ -171,6 +188,21 @@ func (s *Store) SaveSource(ctx context.Context, id string, in SourceInput) (Sour
 	s.notifyLocked()
 	s.mu.Unlock()
 	return v, err
+}
+
+// sourceForGateway returns the source that already points at a gateway, by
+// URL or by bearer (the same gateway reached under another host name).
+func (s *Store) sourceForGateway(ctx context.Context, rawURL, bearer string) (string, error) {
+	base, err := normalizeSourceURL(rawURL)
+	if err != nil {
+		base = rawURL
+	}
+	var id string
+	err = s.db.QueryRowContext(ctx, `SELECT id FROM neo_pool_sources WHERE url=? OR (bearer<>'' AND bearer=?) ORDER BY id LIMIT 1`, base, bearer).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
 }
 
 func (s *Store) DeleteSource(ctx context.Context, id string) error {
@@ -399,6 +431,15 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 			s.manager.RegisterExecutor(s.sourceFactory(provider))
 		}
 		authID := sourceAuthID(id, a.ID)
+		// A dashboard detach removes one account from the pool without touching
+		// NeoPi; a dashboard pause keeps it listed but out of routing.
+		var localDisabled, detached bool
+		if errLocal := s.db.QueryRowContext(ctx, `SELECT disabled,detached FROM neo_access WHERE account_id=?`, AccountID(authID)).Scan(&localDisabled, &detached); errLocal != nil && !errors.Is(errLocal, sql.ErrNoRows) {
+			return fail(fmt.Errorf("read gateway account state failed"))
+		}
+		if detached {
+			continue
+		}
 		seen[authID] = true
 		windows := make([]Window, 0, len(a.Windows))
 		for _, native := range a.Windows {
@@ -416,7 +457,7 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 		if len(label) > 256 {
 			label = label[:256]
 		}
-		attrs := map[string]string{"neopi_source_id": id, "neopi_source_label": v.Label, "neopi_credential_id": a.ID, "neopi_provider": a.Provider, "neopi_windows": string(raw), "base_url": v.URL + "/v1"}
+		attrs := map[string]string{"neopi_source_id": id, "neopi_source_label": v.Label, "neopi_credential_id": a.ID, "neopi_provider": a.Provider, "neopi_state": a.State, "neopi_windows": string(raw), "base_url": v.URL + "/v1"}
 		// Install durable ownership before publishing runtime inventory. A concurrent
 		// snapshot cannot create a newly imported account without its default owner.
 		if _, err = s.db.ExecContext(ctx, `INSERT INTO neo_accounts(id,engine_auth_id,provider_id,owner_id) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET provider_id=excluded.provider_id,owner_id=COALESCE(neo_accounts.owner_id,excluded.owner_id)`, AccountID(authID), authID, provider, v.OwnerID); err != nil {
@@ -428,7 +469,7 @@ func (s *Store) syncSource(ctx context.Context, id string) (Source, error) {
 			auth = current.Clone()
 			auth.Label, auth.Attributes = label, attrs
 		}
-		auth.Disabled = a.State != "healthy"
+		auth.Disabled = a.State != "healthy" || localDisabled
 		if auth.Disabled {
 			auth.Status = coreauth.StatusDisabled
 		} else if auth.Status == coreauth.StatusDisabled {

@@ -37,12 +37,14 @@ secret-bearing files mode `0600`. Do not copy an existing NeoPi profile or an
 authentication broker's refresh tokens. The service profile is deliberately
 separate from the user's ordinary `~/.omp` profile.
 
-The first officially published NeoPi build containing native NeoProxy login is
-[`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1),
-from commit `fd5698a0772a555cb554b860d8f3208a0f7026a5`. The unqualified version
-`18.10.3` is insufficient: earlier builds with that version lack this feature.
-Verify downloaded assets against that release's `SHA256SUMS.txt` before running
-them. No source checkout or Bun installation is needed to use the native binary.
+NeoPi's NeoProxy login uses the server URL and an administrator-assigned inference
+key. That flow arrived in [NeoPi #647](https://github.com/PsychedelicShayna/neopi/pull/647),
+merged into NeoPi `nightly` as `07fca9db63934ecd518c95fe7ccc3b2f80261c70`; use a
+NeoPi build from that commit or later. Earlier builds, including
+`v18.10.3-nightly.fd5698a0772a.41001835518.1`, use the retired username/password
+flow. Verify downloaded assets against their release's `SHA256SUMS.txt` before
+running them. No source checkout or Bun installation is needed to use the native
+binary.
 
 ## NeoProxy and TLS
 
@@ -83,14 +85,23 @@ a working shared source is available; never copy the broker's refresh tokens.
 
 ### Share logged-in NeoPi accounts
 
-1. Start NeoPi's authenticated auth gateway against its existing broker. Use its
-   gateway bearer, not a provider API key or a NeoProxy inference key. Prefer
-   HTTPS, or carry loopback HTTP over an authenticated private tunnel.
-2. As an organization administrator, open **Core & vault → Connect NeoPi / manage
-   pools**, then **Connect NeoPi**. Enter a source name, gateway URL (an optional
-   `/v1` suffix is accepted), bearer and default owner for newly discovered
-   accounts. Source credentials cannot be supplied or read by ordinary members
-   or account owners.
+1. Start NeoPi's authenticated auth gateway against its existing broker
+   (`npi auth-gateway serve`, or `npi auth-gateway serve --bind=0.0.0.0:4000`
+   when NeoProxy runs on another machine). Use its gateway bearer, not a
+   provider API key or a NeoProxy inference key. Prefer HTTPS, or carry
+   loopback HTTP over an authenticated private tunnel.
+2. As an organization administrator, connect the gateway one of three ways.
+   Source credentials cannot be supplied or read by ordinary members or
+   account owners.
+   - **Same machine:** when NeoPi runs as the same user as NeoProxy, NeoProxy
+     finds its gateway itself and connects it with one click; the token is
+     read from NeoPi's config directory and never reaches the browser.
+   - **Connection link:** run `npi auth-gateway link` on the NeoPi machine and
+     paste the single `neopi-gateway://host:port?token=…&name=…` link. Its
+     name becomes the source name. The link contains the bearer: treat it as
+     a password.
+   - **By hand:** enter a source name, gateway URL (an optional `/v1` suffix is
+     accepted), bearer and default owner for newly discovered accounts.
 3. The proxy discovers `/v1/models` and `/v1/neoproxy/accounts`. Each broker
    credential becomes an independently selectable account. In **Account pools**,
    configure an explicit **local day token budget** on the intended accounts.
@@ -102,6 +113,32 @@ a working shared source is available; never copy the broker's refresh tokens.
    grant the intended models in **Users**, then issue a key scoped to the selected
    accounts. No source model can bypass its virtual route through direct
    provider access. Without a configured local budget and grant, it does not run.
+
+API for the first two paths (session-authenticated administrator; errors are
+`{"error":{"message":…}}`):
+
+- `POST /v8/neo/vault/sources` and `PUT /v8/neo/vault/sources/:id` accept
+  `{"connectionLink": "neopi-gateway://…", "ownerId": "u_…", "label": "…"}` in
+  place of `url` + `bearer`. `label` defaults to the link's `name`; `enabled`
+  defaults to `true` for a link. A link with another scheme, no token, or sent
+  together with `url`/`bearer` is a `400` naming the problem. `tls=1` in the
+  link selects `https://`.
+- `GET /v8/neo/access/neopi/local` →
+  `{"found":true,"running":true,"url":"http://127.0.0.1:4000","name":"blackswan","accountCount":3,"alreadyConnected":"src_…","reason":"…","startCommand":"npi auth-gateway serve"}`.
+  NeoProxy reads NeoPi's config directory (`$HOME/.omp`, honouring
+  `PI_CONFIG_DIR` and `PI_PROFILE`) read-only: the listener from
+  `auth-gateway.runtime.json` (written by `serve`; default `127.0.0.1:4000`
+  without it) and the bearer from `auth-gateway.token`. It probes `/healthz`,
+  then lists `/v1/neoproxy/accounts` with the bearer. `accountCount` appears
+  only when the gateway accepted the token; `reason` explains anything that
+  prevents connecting (not set up, not running, `--no-auth`, token rejected);
+  `startCommand` appears when the gateway is not running; `alreadyConnected`
+  is the existing source with the same URL or bearer.
+- `POST /v8/neo/access/neopi/local/connect` `{"ownerId": "u_…"}` (optional,
+  defaults to the caller) creates and syncs that source and returns it like
+  `POST /v8/neo/vault/sources`. When it is already connected it returns the
+  existing source; when it cannot connect it answers `409` with the reason and
+  the detection under `local`.
 
 On **Models**, the search narrows both provider models and virtual names; the
 All / Served / Hidden switch applies only to provider models. Virtual results
@@ -158,11 +195,16 @@ NODE_EXTRA_CA_CERTS="$HOME/.local/share/neoproxy-office/pki/ca.crt" \
   "$HOME/.local/lib/npi-office/current/npi" login neoproxy --url https://VPN_HOST:PORT
 ```
 
-The command prompts for username and a hidden password. It stores the minted
-scoped inference key, not the dashboard password or session cookie. Owners must
-explicitly select their owned account pool. Discover models with `npi models
-neoproxy --json`; use the returned native selector in `NPI_MODEL` below, or assign
-it to a role through the existing `modelRoles` setting.
+First issue an inference key (`nk_...`) for the profile's NeoProxy user in the
+dashboard: **Users** → that user → **Keys** → **Issue key**. On HTTPS the command
+shows the server and CA certificate SHA-256 fingerprints before sending anything;
+confirm them, then paste the key into the hidden prompt. NeoPi validates it with
+`GET /v1/models` and stores the key with the confirmed CA pin in the profile's
+credential storage. It never asks for the dashboard password and does not mint a
+key. `/login neoproxy` inside a session is the interactive equivalent. Discover
+models with `npi models neoproxy --json`; use the returned native selector in
+`NPI_MODEL` below, or assign it to a role through the existing `modelRoles`
+setting.
 
 Create `~/.config/neoproxy-office/npi.env` with the selected model, for example:
 
