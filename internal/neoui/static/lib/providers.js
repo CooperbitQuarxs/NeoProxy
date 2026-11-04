@@ -50,12 +50,15 @@ export function providerInfo(catalog, engineId) {
 // The one meter the dashboard talks about for an account: provider-reported
 // windows win, configured local token meters come next, and "no meter" means
 // the account is always available to the stages that use it.
-// Same rule as the router: a window counts only while it is current.
-const current = (w, now) => w.known && (!w.resetsAt || w.resetsAt > now) && (!w.startsAt || w.startsAt <= now);
+// Exactly the router's rules (internal/neoroute/resolve.go windowFor): a
+// provider reading counts while known and not yet reset; a local meter needs
+// a positive capacity and a window that has started and not yet reset.
+const providerCurrent = (w, now) => w.known && (!w.resetsAt || w.resetsAt > now);
+const localCurrent = (w, now) => w.known && w.capacity > 0 && w.startsAt <= now && w.resetsAt > now;
 export function meterFor(account, kind, now = Date.now()) {
-	const live = (account.providerWindows ?? []).find((w) => w.kind === kind && current(w, now));
+	const live = (account.providerWindows ?? []).find((w) => w.kind === kind && providerCurrent(w, now));
 	if (live) return { ...live, source: "provider" };
-	const local = (account.windows ?? []).find((w) => w.kind === kind && current(w, now));
+	const local = (account.windows ?? []).find((w) => w.kind === kind && localCurrent(w, now));
 	if (local) return { ...local, source: "local" };
 	return null;
 }
