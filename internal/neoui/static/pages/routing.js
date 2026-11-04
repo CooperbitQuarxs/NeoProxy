@@ -9,7 +9,7 @@ export async function render(ctx) {
 	const { root } = ctx;
 	root.append(pageHead({
 		title: "Routing",
-		desc: h("span", null, "Virtual models decide routing for ", h("code", null, "neoproxy/<name>"), ": their stages and draw modes pick the account. This strategy applies only to direct provider models, ", h("code", null, "neoproxy/<provider>/<model>"), ", which skip virtual models. ", h("a", { class: "link-text", href: "#/virtual-models" }, "Open virtual models"), "."),
+		desc: h("span", null, "Virtual models decide routing for ", h("code", null, "neoproxy/<name>"), ": their stages and draw modes pick the account. This strategy applies only to direct provider models, ", h("code", null, "neoproxy/<provider>/<model>"), ", which skip virtual models. ", h("a", { class: "link-text", href: "#/virtual-models" }, "Open virtual models"), ". That makes six routing behaviours in all: the three strategies below for direct models, and per stage, most room left, take turns, or first with room."),
 	}));
 	const host = h("div");
 	const loading = spinner();

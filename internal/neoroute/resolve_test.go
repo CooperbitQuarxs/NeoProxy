@@ -156,6 +156,48 @@ func TestVirtualValidation(t *testing.T) {
 	}
 }
 
+// AccountLimits gives each named account its own threshold: X (a) at 51% of
+// its provider window is past its 50%, while Y (b) at 60% is under its 70%.
+func TestAccountLimitsOverridePerAccount(t *testing.T) {
+	state := policyState()
+	state.vm.Stages[0].AccountLimits = map[string]float64{"a": .5, "b": .7}
+	for i, used := range map[string]float64{"a": .51, "b": .6} {
+		for j := range state.snapshot.Accounts {
+			if state.snapshot.Accounts[j].ID == i {
+				state.snapshot.Accounts[j].ProviderWindows = []neopool.Window{{Kind: "day", Known: true, Source: "provider-reported", Unit: "percent", Capacity: 100, Used: used}}
+			}
+		}
+	}
+	d := decide(Request{Asked: "neoproxy/route"}, state, -1, nil)
+	if d.Outcome != "ok" || d.AccountID != "b" {
+		t.Fatalf("decision=%+v", d)
+	}
+	if got := d.Trail[0].Candidates; len(got) != 1 || got[0].AccountID != "b" || got[0].Budget != .7 {
+		t.Fatalf("candidates=%+v", got)
+	}
+	// The grant's allotment scales the override like the stage default.
+	state.principal.Grants[0].Allotment = .9
+	d = decide(Request{Asked: "neoproxy/route"}, state, -1, nil)
+	if got := d.Trail[0].Candidates; d.AccountID != "b" || len(got) != 1 || math.Abs(got[0].Budget-.63) > 1e-9 {
+		t.Fatalf("allotment did not scale the override: %+v", d)
+	}
+}
+
+func TestAccountLimitsValidation(t *testing.T) {
+	for _, bad := range []float64{0, -.1, 1.01, math.NaN(), math.Inf(1)} {
+		state := policyState()
+		state.vm.Stages[0].AccountLimits = map[string]float64{"a": bad}
+		if Validate(*state.vm, state.snapshot, neo.Principal{Role: "admin"}) == nil {
+			t.Fatalf("account limit %v accepted", bad)
+		}
+	}
+	state := policyState()
+	state.vm.Stages[0].AccountLimits = map[string]float64{"a": 1, "gone": .3}
+	if err := Validate(*state.vm, state.snapshot, neo.Principal{Role: "admin"}); err != nil {
+		t.Fatal("valid account limits rejected", err)
+	}
+}
+
 // Exercise the retained JavaScript resolver as an oracle, not a production path.
 // Missing fixture scope/exposure checks and wall-clock rotation are tested above
 // against the written contract instead of copied into production behavior.

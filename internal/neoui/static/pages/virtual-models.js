@@ -625,13 +625,13 @@ async function editor(ctx, id) {
 		const setLimit = (a, v) => {
 			const next = { ...(s.accountLimits ?? {}) };
 			if (!Number.isFinite(v) || Math.abs(v - s.perAccount) < 0.0005) delete next[a.id];
-			else next[a.id] = Math.max(0, Math.min(1, v));
+			else next[a.id] = Math.max(0.01, Math.min(1, v));
 			s.accountLimits = Object.keys(next).length ? next : undefined;
 			update();
 		};
 		const untilControl = (a) => {
 			const own = s.accountLimits?.[a.id] !== undefined;
-			const num = input({ type: "number", min: 0, max: 100, step: 1, value: Math.round(limitOf(a) * 100), class: "input sm until-input", "aria-label": `Threshold for ${a.label}`, onChange: (e) => setLimit(a, Number(e.target.value) / 100) });
+			const num = input({ type: "number", min: 1, max: 100, step: 1, value: Math.round(limitOf(a) * 100), class: "input sm until-input", "aria-label": `Threshold for ${a.label}`, onChange: (e) => setLimit(a, Number(e.target.value) / 100) });
 			return h("span", { class: `until ${own ? "own" : ""}`, title: own ? `This account has its own threshold; the stage default is ${fmtPct(s.perAccount, null)}. Set it back to ${Math.round(s.perAccount * 100)} to follow the stage.` : `Drawn from while its ${s.window} usage is below ${fmtPct(s.perAccount, null)}. Type a different number to give this account its own threshold.` },
 				"until ", num, "%");
 		};
@@ -925,8 +925,12 @@ async function editor(ctx, id) {
 			if (isNew) ctx.navigate(`virtual-models/${saved.id}`);
 			else {
 				Object.assign(vm, saved);
-				Object.assign(draft, saved);
+				// The server's copy replaces the stage objects, so the open stage panel
+				// must rebind or its edits would land on a stage that is no longer saved.
+				Object.assign(draft, structuredClone(saved));
 				setDirty(false);
+				renderRail(selected);
+				renderInspector();
 				runSim();
 			}
 		} catch (e) {
