@@ -77,6 +77,9 @@ var oauthRoutes = map[string]route{
 	"grok-build": {target: "xai"},
 	"kimi-code":  {target: "kimi"},
 	"devin":      {target: "devin"},
+	// NeoPi's Nous Portal extension stores its device sign-in as an oauth
+	// credential (access, refresh, expires); imported refresh-locked as usual.
+	"nous-portal": {target: "nous-portal"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
 	"zai":               {kind: KindAPIKey, target: "zai"},
@@ -313,7 +316,7 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 			accountID, _ = jwtClaims(access)["sub"].(string)
 		}
 		setNonEmpty(meta, "sub", accountID)
-	case "kimi":
+	case "kimi", "nous-portal":
 		meta["access_token"] = access
 		meta["token_type"] = "Bearer"
 	case "devin":
