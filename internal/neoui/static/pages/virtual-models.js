@@ -8,8 +8,9 @@
 import { h, icon, fmtPct, fmtAgo, plural, clear } from "../lib/dom.js";
 import { neo, engine, onChange, ApiError } from "../lib/client.js";
 import { meterFor, accountHealth } from "../lib/providers.js";
-import { pageHead, card, btn, avatar, servedName, chainRail, inspector, section, field, input, select, seg, modelPicker, trail, meterRing, providerDot, providerLabel, confirm, toast, empty, spinner, errorState, drawLabel, search, vmIdentity, vmSearchText, DRAW_MODES, WINDOW_WORDS, stagePool, stageLine, picker, iconBtn } from "../lib/components.js";
+import { pageHead, card, btn, avatar, servedName, chainRail, inspector, section, field, input, select, seg, modelPicker, trail, meterRing, providerDot, providerLabel, confirm, toast, empty, spinner, errorState, drawLabel, search, vmIdentity, vmSearchText, DRAW_MODES, setDrawModes, canonicalDraw, WINDOW_WORDS, stagePool, stageLine, picker, iconBtn } from "../lib/components.js";
 import { ruleBuilder, toText, TEMPLATES, DEFAULT_FIELDS } from "../lib/rules.js";
+import { drawPicker } from "../lib/draw-tiles.js";
 import { luaEditor, luaFunctions, LUA_EXAMPLE } from "../lib/lua-editor.js";
 
 export async function render(ctx) {
@@ -156,6 +157,7 @@ async function editor(ctx, id) {
 
 	const draft = structuredClone(vm);
 	let ruleFields = DEFAULT_FIELDS;
+	engine.get("/v8/neo/virtual-models/draws").then((r) => setDrawModes(r?.draws)).catch(() => {});
 	engine.get("/v8/neo/virtual-models/fields").then((r) => { if (Array.isArray(r?.fields) && r.fields.length) ruleFields = r.fields.map((f) => ({ ...f, kind: f.kind === "number" && /usage|average/.test(f.name) ? "percent" : f.kind })); }).catch(() => {});
 	let dirty = isNew;
 	let selected = matchMedia("(max-width: 900px)").matches ? null : draft.stages[0]?.id ?? null;
@@ -671,6 +673,7 @@ async function editor(ctx, id) {
 			renderAccounts();
 			renderSentences();
 			renderEffortNote();
+			renderDraw();
 		};
 
 		// --- model ---
@@ -781,7 +784,28 @@ async function editor(ctx, id) {
 
 		// --- draw ---
 		const drawHint = h("p", { class: "hint", style: { margin: "6px 0 0" } });
-		const renderDrawHint = () => { drawHint.textContent = DRAW_MODES.find((mode) => mode.value === s.draw)?.hint ?? ""; };
+		const renderDrawHint = () => { const m = DRAW_MODES.find((mode) => mode.value === canonicalDraw(s.draw)); drawHint.textContent = m ? (m.doc ?? m.hint) : ""; };
+		// Which modes this stage can use right now, with the reason when it cannot.
+		const drawUnavailable = () => {
+			const picked = stagePool(s, vault.accounts);
+			const metered = picked.filter((a) => meterFor(a, s.window)).length;
+			const priced = picked.filter((a) => a.face?.plan?.monthlyUSD > 0).length;
+			const out = {};
+			for (const m of DRAW_MODES) {
+				if (m.needs?.includes("meter") && picked.length && !metered) out[m.value] = `none of the selected accounts reports ${WINDOW_WORDS[s.window]} usage`;
+				if (m.needs?.includes("price") && picked.length && !priced) out[m.value] = "no plan prices on these accounts";
+			}
+			return out;
+		};
+		const drawHost = h("div");
+		const renderDraw = () => {
+			drawHost.replaceChildren(drawPicker({
+				modes: DRAW_MODES.map((m) => ({ id: m.value, label: m.label, short: m.hint, doc: m.doc ?? m.hint, omniroute: m.omniroute })),
+				value: canonicalDraw(s.draw),
+				unavailable: drawUnavailable(),
+				onPick: (v) => { s.draw = v; renderDrawHint(); update(); },
+			}));
+		};
 
 		// --- thresholds ---
 		const sentenceEach = h("p", { class: "vm-sentence" });
@@ -873,6 +897,7 @@ async function editor(ctx, id) {
 		renderCurrentModel();
 		renderPicker();
 		renderAccounts();
+		renderDraw();
 		renderDrawHint();
 		renderSentences();
 		renderEffortNote();
@@ -880,11 +905,7 @@ async function editor(ctx, id) {
 		aside.querySelector(".ins-body").append(
 			section("Model", currentModel, pickerHost),
 			section("Accounts in the pool", accountsSection),
-			section(
-				"How to draw",
-				seg(DRAW_MODES.map((mode) => ({ value: mode.value, label: mode.label, title: mode.hint })), s.draw, (v) => { s.draw = v; renderDrawHint(); update(); }),
-				drawHint,
-			),
+			Object.assign(section("How to draw", h("p", { class: "hint", style: { marginTop: 0 } }, "Among the accounts that may serve, which one gets this request. Names in grey are what OmniRoute calls the same thing."), drawHost, drawHint), { className: "section span-all" }),
 			section(
 				"Serves a request while",
 				field(

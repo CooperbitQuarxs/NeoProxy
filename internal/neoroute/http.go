@@ -17,6 +17,7 @@ import (
 func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/virtual-models", s.listVirtuals)
 	group.GET("/virtual-models/fields", conditionCatalogue)
+	group.GET("/virtual-models/draws", drawCatalogue)
 	group.GET("/virtual-models/:id", s.getVirtual)
 	group.POST("/virtual-models", s.saveVirtual(true))
 	group.PUT("/virtual-models/:id", s.saveVirtual(false))
