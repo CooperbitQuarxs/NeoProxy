@@ -1,7 +1,7 @@
 import type { AccessItem, Person, ProviderInfo } from "../api/types";
 import { ago, perMonth, plural } from "../lib/format";
 import { providerColor, providerInfo } from "../lib/providers";
-import { Avatar, StatusDot } from "../ui/components";
+import { Avatar, ProviderMark, StatusDot } from "../ui/components";
 import { Icon } from "../ui/icons";
 import { KIND_COPY, healthCopy, personName } from "./copy";
 
@@ -16,7 +16,7 @@ export function AccessList({ items, providers, people, onSelect }: { items: Acce
 				return (
 					<div key={provider} className="access-group panel">
 						<header className="access-group-head">
-							<span className="legend-swatch lg" style={{ background: providerColor(provider, info.hue) }} />
+							<ProviderMark provider={provider} name={info.name} hue={info.hue} size={24} />
 							<h3>{info.name}</h3>
 							<span className="faint">{info.vendor}</span>
 							<span className="grow" />

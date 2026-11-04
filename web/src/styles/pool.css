@@ -1044,3 +1044,31 @@
 	color: var(--ink-2);
 	font-size: 13px;
 }
+
+/* Provider logos in tiles */
+.tile-logo {
+	opacity: 0.82;
+}
+.tile.kind-neopi .tile-logo {
+	color: var(--tile);
+	opacity: 1;
+}
+.tile.is-small .tile-head {
+	justify-content: flex-start;
+}
+.tile.is-small .tile-logo {
+	width: 15px !important;
+	height: 15px !important;
+}
+.legend-list .pmark,
+.access-group-head .pmark,
+.attention-item .pmark,
+.tilecard-head .pmark {
+	border-radius: 5px;
+}
+/* Narrow tiles: the logo alone names the provider; the hover card spells it out. */
+@container (max-width: 150px) {
+	.tile-provider {
+		display: none;
+	}
+}

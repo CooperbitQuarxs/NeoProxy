@@ -3,8 +3,8 @@ import type { PageProps } from "../app/App";
 import { useAccess, useProviders } from "../api/queries";
 import type { AccessItem, AccessKind } from "../api/types";
 import { fmtInt, perMonth, plural } from "../lib/format";
-import { providerColor, providerInfo } from "../lib/providers";
-import { Button, EmptyState, Notice, PageHeader, Section, Skeleton } from "../ui/components";
+import { providerInfo } from "../lib/providers";
+import { Button, EmptyState, Notice, PageHeader, ProviderMark, Section, Skeleton } from "../ui/components";
 import { Mosaic, GhostMosaic } from "./Mosaic";
 import { AccessList } from "./AccessList";
 import { AccessSheet } from "./AccessSheet";
@@ -110,7 +110,7 @@ export function PoolPage({ session }: PageProps) {
 									const sum = items.filter((i) => i.provider === p).reduce((n, i) => n + i.plan.monthlyUSD, 0);
 									return (
 										<li key={p}>
-											<span className="legend-swatch" style={{ background: providerColor(p, info.hue) }} />
+											<ProviderMark provider={p} name={info.name} hue={info.hue} size={18} />
 											{info.name}
 											<span className="faint num">{perMonth(sum)}</span>
 										</li>
@@ -137,7 +137,7 @@ export function PoolPage({ session }: PageProps) {
 							const info = providerInfo(item.provider, providers);
 							return (
 								<button key={item.id} className={`attention-item tone-${why.tone}`} onClick={() => setSelectedId(item.id)}>
-									<span className="legend-swatch" style={{ background: providerColor(item.provider, info.hue) }} />
+									<ProviderMark provider={item.provider} name={info.name} hue={info.hue} size={22} />
 									<span className="grow">
 										<strong>
 											{info.name}, {personName(item.ownerId, people)}

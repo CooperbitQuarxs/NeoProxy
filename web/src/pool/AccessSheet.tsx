@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useRefreshAccess, useRemoveAccess, useReimport, useUpdateAccess } from "../api/queries";
 import type { AccessItem, Person, ProviderInfo } from "../api/types";
 import { ago, perMonth, plural } from "../lib/format";
-import { providerColor, providerInfo } from "../lib/providers";
-import { Button, Chip, Dialog, Field, Input, Notice, Select, StatusDot } from "../ui/components";
+import { providerInfo } from "../lib/providers";
+import { Button, Chip, Dialog, Field, Input, Notice, ProviderMark, Select, StatusDot } from "../ui/components";
 import { Icon } from "../ui/icons";
 import { useToast } from "../ui/toast";
 import { Spark } from "./AccessList";
@@ -51,7 +51,7 @@ function SheetTitle({ item, providers }: { item: AccessItem; providers: Provider
 	const info = providerInfo(item.provider, providers);
 	return (
 		<span className="sheet-title">
-			<span className="sheet-swatch" style={{ background: providerColor(item.provider, info.hue) }} />
+			<ProviderMark provider={item.provider} name={info.name} hue={info.hue} size={28} />
 			{info.name}
 		</span>
 	);

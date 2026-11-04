@@ -5,7 +5,7 @@ import type { AccessItem, Person, ProviderInfo } from "../api/types";
 import { perMonth, ago, plural } from "../lib/format";
 import { providerColor, providerInfo } from "../lib/providers";
 import { Icon } from "../ui/icons";
-import { Tip, cx } from "../ui/components";
+import { ProviderLogo, ProviderMark, Tip, cx } from "../ui/components";
 import { KIND_COPY, healthCopy, personName } from "./copy";
 
 type Leaf = { item: AccessItem; value: number };
@@ -110,6 +110,7 @@ export function Mosaic({
 							aria-label={`${info.name}, ${KIND_COPY[item.kind].noun}, contributed by ${owner}, ${item.plan.name}, ${perMonth(item.plan.monthlyUSD)}, ${healthCopy(item).label}`}
 						>
 							<span className="tile-head">
+								<ProviderLogo provider={item.provider} size={lead ? 16 : 14} className="tile-logo" />
 								{lead && <span className="tile-provider">{info.name}</span>}
 								<span className="tile-glyphs">
 									{item.kind === "neopi" && <Icon name="link" size={14} />}
@@ -135,7 +136,7 @@ function TileCard({ item, info, owner }: { item: AccessItem; info: ProviderInfo;
 	return (
 		<span className="tilecard">
 			<span className="tilecard-head">
-				<span className="tilecard-swatch" style={{ background: providerColor(item.provider, info.hue) }} />
+				<ProviderMark provider={item.provider} name={info.name} hue={info.hue} size={20} />
 				<strong>{info.name}</strong>
 				<span className="tilecard-vendor">{info.vendor}</span>
 			</span>

@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { forwardRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons";
 import { providerColor } from "../lib/providers";
+import { providerLogo } from "../lib/logos";
 
 const cx = (...parts: unknown[]) => parts.filter((p) => typeof p === "string" && p).join(" ");
 export { cx };
@@ -268,13 +269,22 @@ export function Avatar({ name, size = 28 }: { name: string; size?: number }) {
 	);
 }
 
+// A provider's color square with its logo drawn in ink; a monogram when no logo exists.
 export function ProviderMark({ provider, name, hue, size = 22 }: { provider: string; name?: string; hue?: number; size?: number }) {
+	const logo = providerLogo(provider);
 	const label = (name ?? provider).replace(/[^A-Za-z0-9]/g, "");
 	return (
 		<span className="pmark" style={{ width: size, height: size, fontSize: size * 0.46, background: providerColor(provider, hue) }} aria-hidden="true">
-			{label.slice(0, 1).toUpperCase()}
+			{logo ? <ProviderLogo provider={provider} size={Math.round(size * 0.62)} /> : label.slice(0, 1).toUpperCase()}
 		</span>
 	);
+}
+
+// The logo glyph alone, in the current text color. Renders nothing without a logo.
+export function ProviderLogo({ provider, size = 16, className }: { provider: string; size?: number; className?: string }) {
+	const logo = providerLogo(provider);
+	if (!logo) return null;
+	return <span className={cx("plogo", className)} style={{ width: size, height: size, WebkitMaskImage: `url("${logo}")`, maskImage: `url("${logo}")` }} aria-hidden="true" />;
 }
 
 export function EmptyState({ title, children, action, art }: { title: ReactNode; children?: ReactNode; action?: ReactNode; art?: ReactNode }) {

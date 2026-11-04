@@ -739,3 +739,16 @@ textarea.input {
 	border: 1px solid var(--line);
 	border-radius: var(--r-panel);
 }
+
+/* Provider logo: a monochrome SVG used as a mask, so it takes the ink color. */
+.plogo {
+	display: inline-block;
+	flex: none;
+	background-color: currentColor;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
+}
