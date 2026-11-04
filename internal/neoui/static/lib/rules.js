@@ -75,7 +75,17 @@ export function toText(node, depth = 0) {
 export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
 	let tree = value && isGroup(value) ? structuredClone(value) : { all: value ? [structuredClone(value)] : [] };
 	const root = h("div", { class: "rules" });
-	const emit = () => { onChange(countLeaves(tree) ? structuredClone(tree) : null); paint(); };
+	// Empty nested groups are a step in editing, not a rule; they are pruned
+	// from what is saved (the server refuses empty groups).
+	const prune = (n) => {
+		if (!n) return null;
+		if ("not" in n) { const inner = prune(n.not); return inner ? { not: inner } : null; }
+		const key = Array.isArray(n.all) ? "all" : Array.isArray(n.any) ? "any" : null;
+		if (!key) return n;
+		const kept = n[key].map(prune).filter(Boolean);
+		return kept.length ? { [key]: kept } : null;
+	};
+	const emit = () => { onChange(prune(structuredClone(tree))); paint(); };
 
 	function countLeaves(n) {
 		if (!n) return 0;
@@ -151,7 +161,7 @@ export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
 	paint();
 	return {
 		el: root,
-		get value() { return countLeaves(tree) ? structuredClone(tree) : null; },
+		get value() { return prune(structuredClone(tree)); },
 		set(next) { tree = next && isGroup(next) ? structuredClone(next) : { all: next ? [structuredClone(next)] : [] }; paint(); },
 	};
 }

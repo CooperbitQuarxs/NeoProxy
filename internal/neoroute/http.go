@@ -16,6 +16,7 @@ import (
 // Inference keys are not dashboard sessions, even when their user is an admin.
 func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/virtual-models", s.listVirtuals)
+	group.GET("/virtual-models/fields", conditionCatalogue)
 	group.GET("/virtual-models/:id", s.getVirtual)
 	group.POST("/virtual-models", s.saveVirtual(true))
 	group.PUT("/virtual-models/:id", s.saveVirtual(false))
@@ -24,6 +25,14 @@ func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/usage", s.usageHTTP)
 	group.GET("/requests", s.requestsHTTP)
 	group.GET("/requests/:id", s.requestHTTP)
+}
+
+// conditionCatalogue lets the dashboard build stage conditions and effort sets.
+func conditionCatalogue(c *gin.Context) {
+	if _, ok := sessionPrincipal(c); !ok {
+		return
+	}
+	c.JSON(200, gin.H{"fields": ConditionFields, "ops": ConditionOps, "efforts": EffortLevels, "maxDepth": conditionMaxDepth, "maxLeaves": conditionMaxLeaves})
 }
 func sessionPrincipal(c *gin.Context) (neo.Principal, bool) {
 	p, ok := neo.PrincipalFromContext(c.Request.Context())

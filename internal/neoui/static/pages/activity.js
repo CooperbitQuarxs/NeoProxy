@@ -4,7 +4,7 @@
 
 import { h, svgEl, icon, fmtCompact, fmtDuration, fmtIn, clear } from "../lib/dom.js";
 import { neo } from "../lib/client.js";
-import { pageHead, card, btn, badge, avatar, servedName, search, select, seg, table, inspector, section, kv, trail, outcomeBadge, empty, spinner, errorState, copyLine, toast } from "../lib/components.js";
+import { pageHead, card, btn, badge, avatar, servedName, search, select, seg, table, inspector, section, kv, trail, outcomeBadge, empty, spinner, errorState, copyLine, toast, sheet } from "../lib/components.js";
 import { jsonView } from "../lib/json.js";
 import { explainDecision } from "../lib/explain.js";
 
@@ -315,7 +315,9 @@ export async function render(ctx) {
 		selectedId = null;
 		markSelected();
 		setUrl(null);
-		ctx.setInspector(null);
+		currentSheet?.close();
+		currentSheet = null;
+		focusRow();
 	}
 
 	function open(r, { scroll = false } = {}) {
@@ -338,12 +340,11 @@ export async function render(ctx) {
 			rawBuilt = true;
 			raw.append(jsonView(r, { collapsedDepth: 1 }));
 		});
-		const el = inspector({
-			title: servedName(r.asked, { virtual: r.asked.replace(/^neoproxy\//, "").split("/").length === 1 }),
-			sub: `${new Date(r.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })} · ${r.id.slice(0, 12)}…`,
-			onClose: close,
+		const el = sheet({
+			title: h("span", { class: "row wrap", style: { gap: "10px" } }, servedName(r.asked, { virtual: r.asked.replace(/^neoproxy\//, "").split("/").length === 1 }), outcomeBadge(r.outcome, d), status ? badge(`HTTP ${status}`, "outline") : null, d.effort ? badge(`effort ${d.effort}`, "violet") : null, r.stream ? badge("stream") : null),
+			sub: `${new Date(r.at).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })} · ${r.id}`,
+			onClose: () => { if (selectedId === r.id) { selectedId = null; markSelected(); setUrl(null); } },
 			body: [
-				h("div", { class: "row wrap act-badges" }, outcomeBadge(r.outcome, d), status ? badge(`HTTP ${status}`, "outline") : null, d.effort ? badge(`effort ${d.effort}`, "violet") : null, r.stream ? badge("stream") : null),
 				section("What happened", h("div", { class: `act-why ${r.outcome}` }, h("p", null, sentences.join(" ")), hint ? h("p", { class: "next" }, h("span", null, "What to do: "), hint) : null)),
 				section("How it was routed", trail(d, { models, accounts, users, admin: !mine, who })),
 				section(
@@ -367,9 +368,9 @@ export async function render(ctx) {
 			],
 			foot: !mine ? [vm ? btn("Open chain", { icon: "route", cls: "outline", onClick: () => ctx.navigate(`virtual-models/${vm.id}`) }) : null, btn("Open user", { icon: "user", cls: "outline", onClick: () => ctx.navigate(`users/${r.userId}`) })] : null,
 		});
-		el.setAttribute("aria-label", `Request ${r.asked} for ${who}`);
-		ctx.setInspector(el, { restoreFocus: focusRow });
+		currentSheet = el;
 	}
+	let currentSheet = null;
 
 	// ---------- start ----------
 
@@ -389,5 +390,6 @@ export async function render(ctx) {
 	return () => {
 		disposed = true;
 		stop();
+		currentSheet?.close();
 	};
 }

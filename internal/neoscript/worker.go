@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoroute"
+	"github.com/tidwall/gjson"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -81,6 +82,7 @@ func evaluateWorker(request workerWireRequest) (response workerResponse) {
 	if err = json.Unmarshal(request.Input, &snapshot); err != nil {
 		return workerResponse{Error: "invalid snapshot"}
 	}
+	addRequestFacts(snapshot, request.Input)
 	readonly := make(map[*lua.LTable]*lua.LTable)
 	inputValue := toLua(state, snapshot, readonly)
 	state.SetGlobal("input", inputValue)
@@ -136,6 +138,28 @@ func evaluateWorker(request workerWireRequest) (response workerResponse) {
 		return workerResponse{Error: "invalid output: exactly nonempty string stageId/accountId are required"}
 	}
 	return workerResponse{Proposal: proposal}
+}
+
+// addRequestFacts exposes ctx.request.prompt (last user text) and
+// ctx.request.effort (the caller's reasoning effort) beside the client body's
+// own fields, which win on a name clash.
+func addRequestFacts(snapshot any, input json.RawMessage) {
+	root, ok := snapshot.(map[string]any)
+	if !ok {
+		return
+	}
+	body, ok := root["request"].(map[string]any)
+	if !ok {
+		return
+	}
+	if _, taken := body["prompt"]; !taken {
+		body["prompt"] = neoroute.PromptText([]byte(gjson.GetBytes(input, "request").Raw))
+	}
+	if effort, ok := root["effort"].(string); ok && effort != "" {
+		if _, taken := body["effort"]; !taken {
+			body["effort"] = effort
+		}
+	}
 }
 
 func configureLibraries(state *lua.LState) {

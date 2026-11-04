@@ -40,7 +40,7 @@ func evaluatePolicies(state *lua.LState, input policySnapshot, root lua.LValue, 
 		stageValue := state.GetTable(stages, lua.LNumber(i+1))
 		contextFor := func(account lua.LValue, candidate *neoroute.Candidate) lua.LValue {
 			backing := state.NewTable()
-			for _, field := range []string{"asked", "protocol", "userId", "request"} {
+			for _, field := range []string{"asked", "protocol", "userId", "request", "user", "time"} {
 				backing.RawSetString(field, state.GetField(root, field))
 			}
 			backing.RawSetString("stage", stageValue)

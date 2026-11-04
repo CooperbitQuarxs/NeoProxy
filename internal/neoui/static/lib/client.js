@@ -119,6 +119,7 @@ export const neo = {
 	models: () => request("GET", path("models")),
 	setProviderExposed: (provider, exposed) => mutate("PATCH", `vault/providers/${id(provider)}`, { exposed }, "vault"),
 	setModelExposed: (model, exposed) => mutate("PATCH", `models/${id(model)}`, { exposed }, "models"),
+	setModelsExposed: (set) => mutate("POST", "models/exposure", { set }, "models"),
 	virtualModels: () => request("GET", path("virtual-models")),
 	virtualModel: (model) => request("GET", path(`virtual-models/${id(model)}`)),
 	saveVirtualModel: (vm) => {
