@@ -752,3 +752,39 @@ textarea.input {
 	-webkit-mask-size: contain;
 	mask-size: contain;
 }
+
+/* ---------- Provider picker (searchable combobox; pool/ProviderPicker.tsx) ---------- */
+.pp-trigger .pp-name {
+	color: var(--ink);
+}
+.pp-trigger .pp-vendor {
+	color: var(--ink-3);
+	font-size: 12.5px;
+}
+.pp-content {
+	width: var(--radix-popover-trigger-width);
+	max-height: min(420px, var(--radix-popover-content-available-height));
+	display: flex;
+	flex-direction: column;
+}
+.pp-search {
+	margin: 8px 8px 2px;
+	min-width: 0;
+	flex: none;
+}
+.pp-list {
+	overflow-y: auto;
+	outline: none;
+	overscroll-behavior: contain;
+}
+.pp-empty {
+	padding: 14px 10px;
+	color: var(--ink-3);
+	font-size: 13px;
+}
+.select-check.pp-hidden {
+	visibility: hidden;
+}
+.pp-list .select-text {
+	flex: 1;
+}

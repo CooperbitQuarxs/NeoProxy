@@ -2,12 +2,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError } from "../api/client";
 import { signIn, useAddApiKey, useConnectLink, useConnectLocalNeoPi, useImport, useImportCandidates, useLocalNeoPi, useProviders, useSaveSource, useUploadFile } from "../api/queries";
-import type { AccessKind, Person, ProviderInfo, Session } from "../api/types";
+import type { AccessKind, Person, Session } from "../api/types";
 import { providerColor, providerInfo } from "../lib/providers";
 import { Button, CodeLine, Dialog, Field, Input, Notice, ProviderMark, Select, cx } from "../ui/components";
 import { Icon } from "../ui/icons";
 import { useToast } from "../ui/toast";
 import { KIND_COPY } from "./copy";
+import { ProviderPicker } from "./ProviderPicker";
 
 type Step = { method?: AccessKind; done?: { title: string; text: ReactNode } };
 const ORDER: AccessKind[] = ["subscription", "apiKey", "neopi", "imported", "file"];
@@ -116,15 +117,6 @@ function Done({ text, onAnother, onClose }: { text: ReactNode; onAnother: () => 
 	);
 }
 
-function providerOptions(list: ProviderInfo[]) {
-	return list.map((p) => ({
-		value: p.id,
-		label: p.name,
-		description: p.vendor !== p.name ? p.vendor : undefined,
-		leading: <ProviderMark provider={p.id} name={p.name} hue={p.hue} size={22} />,
-	}));
-}
-
 function ContributorField({ session, people, value, onChange }: { session: Session; people: Person[]; value: string; onChange: (v: string) => void }) {
 	if (session.role !== "admin" || people.length < 2) return null;
 	return (
@@ -224,14 +216,18 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 	return (
 		<div className="stack">
 			<Field label="Provider" htmlFor="sub-provider">
-				<Select id="sub-provider" value={provider} onValueChange={(v) => { setProvider(v); setPhase("idle"); setSession(undefined); }} options={providerOptions(providers)} />
+				<ProviderPicker id="sub-provider" providers={providers} value={provider} onChange={(v) => { setProvider(v); setPhase("idle"); setSession(undefined); }} />
 			</Field>
 			{phase === "idle" || phase === "starting" ? (
 				<>
 					<ol className="steps">
 						<li>{info?.subscription?.flow === "device" ? `A short code appears here; confirm it on ${info.vendor}'s site.` : `${info?.vendor ?? "The provider"}'s sign-in page opens in a new tab.`}</li>
 						<li>Sign in with the account you want to share and approve access.</li>
-						<li>Come back to this tab. It notices the sign-in by itself and adds the account to the pool under your name.</li>
+						<li>
+							{info?.subscription?.flow === "code"
+								? `${info.vendor} can't send you back here, so copy the address its page hands off to (or the code in it) and paste it in this tab.`
+								: "Come back to this tab. It notices the sign-in by itself and adds the account to the pool under your name."}
+						</li>
 					</ol>
 					<div className="row flow-actions">
 						<Button variant="primary" size="lg" icon="signin" busy={phase === "starting"} onClick={start} disabled={!provider}>
@@ -245,7 +241,7 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 						<span className="pulse-ring" style={{ ["--tile" as string]: providerColor(provider!, info?.hue) }} />
 						<div>
 							<strong>Waiting for {info?.vendor} sign-in</strong>
-							<p className="muted">Finish on the tab that just opened. This updates on its own.</p>
+							<p className="muted">{info?.subscription?.flow === "code" ? "Finish on the tab that just opened, then paste the address it ends on below." : "Finish on the tab that just opened. This updates on its own."}</p>
 						</div>
 					</div>
 					{session.userCode && (
@@ -262,17 +258,31 @@ function SignInFlow({ initialProvider, onDone }: { initialProvider?: string; onD
 							</a>
 						</p>
 					)}
-					{!session.device && (
-						<details className="disclosure">
-							<summary>Signed in, but this page didn't move on?</summary>
-							<p className="faint">If the provider's page ended on an address that didn't load (for example on another computer), copy that full address and paste it here.</p>
+					{info?.subscription?.flow === "code" ? (
+						<div className="stack">
+							<p className="faint">
+								After you approve, {info.vendor} tries to open its own app at an address starting with <span className="mono">zcode://</span>. Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the "Failed to launch" message.
+							</p>
 							<div className="row">
-								<Input mono value={code} onChange={(e) => setCode(e.target.value)} placeholder="http://localhost:1455/auth/callback?code=…" />
-								<Button onClick={submitCode} disabled={!code.trim()}>
+								<Input mono value={code} onChange={(e) => setCode(e.target.value)} placeholder="zcode://zai-auth/callback?code=…" />
+								<Button variant="primary" onClick={submitCode} disabled={!code.trim()}>
 									Finish sign-in
 								</Button>
 							</div>
-						</details>
+						</div>
+					) : (
+						!session.device && (
+							<details className="disclosure">
+								<summary>Signed in, but this page didn't move on?</summary>
+								<p className="faint">If the provider's page ended on an address that didn't load (for example on another computer), copy that full address and paste it here.</p>
+								<div className="row">
+									<Input mono value={code} onChange={(e) => setCode(e.target.value)} placeholder="http://localhost:1455/auth/callback?code=…" />
+									<Button onClick={submitCode} disabled={!code.trim()}>
+										Finish sign-in
+									</Button>
+								</div>
+							</details>
+						)
 					)}
 				</div>
 			) : null}
@@ -324,11 +334,19 @@ function ApiKeyFlow({ session, people, legacy, onDone }: { session: Session; peo
 	return (
 		<div className="stack">
 			<Field label="Provider" htmlFor="key-provider" hint={legacy ? "This server version accepts keys for these three providers. Updating NeoProxy adds OpenRouter, DeepSeek, Groq and other OpenAI-compatible providers." : undefined}>
-				<Select id="key-provider" value={provider} onValueChange={setProvider} options={providerOptions(providers)} />
+				<ProviderPicker id="key-provider" providers={providers} value={provider} onChange={setProvider} />
 			</Field>
 			{editable && (
-				<Field label="Server address" hint="The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1" htmlFor="base-url">
-					<Input id="base-url" mono value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://example.com/v1" />
+				<Field
+					label="Server address"
+					hint={
+						info?.id === "custom"
+							? "The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1"
+							: `The gateway's base URL. Leave empty for the default, ${info?.apiKey?.baseUrl}`
+					}
+					htmlFor="base-url"
+				>
+					<Input id="base-url" mono value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={info?.id === "custom" ? "https://example.com/v1" : info?.apiKey?.baseUrl} />
 				</Field>
 			)}
 			<Field

@@ -416,7 +416,7 @@ func requestToFormat(provider string, executor ProviderExecutor, req cliproxyexe
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "codex":
 		return sdktranslator.FormatCodex
-	case "xai":
+	case "xai", "grok-build":
 		return sdktranslator.FormatCodex
 	case "claude":
 		return sdktranslator.FormatClaude

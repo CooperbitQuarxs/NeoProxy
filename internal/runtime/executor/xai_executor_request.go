@@ -91,7 +91,7 @@ func (e *XAIExecutor) prepareResponsesRequestTo(ctx context.Context, req cliprox
 	body = helps.SetStringIfDifferent(body, "model", baseModel)
 	body = preserveXAIResponsesOutputControls(body, req.Payload, from)
 
-	body, err = helps.ApplyRequestThinking(body, req, opts, from.String(), e.Identifier(), e.Identifier(), updatesChanged)
+	body, err = helps.ApplyRequestThinking(body, req, opts, from.String(), xaiDialect, e.Identifier(), updatesChanged)
 	if err != nil {
 		return nil, err
 	}
@@ -227,52 +227,22 @@ func xaiCreds(auth *cliproxyauth.Auth) (token, baseURL string) {
 	return token, baseURL
 }
 
-// xaiUsingAPI reports whether this xAI auth should use the official API path
-// for HTTP chat and media. OAuth defaults to false to use Grok Build.
-func xaiUsingAPI(auth *cliproxyauth.Auth) bool {
-	if auth == nil {
-		return true
-	}
-	if len(auth.Attributes) > 0 {
-		if raw := strings.TrimSpace(auth.Attributes[xaiUsingAPIAttr]); raw != "" {
-			parsed, errParse := strconv.ParseBool(raw)
-			if errParse == nil {
-				return parsed
-			}
-		}
-	}
-	if len(auth.Metadata) > 0 {
-		raw, ok := auth.Metadata[xaiUsingAPIAttr]
-		if ok && raw != nil {
-			switch v := raw.(type) {
-			case bool:
-				return v
-			case string:
-				parsed, errParse := strconv.ParseBool(strings.TrimSpace(v))
-				if errParse == nil {
-					return parsed
-				}
-			default:
-			}
-		}
-	}
-	if raw := strings.TrimSpace(auth.Attributes["auth_kind"]); raw != "" {
-		return !strings.EqualFold(raw, "oauth")
-	}
-	return !strings.EqualFold(xaiMetadataString(auth.Metadata, "auth_kind"), "oauth")
+// xaiIsGrokBuild reports whether auth belongs to the Grok Build provider, which
+// serves the same xAI OAuth token through the Grok CLI chat-proxy.
+func xaiIsGrokBuild(auth *cliproxyauth.Auth) bool {
+	return auth != nil && strings.EqualFold(strings.TrimSpace(auth.Provider), GrokBuildProvider)
 }
 
-// xaiChatBaseURL returns the base URL for xAI HTTP chat and media (image/video) requests.
-// When auth using_api is true, the official API base URL logic is used. When it
-// is false (including its OAuth default), empty or official default base_url is
-// rewritten to the CLI chat-proxy endpoint; an explicit non-default base_url is
-// still honored.
+// xaiChatBaseURL returns the base URL for xAI HTTP chat and media (image/video)
+// requests. The xai provider uses the official API (or its explicit base_url);
+// grok-build uses the CLI chat-proxy unless its base_url names another
+// non-default endpoint.
 // Websocket, compact, and speech intentionally do not use this helper:
 // cli-chat-proxy does not implement /responses/compact (404), websocket
 // upgrades (405), or /tts. Speech uses xaiSpeechRequestURL.
 func xaiChatBaseURL(auth *cliproxyauth.Auth) string {
 	_, baseURL := xaiCreds(auth)
-	if xaiUsingAPI(auth) {
+	if !xaiIsGrokBuild(auth) {
 		if baseURL == "" {
 			return xaiauth.DefaultAPIBaseURL
 		}
@@ -369,13 +339,10 @@ func applyXAICustomHeaders(r *http.Request, auth *cliproxyauth.Auth, clientHeade
 }
 
 // applyXAIChatHeaders applies standard xAI headers for non-image/video chat
-// requests. When using_api is true or a custom non-CLI-proxy base URL is used,
-// this matches the standard applyXAIHeaders behavior (forwarding the downstream
-// User-Agent or falling back to the Grok workspace User-Agent). CLI chat-proxy
-// identity headers are only attached when using_api is false and the resolved
-// chat base URL is the official CLI chat-proxy endpoint.
+// requests. Requests to the official CLI chat-proxy endpoint additionally carry
+// the Grok CLI identity headers it requires.
 func applyXAIChatHeaders(r *http.Request, auth *cliproxyauth.Auth, token string, stream bool, sessionID string, clientHeaders ...http.Header) {
-	if xaiUsingAPI(auth) || !xaiIsCLIChatProxyBaseURL(xaiChatBaseURL(auth)) {
+	if !xaiIsCLIChatProxyBaseURL(xaiChatBaseURL(auth)) {
 		applyXAIHeaders(r, auth, token, stream, sessionID, clientHeaders...)
 		return
 	}

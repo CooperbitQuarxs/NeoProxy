@@ -114,7 +114,8 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 // appendCompatKey adds key to the openai-compatibility entry named name, creating
 // it when absent. An existing entry with a different base URL is a conflict: one
 // name maps to exactly one upstream. Models are merged by upstream name, and the
-// newest model list's dialect routes replace older ones.
+// newest model list's dialect routes replace older ones. Request-scoped error
+// rules seed an entry's error classification unless an operator already set some.
 func appendCompatKey(cfg *config.Config, name, base, key string, k coreauth.AccountKey) error {
 	var entry *config.OpenAICompatibility
 	for i := range cfg.OpenAICompatibility {
@@ -134,6 +135,9 @@ func appendCompatKey(cfg *config.Config, name, base, key string, k coreauth.Acco
 		if key != "" {
 			entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key}}
 		}
+	}
+	if len(entry.RequestScopedErrors) == 0 && len(k.RequestScopedErrors) > 0 {
+		entry.RequestScopedErrors = slices.Clone(k.RequestScopedErrors)
 	}
 	if dialect := strings.TrimSpace(k.Dialect); dialect != "" {
 		entry.Dialect = config.NormalizeDialect(dialect)

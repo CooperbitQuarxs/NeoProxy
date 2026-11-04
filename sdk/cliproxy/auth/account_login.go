@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+
+	internalconfig "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 )
 
 var ErrAccountKeyConflict = errors.New("credential already configured")
@@ -14,12 +16,15 @@ var ErrAccountUnsupported = errors.New("operation is not supported for this cred
 // Native providers (claude, gemini, codex, xai, meta) use their fixed upstream.
 // Provider "openai-compatibility" appends an openai-compatibility entry named
 // CompatName at BaseURL; Models are the upstream model IDs the engine serves.
+// RequestScopedErrors seeds a new openai-compatibility entry's upstream error
+// classification (provider quirks known to the dashboard catalogue).
 type AccountKey struct {
-	Provider   string
-	APIKey     string
-	BaseURL    string
-	CompatName string
-	Models     []string
+	Provider            string
+	APIKey              string
+	BaseURL             string
+	CompatName          string
+	Models              []string
+	RequestScopedErrors []internalconfig.RequestScopedErrorRule
 	// Dialect, SessionHeader and ModelRoutes configure an openai-compatibility
 	// entry whose models speak different upstream APIs (see
 	// config.OpenAICompatibility). ModelRoutes is keyed by upstream model name.
