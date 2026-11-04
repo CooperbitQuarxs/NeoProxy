@@ -74,7 +74,7 @@ function topbar(page, s, onMenu) {
 		h("button", { class: "btn icon menu-btn", onClick: onMenu, "aria-label": "Menu", "aria-expanded": "false", "aria-controls": "section-nav" }, icon("menu")),
 		h("a", { class: "brand", href: "#/overview", "aria-label": "NeoProxy overview", title: "NeoProxy" }, mark(), h("span", { class: "brand-name" }, "NeoProxy"), h("span", { class: "crumb" }, "/"), h("span", { class: "crumb-page" }, page.title)),
 		h("span", { class: "spacer" }),
-		h("span", { class: "chip", id: "core-chip" }, h("span", { class: "dot" }), "Core", h("span", { class: "mono" }, "checking")),
+		h("span", { class: "chip", id: "core-chip" }, h("span", { class: "dot" }), "Engine", h("span", { class: "mono" }, "checking")),
 		h("span", { class: "chip", id: "proxy-chip" }, h("span", { class: "dot" }), "Proxy", h("span", { class: "mono" }, "checking")),
 		iconBtn({ auto: "monitor", light: "sun", dark: "moon" }[themeMode()], `Theme: ${themeMode()}`, cycleTheme),
 		h("span", { class: "chip who", title: `${s.handle} · ${s.role === "user" ? "member" : s.role}` }, `${s.handle} · ${s.role === "user" ? "member" : s.role}`),
@@ -90,7 +90,7 @@ async function refreshChips() {
 		if (core) {
 			core.querySelector(".dot").className = `dot ${c.linked ? "live" : "warn"}`;
 			core.querySelector(".mono").textContent = c.linked ? c.host : "not linked";
-			core.title = c.linked ? `Connected to ${c.endpoint} as ${c.identity}` : "NeoProxy engine is not connected";
+			core.title = c.linked ? `NeoProxy engine ${c.version ?? ""} on ${c.host}, serving at ${c.endpoint}` : "NeoProxy engine is not connected";
 		}
 	} catch (e) {
 		if (core) { core.querySelector(".dot").className = "dot bad"; core.querySelector(".mono").textContent = "unknown"; core.title = e.message; }

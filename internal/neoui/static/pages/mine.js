@@ -47,7 +47,6 @@ export async function render(ctx) {
 	for (const g of user.grants) {
 		const vm = vms.find((v) => v.id === g.virtualModel);
 		if (!vm) continue;
-		const usageFor = (s, a) => usage[user.id]?.[vm.id]?.[s.id]?.[a.id] ?? 0;
 		let sim;
 		try { sim = await neo.simulate({ asked: vm.served, userId: user.id }); }
 		catch (e) {
@@ -62,7 +61,7 @@ export async function render(ctx) {
 				sub: vm.description,
 				body: [
 					h("div", { class: "allot-sentence mine-allot" }, allotmentSentence({ who: "You", them: "you", allotment: g.allotment, vm }), drawn ? ` So far you have drawn ${+(drawn * 100).toFixed(1)}% of the busiest meter.` : ""),
-					chainRail(vm, { models, providers: vault.providers, accounts: vault.accounts, usageFor, lit: sim, allot: g.allotment, accountLabel: (a) => `account ${vault.accounts.filter((x) => x.providerId === a.providerId).indexOf(a) + 1}` }),
+					chainRail(vm, { models, providers: vault.providers, accounts: vault.accounts, lit: sim, allot: g.allotment, redacted: true }),
 					sim.outcome !== "ok" ? h("div", { class: "ink-2", style: { marginTop: "8px" } }, sim.message) : h("div", { class: "ink-3", style: { marginTop: "6px", fontSize: "12.5px" } }, sim.stageIndex !== undefined ? `Right now a request lands on stage ${sim.stageIndex + 1}, ${models.find((m) => m.id === sim.model)?.display}.` : `Right now a request falls through to ${models.find((m) => m.id === sim.model)?.display}.`),
 				],
 			}),

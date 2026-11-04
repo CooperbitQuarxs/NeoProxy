@@ -33,6 +33,7 @@ type accessFixture struct {
 	cfgPath  string
 	authDir  string
 	manager  *coreauth.Manager
+	identity *neo.Store
 	upstream *httptest.Server
 	seen     []string
 	// loginHook is the ownership hook the access API installs on the engine;
@@ -72,6 +73,7 @@ func newAccessFixture(t *testing.T) *accessFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = identity.Close() })
+	f.identity = identity
 	for _, row := range []struct{ id, role string }{{"admin", "admin"}, {"owner-a", "owner"}, {"owner-b", "owner"}, {"member-a", "member"}} {
 		if _, err = identity.DB().Exec(`INSERT INTO neo_users(id,handle,name,role,state,created_at) VALUES(?,?,?,?,?,0)`, row.id, row.id, strings.ToUpper(row.id), row.role, "active"); err != nil {
 			t.Fatal(err)

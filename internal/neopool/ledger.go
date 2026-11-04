@@ -51,6 +51,11 @@ func (s *Store) reserveTx(ctx context.Context, tx *sql.Tx, r Reservation, fresh 
 	if !r.BudgetFree && (r.Tokens == 0 || r.Window == "" || r.VirtualModelID == "" || r.StageID == "" || math.IsNaN(r.PerAccount) || math.IsNaN(r.Cap) || r.PerAccount <= 0 || r.PerAccount > 1 || r.Cap <= 0 || r.Cap > 1) {
 		return fmt.Errorf("invalid budget reservation")
 	}
+	for _, used := range r.ProviderUsed {
+		if math.IsNaN(used) || used < 0 {
+			return fmt.Errorf("invalid provider meter reading")
+		}
+	}
 	// Normalize pool order without modifying the caller's slice.
 	r.AccountIDs = slices.Clone(r.AccountIDs)
 	slices.Sort(r.AccountIDs)
@@ -107,66 +112,54 @@ func (s *Store) reserveTx(ctx context.Context, tx *sql.Tx, r Reservation, fresh 
 	}
 	now := s.now().UnixMilli()
 	var start, reset, capacity int64
-	// An account with no local meter of this kind is unmetered: the resolver
-	// already admitted it (provider-reported or no quota), so there is no local
-	// denominator to check or debit; the attempt is still recorded.
-	var anchor int64
-	metered := !r.BudgetFree
-	if metered {
-		err = tx.QueryRowContext(ctx, `SELECT capacity,anchor FROM neo_account_windows WHERE account_id=? AND kind=?`, r.AccountID, r.Window).Scan(&capacity, &anchor)
-		if err == sql.ErrNoRows {
-			metered = false
-		} else if err != nil {
-			return err
-		}
-	}
-	if metered {
-		start, reset, err = windowBounds(r.Window, anchor, now)
-		if err != nil {
-			return err
-		}
-		var global int64
-		if err = tx.QueryRowContext(ctx, `SELECT COALESCE(sum(CASE WHEN state='reserved' THEN reserved ELSE tokens END),0) FROM neo_pool_attempts WHERE account_id=? AND created_at>=? AND created_at<? AND state!='released'`, r.AccountID, start, reset).Scan(&global); err != nil {
-			return err
-		}
-		if global > capacity-r.Tokens {
-			return ErrBudget
-		}
-		var total, account float64
-		// Each account has its own epoch and denominator. Old epochs never contribute
-		// to a new one, and removed pool members do not debit the current stage cap.
+	if !r.BudgetFree {
+		// Each account reads the stage meter the resolver selected for it: the
+		// provider reading it carried, else its current local meter, else none
+		// (unmetered: never checked, never part of the cap average). Local values
+		// are read inside this transaction so concurrent reservations serialize.
+		var sum float64
+		var metered int
 		for _, id := range r.AccountIDs {
-			var capTokens, epochAnchor int64
-			err = tx.QueryRowContext(ctx, `SELECT capacity,anchor FROM neo_account_windows WHERE account_id=? AND kind=?`, id, r.Window).Scan(&capTokens, &epochAnchor)
-			if err == sql.ErrNoRows {
+			chosen := id == r.AccountID
+			if used, ok := r.ProviderUsed[id]; ok {
+				if chosen && used >= r.PerAccount {
+					return ErrBudget
+				}
+				sum += used
+				metered++
 				continue
 			}
-			if err != nil {
-				return err
+			m, ok, errMeter := localMeterTx(ctx, tx, r, id, now)
+			if errMeter != nil {
+				return errMeter
 			}
-			epoch, _, errBounds := windowBounds(r.Window, epochAnchor, now)
-			if errBounds != nil {
+			if !ok {
 				continue
 			}
-			query := `SELECT COALESCE(sum(CASE WHEN state='reserved' THEN reserved ELSE tokens END),0) FROM neo_pool_attempts WHERE virtual_model_id=? AND stage_id=? AND account_id=? AND window_kind=? AND starts_at=? AND state!='released'`
-			args := []any{r.VirtualModelID, r.StageID, id, r.Window, epoch}
-			if !r.Shared {
-				query += ` AND user_id=?`
-				args = append(args, r.UserID)
+			used := float64(m.used) / float64(m.capacity)
+			if chosen {
+				used += float64(r.Tokens) / float64(m.capacity)
+				if m.global > m.capacity-r.Tokens || used > r.PerAccount {
+					return ErrBudget
+				}
+				start, reset, capacity = m.start, m.reset, m.capacity
 			}
-			var tokens int64
-			if err = tx.QueryRowContext(ctx, query, args...).Scan(&tokens); err != nil {
-				return err
-			}
-			fraction := float64(tokens) / float64(capTokens)
-			total += fraction
-			if id == r.AccountID {
-				account = fraction
-			}
+			sum += used
+			metered++
 		}
-		debit := float64(r.Tokens) / float64(capacity)
-		if account+debit > r.PerAccount || total+debit > r.Cap {
+		if metered > 0 && sum/float64(metered) > r.Cap {
 			return ErrBudget
+		}
+		if _, ok := r.ProviderUsed[r.AccountID]; ok {
+			// A provider reading is the meter, so the local one gates nothing; the
+			// attempt still keeps its bounds so the tokens stay accounted there.
+			m, ok, errMeter := localMeterTx(ctx, tx, r, r.AccountID, now)
+			if errMeter != nil {
+				return errMeter
+			}
+			if ok {
+				start, reset, capacity = m.start, m.reset, m.capacity
+			}
 		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO neo_pool_attempts(id,request_spec,request_id,user_id,virtual_model_id,stage_id,account_id,owner_id,window_kind,starts_at,resets_at,capacity,reserved,state,per_account,cap,shared,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, r.ID, string(encoded), r.RequestID, r.UserID, r.VirtualModelID, r.StageID, r.AccountID, ownerID, r.Window, start, reset, capacity, r.Tokens, "reserved", r.PerAccount, r.Cap, r.Shared, now)
@@ -174,6 +167,36 @@ func (s *Store) reserveTx(ctx context.Context, tx *sql.Tx, r Reservation, fresh 
 		*fresh = true
 	}
 	return err
+}
+
+// localMeter is an account's current configured token window for a stage.
+// global counts every attempt on the account (all users, stages and direct
+// calls, reservations included); used is what the stage meters: global when
+// shared (Per "all"), else this user's rows of the stage.
+type localMeter struct{ capacity, start, reset, global, used int64 }
+
+func localMeterTx(ctx context.Context, tx *sql.Tx, r Reservation, id string, now int64) (localMeter, bool, error) {
+	var m localMeter
+	var anchor int64
+	err := tx.QueryRowContext(ctx, `SELECT capacity,anchor FROM neo_account_windows WHERE account_id=? AND kind=?`, id, r.Window).Scan(&m.capacity, &anchor)
+	if err == sql.ErrNoRows {
+		return m, false, nil
+	}
+	if err != nil {
+		return m, false, err
+	}
+	if m.start, m.reset, err = windowBounds(r.Window, anchor, now); err != nil {
+		return m, false, nil
+	}
+	if err = tx.QueryRowContext(ctx, `SELECT COALESCE(sum(CASE WHEN state='reserved' THEN reserved ELSE tokens END),0) FROM neo_pool_attempts WHERE account_id=? AND created_at>=? AND created_at<? AND state!='released'`, id, m.start, m.reset).Scan(&m.global); err != nil {
+		return m, false, err
+	}
+	if r.Shared {
+		m.used = m.global
+		return m, true, nil
+	}
+	err = tx.QueryRowContext(ctx, `SELECT COALESCE(sum(CASE WHEN state='reserved' THEN reserved ELSE tokens END),0) FROM neo_pool_attempts WHERE virtual_model_id=? AND stage_id=? AND account_id=? AND window_kind=? AND starts_at=? AND user_id=? AND state!='released'`, r.VirtualModelID, r.StageID, id, r.Window, m.start, r.UserID).Scan(&m.used)
+	return m, err == nil, err
 }
 
 func (s *Store) Settle(ctx context.Context, v Settlement) error {
