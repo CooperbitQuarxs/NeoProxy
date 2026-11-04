@@ -55,10 +55,10 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		payloadInput, payloadError);
 	const endpointSeg = h("div");
 	const endpointPath = h("code", { class: "ink-3" });
-	function renderEndpoint() {
-		endpointSeg.replaceChildren(seg(ENDPOINTS.map((e) => ({ value: e.value, label: e.label })), state.endpoint, (v) => { state.endpoint = v; renderEndpoint(); if (!state.payloadMode) syncPayload(true); }));
-		endpointPath.textContent = ENDPOINTS.find((e) => e.value === state.endpoint).path;
-	}
+	// seg() marks its own pressed button; rebuilding it would drop the focused
+	// button and send focus to the page behind the dialog.
+	const showEndpointPath = () => { endpointPath.textContent = ENDPOINTS.find((e) => e.value === state.endpoint).path; };
+	endpointSeg.append(seg(ENDPOINTS.map((e) => ({ value: e.value, label: e.label })), state.endpoint, (v) => { state.endpoint = v; showEndpointPath(); if (!state.payloadMode) syncPayload(true); }));
 	function syncPayload(force = false) {
 		if (state.payloadMode && !force) return;
 		state.payloadText = JSON.stringify(defaultBody(state.endpoint, state.model || (models[0] ?? ""), state.prompt), null, 2);
@@ -71,7 +71,7 @@ export function openTestDialog(a, { provider, onChange } = {}) {
 		try { JSON.parse(state.payloadText); payloadError.style.display = "none"; }
 		catch (e) { payloadError.textContent = `Not valid JSON: ${e.message}`; payloadError.style.display = ""; }
 	}
-	renderEndpoint();
+	showEndpointPath();
 	if (!state.payloadMode) syncPayload(true);
 	else payloadInput.value = state.payloadText;
 

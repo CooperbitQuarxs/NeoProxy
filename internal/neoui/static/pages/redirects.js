@@ -17,6 +17,17 @@ const isVirtual = (served) => !served.slice(PREFIX.length).includes("/");
 const isPrefix = (from) => from.endsWith("*");
 const matches = (from, asked) => (isPrefix(from) ? asked.startsWith(from.slice(0, -1)) : asked === from);
 
+// A served name as people read it: the model's display name (or what a pattern or virtual
+// model means) on top, the exact id underneath.
+function modelLabel(served, { models, vms }) {
+	const id = served.slice(PREFIX.length);
+	let name;
+	if (isPrefix(served)) name = `Every model starting with ${id.slice(0, -1)}`;
+	else if (isVirtual(served)) name = vms.find((v) => v.name === id)?.description || "Virtual model";
+	else name = models.find((m) => m.id === id)?.display ?? "Not served today";
+	return h("span", { class: "rd-label" }, h("span", { class: "rd-model-name" }, name), servedName(served, { virtual: isVirtual(served) }));
+}
+
 export async function render(ctx) {
 	const { root } = ctx;
 	const add = btn("Add redirect", { icon: "plus", cls: "primary" });
@@ -57,8 +68,8 @@ export async function render(ctx) {
 			flush: true,
 			cls: "rd-card",
 			body: table([
-				{ key: "from", label: "Requests for", render: (r) => h("span", { class: "rd-model", title: isPrefix(r.from) ? `Every model whose name starts with ${r.from.slice(0, -1)}` : r.from }, servedName(r.from, { virtual: isVirtual(r.from) })) },
-				{ key: "to", label: "Go to", render: (r) => h("span", { class: "rd-to" }, icon("arrowRight", 14), servedName(r.to, { virtual: isVirtual(r.to) })) },
+				{ key: "from", label: "Requests for", wrap: true, render: (r) => h("span", { class: "rd-model" }, modelLabel(r.from, world)) },
+				{ key: "to", label: "Go to", wrap: true, render: (r) => h("span", { class: "rd-to" }, icon("arrowRight", 14), modelLabel(r.to, world)) },
 				{ key: "who", label: "Who", wrap: true, render: (r) => whoChips(r.scope, users) },
 				{ key: "note", label: "Note", wrap: true, render: (r) => h("span", { class: "rd-note" }, r.note ? r.note : h("span", { class: "ink-3" }, "No note"), r.bypassAccess ? badge("Bypasses access", "warn") : null) },
 				{ key: "enabled", label: "On", width: "64px", render: (r) => keep(toggle(r.enabled, async (on) => {
@@ -74,7 +85,7 @@ export async function render(ctx) {
 					iconBtn("settings", "Edit redirect", () => editRedirect(r, world), "sm"),
 					iconBtn("trash", "Delete redirect", () => removeRedirect(r), "sm"),
 				)) },
-			], redirects, { onRow: (r) => editRedirect(r, world) }),
+			], redirects, { onRow: (r) => editRedirect(r, world), stack: true }),
 			foot: h("span", { class: "rd-precedence" }, `${plural(redirects.length, "redirect")}. When several match one request, a key's redirect wins over a person's, which wins over everyone's; then an exact model over a prefix ending in *; then the older one. A redirect never leads to another redirect.`),
 		}));
 	};
@@ -235,6 +246,8 @@ function editRedirect(saved, world) {
 		bypassWarn.hidden = !draft.bypassAccess;
 		bypassWarn.textContent = `Everyone this redirect covers can use ${canonical(draft.to) || "the target"} through it, even with no grant or provider access of their own. Their key's account limits still apply.`;
 		save.disabled = Object.keys(p).length > 0;
+		// An empty "some people" list is the next step, not a mistake: say it as guidance (Save stays disabled until it is done).
+		whoError.className = "hint";
 		whoError.textContent = p.who ?? "";
 		whoError.hidden = !p.who;
 		tryNote.hidden = savedJSON !== null && JSON.stringify(payload()) === savedJSON;
@@ -345,11 +358,12 @@ function editRedirect(saved, world) {
 		),
 		bypassWarn,
 		say,
-		h("div", { class: "rd-try" },
+		// Try it asks the router, which only knows saved redirects: it belongs to an existing rule, not to a new one.
+		saved ? h("div", { class: "rd-try" },
 			h("div", { class: "rd-try-bar" }, h("span", { class: "rd-try-label" }, "Try it as"), personBtn, keySelect, askBox, run),
 			tryNote,
 			tryOut,
-		),
+		) : null,
 	);
 	const dlg = dialog({
 		title: saved ? "Edit redirect" : "Add redirect",

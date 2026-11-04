@@ -297,9 +297,10 @@ function streamCard(world, ctx) {
 		const d = r.decision;
 		const model = d.model ? world.models.find((m) => m.id === d.model) : null;
 		const acc = d.accountId ? world.accounts.find((a) => a.id === d.accountId) : null;
+		const open = () => ctx.navigate(`activity/${r.id}`);
 		return h(
 			"div",
-			{ class: `srow ${isNew ? "new" : ""}`, onClick: () => ctx.navigate(`activity/${r.id}`), tabindex: 0, role: "link" },
+			{ class: `srow ${isNew ? "new" : ""}`, onClick: open, onKeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) { e.preventDefault(); open(); } }, tabindex: 0, role: "link" },
 			h("span", { class: "t" }, fmtTime(r.at)),
 			h("span", { class: "who row" }, avatar(u ?? { handle: "?" }, "sm"), u?.handle ?? r.userId),
 			h("span", { class: "route" }, servedName(r.asked, { virtual: !r.asked.split("/").slice(1).includes("/") && r.asked.split("/").length === 2 })),
