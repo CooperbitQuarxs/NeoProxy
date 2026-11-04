@@ -7,6 +7,20 @@ import (
 
 var ErrAccountKeyConflict = errors.New("credential already configured")
 var ErrAccountKeyInvalid = errors.New("unsupported provider or invalid API key")
+var ErrAccountNotFound = errors.New("account credential not found")
+var ErrAccountUnsupported = errors.New("operation is not supported for this credential")
+
+// AccountKey describes one pay-as-you-go credential for CreateAccountAPIKey.
+// Native providers (claude, gemini, codex, xai, meta) use their fixed upstream.
+// Provider "openai-compatibility" appends an openai-compatibility entry named
+// CompatName at BaseURL; Models are the upstream model IDs the engine serves.
+type AccountKey struct {
+	Provider   string
+	APIKey     string
+	BaseURL    string
+	CompatName string
+	Models     []string
+}
 
 type accountLoginOwnerKey struct{}
 

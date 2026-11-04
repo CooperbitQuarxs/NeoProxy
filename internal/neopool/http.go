@@ -21,7 +21,10 @@ type EngineLogin interface {
 	GetAuthStatus(*gin.Context)
 	PostOAuthCallbackV8(*gin.Context)
 	SetAccountOwnershipHook(coreauth.PostAuthHook)
-	CreateAccountAPIKey(context.Context, string, string) (*coreauth.Auth, error)
+	CreateAccountAPIKey(context.Context, coreauth.AccountKey) (*coreauth.Auth, error)
+	SetAccountDisabled(context.Context, string, bool) error
+	DeleteAccountCredential(context.Context, string) error
+	SaveAccountAuthFile(context.Context, string, []byte, bool) (*coreauth.Auth, error)
 }
 type HTTP struct {
 	pool            *Store
@@ -68,6 +71,9 @@ func (h *HTTP) Register(group *gin.RouterGroup) {
 	group.PUT("/vault/sources/:id", h.sourceSave)
 	group.POST("/vault/sources/:id/sync", h.sourceSync)
 	group.DELETE("/vault/sources/:id", h.sourceDelete)
+	h.registerAccess(group)
+	h.registerNeoPiImport(group)
+	h.registerNeoPiLocal(group)
 }
 
 func session(c *gin.Context) (neo.Principal, bool) {
@@ -294,11 +300,11 @@ func (h *HTTP) apiKey(c *gin.Context) {
 		ProviderID string `json:"providerId"`
 		APIKey     string `json:"apiKey"`
 	}
-	if c.ShouldBindJSON(&body) != nil {
+	if c.ShouldBindJSON(&body) != nil || body.ProviderID == "openai-compatibility" {
 		poolError(c, 400, "providerId and apiKey are required")
 		return
 	}
-	record, err := h.management.CreateAccountAPIKey(c.Request.Context(), body.ProviderID, body.APIKey)
+	record, err := h.management.CreateAccountAPIKey(c.Request.Context(), coreauth.AccountKey{Provider: body.ProviderID, APIKey: body.APIKey})
 	if errors.Is(err, coreauth.ErrAccountKeyInvalid) {
 		poolError(c, 400, "unsupported provider or invalid API key")
 		return

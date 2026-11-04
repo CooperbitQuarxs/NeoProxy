@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/oauthpage"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -187,7 +187,7 @@ func (s *OAuthServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 			Error: errorParam,
 		}
 		s.sendResult(result)
-		http.Error(w, fmt.Sprintf("OAuth error: %s", errorParam), http.StatusBadRequest)
+		oauthpage.Write(w, http.StatusBadRequest, oauthpage.Page{Provider: "claude", Detail: errorParam})
 		return
 	}
 
@@ -197,7 +197,7 @@ func (s *OAuthServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 			Error: "no_code",
 		}
 		s.sendResult(result)
-		http.Error(w, "No authorization code received", http.StatusBadRequest)
+		oauthpage.Write(w, http.StatusBadRequest, oauthpage.Page{Provider: "claude", Detail: "No authorization code was returned."})
 		return
 	}
 
@@ -207,7 +207,7 @@ func (s *OAuthServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 			Error: "no_state",
 		}
 		s.sendResult(result)
-		http.Error(w, "No state parameter received", http.StatusBadRequest)
+		oauthpage.Write(w, http.StatusBadRequest, oauthpage.Page{Provider: "claude", Detail: "No state parameter was returned."})
 		return
 	}
 
@@ -222,60 +222,20 @@ func (s *OAuthServer) handleCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/success", http.StatusFound)
 }
 
-// handleSuccess handles the success page endpoint.
-// It serves a user-friendly HTML page indicating that authentication was successful.
-//
-// Parameters:
-//   - w: The HTTP response writer
-//   - r: The HTTP request
+// handleSuccess serves the shared sign-in result page, with an optional notice
+// linking to the console when additional account setup is required.
 func (s *OAuthServer) handleSuccess(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Serving success page")
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-
-	// Parse query parameters for customization
 	query := r.URL.Query()
-	setupRequired := query.Get("setup_required") == "true"
-	platformURL := query.Get("platform_url")
-	if platformURL == "" {
-		platformURL = "https://console.anthropic.com/"
+	page := oauthpage.Page{Provider: "claude", Success: true}
+	if query.Get("setup_required") == "true" {
+		platformURL := query.Get("platform_url")
+		if platformURL == "" {
+			platformURL = "https://console.anthropic.com/"
+		}
+		page.Notice, page.NoticeURL = "Additional setup is required: finish configuring the account in the Anthropic console.", platformURL
 	}
-
-	// Generate success page HTML with dynamic content
-	successHTML := s.generateSuccessHTML(setupRequired, platformURL)
-
-	_, err := w.Write([]byte(successHTML))
-	if err != nil {
-		log.Errorf("Failed to write success page: %v", err)
-	}
-}
-
-// generateSuccessHTML creates the HTML content for the success page.
-// It customizes the page based on whether additional setup is required
-// and includes a link to the platform.
-//
-// Parameters:
-//   - setupRequired: Whether additional setup is required after authentication
-//   - platformURL: The URL to the platform for additional setup
-//
-// Returns:
-//   - string: The HTML content for the success page
-func (s *OAuthServer) generateSuccessHTML(setupRequired bool, platformURL string) string {
-	html := LoginSuccessHtml
-
-	// Replace platform URL placeholder
-	html = strings.Replace(html, "{{PLATFORM_URL}}", platformURL, -1)
-
-	// Add setup notice if required
-	if setupRequired {
-		setupNotice := strings.Replace(SetupNoticeHtml, "{{PLATFORM_URL}}", platformURL, -1)
-		html = strings.Replace(html, "{{SETUP_NOTICE}}", setupNotice, 1)
-	} else {
-		html = strings.Replace(html, "{{SETUP_NOTICE}}", "", 1)
-	}
-
-	return html
+	oauthpage.Write(w, http.StatusOK, page)
 }
 
 // sendResult sends the OAuth result to the waiting channel.

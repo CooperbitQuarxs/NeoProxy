@@ -141,6 +141,15 @@ not mean credential exchange and persistence have completed.
 Import uses `POST /v8/management/oauth/import?provider=vertex`. The `provider`
 query parameter is required; Vertex is currently the supported import provider.
 
+Provider redirects land on `/codex/callback`, `/anthropic/callback`,
+`/antigravity/callback`, `/callback` and `/devin/callback`; each answers with
+one shared result page (inline CSS, no external assets) that says whether the
+sign-in finished and links back to the pool at `/neo/#/`. Status codes and state
+handling are unchanged.
+
+The dashboard's unified provider-access API (`/v8/neo/access`, session
+authenticated) is documented in [neo-access-api.md](neo-access-api.md).
+
 ### Sign in with ChatGPT (SIWC) binding
 
 SIWC is a second credential partition of an existing Codex credential, not a new

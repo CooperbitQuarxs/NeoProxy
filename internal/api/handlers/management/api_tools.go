@@ -274,6 +274,11 @@ func (h *Handler) resolveTokenForAuth(ctx context.Context, auth *coreauth.Auth, 
 	if auth == nil {
 		return "", nil
 	}
+	// Imported NeoPi credentials are never refreshed here; their stored access
+	// token is the only one NeoProxy may use.
+	if coreauth.IsRefreshLocked(auth) {
+		return tokenValueForAuth(auth), nil
+	}
 
 	if strings.EqualFold(strings.TrimSpace(auth.Provider), "antigravity") {
 		token, errToken := h.refreshAntigravityOAuthAccessToken(ctx, auth, requestProxyURL)

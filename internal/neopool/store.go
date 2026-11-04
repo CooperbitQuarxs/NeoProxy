@@ -54,6 +54,9 @@ func New(db *sql.DB, manager *coreauth.Manager) (*Store, error) {
  status TEXT NOT NULL DEFAULT 'pending', checked_at INTEGER NOT NULL DEFAULT 0,
  account_count INTEGER NOT NULL DEFAULT 0, model_count INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0);
  `)
+	if err == nil {
+		_, err = tx.Exec(accessSchema)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("migrate account pools: %w", err)
 	}
