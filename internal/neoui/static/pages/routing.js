@@ -31,7 +31,7 @@ const SETTINGS = [
 	] },
 	{ title: "Conversations and names", rows: [
 		{ path: ["session-affinity"], kind: "bool", label: "Keep a conversation on one account", hint: "Provider-side prompt caching keeps working. If that account fails, the conversation moves." },
-		{ path: ["force-model-prefix"], kind: "bool", label: "Require a prefix for prefixed accounts", hint: "Accounts with a prefix answer only requests that name it, such as team/kimi-k2." },
+		{ path: ["force-model-prefix"], kind: "bool", label: "Require a prefix for prefixed accounts", hint: "Accounts with a prefix answer only requests that name it, such as team/kimi-for-coding." },
 	] },
 ];
 
