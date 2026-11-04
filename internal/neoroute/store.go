@@ -209,6 +209,11 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 		if !finiteFraction(st.PerAccount) || !finiteFraction(st.Cap) {
 			return fmt.Errorf("stage budgets must be finite fractions")
 		}
+		for _, limit := range st.AccountLimits {
+			if !finiteFraction(limit) || limit <= 0 {
+				return fmt.Errorf("stage %q account limits must be finite fractions in (0,1]", st.ID)
+			}
+		}
 		if st.Lua != nil {
 			if strings.TrimSpace(v.Script) == "" {
 				return fmt.Errorf("stage %q Lua functions require Lua source", st.ID)
