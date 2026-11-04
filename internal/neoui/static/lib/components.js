@@ -232,7 +232,7 @@ export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, 
 					h(
 						"th",
 						{
-							class: `${c.num ? "num" : ""} ${c.sortBy ? "sortable" : ""}`,
+							class: `${c.num ? "num" : ""} ${c.sortBy ? "sortable" : ""} ${c.cls ?? ""}`,
 							style: c.width ? { width: c.width } : null,
 							scope: "col",
 							"aria-sort": c.sortBy ? (sortKey === c.key ? (sortDir === "asc" ? "ascending" : "descending") : "none") : null,
@@ -286,7 +286,7 @@ export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, 
 							onRow(r);
 						} : null,
 					},
-					columns.map((c) => h("td", { class: `${c.num ? "num" : ""} ${c.wrap ? "wrap" : ""} ${c.clip ? "clip" : ""}`, "data-label": stack && typeof c.label === "string" && c.label ? c.label : null }, c.render(r))),
+					columns.map((c) => h("td", { class: `${c.num ? "num" : ""} ${c.wrap ? "wrap" : ""} ${c.clip ? "clip" : ""} ${c.cls ?? ""}`, "data-label": stack && typeof c.label === "string" && c.label ? c.label : null }, c.render(r))),
 				),
 			);
 		}
@@ -843,9 +843,10 @@ export function stageSkip(t, { accounts = [], who = "this user" } = {}) {
 				: { short: "Its rules did not match this request", clause: "had rules that did not match this request" };
 		}
 		case "unhealthy":
-			return { short: "No healthy account could serve it", clause: "had no healthy account" };
+			// Set when no account was left and at least one was unavailable; any others were past their share.
+			return { short: "No account was available: signed out, cooling down, turned off, out of its own tokens, or not offering this model", clause: "had no account available (signed out, cooling down, turned off, out of its own tokens, or not offering this model)" };
 		case "script":
-			return { short: "The routing script chose another stage", clause: "was passed over by the routing script" };
+			return { short: "The routing script chose another model", clause: "was passed over by the routing script" };
 		case "lua-cap":
 			return { short: `Over its Lua threshold for ${who}, pool at ${pctLabel(t.total)} of ${pctLabel(t.cap)}`, clause: `was over its Lua threshold for ${who} (at ${pctLabel(t.total)} of ${pctLabel(t.cap)})` };
 		case "lua-policy":
@@ -873,8 +874,8 @@ function candidateList(t, accName) {
 			h("span", { class: "acct", title: accName(c.accountId) }, accName(c.accountId)),
 			c.metered
 				? h("span", { class: "cand-bar", role: "img", "aria-label": `${pctLabel(c.used)} used of ${pctLabel(c.budget)} allowed`, title: `${pctLabel(c.used)} used of ${pctLabel(c.budget)} allowed` }, h("i", { style: { width: `${used * 100}%` } }), h("b", { style: { left: `${budget * 100}%` } }))
-				: h("span", { class: "cand-nometer" }, "no meter"),
-			h("span", { class: "num" }, c.metered ? `${pctLabel(c.used)}/${pctLabel(c.budget)}` : "always on"),
+				: h("span", { class: "cand-nometer" }, "no usage meter"),
+			h("span", { class: "num" }, c.metered ? `${pctLabel(c.used)}/${pctLabel(c.budget)}` : "no limit"),
 		);
 	};
 	const head = list.slice(0, 3).map(row);
@@ -897,7 +898,7 @@ export function trail(decision, { models = [], accounts = [], users, admin = fal
 			let why;
 			if (t.skipped) why = stageSkip(t, { accounts, who })?.short;
 			else if (t.chosen && t.metered > 0) why = `${accName(t.chosen)} · pool at ${pctLabel(t.total)} of the ${pctLabel(t.cap)} threshold${ok ? "" : ` · request ${decision.outcome}`}`;
-			else if (t.chosen) why = `${accName(t.chosen)} · no meter, so it is always available${ok ? "" : ` · request ${decision.outcome}`}`;
+			else if (t.chosen) why = `${accName(t.chosen)} · no usage meter, so no limit applies${ok ? "" : ` · request ${decision.outcome}`}`;
 			else why = "No account selected";
 			const policy = admin && t.policy ? h("details", { open: t.skipped?.startsWith("lua") },
 				h("summary", null, "Lua policy results"),
@@ -913,10 +914,10 @@ export function trail(decision, { models = [], accounts = [], users, admin = fal
 		} else if (t.kind === "terminal") {
 			const kind = t.terminal?.kind;
 			if (kind === "passthrough") {
-				steps.push(step(ok ? "served" : "end error", "end", ok ? "answered" : "failed", "Fell through", ok ? `${modelName(decision.model)} on ${accName(decision.accountId)}, chosen without a budget` : `${decision.model ? `${modelName(decision.model)} on ${accName(decision.accountId)}: ` : ""}the provider returned an error`));
+				steps.push(step(ok ? "served" : "end error", "end", ok ? "answered" : "failed", "Final rule", ok ? `${modelName(decision.model)} on ${accName(decision.accountId)}, tried without the chain's limits` : decision.model ? `${modelName(decision.model)} on ${accName(decision.accountId)}, tried without the chain's limits: the provider refused it` : `${t.terminal?.model ? modelName(t.terminal.model) : "Its model"}, without the chain's limits: no account was available`));
 			} else {
 				const queued = kind === "queue";
-				steps.push(step(`end ${queued ? "queued" : "limited"}`, "end", null, queued ? "Queued" : "Limit error", t.terminal?.message || (queued ? "Waits for a stage that can serve." : "No stage could serve, so the client got a limit error.")));
+				steps.push(step(`end ${queued ? "queued" : "limited"}`, "end", null, queued ? "Queued" : "Limit error", t.terminal?.message || (queued ? "Waits for a model that can serve." : "No model could serve, so the client got a limit error.")));
 			}
 		} else if (t.kind === "direct") {
 			steps.push(step(ok ? "served" : "end error", "→", ok ? "answered" : "failed", modelName(t.model), `Direct provider model · ${accName(t.accountId)}`));

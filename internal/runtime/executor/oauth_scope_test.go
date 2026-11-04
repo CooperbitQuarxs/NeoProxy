@@ -99,13 +99,13 @@ upstream:
 }
 
 func TestV8ScopedExecutorsPreserveWebsocketStores(t *testing.T) {
-	cfg, err := config.ParseConfigBytes([]byte("upstream: {codex: {response-steering: true}, xai: {inject-x-search: true}}\noauth: {providers: {codex: {header-defaults: {user-agent: oauth-agent}}}}"))
+	cfg, err := config.ParseConfigBytes([]byte("upstream: {codex: {response-steering: true}, xai: {inject-x-search: true}}\noauth: {providers: {codex: {live-media-relay: {max-sessions: 12}}}}"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	codex := NewCodexAutoExecutor(cfg)
 	boundCodex := codex.ForAPIKey().(*CodexAutoExecutor)
-	if boundCodex.wsExec.store != codex.wsExec.store || !boundCodex.httpExec.cfg.Codex.ResponseSteering || !boundCodex.wsExec.cfg.Codex.ResponseSteering || boundCodex.httpExec.cfg.CodexHeaderDefaults.UserAgent != "" {
+	if boundCodex.wsExec.store != codex.wsExec.store || !boundCodex.httpExec.cfg.Codex.ResponseSteering || !boundCodex.wsExec.cfg.Codex.ResponseSteering || boundCodex.httpExec.cfg.Codex.LiveMediaRelay.MaxSessions != 0 {
 		t.Fatal("scoped Codex executor lost sessions or inherited OAuth settings")
 	}
 	if codex.httpExec.cfg != cfg || codex.wsExec.cfg != cfg || !cfg.Codex.ResponseSteering {

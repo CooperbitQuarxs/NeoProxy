@@ -82,8 +82,14 @@ func Catalogue(model neopool.Model, info *registry.ModelInfo, siblings []neopool
 			Realize: "Sets text.verbosity (verbosity on Chat Completions).",
 		})
 	}
-	// Discovery says whether the provider passes sampling knobs on; NeoPi's Codex strips them for these models.
-	sampling := !discovered(info) || info.Codex.Compat == nil || info.Codex.Compat.SupportsSamplingParams
+	// The NeoPi port records whether the provider passes sampling knobs on (Codex strips them for these models; Grok sends them).
+	sampling := true
+	switch {
+	case discovered(info) && info.Codex.Compat != nil:
+		sampling = info.Codex.Compat.SupportsSamplingParams
+	case info != nil && info.NeoPi != nil && info.NeoPi.Compat != nil:
+		sampling = info.NeoPi.Compat.SupportsSamplingParams
+	}
 	if sampling && has(supported, "temperature") {
 		max := 2.0
 		if info != nil && info.Type == "claude" {

@@ -92,7 +92,7 @@ export function accountHealth(account) {
 	const face = account.face;
 	if (account.state === "expired" || face?.health === "expired") return { kind: "bad", text: "Sign-in expired", hint: face?.healthMessage || "Sign in again or refresh the credential." };
 	if (account.state === "cooldown") return { kind: "warn", text: "Cooling down", hint: "The provider asked us to back off. Routing resumes automatically." };
-	if (face?.health === "disabled") return { kind: "muted", text: "Disabled", hint: "Turned off by an admin. No stage draws from it." };
+	if (face?.health === "disabled") return { kind: "muted", text: "Disabled", hint: "Turned off by an admin. No virtual model draws from it." };
 	if (face?.health && face.health !== "healthy") {
 		const words = { cooling: "Cooling down", "rate-limited": "Rate limited", unauthorized: "Sign-in rejected", exhausted: "Quota used up", unknown: "Unknown" }[face.health] ?? titleCase(face.health);
 		return { kind: "warn", text: words, hint: humanMessage(face.healthMessage) };

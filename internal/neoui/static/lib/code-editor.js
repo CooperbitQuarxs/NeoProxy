@@ -306,7 +306,7 @@ export function findKeyLine(text, path, language = "yaml") {
 // `maskKeys` (a RegExp over key names) paints the values of matching keys, and
 // the plain items of lists directly under them, as dots. Only the painting
 // changes: the text, selection and copy stay real. `showSecrets(true)` lifts it.
-export function codeEditor({ value = "", language = "yaml", label = "Source", describedBy, onInput, onSave, onFind, maskKeys = null } = {}) {
+export function codeEditor({ value = "", language = "yaml", label = "Source", describedBy, onInput, onSave, onFind, onFindNext, onGoto, maskKeys = null } = {}) {
 	const gutterText = h("div", { class: "ce-gutter-text" });
 	const gutterMarks = h("div", { class: "ce-marks" });
 	const gutter = h("div", { class: "ce-gutter", "aria-hidden": "true" }, gutterMarks, gutterText);
@@ -334,6 +334,7 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 	let maxLen = 0;
 	let errorLine = null;
 	let hit = null; // { line, col, len }
+	let target = null; // 0-based line a jump landed on, lit until the next edit
 	let frame = 0;
 	let charW = 0;
 
@@ -414,6 +415,10 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 			m.push(h("div", { class: "ce-mark ce-mark-error", style: { top: `${PAD_Y + (errorLine - 1) * LINE}px` } }));
 			gm.push(h("div", { class: "ce-mark ce-mark-error", style: { top: `${PAD_Y + (errorLine - 1) * LINE}px` } }));
 		}
+		if (target !== null && (!hit || hit.line !== target) && target !== (errorLine ?? 0) - 1) {
+			m.push(h("div", { class: "ce-mark ce-mark-target", style: { top: `${PAD_Y + target * LINE}px` } }));
+			gm.push(h("div", { class: "ce-mark ce-mark-target", style: { top: `${PAD_Y + target * LINE}px` } }));
+		}
 		if (hit) {
 			m.push(h("div", { class: "ce-mark ce-mark-line", style: { top: `${PAD_Y + hit.line * LINE}px` } }));
 			m.push(h("div", { class: "ce-hit", style: { top: `${PAD_Y + hit.line * LINE}px`, left: `${PAD_X + hit.col * charW}px`, width: `${hit.len * charW}px` } }));
@@ -431,6 +436,7 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 	const changed = () => {
 		analyse();
 		hit = null;
+		target = null;
 		paint();
 		onInput?.(area.value);
 	};
@@ -445,10 +451,14 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 		const mod = e.ctrlKey || e.metaKey;
 		if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); onSave?.(); return; }
 		if (mod && e.key.toLowerCase() === "f" && onFind) { e.preventDefault(); onFind(); return; }
+		if (mod && e.key.toLowerCase() === "g" && onGoto) { e.preventDefault(); onGoto(); return; }
+		if (e.key === "F3" && onFindNext) { e.preventDefault(); onFindNext(e.shiftKey); return; }
 		if (e.key === "Tab" && !mod && !e.altKey) {
-			e.preventDefault();
 			const { selectionStart: a, selectionEnd: b, value: v } = area;
-			if (!v.slice(a, b).includes("\n") && !e.shiftKey) return insert("  ");
+			// Shift+Tab without a multi-line selection leaves the editor, as everywhere else.
+			if (e.shiftKey && !v.slice(a, b).includes("\n")) return;
+			e.preventDefault();
+			if (!v.slice(a, b).includes("\n")) return insert("  ");
 			const from = v.lastIndexOf("\n", a - 1) + 1;
 			let to = v.indexOf("\n", b);
 			if (to === -1) to = v.length;
@@ -492,12 +502,23 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 			errorLine = null;
 			changed();
 		},
-		// Put the caret on a line (1-based), select it and bring it into view.
-		goToLine(line, { focus = true } = {}) {
+		// Put the caret on a line (1-based), mark it and bring it into view. By
+		// default the whole line is selected; `select: "value"` selects only what
+		// follows `key:` (or `key =`), so typing replaces the value.
+		goToLine(line, { focus = true, select = "line" } = {}) {
 			const n = Math.min(Math.max(1, line), lines.length);
 			const at = offsetOf(n);
+			const text = lines[n - 1] ?? "";
+			let from = /^\s*/.exec(text)[0].length;
+			let to = text.length;
+			if (select === "value") {
+				const m = /^(\s*(?:-\s+)?(?:"[^"]*"|'[^']*'|[^:#=\s][^:#=]*?)\s*[:=]\s*)(.*?)\s*(?:\s#.*)?$/.exec(text);
+				if (m && m[2] && !/^[|>]/.test(m[2])) { from = m[1].length; to = from + m[2].length; }
+			}
 			if (focus) area.focus({ preventScroll: true });
-			area.setSelectionRange(at, at + (lines[n - 1]?.length ?? 0));
+			area.setSelectionRange(at + from, at + to);
+			target = n - 1;
+			hit = null;
 			reveal(n);
 		},
 		markError(line) {
@@ -508,6 +529,7 @@ export function codeEditor({ value = "", language = "yaml", label = "Source", de
 		// selects it. Returns { index, count } of the match, or null.
 		find(query, { backwards = false, restart = false } = {}) {
 			hit = null;
+			target = null;
 			if (!query) { paint(); return null; }
 			const hay = area.value.toLowerCase();
 			const q = query.toLowerCase();
