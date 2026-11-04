@@ -34,7 +34,7 @@ func (e *XAIExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cl
 	if auth.Metadata == nil {
 		auth.Metadata = make(map[string]any)
 	}
-	auth.Metadata["type"] = "xai"
+	auth.Metadata["type"] = e.Identifier()
 	auth.Metadata["auth_kind"] = "oauth"
 	auth.Metadata["access_token"] = td.AccessToken
 	if td.RefreshToken != "" {

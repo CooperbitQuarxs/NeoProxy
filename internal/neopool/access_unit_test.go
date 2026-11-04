@@ -70,7 +70,7 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 			}
 		}
 	}
-	want := map[string]float64{"codex/free": 0, "codex/plus": 20, "codex/pro": 200, "codex/team": 30, "codex/business": 30, "codex/enterprise": 60, "claude/pro": 20, "claude/max5x": 100, "claude/max20x": 200, "xai/supergrok": 30, "xai/supergrok-heavy": 300, "antigravity/google-ai-pro": 20, "antigravity/google-ai-ultra": 250,
+	want := map[string]float64{"codex/free": 0, "codex/plus": 20, "codex/pro": 200, "codex/team": 30, "codex/business": 30, "codex/enterprise": 60, "claude/pro": 20, "claude/max5x": 100, "claude/max20x": 200, "xai/supergrok": 30, "xai/supergrok-heavy": 300, "antigravity/google-ai-pro": 20, "antigravity/google-ai-ultra": 250, "zai/lite": 18, "zai/pro": 80, "zai/max": 168,
 		"cursor/plus": 8, "cursor/premium": 30, "cursor/super": 100, "cursor/ultra": 200, "cursor/pro": 20, "cursor/pro-plus": 60}
 	for key, usd := range want {
 		parts := strings.SplitN(key, "/", 2)
@@ -81,7 +81,7 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 }
 
 func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
-	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "kimi": true, "devin": true, "meta": true, "cursor": true, "nous-portal": true}
+	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "grok-build": true, "kimi": true, "devin": true, "meta": true, "zai": true, "cursor": true, "nous-portal": true}
 	for _, p := range providerCatalog {
 		hasSub := p.Subscription != nil
 		if hasSub != working[p.ID] {

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -16,8 +17,10 @@ type ProviderPlan struct {
 }
 
 // ProviderSubscription describes the existing engine sign-in for a provider.
-// Flow is "browser" (provider page in a new tab, redirect back) or "device"
-// (provider page plus a short code the person confirms).
+// Flow is "browser" (provider page in a new tab, redirect back), "device"
+// (provider page plus a short code the person confirms) or "code" (provider
+// page in a new tab; the provider cannot redirect back, so the person pastes
+// the final address or code into NeoProxy).
 type ProviderSubscription struct {
 	Flow string `json:"flow"`
 	Note string `json:"note"`
@@ -68,6 +71,9 @@ var (
 	claudePlans  = []ProviderPlan{{"pro", "Claude Pro", 20}, {"max5x", "Claude Max 5x", 100}, {"max20x", "Claude Max 20x", 200}}
 	grokPlans    = []ProviderPlan{{"supergrok", "SuperGrok", 30}, {"supergrok-heavy", "SuperGrok Heavy", 300}}
 	googlePlans  = []ProviderPlan{{"google-ai-pro", "Google AI Pro", 20}, {"google-ai-ultra", "Google AI Ultra", 250}}
+	// GLM Coding Plan list prices (monthly billing); ids match the level Z.ai's
+	// quota API reports.
+	zaiPlans = []ProviderPlan{{"lite", "GLM Coding Plan Lite", 18}, {"pro", "GLM Coding Plan Pro", 80}, {"max", "GLM Coding Plan Max", 168}}
 	// Cursor's plans on The X Subscription, then the legacy plans existing subscribers keep
 	// (cursor.com/help/account-and-billing/pricing).
 	cursorPlans = []ProviderPlan{{"plus", "Cursor Plus", 8}, {"premium", "Cursor Premium", 30}, {"super", "Cursor Super", 100}, {"ultra", "Cursor Ultra", 200}, {"pro", "Cursor Pro (legacy)", 20}, {"pro-plus", "Cursor Pro+ (legacy)", 60}}
@@ -98,7 +104,7 @@ func device(note string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta, cursor, nous-portal).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -116,9 +122,14 @@ var providerCatalog = []ProviderInfo{
 		Subscription: browser("Opens Google's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
 		Plans:        googlePlans},
 	{ID: "xai", Name: "Grok / xAI", Vendor: "xAI", Hue: 0, Chroma: 0, Methods: []string{"subscription", "apiKey"},
-		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Covers SuperGrok and the Grok Build (Grok CLI) models."),
+		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to the official xAI API."),
 		APIKey:       openAIKey("https://api.x.ai/v1", "xai-...", "https://console.x.ai/"),
 		Plans:        grokPlans, engine: "xai"},
+	// Same xAI sign-in and token as xai, served through the Grok CLI chat-proxy,
+	// which has its own speed, usage limits and model list.
+	{ID: "grok-build", Name: "Grok Build", Vendor: "xAI", Hue: 0, Chroma: 0, Methods: []string{"subscription"},
+		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to Grok Build, the Grok CLI's endpoint, with its own speed, usage limits and models."),
+		Plans:        grokPlans},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there."),
 		Plans:        []ProviderPlan{}},
@@ -145,8 +156,12 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
-	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.z.ai/api/paas/v4", "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"), Plans: []ProviderPlan{}},
+	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
+	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
+	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: &ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."},
+		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
+		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
 	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 285, Chroma: providerChroma, Methods: []string{"apiKey"},

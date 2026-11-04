@@ -40,7 +40,7 @@ func TestXAIChatProxyClientVersionMeetsServerFloor(t *testing.T) {
 
 func TestXAIChatProxyIdentityHeadersDeriveFromOneConstant(t *testing.T) {
 	auth := &cliproxyauth.Auth{
-		Provider:   "xai",
+		Provider:   GrokBuildProvider,
 		Attributes: map[string]string{"auth_kind": "oauth"},
 	}
 	req, err := http.NewRequest(http.MethodPost, xaiChatBaseURL(auth)+"/chat/completions", nil)
@@ -59,7 +59,7 @@ func TestXAIChatProxyIdentityHeadersDeriveFromOneConstant(t *testing.T) {
 
 func TestXAIChatProxyCustomHeadersOverridePinnedVersion(t *testing.T) {
 	auth := &cliproxyauth.Auth{
-		Provider: "xai",
+		Provider: GrokBuildProvider,
 		Attributes: map[string]string{
 			"auth_kind":                    "oauth",
 			"header:x-grok-client-version": "9.9.9",
@@ -81,7 +81,7 @@ func TestXAIChatProxyIdentityHeadersFollowDynamicVersion(t *testing.T) {
 	defer restore()
 
 	auth := &cliproxyauth.Auth{
-		Provider:   "xai",
+		Provider:   GrokBuildProvider,
 		Attributes: map[string]string{"auth_kind": "oauth"},
 	}
 	req, err := http.NewRequest(http.MethodPost, xaiChatBaseURL(auth)+"/chat/completions", nil)
