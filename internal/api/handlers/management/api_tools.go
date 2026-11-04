@@ -321,12 +321,14 @@ func (h *Handler) resolveXAIToken(ctx context.Context, auth *coreauth.Auth, requ
 		proxyURL = strings.TrimSpace(auth.ProxyURL)
 	}
 	var cfg *config.Config
+	newXAIAuth := xaiauth.NewXAIAuthWithProxyURL
 	if h != nil {
 		cfg = h.cfg
+		if h.newXAIAuth != nil {
+			newXAIAuth = h.newXAIAuth
+		}
 	}
-	svc := xaiauth.NewXAIAuthWithProxyURL(cfg, proxyURL)
-	tokenEndpoint := xaiTokenEndpoint(auth)
-	td, errRefresh := svc.RefreshTokens(ctx, refreshToken, tokenEndpoint)
+	td, errRefresh := newXAIAuth(cfg, proxyURL).RefreshTokens(ctx, refreshToken)
 	if errRefresh != nil {
 		return "", errRefresh
 	}
@@ -364,9 +366,6 @@ func (h *Handler) resolveXAIToken(ctx context.Context, auth *coreauth.Auth, requ
 	}
 	if strings.TrimSpace(td.Subject) != "" {
 		metadata["sub"] = strings.TrimSpace(td.Subject)
-	}
-	if tokenEndpoint != "" {
-		metadata["token_endpoint"] = tokenEndpoint
 	}
 	if stringValue(metadata, "base_url") == "" {
 		metadata["base_url"] = xaiauth.DefaultAPIBaseURL
@@ -467,19 +466,6 @@ func xaiRefreshToken(auth *coreauth.Auth) string {
 	}
 	if ts := xaiTokenStorage(auth); ts != nil {
 		return strings.TrimSpace(ts.RefreshToken)
-	}
-	return ""
-}
-
-func xaiTokenEndpoint(auth *coreauth.Auth) string {
-	if auth == nil {
-		return ""
-	}
-	if v := stringValue(auth.Metadata, "token_endpoint"); v != "" {
-		return v
-	}
-	if ts := xaiTokenStorage(auth); ts != nil {
-		return strings.TrimSpace(ts.TokenEndpoint)
 	}
 	return ""
 }

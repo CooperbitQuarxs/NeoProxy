@@ -144,7 +144,7 @@ func TestXAIAuthMatchesNeoPiSource(t *testing.T) {
 					}
 				}
 			} else {
-				data, err = a.RefreshTokens(context.Background(), "xai-refresh-stored", "")
+				data, err = a.RefreshTokens(context.Background(), "xai-refresh-stored")
 			}
 			gotError := ""
 			if err != nil {

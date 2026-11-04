@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/buildinfo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
@@ -62,6 +63,9 @@ type Handler struct {
 	pluginStoreHTTPClient   pluginstore.HTTPDoer
 	pluginStoreRateLimiter  *pluginstore.GitHubRateLimiter
 	pluginReleases          pluginReleaseCache
+	// newXAIAuth builds the xAI OAuth helper for token refresh; nil uses the
+	// configured proxy. Tests route xAI discovery and token calls through it.
+	newXAIAuth func(cfg *config.Config, proxyURL string) *xaiauth.XAIAuth
 }
 
 type configReloadSnapshot struct {

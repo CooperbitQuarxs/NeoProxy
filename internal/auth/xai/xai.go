@@ -50,7 +50,13 @@ func NewXAIAuthWithProxyURL(cfg *config.Config, proxyURL string) *XAIAuth {
 		}
 	}
 	sdkCfg.ProxyURL = effectiveProxyURL
-	return &XAIAuth{httpClient: util.SetProxy(&sdkCfg, &http.Client{}), minPollInterval: minimumPollInterval, now: time.Now}
+	return NewXAIAuthWithHTTPClient(util.SetProxy(&sdkCfg, &http.Client{}))
+}
+
+// NewXAIAuthWithHTTPClient creates an xAI OAuth helper that sends every
+// discovery, device and token request through client.
+func NewXAIAuthWithHTTPClient(client *http.Client) *XAIAuth {
+	return &XAIAuth{httpClient: client, minPollInterval: minimumPollInterval, now: time.Now}
 }
 
 func (a *XAIAuth) clock() time.Time {
@@ -312,7 +318,7 @@ func (a *XAIAuth) PollForToken(ctx context.Context, deviceCode *DeviceCodeRespon
 
 // RefreshTokens is the auth rule's refresh-token grant against the freshly
 // discovered token endpoint. Concurrent refreshes of one token share a flight.
-func (a *XAIAuth) RefreshTokens(ctx context.Context, refreshToken, _ string) (*TokenData, error) {
+func (a *XAIAuth) RefreshTokens(ctx context.Context, refreshToken string) (*TokenData, error) {
 	result, err, _ := xaiRefreshGroup.Do(refreshToken, func() (interface{}, error) {
 		return a.refresh(context.WithoutCancel(ctx), refreshToken)
 	})

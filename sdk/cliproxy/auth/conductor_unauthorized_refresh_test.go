@@ -128,12 +128,19 @@ func (e *unauthorizedRefreshExecutor) RefreshCalls() int {
 }
 
 func newUnauthorizedRefreshFixture(t *testing.T, refreshFail bool) (*Manager, *unauthorizedRefreshExecutor, *Auth, *Auth, string) {
+	return newUnauthorizedRefreshFixtureFor(t, "codex", refreshFail)
+}
+
+// newUnauthorizedRefreshFixtureFor builds the fixture for one provider. Generic
+// terminal-unauthorized semantics use a provider without Codex's NeoPi-owned
+// refresh classification.
+func newUnauthorizedRefreshFixtureFor(t *testing.T, provider string, refreshFail bool) (*Manager, *unauthorizedRefreshExecutor, *Auth, *Auth, string) {
 	t.Helper()
 
 	model := "gpt-5.5"
 	primary := &Auth{
 		ID:       "aa-primary",
-		Provider: "codex",
+		Provider: provider,
 		Metadata: map[string]any{
 			"access_token":  "stale-access-token",
 			"refresh_token": "primary-refresh-token",
@@ -141,7 +148,7 @@ func newUnauthorizedRefreshFixture(t *testing.T, refreshFail bool) (*Manager, *u
 	}
 	backup := &Auth{
 		ID:       "bb-backup",
-		Provider: "codex",
+		Provider: provider,
 		Metadata: map[string]any{
 			"access_token":  "backup-access-token",
 			"refresh_token": "backup-refresh-token",
@@ -149,7 +156,7 @@ func newUnauthorizedRefreshFixture(t *testing.T, refreshFail bool) (*Manager, *u
 	}
 
 	executor := &unauthorizedRefreshExecutor{
-		id: "codex",
+		id: provider,
 		tokenInvalid: map[string]struct{}{
 			"stale-access-token": {},
 		},
@@ -163,8 +170,8 @@ func newUnauthorizedRefreshFixture(t *testing.T, refreshFail bool) (*Manager, *u
 	m.RegisterExecutor(executor)
 
 	reg := registry.GetGlobalRegistry()
-	reg.RegisterClient(primary.ID, "codex", []*registry.ModelInfo{{ID: model}})
-	reg.RegisterClient(backup.ID, "codex", []*registry.ModelInfo{{ID: model}})
+	reg.RegisterClient(primary.ID, provider, []*registry.ModelInfo{{ID: model}})
+	reg.RegisterClient(backup.ID, provider, []*registry.ModelInfo{{ID: model}})
 	t.Cleanup(func() {
 		reg.UnregisterClient(primary.ID)
 		reg.UnregisterClient(backup.ID)
@@ -250,7 +257,7 @@ func TestManager_ExecuteStream_UnauthorizedRefreshesCurrentAuthBeforeFallback(t 
 }
 
 func TestManager_Execute_RejectedTokenWithInvalidGrantStopsSelectingAuth(t *testing.T) {
-	m, executor, primary, backup, model := newUnauthorizedRefreshFixture(t, false)
+	m, executor, primary, backup, model := newUnauthorizedRefreshFixtureFor(t, "gemini", false)
 	executor.mu.Lock()
 	executor.refreshErr = errors.New(`token refresh failed with status 400: {"error": "invalid_grant", "error_description": "Refresh token not found or invalid"}`)
 	executor.mu.Unlock()
@@ -265,7 +272,7 @@ func TestManager_Execute_RejectedTokenWithInvalidGrantStopsSelectingAuth(t *test
 	}
 
 	for i := 0; i < 2; i++ {
-		resp, errExecute := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+		resp, errExecute := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 		if errExecute != nil {
 			t.Fatalf("Execute %d error = %v, want success via backup", i, errExecute)
 		}
@@ -296,13 +303,13 @@ func TestManager_Execute_RejectedTokenWithInvalidGrantStopsSelectingAuth(t *test
 }
 
 func TestManager_MarkResult_InFlightResultDoesNotReviveTerminalUnauthorizedAuth(t *testing.T) {
-	m, executor, primary, backup, model := newUnauthorizedRefreshFixture(t, false)
+	m, executor, primary, backup, model := newUnauthorizedRefreshFixtureFor(t, "gemini", false)
 	executor.mu.Lock()
 	executor.refreshErr = errors.New(`token refresh failed with status 400: {"error": "invalid_grant", "error_description": "Refresh token not found or invalid"}`)
 	executor.mu.Unlock()
 
 	// Initial request triggers 401 + invalid_grant -> terminal unauthorized.
-	_, errExecute := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+	_, errExecute := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 	if errExecute != nil {
 		t.Fatalf("Execute error = %v, want success via backup", errExecute)
 	}
@@ -318,7 +325,7 @@ func TestManager_MarkResult_InFlightResultDoesNotReviveTerminalUnauthorizedAuth(
 	// Simulate an in-flight request on primary finishing with 500 Internal Server Error.
 	m.MarkResult(context.Background(), Result{
 		AuthID:   primary.ID,
-		Provider: "codex",
+		Provider: "gemini",
 		Model:    model,
 		Success:  false,
 		Error: &Error{
@@ -339,7 +346,7 @@ func TestManager_MarkResult_InFlightResultDoesNotReviveTerminalUnauthorizedAuth(
 	// Simulate another in-flight request finishing with Success.
 	m.MarkResult(context.Background(), Result{
 		AuthID:   primary.ID,
-		Provider: "codex",
+		Provider: "gemini",
 		Model:    model,
 		Success:  true,
 	})
@@ -357,7 +364,7 @@ func TestManager_MarkResult_InFlightResultDoesNotReviveTerminalUnauthorizedAuth(
 
 	// Execute again: primary MUST NOT be selected.
 	callsBefore := len(executor.ExecuteCalls())
-	resp, errSecond := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+	resp, errSecond := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 	if errSecond != nil {
 		t.Fatalf("second execute error: %v", errSecond)
 	}
@@ -375,7 +382,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 	model := "gpt-5.5"
 	primary := &Auth{
 		ID:       "aa-primary",
-		Provider: "codex",
+		Provider: "gemini",
 		Metadata: map[string]any{
 			"access_token":  "stale-access-token",
 			"refresh_token": "primary-refresh-token",
@@ -384,7 +391,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 	}
 	backup := &Auth{
 		ID:       "bb-backup",
-		Provider: "codex",
+		Provider: "gemini",
 		Metadata: map[string]any{
 			"access_token":  "backup-access-token",
 			"refresh_token": "backup-refresh-token",
@@ -392,7 +399,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 	}
 
 	executor := &unauthorizedRefreshExecutor{
-		id: "codex",
+		id: "gemini",
 		tokenInvalid: map[string]struct{}{
 			"stale-access-token": {},
 		},
@@ -403,8 +410,8 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 	m.RegisterExecutor(executor)
 
 	reg := registry.GetGlobalRegistry()
-	reg.RegisterClient(primary.ID, "codex", []*registry.ModelInfo{{ID: model}})
-	reg.RegisterClient(backup.ID, "codex", []*registry.ModelInfo{{ID: model}})
+	reg.RegisterClient(primary.ID, "gemini", []*registry.ModelInfo{{ID: model}})
+	reg.RegisterClient(backup.ID, "gemini", []*registry.ModelInfo{{ID: model}})
 	t.Cleanup(func() {
 		reg.UnregisterClient(primary.ID)
 		reg.UnregisterClient(backup.ID)
@@ -439,7 +446,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 		idx := i
 		go func() {
 			defer wg.Done()
-			resp, err := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+			resp, err := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 			errs[idx] = err
 			if err == nil {
 				results[idx] = string(resp.Payload)
@@ -516,7 +523,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 
 	// Verify that a subsequent request still does not touch primary.
 	execCallsBefore := len(executor.ExecuteCalls())
-	resp3, err3 := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+	resp3, err3 := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 	if err3 != nil {
 		t.Fatalf("Execute 3 error: %v", err3)
 	}
@@ -531,7 +538,7 @@ func TestManager_ConcurrentUnauthorized_BarrierExecutionPreservesTerminalState(t
 }
 
 func TestManager_ForceRefreshAuth_FailurePreservesTerminalUnauthorizedState(t *testing.T) {
-	m, executor, primary, backup, model := newUnauthorizedRefreshFixture(t, false)
+	m, executor, primary, backup, model := newUnauthorizedRefreshFixtureFor(t, "gemini", false)
 
 	// Primary has future nominal expiry.
 	updated, ok := m.GetByID(primary.ID)
@@ -548,7 +555,7 @@ func TestManager_ForceRefreshAuth_FailurePreservesTerminalUnauthorizedState(t *t
 	executor.mu.Unlock()
 
 	// Initial request triggers 401 + invalid_grant -> terminal unauthorized.
-	_, errExecute := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+	_, errExecute := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 	if errExecute != nil {
 		t.Fatalf("Execute error: %v", errExecute)
 	}
@@ -578,7 +585,7 @@ func TestManager_ForceRefreshAuth_FailurePreservesTerminalUnauthorizedState(t *t
 	}
 
 	// Selection still skips primary.
-	resp, errAfterFailedForce := m.Execute(context.Background(), []string{"codex"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
+	resp, errAfterFailedForce := m.Execute(context.Background(), []string{"gemini"}, cliproxyexecutor.Request{Model: model}, cliproxyexecutor.Options{})
 	if errAfterFailedForce != nil {
 		t.Fatalf("Execute error: %v", errAfterFailedForce)
 	}

@@ -329,14 +329,11 @@ func TestSelectedCodexConfigurationUpdateCapability(t *testing.T) {
 		}
 	})
 
-	t.Run("OAuth uses selected plan catalogue", func(t *testing.T) {
-		freeReq := manager.attachResolvedAPIKeyModelInfo(cliproxyexecutor.Request{}, oauth, "tenant/gpt-6-astra", "gpt-6-astra")
-		if info, ok := ResolvedModelInfo(freeReq); ok || info != nil {
-			t.Fatalf("free OAuth pro-only model info = (%+v, %t), want fallback", info, ok)
+	t.Run("OAuth without a discovered roster uses NeoPi's bundled catalog", func(t *testing.T) {
+		assertSelected(t, oauth, "tenant/gpt-6-astra", "gpt-6-astra", true)
+		if info, ok := ResolvedModelInfo(manager.attachResolvedAPIKeyModelInfo(cliproxyexecutor.Request{}, oauth, "tenant/unknown", "unknown")); ok || info != nil {
+			t.Fatalf("OAuth model outside the catalog = (%+v, %t), want fallback", info, ok)
 		}
-		pro := *oauth
-		pro.Attributes = map[string]string{"plan_type": "pro"}
-		assertSelected(t, &pro, "tenant/gpt-6-astra", "gpt-6-astra", true)
 		if info, ok := ResolvedAPIKeyModelInfo(manager.attachResolvedAPIKeyModelInfo(cliproxyexecutor.Request{}, oauth, "tenant/"+upstream, upstream)); ok || info != nil {
 			t.Fatalf("OAuth API-key info = (%+v, %t), want none", info, ok)
 		}
@@ -505,7 +502,12 @@ func TestSelectedCodexConfigurationUpdateCapabilityExecutionModelOverride(t *tes
 			}
 			registerCapabilityTestAuth(t, manager, auth)
 			reg := registry.GetGlobalRegistry()
-			reg.RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: tc.selectionModel, SupportConfigurationUpdate: true}})
+			roster := []*registry.ModelInfo{{ID: tc.selectionModel, SupportConfigurationUpdate: true}}
+			if tc.oauth {
+				// A Codex account's discovered roster lists the model it executes.
+				roster = append(roster, &registry.ModelInfo{ID: model, SupportConfigurationUpdate: true})
+			}
+			reg.RegisterClient(auth.ID, auth.Provider, roster)
 			reg.RegisterClient("oauth-same-name-"+tc.name, "codex", []*registry.ModelInfo{{ID: model, SupportConfigurationUpdate: true}})
 			t.Cleanup(func() {
 				reg.UnregisterClient(auth.ID)
