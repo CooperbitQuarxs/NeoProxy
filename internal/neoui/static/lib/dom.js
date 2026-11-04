@@ -218,13 +218,38 @@ export function plural(n, one, many = `${one}s`) {
 	return `${fmtInt(n)} ${n === 1 ? one : many}`;
 }
 
+// navigator.clipboard exists only in secure contexts, so a dashboard served over
+// plain HTTP falls back to copying a selected off-screen textarea. Report failure
+// only when both routes fail.
 export async function copyText(text) {
 	try {
 		await navigator.clipboard.writeText(text);
 		return true;
 	} catch {
-		return false;
+		return legacyCopy(text);
 	}
+}
+
+function legacyCopy(text) {
+	const prev = document.activeElement;
+	const ta = document.createElement("textarea");
+	ta.value = text;
+	ta.setAttribute("readonly", "");
+	ta.setAttribute("aria-hidden", "true");
+	ta.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+	// Inside an open modal so its focus trap does not pull focus away mid-copy.
+	(prev?.closest?.('[aria-modal="true"]') ?? document.body).append(ta);
+	ta.focus({ preventScroll: true });
+	ta.select();
+	let ok = false;
+	try {
+		ok = document.execCommand("copy");
+	} catch {
+		ok = false;
+	}
+	ta.remove();
+	prev?.focus?.({ preventScroll: true });
+	return ok;
 }
 
 export function debounce(fn, ms = 150) {

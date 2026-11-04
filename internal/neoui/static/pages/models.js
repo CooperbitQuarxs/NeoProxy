@@ -107,7 +107,7 @@ export async function render(ctx) {
 	});
 	host.append(vmCard);
 
-	const treeCard = card({ title: "Provider models", sub: "All / Served / Hidden filters only these provider models. Local providers may have direct selectors; shared-source models use stored virtual names. Hiding a provider disables all routes that draw from it. Drag across rows or Shift+click to select several; Space serves or hides them.", flush: true, body: h("div", { class: "tree" }) });
+	const treeCard = card({ title: "Provider models", sub: "A switch serves or hides one model; hiding a provider stops every route that draws from it. To change several at once, drag across rows or Shift+click, then press Space.", flush: true, body: h("div", { class: "tree" }) });
 	host.append(treeCard);
 	const tree = treeCard.querySelector(".tree");
 

@@ -114,7 +114,8 @@ export function select(options, value, onChange, attrs = {}) {
 }
 
 export function search(placeholder, onInput, attrs = {}) {
-	return h("div", { class: "search" }, icon("search", 15), input({ type: "search", placeholder, onInput: (e) => onInput(e.target.value), ...attrs }));
+	// Escape empties a search field with a `search` event but no `input` event.
+	return h("div", { class: "search" }, icon("search", 15), input({ type: "search", placeholder, onInput: (e) => onInput(e.target.value), onSearch: (e) => { if (!e.target.value) onInput(""); }, ...attrs }));
 }
 
 let fieldSerial = 0;
@@ -212,7 +213,8 @@ export function ringRow({ used, budget, main, sub, size = 36 }) {
 
 // ---------- table ----------
 
-export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, emptyState, sort } = {}) {
+// `stack: true` turns each row into a labelled card on narrow screens instead of scrolling sideways.
+export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, emptyState, sort, stack = false } = {}) {
 	if (!rows.length && emptyState) return emptyState;
 	let sortKey = sort?.key ?? null;
 	let sortDir = sort?.dir ?? "desc";
@@ -284,14 +286,14 @@ export function table(columns, rows, { onRow, selectedKey, keyOf = (r) => r.id, 
 							onRow(r);
 						} : null,
 					},
-					columns.map((c) => h("td", { class: `${c.num ? "num" : ""} ${c.wrap ? "wrap" : ""} ${c.clip ? "clip" : ""}` }, c.render(r))),
+					columns.map((c) => h("td", { class: `${c.num ? "num" : ""} ${c.wrap ? "wrap" : ""} ${c.clip ? "clip" : ""}`, "data-label": stack && typeof c.label === "string" && c.label ? c.label : null }, c.render(r))),
 				),
 			);
 		}
 	};
 	renderHead();
 	renderBody();
-	return h("div", { class: "table-scroll", tabindex: 0, role: "region", "aria-label": "Table; scroll horizontally for more columns" }, tbl);
+	return h("div", { class: `table-scroll ${stack ? "stack" : ""}`, tabindex: 0, role: "region", "aria-label": stack ? "Table" : "Table; scroll horizontally for more columns" }, tbl);
 }
 
 export function empty({ icon: ic = "inbox", title, hint, action }) {
@@ -310,7 +312,8 @@ export function copyLine(text, label) {
 	const el = h("span", { class: "row" }, h("code", null, text));
 	el.append(
 		iconBtn("copy", `Copy ${label ?? ""}`.trim(), async () => {
-			toast((await copyText(text)) ? "Copied" : "Clipboard unavailable", "warn");
+			const ok = await copyText(text);
+			toast(ok ? "Copied" : "Clipboard unavailable", ok ? "ok" : "warn");
 		}, "sm"),
 	);
 	return el;
@@ -347,25 +350,55 @@ export function toast(text, kind = "ok", ms = 2800) {
 	return el;
 }
 
-const openDialogs = new Set();
+// Open dialogs, oldest first; only the last one answers keys.
+const openDialogs = [];
 export function dismissDialogs() {
-	for (const close of [...openDialogs]) close();
+	for (const close of [...openDialogs].reverse()) close();
 }
 
+const TABBABLE = "a[href],button,input,select,textarea,summary,[tabindex]";
+
+// A modal dialog: Tab and Shift+Tab cycle inside it, Escape closes it, and
+// focus returns to whatever opened it.
 export function dialog({ title, sub, body, actions, onClose }) {
+	const opener = document.activeElement;
 	const backdrop = h("div", { class: "dialog-backdrop", onClick: (e) => e.target === backdrop && close() });
 	const close = () => {
-		if (!openDialogs.delete(close)) return;
+		const i = openDialogs.indexOf(close);
+		if (i < 0) return;
+		openDialogs.splice(i, 1);
 		backdrop.remove();
-		document.removeEventListener("keydown", esc);
+		document.removeEventListener("keydown", keys);
 		onClose?.();
+		// Only when focus fell with the dialog, not when onClose moved it on.
+		const now = document.activeElement;
+		if ((!now || now === document.body) && opener?.isConnected && opener !== document.body) opener.focus({ preventScroll: true });
 	};
-	const esc = (e) => e.key === "Escape" && close();
-	openDialogs.add(close);
-	document.addEventListener("keydown", esc);
-	backdrop.append(h("div", { class: "dialog", role: "dialog", "aria-modal": "true", "aria-label": title }, h("h2", null, title), sub ? h("div", { class: "sub" }, sub) : null, body, actions ? h("div", { class: "actions" }, actions(close)) : null));
+	const box = h("div", { class: "dialog", role: "dialog", "aria-modal": "true", "aria-label": title, tabindex: "-1" }, h("h2", null, title), sub ? h("div", { class: "sub" }, sub) : null, body, actions ? h("div", { class: "actions" }, actions(close)) : null);
+	const tabbables = () => [...box.querySelectorAll(TABBABLE)].filter((el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length);
+	const keys = (e) => {
+		if (openDialogs.at(-1) !== close) return;
+		if (e.key === "Escape") {
+			// A picker or menu inside the dialog closes itself first.
+			if (!e.defaultPrevented) close();
+			return;
+		}
+		if (e.key !== "Tab") return;
+		const active = document.activeElement;
+		// A popover opened from the dialog sits after it in the document; leave it be.
+		if (active && !backdrop.contains(active) && backdrop.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING) return;
+		const list = tabbables();
+		const first = list[0], last = list.at(-1);
+		if (!first) { e.preventDefault(); box.focus(); return; }
+		if (!box.contains(active) || active === box) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+		else if (e.shiftKey && active === first) { e.preventDefault(); last.focus(); }
+		else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+	};
+	openDialogs.push(close);
+	document.addEventListener("keydown", keys);
+	backdrop.append(box);
 	document.body.append(backdrop);
-	backdrop.querySelector("input,button,textarea,select")?.focus();
+	(backdrop.querySelector("input,button,textarea,select") ?? box).focus();
 	return { close };
 }
 

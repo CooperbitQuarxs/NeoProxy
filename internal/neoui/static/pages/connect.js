@@ -2,9 +2,10 @@
 // address, the model names they may ask for, a key, and copy-ready snippets.
 // Admins see it too, so they can walk someone through it.
 
-import { h, icon, fmtAgo } from "../lib/dom.js";
+import { h, icon, fmtAgo, copyText } from "../lib/dom.js";
 import { neo } from "../lib/client.js";
-import { pageHead, card, btn, servedName, copyLine, kv, seg, empty, spinner, errorState, toast, dialog, field, input } from "../lib/components.js";
+import { pageHead, card, btn, servedName, copyLine, kv, seg, empty, spinner, errorState, toast } from "../lib/components.js";
+import { mintKeyDialog, drawableAccounts } from "./users.js";
 import { directModelsFor } from "../lib/access.js";
 
 const origin = () => location.origin;
@@ -15,8 +16,8 @@ function snippetBlock(code, label) {
 		icon: "copy",
 		cls: "sm outline",
 		onClick: async () => {
-			try { await navigator.clipboard.writeText(code); toast(`Copied the ${label}`); }
-			catch { toast("Could not copy; select the text instead", "bad"); }
+			if (await copyText(code)) toast(`Copied the ${label}`);
+			else toast("Could not copy; select the text instead", "bad");
 		},
 	});
 	return h("div", { class: "snippet-wrap" }, h("div", { class: "snippet-head" }, h("span", null, label), copy), pre);
@@ -135,31 +136,23 @@ export async function render(ctx) {
 	);
 
 	async function mintKey() {
-		let label = "";
-		const dlg = dialog({
-			title: "Mint a key",
-			sub: "Name it after the tool or machine that will use it.",
-			body: field("Label", input({ placeholder: "laptop · NeoCode", autofocus: true, onInput: (e) => (label = e.target.value) })),
-			actions: [
-				btn("Cancel", { onClick: () => dlg.close() }),
-				btn("Mint key", {
-					cls: "primary",
-					onClick: async () => {
-						if (!label.trim()) return;
-						try {
-							const r = await neo.createKey(me.id, label.trim());
-							me = await neo.user(me.id);
-							key = r.secret;
-							dlg.close();
-							renderKeys();
-							renderSnippet();
-							toast("Key minted; it is filled into the snippets on this page until you leave it");
-						} catch (e) {
-							toast(e.message, "bad");
-						}
-					},
-				}),
-			],
+		// The same dialog as My models: label, expiry and scope, then the secret
+		// shown once. Connect also fills the new secret into the snippets below.
+		let vault;
+		try { vault = await neo.vault(); }
+		catch (e) { toast(e.message, "bad"); return; }
+		mintKeyDialog({
+			user: me,
+			accounts: me.role === "owner" ? drawableAccounts(me, vault.accounts) : [],
+			providers: vault.providers,
+			models: directModelsFor(me, models),
+			onMinted: (k, secret) => {
+				me.keys = [...(me.keys ?? []), k];
+				key = secret;
+				renderKeys();
+				renderSnippet();
+				toast("Key minted; it is filled into the snippets on this page until you leave it");
+			},
 		});
 	}
 
