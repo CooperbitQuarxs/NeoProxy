@@ -28,7 +28,10 @@ func TestExecutorsRefuseRefreshLockedCredentials(t *testing.T) {
 	expired := time.Now().Add(-time.Minute)
 	for _, cfg := range []*config.Config{{}, {Home: config.HomeConfig{Enabled: true}}} {
 		refreshers := map[string]func(*cliproxyauth.Auth) error{
-			"codex": func(a *cliproxyauth.Auth) error { _, err := NewCodexExecutor(cfg).Refresh(context.Background(), a); return err },
+			"codex": func(a *cliproxyauth.Auth) error {
+				_, err := NewCodexExecutor(cfg).Refresh(context.Background(), a)
+				return err
+			},
 			"claude": func(a *cliproxyauth.Auth) error {
 				_, err := NewClaudeExecutor(cfg).Refresh(context.Background(), a)
 				return err
@@ -37,7 +40,10 @@ func TestExecutorsRefuseRefreshLockedCredentials(t *testing.T) {
 				_, _, err := NewAntigravityExecutor(cfg).ensureAccessToken(context.Background(), a)
 				return err
 			},
-			"xai": func(a *cliproxyauth.Auth) error { _, err := NewXAIExecutor(cfg).Refresh(context.Background(), a); return err },
+			"xai": func(a *cliproxyauth.Auth) error {
+				_, err := NewXAIExecutor(cfg).Refresh(context.Background(), a)
+				return err
+			},
 		}
 		for provider, refresh := range refreshers {
 			if err := refresh(lockedTestAuth(provider, expired)); !errors.Is(err, cliproxyauth.ErrRefreshLocked) {

@@ -34,29 +34,29 @@ type route struct {
 // Catalog ids codex/claude/gemini are the engine's native OpenAI/Anthropic/Gemini
 // key paths; the rest are OpenAI-compatible entries with fixed base URLs.
 var apiKeyRoutes = map[string]route{
-	"openai":            {target: "codex"},
-	"anthropic":         {target: "claude"},
-	"google":            {target: "gemini"},
-	"xai":               {target: "xai"},
-	"meta":              {target: "meta"},
-	"openrouter":        {target: "openrouter"},
-	"deepseek":          {target: "deepseek"},
-	"groq":              {target: "groq"},
-	"mistral":           {target: "mistral"},
-	"together":          {target: "together"},
-	"fireworks":         {target: "fireworks"},
-	"cerebras":          {target: "cerebras"},
-	"moonshot":          {target: "moonshot"},
-	"zai":               {target: "zai"},
-	"nanogpt":           {target: "nanogpt"},
-	"huggingface":       {target: "custom", baseURL: "https://router.huggingface.co/v1"},
-	"nvidia":            {target: "custom", baseURL: "https://integrate.api.nvidia.com/v1"},
-	"vercel-ai-gateway": {target: "custom", baseURL: "https://ai-gateway.vercel.sh/v1"},
-	"opencode-go":       {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
-	"opencode-zen":      {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
+	"openai":             {target: "codex"},
+	"anthropic":          {target: "claude"},
+	"google":             {target: "gemini"},
+	"xai":                {target: "xai"},
+	"meta":               {target: "meta"},
+	"openrouter":         {target: "openrouter"},
+	"deepseek":           {target: "deepseek"},
+	"groq":               {target: "groq"},
+	"mistral":            {target: "mistral"},
+	"together":           {target: "together"},
+	"fireworks":          {target: "fireworks"},
+	"cerebras":           {target: "cerebras"},
+	"moonshot":           {target: "moonshot"},
+	"zai":                {target: "zai"},
+	"nanogpt":            {target: "nanogpt"},
+	"huggingface":        {target: "custom", baseURL: "https://router.huggingface.co/v1"},
+	"nvidia":             {target: "custom", baseURL: "https://integrate.api.nvidia.com/v1"},
+	"vercel-ai-gateway":  {target: "custom", baseURL: "https://ai-gateway.vercel.sh/v1"},
+	"opencode-go":        {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
+	"opencode-zen":       {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
 	"alibaba-token-plan": {reason: "Alibaba Token Plan stores a session bundle, not a plain API key."},
-	"sakana":            {reason: "Sakana is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
-	"abliteration":      {reason: "Abliteration is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
+	"sakana":             {reason: "Sakana is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
+	"abliteration":       {reason: "Abliteration is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -69,10 +69,10 @@ var oauthRoutes = map[string]route{
 	"devin":              {target: "devin"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
-	"zai":              {kind: KindAPIKey, target: "zai"},
+	"zai":               {kind: KindAPIKey, target: "zai"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
-	"cursor":           {reason: "Cursor uses its own agent protocol; NeoProxy has no Cursor engine."},
-	"github-copilot":   {reason: "NeoProxy has no GitHub Copilot engine."},
+	"cursor":            {reason: "Cursor uses its own agent protocol; NeoProxy has no Cursor engine."},
+	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
 func routeFor(c Credential) route {

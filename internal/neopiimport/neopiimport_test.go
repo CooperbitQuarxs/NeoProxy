@@ -76,7 +76,7 @@ func fixture(t *testing.T) (string, map[string]Credential) {
 	hour := float64(time.Now().Add(time.Hour).UnixMilli())
 	past := float64(time.Now().Add(-time.Hour).UnixMilli())
 	codexAccess := fakeJWT(t, map[string]any{
-		"exp": time.Now().Add(time.Hour).Unix(),
+		"exp":                            time.Now().Add(time.Hour).Unix(),
 		"https://api.openai.com/auth":    map[string]any{"chatgpt_plan_type": "pro", "chatgpt_account_id": "acct-fixture"},
 		"https://api.openai.com/profile": map[string]any{"email": "codex@example.test"},
 	})
