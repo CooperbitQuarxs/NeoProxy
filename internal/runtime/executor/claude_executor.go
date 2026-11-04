@@ -19,6 +19,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -417,7 +418,7 @@ func (e *ClaudeExecutor) open(ctx context.Context, client *http.Client, prepared
 			continue
 		}
 		helps.RecordAPIResponseMetadata(ctx, e.cfg, response.StatusCode, response.Header)
-		decoded, err := helps.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
+		decoded, err := util.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
 		if err != nil {
 			response.Body.Close()
 			cancel()
@@ -732,7 +733,7 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	}
 	defer response.Body.Close()
 	helps.RecordAPIResponseMetadata(ctx, e.cfg, response.StatusCode, response.Header)
-	decoded, err := helps.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
+	decoded, err := util.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -64,9 +63,6 @@ func (e *CodexExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Aut
 		return nil
 	}
 	apiKey, _ := codexCreds(auth)
-	if errSIWC := ensureCodexSIWCCredentials(auth, apiKey); errSIWC != nil {
-		return errSIWC
-	}
 	if strings.TrimSpace(apiKey) != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	} else {
@@ -192,80 +188,12 @@ func applyCodexDirectImageHeaders(r *http.Request, auth *cliproxyauth.Auth, toke
 	applyCodexHeadersFromSources(r, auth, token, stream, cfg, ginHeaders)
 }
 
-func codexSIWCUserAgent(cfg *config.Config) string {
-	agentName := config.DefaultSignInWithChatGPTIdentifier
-	if cfg != nil {
-		agentName = cfg.Codex.EffectiveSignInWithChatGPTIdentifier()
-	}
-	return fmt.Sprintf("%s (%s; %s)", agentName, runtime.GOOS, runtime.GOARCH)
-}
-
-func applyCodexSIWCRequestBodyRules(body []byte, hasExplicitInstructions bool, opts ...cliproxyexecutor.Options) []byte {
-	body = helps.SetBoolIfDifferent(body, "store", false)
-	body = helps.SetBoolIfDifferent(body, "stream", true)
-	return stripCodexSIWCUnsupportedFields(body, hasExplicitInstructions, opts...)
-}
-
-func applyCodexSIWCWebsocketBodyRules(body []byte, hasExplicitInstructions bool, opts ...cliproxyexecutor.Options) []byte {
-	body = helps.SetBoolIfDifferent(body, "store", false)
-	body, _ = sjson.DeleteBytes(body, "stream")
-	body, _ = sjson.DeleteBytes(body, "background")
-	return stripCodexSIWCUnsupportedFields(body, hasExplicitInstructions, opts...)
-}
-
-func applyCodexSIWCCompactBodyRules(body []byte, hasExplicitInstructions bool, opts ...cliproxyexecutor.Options) []byte {
-	body, _ = sjson.DeleteBytes(body, "stream")
-	body, _ = sjson.DeleteBytes(body, "store")
-	return stripCodexSIWCUnsupportedFields(body, hasExplicitInstructions, opts...)
-}
-
-func stripCodexSIWCUnsupportedFields(body []byte, hasExplicitInstructions bool, opts ...cliproxyexecutor.Options) []byte {
-	// SIWC subscriptions reject configuration_update input items, so degrade
-	// them to the classic top-level reasoning.effort and accept the cache loss.
-	// An explicit model thinking suffix is an operator override: the thinking
-	// layer has already resolved it into the top-level effort, so only the
-	// unsupported items are removed in that case.
-	body = thinking.CollapseConfigurationUpdates(body, len(opts) > 0 && opts[0].KeepTopLevelEffort)
-	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
-	body, _ = sjson.DeleteBytes(body, "prompt_cache_options")
-	body, _ = sjson.DeleteBytes(body, "max_output_tokens")
-	body, _ = sjson.DeleteBytes(body, "max_completion_tokens")
-	body, _ = sjson.DeleteBytes(body, "temperature")
-	if !hasExplicitInstructions {
-		if inst := gjson.GetBytes(body, "instructions"); inst.Exists() && strings.TrimSpace(inst.String()) == "" {
-			body, _ = sjson.DeleteBytes(body, "instructions")
-		}
-	}
-	return body
-}
-
 func applyCodexHeadersFromSources(r *http.Request, auth *cliproxyauth.Auth, token string, stream bool, cfg *config.Config, ginHeaders http.Header) {
 	r.Header.Set("Content-Type", "application/json")
 	if strings.TrimSpace(token) != "" {
 		r.Header.Set("Authorization", "Bearer "+token)
 	} else {
 		r.Header.Del("Authorization")
-	}
-
-	if codexUseSIWC(auth) {
-		if sessionID := strings.TrimSpace(r.Header.Get("Session-Id")); sessionID != "" {
-			r.Header.Del("Session-Id")
-			setHeaderCasePreserved(r.Header, "session_id", sessionID)
-			r.Header.Set("X-Client-Request-Id", sessionID)
-		}
-		r.Header.Set("User-Agent", codexSIWCUserAgent(cfg))
-		if stream {
-			r.Header.Set("Accept", "text/event-stream")
-		} else {
-			r.Header.Set("Accept", "application/json")
-		}
-		r.Header.Set("Connection", "Keep-Alive")
-		var attrs map[string]string
-		if auth != nil {
-			attrs = auth.Attributes
-		}
-		util.ApplyCustomHeadersFromAttrs(r, attrs, ginHeaders)
-		return
 	}
 
 	if ginHeaders != nil && ginHeaders.Get("X-Codex-Beta-Features") != "" {
@@ -280,8 +208,7 @@ func applyCodexHeadersFromSources(r *http.Request, auth *cliproxyauth.Auth, toke
 	misc.EnsureHeader(r.Header, ginHeaders, "Session-Id", "")
 	misc.EnsureHeader(r.Header, ginHeaders, "X-Openai-Internal-Codex-Responses-Lite", "")
 
-	cfgUserAgent, _ := codexHeaderDefaults(cfg, auth)
-	ensureHeaderWithConfigPrecedence(r.Header, ginHeaders, "User-Agent", cfgUserAgent, codexUserAgent)
+	ensureHeaderWithConfigPrecedence(r.Header, ginHeaders, "User-Agent", "", codexUserAgent)
 
 	if stream {
 		r.Header.Set("Accept", "text/event-stream")
@@ -290,18 +217,8 @@ func applyCodexHeadersFromSources(r *http.Request, auth *cliproxyauth.Auth, toke
 	}
 	r.Header.Set("Connection", "Keep-Alive")
 
-	isAPIKey := codexAuthUsesAPIKey(auth)
 	if originator := strings.TrimSpace(ginHeaders.Get("Originator")); originator != "" {
 		r.Header.Set("Originator", originator)
-	} else if !isAPIKey {
-		r.Header.Set("Originator", codexOriginator)
-	}
-	if !isAPIKey {
-		if auth != nil && auth.Metadata != nil {
-			if accountID, ok := auth.Metadata["account_id"].(string); ok {
-				r.Header.Set("Chatgpt-Account-Id", accountID)
-			}
-		}
 	}
 	var attrs map[string]string
 	if auth != nil {
@@ -309,58 +226,6 @@ func applyCodexHeadersFromSources(r *http.Request, auth *cliproxyauth.Auth, toke
 	}
 	util.ApplyCustomHeadersFromAttrs(r, attrs, ginHeaders)
 	applyCodexCloakingHeaders(r.Header, cfg, auth)
-}
-
-const codexRoutingHintHeader = "X-Codex-Routing-Hint"
-
-// applyCodexRoutingHint sends the routing hint native Codex attaches to every
-// ChatGPT-backend Responses request: "model=<slug>" plus ";tier=<service_tier>"
-// when the body requests a tier (openai/codex rust-v0.155.0,
-// codex-rs/core/src/client.rs build_routing_hint_header). Without it, a
-// translated request carries service_tier=priority only in the body. Whether
-// the backend needs the header to grant priority is undocumented.
-//
-// The model is the resolved model written to the upstream body, while the tier
-// is read from the final body so payload rules cannot make the hint stale. A
-// hint forwarded by a native client names its original model and is replaced.
-// Operator configuration keeps precedence: when an auth "header:" rule for the
-// hint resolves to a value (static, or a "$Header" reference the request
-// carries), that value is sent, and callers apply models.json override_header
-// afterwards. A rule that resolves to nothing falls back to the derived hint.
-// API-key requests are not touched, matching native Codex, which sends no hint
-// to API-key providers.
-func applyCodexRoutingHint(ctx context.Context, headers http.Header, auth *cliproxyauth.Auth, baseModel string, upstreamBody []byte, clientHeaders http.Header) {
-	if codexAuthUsesAPIKey(auth) || codexUseSIWC(auth) {
-		return
-	}
-	deleteHeaderCaseInsensitive(headers, codexRoutingHintHeader)
-	if operatorHint := codexOperatorHeaderValue(ctx, auth, clientHeaders, codexRoutingHintHeader); operatorHint != "" {
-		headers.Set(codexRoutingHintHeader, operatorHint)
-		return
-	}
-	model := strings.TrimSpace(baseModel)
-	if model == "" {
-		return
-	}
-	hint := "model=" + model
-	if tier := gjson.GetBytes(upstreamBody, "service_tier"); tier.Type == gjson.String {
-		if value := strings.TrimSpace(tier.String()); value != "" {
-			hint += ";tier=" + value
-		}
-	}
-	headers.Set(codexRoutingHintHeader, hint)
-}
-
-// codexOperatorHeaderValue returns the value the auth's "header:" rules
-// resolve to for name, using the same resolver that applied them to the
-// request, so dynamic references that resolve to nothing report "".
-func codexOperatorHeaderValue(ctx context.Context, auth *cliproxyauth.Auth, clientHeaders http.Header, name string) string {
-	if auth == nil || len(auth.Attributes) == 0 {
-		return ""
-	}
-	resolved := (&http.Request{Header: http.Header{}}).WithContext(ctx)
-	util.ApplyCustomHeadersFromAttrs(resolved, auth.Attributes, clientHeaders)
-	return strings.TrimSpace(resolved.Header.Get(name))
 }
 
 func isCodexCloakingDisabled(cfg *config.Config, auth *cliproxyauth.Auth) bool {

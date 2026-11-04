@@ -117,18 +117,30 @@ func (h *OpenAIResponsesAPIHandler) responsesWebsocketUsesUpstreamWebsocketPasst
 		} else if authProvider != provider {
 			return false
 		}
-		if !websocketUpstreamSupportsIncrementalInput(auth.Attributes, auth.Metadata) {
+		if !responsesWebsocketAuthSupportsIncrementalInput(auth) {
 			return false
 		}
 	}
 	return provider != ""
 }
 
+// responsesWebsocketAuthSupportsIncrementalInput reports whether downstream
+// previous_response_id deltas may pass through to this auth's upstream. Codex
+// OAuth never does: its NeoPi transport takes full transcripts and chains them
+// itself.
 func responsesWebsocketAuthSupportsIncrementalInput(auth *coreauth.Auth) bool {
-	if auth == nil {
+	if auth == nil || responsesWebsocketAuthUsesNeoPiCodex(auth) {
 		return false
 	}
 	return websocketUpstreamSupportsIncrementalInput(auth.Attributes, auth.Metadata)
+}
+
+// responsesWebsocketAuthUsesNeoPiCodex reports whether turns for this auth run
+// through the NeoPi Codex transport, which keeps one upstream conversation per
+// session and account. Later turns stay on the same account so its socket and
+// response chain can be reused.
+func responsesWebsocketAuthUsesNeoPiCodex(auth *coreauth.Auth) bool {
+	return auth != nil && strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") && auth.AuthKind() != coreauth.AuthKindAPIKey
 }
 
 func responsesWebsocketPinnedAuthMatchesModel(auth *coreauth.Auth, modelName string, pinnedModelKey string, homeRuntime bool) bool {

@@ -18,6 +18,7 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	_ "github.com/router-for-me/CLIProxyAPI/v8/internal/translator"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
@@ -215,7 +216,7 @@ func TestAnthropicNPICacheAndTools(t *testing.T) {
 	for index := 0; index < 35; index++ {
 		messages = append(messages, map[string]any{"role": "user", "content": "turn"}, map[string]any{"role": "assistant", "content": []map[string]any{{"type": "thinking", "thinking": "reasoning", "signature": "signed"}, {"type": "text", "text": "answer"}}})
 	}
-	body := neoPiJSON(map[string]any{"messages": messages, "max_tokens": 64, "thinking": map[string]any{"type": "adaptive"}, "output_config": map[string]any{"effort": "high"}, "tools": []map[string]any{{"name": "lookup", "input_schema": map[string]any{"type": "object"}}}})
+	body := jsjson.Marshal(map[string]any{"messages": messages, "max_tokens": 64, "thinking": map[string]any{"type": "adaptive"}, "output_config": map[string]any{"effort": "high"}, "tools": []map[string]any{{"name": "lookup", "input_schema": map[string]any{"type": "object"}}}})
 	projected, _, err := projectNeoPiRequest(body, "claude-opus-5-5", "https://api.anthropic.com", anthropicnpi.CodeVersion, neoPiWireIdentity{InstallID: "install", SessionID: "session"})
 	if err != nil {
 		t.Fatal(err)

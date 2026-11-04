@@ -1,0 +1,301 @@
+{
+  "source": "NeoPi OWN streamOpenAICodexResponses (WebSocket)",
+  "installId": "2f81e90d-864e-432b-980e-fa7fdeb503ac",
+  "accountId": "account-capture-fake",
+  "token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+  "sessionId": "capture-session-ws-0001",
+  "baseUrl": "http://127.0.0.1:38715",
+  "discovery": {
+    "models": [
+      {
+        "slug": "gpt-6.1-terra",
+        "display_name": "GPT-6.1 Terra",
+        "context_window": 500000,
+        "max_context_window": 922000,
+        "supported_reasoning_levels": [
+          {
+            "effort": "low"
+          },
+          {
+            "effort": "medium"
+          },
+          {
+            "effort": "high"
+          },
+          {
+            "effort": "xhigh"
+          }
+        ],
+        "prefer_websockets": true,
+        "priority": 1,
+        "service_tiers": [
+          {
+            "id": "priority"
+          }
+        ]
+      }
+    ]
+  },
+  "turns": [
+    {
+      "name": "ws-turn-1",
+      "downstream": {
+        "model": "gpt-6.1-terra",
+        "instructions": "You are terse.",
+        "input": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Say hello."
+              }
+            ]
+          }
+        ],
+        "reasoning": {
+          "effort": "high"
+        }
+      },
+      "handshakes": [
+        {
+          "path": "/codex/responses",
+          "headers": {
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "Upgrade",
+            "conversation_id": "capture-session-ws-0001",
+            "host": "127.0.0.1:38715",
+            "openai-beta": "responses_websockets=2026-02-06",
+            "originator": "omp",
+            "sec-websocket-extensions": "permessage-deflate; client_max_window_bits",
+            "sec-websocket-key": "dinxmPz4SUe2cTSCSpCL6Q==",
+            "sec-websocket-version": "13",
+            "session-id": "capture-session-ws-0001",
+            "session_id": "capture-session-ws-0001",
+            "thread-id": "c6501502-09db-4fe3-a7dd-edffde7570fd",
+            "upgrade": "websocket",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-ws-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-ws-0001\",\"thread_id\":\"c6501502-09db-4fe3-a7dd-edffde7570fd\",\"turn_id\":\"5965cf14-bc4c-4984-b71b-32fddf30f5a9\",\"window_id\":\"46060ef1-bfab-4aa3-8169-303a09d07bd1\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793817129022}",
+            "x-codex-window-id": "46060ef1-bfab-4aa3-8169-303a09d07bd1"
+          }
+        }
+      ],
+      "frames": [
+        "{\"type\":\"response.create\",\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-ws-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-ws-0001\",\"thread_id\":\"c6501502-09db-4fe3-a7dd-edffde7570fd\",\"x-codex-window-id\":\"46060ef1-bfab-4aa3-8169-303a09d07bd1\",\"turn_id\":\"5965cf14-bc4c-4984-b71b-32fddf30f5a9\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-ws-0001\\\",\\\"thread_id\\\":\\\"c6501502-09db-4fe3-a7dd-edffde7570fd\\\",\\\"turn_id\\\":\\\"5965cf14-bc4c-4984-b71b-32fddf30f5a9\\\",\\\"window_id\\\":\\\"46060ef1-bfab-4aa3-8169-303a09d07bd1\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793817129022}\"}}"
+      ]
+    },
+    {
+      "name": "ws-turn-2",
+      "downstream": {
+        "model": "gpt-6.1-terra",
+        "instructions": "You are terse.",
+        "input": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Say hello."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_1",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Again."
+              }
+            ]
+          }
+        ],
+        "reasoning": {
+          "effort": "high"
+        }
+      },
+      "handshakes": [],
+      "frames": [
+        "{\"type\":\"response.create\",\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Again.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-ws-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-ws-0001\",\"thread_id\":\"c6501502-09db-4fe3-a7dd-edffde7570fd\",\"x-codex-window-id\":\"46060ef1-bfab-4aa3-8169-303a09d07bd1\",\"turn_id\":\"3d3652f5-6d4a-4a38-8a79-7d5b4b2cc652\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-ws-0001\\\",\\\"thread_id\\\":\\\"c6501502-09db-4fe3-a7dd-edffde7570fd\\\",\\\"turn_id\\\":\\\"3d3652f5-6d4a-4a38-8a79-7d5b4b2cc652\\\",\\\"window_id\\\":\\\"46060ef1-bfab-4aa3-8169-303a09d07bd1\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793817129046}\"},\"previous_response_id\":\"resp_1\"}"
+      ]
+    },
+    {
+      "name": "ws-turn-3",
+      "downstream": {
+        "model": "gpt-6.1-terra",
+        "instructions": "You are terse.",
+        "input": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Say hello."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_1",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Again."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_2",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Think less."
+              }
+            ]
+          }
+        ],
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "handshakes": [],
+      "frames": [
+        "{\"type\":\"response.create\",\"model\":\"gpt-6.1-terra\",\"input\":[{\"type\":\"configuration_update\",\"reasoning\":{\"effort\":\"low\"}},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Think less.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-ws-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-ws-0001\",\"thread_id\":\"c6501502-09db-4fe3-a7dd-edffde7570fd\",\"x-codex-window-id\":\"46060ef1-bfab-4aa3-8169-303a09d07bd1\",\"turn_id\":\"969ceee5-d12e-4eed-9cfc-b98d1dde5a00\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-ws-0001\\\",\\\"thread_id\\\":\\\"c6501502-09db-4fe3-a7dd-edffde7570fd\\\",\\\"turn_id\\\":\\\"969ceee5-d12e-4eed-9cfc-b98d1dde5a00\\\",\\\"window_id\\\":\\\"46060ef1-bfab-4aa3-8169-303a09d07bd1\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793817129052}\"},\"previous_response_id\":\"resp_2\"}"
+      ]
+    },
+    {
+      "name": "ws-turn-4",
+      "downstream": {
+        "model": "gpt-6.1-terra",
+        "instructions": "You are terse.",
+        "input": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Say hello."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_1",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Again."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_2",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Think less."
+              }
+            ]
+          },
+          {
+            "id": "msg_resp_3",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Captured.",
+                "annotations": []
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Count slowly."
+              }
+            ]
+          }
+        ],
+        "reasoning": {
+          "effort": "low"
+        }
+      },
+      "handshakes": [],
+      "frames": [
+        "{\"type\":\"response.create\",\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Count slowly.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-ws-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-ws-0001\",\"thread_id\":\"c6501502-09db-4fe3-a7dd-edffde7570fd\",\"x-codex-window-id\":\"46060ef1-bfab-4aa3-8169-303a09d07bd1\",\"turn_id\":\"4c85284e-e861-4dc0-9698-e2defc735075\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-ws-0001\\\",\\\"thread_id\\\":\\\"c6501502-09db-4fe3-a7dd-edffde7570fd\\\",\\\"turn_id\\\":\\\"4c85284e-e861-4dc0-9698-e2defc735075\\\",\\\"window_id\\\":\\\"46060ef1-bfab-4aa3-8169-303a09d07bd1\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793817129055}\"},\"previous_response_id\":\"resp_3\"}",
+        "{\"type\":\"response.steer\",\"previous_response_id\":\"resp_4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Change course.\"}]}]}"
+      ],
+      "steerOutcome": "rejected"
+    }
+  ]
+}

@@ -652,6 +652,7 @@ func (s *Service) applyCoreAuthRemoval(ctx context.Context, id string) {
 	s.cancelStaleAntigravityProbes(id)
 	forgetXAIModelDiscovery(provider, id)
 	s.forgetClaudeModelDiscovery(id)
+	s.forgetCodexModelDiscovery(id)
 	if strings.EqualFold(provider, "codex") {
 		executor.CloseCodexWebsocketSessionsForAuthID(id, "auth_removed")
 	}

@@ -20,6 +20,11 @@ func TestV8SharedUpstreamRequestSettingsAffectBothAuthKinds(t *testing.T) {
 	for _, provider := range []string{"codex", "xai"} {
 		for _, kind := range []string{cliproxyauth.AuthKindAPIKey, cliproxyauth.AuthKindOAuth} {
 			for _, stream := range []bool{false, true} {
+				if provider == "codex" && kind == cliproxyauth.AuthKindOAuth {
+					// Codex OAuth requests are shaped by the NeoPi provider port, which
+					// applies none of NeoProxy's client or upstream body rewrites.
+					continue
+				}
 				t.Run(fmt.Sprintf("%s/%s/stream=%t", provider, kind, stream), func(t *testing.T) {
 					captured := make(chan []byte, 1)
 					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

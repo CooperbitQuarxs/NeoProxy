@@ -136,6 +136,9 @@ type Service struct {
 	claudeDiscoveryContext context.Context // protected by cfgMu
 	claudeDiscoveryMu      sync.Mutex
 	claudeCatalog          map[string]*claudeModelCatalogEntry
+	codexDiscoveryContext  context.Context // protected by cfgMu
+	codexDiscoveryMu       sync.Mutex
+	codexCatalog           map[string]*codexModelCatalogEntry
 	// antigravityContext is protected by cfgMu and owns background model probes.
 	antigravityContext       context.Context
 	antigravityProbeMu       sync.Mutex

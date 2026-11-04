@@ -25,19 +25,15 @@ func (e *CodexWebsocketsExecutor) Execute(ctx context.Context, auth *cliproxyaut
 	if opts.Alt == "responses/compact" {
 		return e.CodexExecutor.executeCompact(ctx, auth, req, opts)
 	}
+	if !codexAuthUsesAPIKey(auth) {
+		// OAuth Codex is NeoPi's transport, websocket-first on its own.
+		return e.CodexExecutor.Execute(ctx, auth, req, opts)
+	}
 
 	baseModel := thinking.ParseSuffix(req.Model).ModelName
 	apiKey, baseURL := codexCreds(auth)
-	if errSIWC := ensureCodexSIWCCredentials(auth, apiKey); errSIWC != nil {
-		return resp, errSIWC
-	}
-	useSIWC := codexUseSIWC(auth)
 	if baseURL == "" {
-		if useSIWC {
-			baseURL = defaultOpenAISIWCBaseURL
-		} else {
-			baseURL = "https://chatgpt.com/backend-api/codex"
-		}
+		baseURL = "https://chatgpt.com/backend-api/codex"
 	}
 
 	reporter := helps.NewExecutorUsageReporter(ctx, e, baseModel, auth)
@@ -66,18 +62,15 @@ func (e *CodexWebsocketsExecutor) Execute(ctx context.Context, auth *cliproxyaut
 		return resp, err
 	}
 
-	hasExplicitInstructions := gjson.GetBytes(req.Payload, "instructions").Exists() && strings.TrimSpace(gjson.GetBytes(req.Payload, "instructions").String()) != ""
 	finalizePayload := helps.NewPayloadFinalizer(e.cfg, "codex-websockets", baseModel, to.String(), "", originalTranslated, req, opts)
 	body = helps.SetStringIfDifferent(body, "model", baseModel)
 	body = helps.SetBoolIfDifferent(body, "stream", true)
 	body, _ = sjson.DeleteBytes(body, "prompt_cache_retention")
 	body, _ = sjson.DeleteBytes(body, "safety_identifier")
 	body = ensureWebSearchToolForHistory(body, opts.Headers)
-	if !useSIWC {
-		body = normalizeCodexInstructions(body, nativeRequest)
-		if e.cfg == nil || e.cfg.DisableImageGeneration == config.DisableImageGenerationOff {
-			body = ensureImageGenerationTool(body, baseModel, auth, opts.Headers)
-		}
+	body = normalizeCodexInstructions(body, nativeRequest)
+	if e.cfg == nil || e.cfg.DisableImageGeneration == config.DisableImageGenerationOff {
+		body = ensureImageGenerationTool(body, baseModel, auth, opts.Headers)
 	}
 	body = normalizeCodexWebsocketParallelToolCalls(body, opts.Headers)
 	body = helps.NormalizeCodexToolSchemas(body)
@@ -100,13 +93,9 @@ func (e *CodexWebsocketsExecutor) Execute(ctx context.Context, auth *cliproxyaut
 		return resp, errPromptCache
 	}
 	body = helps.SanitizeCodexInputItemIDs(body)
-	if useSIWC {
-		body = applyCodexSIWCWebsocketBodyRules(body, hasExplicitInstructions, cliproxyexecutor.Options{KeepTopLevelEffort: thinking.HasThinkingSuffix(req.Model)})
-	}
 	body = finalizePayload(body)
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 	wsHeaders = applyCodexWebsocketHeaders(ctx, wsHeaders, auth, apiKey, e.cfg, nativeRequest, opts.Headers)
-	applyCodexRoutingHint(ctx, wsHeaders, auth, baseModel, body, opts.Headers)
 	applyModelHeaderOverrides(wsHeaders, baseModel)
 
 	var authID, authLabel, authType, authValue string

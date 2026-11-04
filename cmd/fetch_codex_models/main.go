@@ -1,6 +1,5 @@
-// Command fetch_codex_models connects to the Codex API using stored auth
-// credentials and saves the dynamically fetched Codex client model catalog to a
-// JSON file for inspection or offline use.
+// Command fetch_codex_models uses NeoPi's Codex discovery protocol and saves its
+// unmodified, account-scoped upstream catalog for inspection or offline use.
 //
 // Usage:
 //
@@ -11,7 +10,7 @@
 //	--auths-dir       <path>  Directory containing auth JSON files (default: config auth-dir)
 //	--config          <path>  Config file path                 (default: "config.toml", else "config.yaml")
 //	--output          <path>  Output JSON file path             (default: "codex_client_models.json")
-//	--client-version <ver>   Codex client_version query value  (default: "0.154.0")
+//	--client-version <ver>   Codex client_version query value  (default: NeoPi's current version)
 //	--pretty                 Pretty-print the output JSON      (default: true)
 package main
 
@@ -21,9 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,24 +28,12 @@ import (
 	codexauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	sdkauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
-	"github.com/router-for-me/CLIProxyAPI/v8/sdk/proxyutil"
 	log "github.com/sirupsen/logrus"
-	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
-)
-
-const (
-	codexModelsBaseURL       = "https://chatgpt.com/backend-api/codex"
-	codexModelsPath          = "/models"
-	defaultClientVersion     = "0.159.0"
-	defaultCodexUserAgent    = "codex_cli_rs/0.159.0 (Mac OS 26.3.1; arm64) iTerm.app/3.6.9"
-	defaultCodexOriginator   = "codex_cli_rs"
-	accessTokenRefreshLeeway = 30 * time.Second
-	baselineModelSlug        = "gpt-5.5"
-	baselineModelVisibility  = "list"
 )
 
 func init() {
@@ -67,7 +51,7 @@ func main() {
 	flag.StringVar(&authsDir, "auths-dir", "", "Directory containing auth JSON files (overrides config auth-dir)")
 	flag.StringVar(&configPath, "config", "", "Configure File Path")
 	flag.StringVar(&outputPath, "output", "codex_client_models.json", "Output JSON file path")
-	flag.StringVar(&clientVersion, "client-version", defaultClientVersion, "Codex client_version query value")
+	flag.StringVar(&clientVersion, "client-version", codexauth.ModelsClientVersion, "Codex client_version query value")
 	flag.BoolVar(&pretty, "pretty", true, "Pretty-print the output JSON")
 	flag.Parse()
 	authsDirOverridden := false
@@ -132,7 +116,7 @@ func main() {
 
 	fmt.Printf("Using auth: id=%s label=%s\n", chosen.ID, chosen.Label)
 
-	accessToken, refreshed, err := ensureAccessToken(ctx, fileStore, chosen)
+	accessToken, refreshed, err := ensureAccessToken(ctx, cfg, fileStore, chosen)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: failed to prepare codex access token: %v\n", err)
 		os.Exit(1)
@@ -143,12 +127,12 @@ func main() {
 
 	fmt.Println("Fetching Codex model list from upstream...")
 
-	raw, count, err := fetchModels(ctx, chosen, accessToken, clientVersion)
+	raw, count, err := fetchModels(ctx, cfg, chosen, accessToken, clientVersion)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: failed to fetch codex models: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Fetched %d models.\n", count)
+	fmt.Printf("Discovered %d usable models; saving the original upstream catalog.\n", count)
 
 	if pretty {
 		raw, err = prettyJSON(raw)
@@ -182,223 +166,50 @@ func findCodexAuth(auths []*coreauth.Auth) *coreauth.Auth {
 	return nil
 }
 
-func ensureAccessToken(ctx context.Context, store *sdkauth.FileTokenStore, auth *coreauth.Auth) (string, bool, error) {
+func ensureAccessToken(ctx context.Context, cfg *config.Config, store *sdkauth.FileTokenStore, auth *coreauth.Auth) (string, bool, error) {
 	accessToken := metaStringValue(auth.Metadata, "access_token")
 	if accessToken != "" {
-		if expiresAt, ok := auth.ExpirationTime(); !ok || time.Now().Add(accessTokenRefreshLeeway).Before(expiresAt) {
+		if expiresAt, ok := auth.ExpirationTime(); ok && time.Now().Add(coreauth.CodexRefreshLead).Before(expiresAt) {
 			return accessToken, false, nil
 		}
 	}
-
-	refreshToken := metaStringValue(auth.Metadata, "refresh_token")
-	if refreshToken == "" {
+	if coreauth.IsRefreshLocked(auth) {
+		return "", false, coreauth.ErrRefreshLocked
+	}
+	if metaStringValue(auth.Metadata, "refresh_token") == "" {
 		if accessToken != "" {
 			return accessToken, false, nil
 		}
 		return "", false, fmt.Errorf("missing access_token and refresh_token")
 	}
-
-	svc := codexauth.NewCodexAuthWithProxyURL(nil, auth.ProxyURL)
-	tokenData, errRefresh := svc.RefreshTokensWithRetry(ctx, refreshToken, 3)
+	refreshed, errRefresh := executor.NewCodexExecutor(cfg).Refresh(ctx, auth)
 	if errRefresh != nil {
 		return "", false, errRefresh
 	}
-	if strings.TrimSpace(tokenData.AccessToken) == "" {
-		return "", false, fmt.Errorf("refresh response did not include access_token")
-	}
-
-	if auth.Metadata == nil {
-		auth.Metadata = make(map[string]any)
-	}
-	auth.Metadata["id_token"] = tokenData.IDToken
-	auth.Metadata["access_token"] = tokenData.AccessToken
-	if tokenData.RefreshToken != "" {
-		auth.Metadata["refresh_token"] = tokenData.RefreshToken
-	}
-	if tokenData.AccountID != "" {
-		auth.Metadata["account_id"] = tokenData.AccountID
-	}
-	if tokenData.Email != "" {
-		auth.Metadata["email"] = tokenData.Email
-	}
-	auth.Metadata["expired"] = tokenData.Expire
-	auth.Metadata["type"] = "codex"
-	auth.Metadata["last_refresh"] = time.Now().Format(time.RFC3339)
-
-	planType := strings.TrimSpace(tokenData.PlanType)
-	if planType == "" && tokenData.IDToken != "" {
-		if claims, errParse := codexauth.ParseJWTToken(tokenData.IDToken); errParse == nil && claims != nil {
-			planType = claims.GetPlanType()
-		}
-	}
-	if planType == "" {
-		planType = codexauth.DefaultPlanType
-	}
-	auth.Metadata["plan_type"] = planType
-	if auth.Attributes == nil {
-		auth.Attributes = make(map[string]string)
-	}
-	auth.Attributes["plan_type"] = planType
-
-	if _, errSave := store.Save(ctx, auth); errSave != nil {
+	if _, errSave := store.Save(ctx, refreshed); errSave != nil {
 		return "", false, fmt.Errorf("failed to save refreshed auth: %w", errSave)
 	}
-
-	return tokenData.AccessToken, true, nil
+	return metaStringValue(refreshed.Metadata, "access_token"), true, nil
 }
 
-func fetchModels(ctx context.Context, auth *coreauth.Auth, accessToken, clientVersion string) ([]byte, int, error) {
-	modelsURL, errURL := codexModelsURL(clientVersion)
-	if errURL != nil {
-		return nil, 0, errURL
+func fetchModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, accessToken, clientVersion string) ([]byte, int, error) {
+	base := strings.TrimSpace(auth.Attributes["base_url"])
+	if base == "" {
+		base = metaStringValue(auth.Metadata, "base_url")
 	}
-
-	httpReq, errReq := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
-	if errReq != nil {
-		return nil, 0, errReq
+	catalog, errFetch := codexauth.FetchModels(ctx, helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0), codexauth.ModelDiscoveryOptions{
+		AccessToken:   accessToken,
+		AccountID:     metaStringValue(auth.Metadata, "account_id"),
+		BaseURL:       base,
+		ClientVersion: clientVersion,
+	})
+	if errFetch != nil {
+		return nil, 0, errFetch
 	}
-	httpReq.Close = true
-	httpReq.Header.Set("Accept", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+accessToken)
-	httpReq.Header.Set("Originator", defaultCodexOriginator)
-	httpReq.Header.Set("User-Agent", defaultCodexUserAgent)
-	if accountID := metaStringValue(auth.Metadata, "account_id"); accountID != "" {
-		httpReq.Header.Set("Chatgpt-Account-Id", accountID)
+	if catalog.RejectedStatus != 0 {
+		return nil, 0, fmt.Errorf("Codex discovery rejected the credential: HTTP %d", catalog.RejectedStatus)
 	}
-	if auth != nil {
-		util.ApplyCustomHeadersFromAttrs(httpReq, auth.Attributes)
-	}
-
-	httpClient := &http.Client{}
-	if auth != nil {
-		if transport, _, errProxy := proxyutil.BuildHTTPTransport(auth.ProxyURL); errProxy == nil && transport != nil {
-			httpClient.Transport = transport
-		}
-	}
-
-	httpResp, errDo := httpClient.Do(httpReq)
-	if errDo != nil {
-		return nil, 0, errDo
-	}
-
-	bodyBytes, errRead := io.ReadAll(httpResp.Body)
-	if errClose := httpResp.Body.Close(); errClose != nil && errRead == nil {
-		errRead = errClose
-	}
-	if errRead != nil {
-		return nil, 0, errRead
-	}
-
-	if httpResp.StatusCode < http.StatusOK || httpResp.StatusCode >= http.StatusMultipleChoices {
-		return nil, 0, fmt.Errorf("models request failed with status %d: %s", httpResp.StatusCode, strings.TrimSpace(string(bodyBytes)))
-	}
-
-	bodyBytes, count, errEnsure := ensureBaselineModel(bodyBytes)
-	if errEnsure != nil {
-		return nil, 0, errEnsure
-	}
-	return bodyBytes, count, nil
-}
-
-func ensureBaselineModel(raw []byte) ([]byte, int, error) {
-	var payload struct {
-		Models []json.RawMessage `json:"models"`
-	}
-	if errUnmarshal := json.Unmarshal(raw, &payload); errUnmarshal != nil {
-		return nil, 0, fmt.Errorf("failed to parse response JSON: %w", errUnmarshal)
-	}
-	// Keep this check intentionally loose: fetch_codex_models dumps the upstream
-	// Codex API payload. Strict CPA catalog validation belongs in
-	// cmd/validate_codex_models and registry.ValidateCodexClientModelsJSON.
-	if payload.Models == nil {
-		return nil, 0, fmt.Errorf("response JSON does not contain models array")
-	}
-	if len(payload.Models) == 0 {
-		return raw, 0, nil
-	}
-
-	foundBaseline := false
-	for i, modelRaw := range payload.Models {
-		slugResult := gjson.GetBytes(modelRaw, "slug")
-		if slugResult.Type != gjson.String || strings.TrimSpace(slugResult.Str) != baselineModelSlug {
-			continue
-		}
-		foundBaseline = true
-		visResult := gjson.GetBytes(modelRaw, "visibility")
-		if visResult.Type != gjson.String || visResult.Str != baselineModelVisibility {
-			updated, errSet := sjson.SetBytes(raw, fmt.Sprintf("models.%d.visibility", i), baselineModelVisibility)
-			if errSet != nil {
-				return nil, 0, fmt.Errorf("failed to update %s visibility: %w", baselineModelSlug, errSet)
-			}
-			raw = updated
-		}
-	}
-
-	count := len(payload.Models)
-	if !foundBaseline {
-		cloned := append([]byte(nil), payload.Models[0]...)
-		var errSet error
-		cloned, errSet = sjson.SetBytes(cloned, "slug", baselineModelSlug)
-		if errSet != nil {
-			return nil, 0, fmt.Errorf("failed to set %s slug on cloned model: %w", baselineModelSlug, errSet)
-		}
-		visResult := gjson.GetBytes(cloned, "visibility")
-		if visResult.Type != gjson.String || visResult.Str != baselineModelVisibility {
-			cloned, errSet = sjson.SetBytes(cloned, "visibility", baselineModelVisibility)
-			if errSet != nil {
-				return nil, 0, fmt.Errorf("failed to set %s visibility on cloned model: %w", baselineModelSlug, errSet)
-			}
-		}
-		for _, reset := range []struct {
-			path  string
-			value any
-		}{
-			{path: "tool_mode", value: "direct"},
-			{path: "use_responses_lite", value: false},
-			{path: "supports_reasoning_effort_updates", value: false},
-		} {
-			cloned, errSet = sjson.SetBytes(cloned, reset.path, reset.value)
-			if errSet != nil {
-				return nil, 0, fmt.Errorf("failed to set %s %s on cloned model: %w", baselineModelSlug, reset.path, errSet)
-			}
-		}
-		raw, errSet = sjson.SetRawBytes(raw, "models.-1", cloned)
-		if errSet != nil {
-			return nil, 0, fmt.Errorf("failed to append %s model: %w", baselineModelSlug, errSet)
-		}
-		count++
-	}
-
-	return raw, count, nil
-}
-
-func codexModelsURL(clientVersion string) (string, error) {
-	u, err := url.Parse(codexModelsBaseURL + codexModelsPath)
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(clientVersion) != "" {
-		q := u.Query()
-		q.Set("client_version", strings.TrimSpace(clientVersion))
-		u.RawQuery = q.Encode()
-	}
-	return u.String(), nil
-}
-
-func countModels(raw []byte) (int, error) {
-	var payload struct {
-		Models []json.RawMessage `json:"models"`
-	}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return 0, fmt.Errorf("failed to parse response JSON: %w", err)
-	}
-	// Keep this check intentionally loose: fetch_codex_models dumps the upstream
-	// Codex API payload. Strict CPA catalog validation belongs in
-	// cmd/validate_codex_models and registry.ValidateCodexClientModelsJSON.
-	if payload.Models == nil {
-		return 0, fmt.Errorf("response JSON does not contain models array")
-	}
-	return len(payload.Models), nil
+	return catalog.Raw, len(catalog.Models), nil
 }
 
 func prettyJSON(raw []byte) ([]byte, error) {

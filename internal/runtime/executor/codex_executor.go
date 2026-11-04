@@ -1,14 +1,40 @@
 package executor
 
-import "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+import (
+	"context"
+	"sync"
+	"time"
 
-// CodexExecutor is a stateless executor for Codex (OpenAI Responses API entrypoint).
-// If api_key is unavailable on auth, it falls back to legacy via ClientAdapter.
+	codexauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	"golang.org/x/sync/singleflight"
+)
+
+// CodexExecutor serves Codex Responses and owns per-credential refresh flights.
 type CodexExecutor struct {
 	cfg *config.Config
+	// refresh is shared by the per-scope copies ForAPIKey makes, so every
+	// copy joins the same per-credential flight.
+	refresh      *codexRefreshState
+	refreshClock func() time.Time
+	refreshToken func(context.Context, *cliproxyauth.Auth) (*codexauth.CodexTokenData, error)
 }
 
-func NewCodexExecutor(cfg *config.Config) *CodexExecutor { return &CodexExecutor{cfg: cfg} }
+type codexRefreshState struct {
+	flight singleflight.Group
+	mu     sync.Mutex
+	mints  map[string]codexMint
+}
+
+type codexMint struct {
+	access string
+	at     time.Time
+}
+
+func NewCodexExecutor(cfg *config.Config) *CodexExecutor {
+	return &CodexExecutor{cfg: cfg, refresh: &codexRefreshState{}}
+}
 
 func (e *CodexExecutor) Identifier() string { return "codex" }
 

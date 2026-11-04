@@ -2,55 +2,41 @@ package codex
 
 import "reflect"
 
-var codexSIWCCredentialKeys = []string{
-	"access_token", "refresh_token", "id_token", "client_id", "device_id",
-	"expired", "last_refresh", "scope", "scopes",
-}
-
-// CredentialRefreshPatch is an immutable, partition-specific refresh result.
-// Its original token identities (both in-memory and on-disk baselines) act as versions,
-// independent of timestamp precision.
+// CredentialRefreshPatch carries a version-checked credential refresh or disable.
+// Memory and disk baselines let publication reconcile a peer's persisted grant.
 type CredentialRefreshPatch struct {
-	outerBefore     map[string]any
-	outerDiskBefore map[string]any
-	outerAfter      map[string]any
-	siwcBefore      map[string]any
-	siwcDiskBefore  map[string]any
-	siwcAfter       map[string]any
+	before     map[string]any
+	diskBefore map[string]any
+	after      map[string]any
+	disable    bool
 }
 
-// NewCredentialRefreshPatch records only credential partitions actually refreshed.
-func NewCredentialRefreshPatch(before, after map[string]any, outer, siwc bool) *CredentialRefreshPatch {
-	return NewCredentialRefreshPatchWithDiskBaseline(before, nil, after, outer, siwc)
-}
-
-// NewCredentialRefreshPatchWithDiskBaseline records both the in-memory baseline (before)
-// and the on-disk baseline (diskBefore) observed under the file lock before refreshing to after.
-func NewCredentialRefreshPatchWithDiskBaseline(before, diskBefore, after map[string]any, outer, siwc bool) *CredentialRefreshPatch {
-	patch := &CredentialRefreshPatch{}
-	if outer {
-		patch.outerBefore = credentialFields(before, codexOuterCredentialKeys)
-		if len(diskBefore) > 0 {
-			patch.outerDiskBefore = credentialFields(diskBefore, codexOuterCredentialKeys)
-		}
-		patch.outerAfter = credentialFields(after, codexOuterCredentialKeys)
+// NewCredentialRefreshPatch records the in-memory baseline (before), the on-disk
+// baseline (diskBefore) observed under the file lock, and the refreshed grant (after).
+func NewCredentialRefreshPatch(before, diskBefore, after map[string]any) *CredentialRefreshPatch {
+	patch := &CredentialRefreshPatch{
+		before: credentialFields(before),
+		after:  credentialFields(after),
 	}
-	if siwc {
-		beforeSIWC, _ := before["siwc"].(map[string]any)
-		diskBeforeSIWC, _ := diskBefore["siwc"].(map[string]any)
-		afterSIWC, _ := after["siwc"].(map[string]any)
-		patch.siwcBefore = credentialFields(beforeSIWC, codexSIWCCredentialKeys)
-		if len(diskBeforeSIWC) > 0 {
-			patch.siwcDiskBefore = credentialFields(diskBeforeSIWC, codexSIWCCredentialKeys)
-		}
-		patch.siwcAfter = credentialFields(afterSIWC, codexSIWCCredentialKeys)
+	if len(diskBefore) > 0 {
+		patch.diskBefore = credentialFields(diskBefore)
 	}
 	return patch
 }
 
-func credentialFields(metadata map[string]any, keys []string) map[string]any {
+// NewCredentialDisablePatch disables only the persisted grant actually attempted.
+// before is the caller's memory snapshot, which may predate the locked disk read.
+func NewCredentialDisablePatch(before, attempted map[string]any) *CredentialRefreshPatch {
+	return &CredentialRefreshPatch{
+		before:     credentialFields(before),
+		diskBefore: credentialFields(attempted),
+		disable:    true,
+	}
+}
+
+func credentialFields(metadata map[string]any) map[string]any {
 	fields := make(map[string]any)
-	for _, key := range keys {
+	for _, key := range codexCredentialKeys {
 		if value, ok := metadata[key]; ok {
 			fields[key] = value
 		}
@@ -59,7 +45,7 @@ func credentialFields(metadata map[string]any, keys []string) map[string]any {
 }
 
 func sameCredentialVersion(a, b map[string]any) bool {
-	for _, key := range []string{"access_token", "refresh_token", "id_token", "account_id", "client_id", "device_id"} {
+	for _, key := range codexCredentialKeys {
 		if !reflect.DeepEqual(a[key], b[key]) {
 			return false
 		}
@@ -80,23 +66,9 @@ func matchesBaselineOrAfter(target, memBefore, diskBefore, after map[string]any)
 	return false, nil
 }
 
-func applyCredentialFields(disk, before, after map[string]any) {
-	for key, value := range after {
-		// Preserve fields changed on disk that the refresh did not modify.
-		oldValue, existed := before[key]
-		if !existed || !reflect.DeepEqual(oldValue, value) {
-			disk[key] = value
-		}
-	}
-}
-
-// IsCodexCredentialKey reports whether key belongs to a Codex credential partition or switch
-// managed by CredentialRefreshPatch.
+// IsCodexCredentialKey reports whether key belongs to the credential managed by CredentialRefreshPatch.
 func IsCodexCredentialKey(key string) bool {
-	if key == "siwc" || key == "use_siwc" {
-		return true
-	}
-	for _, k := range codexOuterCredentialKeys {
+	for _, k := range codexCredentialKeys {
 		if k == key {
 			return true
 		}
@@ -104,46 +76,36 @@ func IsCodexCredentialKey(key string) bool {
 	return false
 }
 
-// CanApplyTo reports whether at least one refreshed partition in p still matches disk's version.
+// CanApplyTo reports whether a pending mutation can still publish to this snapshot.
 func (p *CredentialRefreshPatch) CanApplyTo(disk map[string]any) bool {
 	if p == nil {
 		return false
 	}
-	if p.outerAfter != nil {
-		if ok, _ := matchesBaselineOrAfter(disk, p.outerBefore, p.outerDiskBefore, p.outerAfter); ok {
-			return true
-		}
-	}
-	diskSIWC, _ := disk["siwc"].(map[string]any)
-	if p.siwcAfter != nil {
-		if ok, _ := matchesBaselineOrAfter(diskSIWC, p.siwcBefore, p.siwcDiskBefore, p.siwcAfter); ok {
-			return true
-		}
-	}
-	return false
+	ok, _ := matchesBaselineOrAfter(disk, p.before, p.diskBefore, p.after)
+	return ok
 }
 
-// Apply overlays successful refreshes on the locked disk snapshot. A partition
-// rotated since refresh began is retained, without blocking the other partition.
+// Apply overlays a refresh or disables the attempted grant on the locked snapshot.
+// A disable never matches an older memory baseline: only the attempted disk version.
 func (p *CredentialRefreshPatch) Apply(disk map[string]any) map[string]any {
 	merged := cloneStringAnyMap(disk)
 	if merged == nil {
 		merged = make(map[string]any)
 	}
-	if p.outerAfter != nil {
-		if ok, base := matchesBaselineOrAfter(disk, p.outerBefore, p.outerDiskBefore, p.outerAfter); ok {
-			applyCredentialFields(merged, base, p.outerAfter)
+	if p.disable {
+		if sameCredentialVersion(disk, p.diskBefore) {
+			merged["disabled"] = true
 		}
+		return merged
 	}
-	diskSIWC, _ := disk["siwc"].(map[string]any)
-	if p.siwcAfter != nil {
-		if ok, base := matchesBaselineOrAfter(diskSIWC, p.siwcBefore, p.siwcDiskBefore, p.siwcAfter); ok {
-			mergedSIWC := cloneStringAnyMap(diskSIWC)
-			if mergedSIWC == nil {
-				mergedSIWC = make(map[string]any)
-			}
-			applyCredentialFields(mergedSIWC, base, p.siwcAfter)
-			merged["siwc"] = mergedSIWC
+	ok, base := matchesBaselineOrAfter(disk, p.before, p.diskBefore, p.after)
+	if !ok {
+		return merged
+	}
+	for key, value := range p.after {
+		// Preserve fields changed on disk that the refresh did not modify.
+		if oldValue, existed := base[key]; !existed || !reflect.DeepEqual(oldValue, value) {
+			merged[key] = value
 		}
 	}
 	return merged

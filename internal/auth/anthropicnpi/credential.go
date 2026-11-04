@@ -3,14 +3,11 @@ package anthropicnpi
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopiid"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -84,13 +81,8 @@ func RefreshTime(credential *Credential) (time.Time, error) {
 	return expires.Add(-RefreshLead), nil
 }
 
-var installMu sync.Mutex
-
-// EnsureInstallID supplies one persistent NeoPi installation identity beneath
-// AuthDir, including for legacy and refresh-locked credentials. Only the
-// non-secret sidecar is written; credential files and their token ownership are
-// untouched. A fully written inode is linked atomically so concurrent processes
-// cannot observe an empty or partially written installation ID.
+// EnsureInstallID supplies the shared NeoPi installation identity, including for
+// legacy and refresh-locked credentials that carry none of their own.
 func EnsureInstallID(authDir string, credential *Credential) error {
 	if credential == nil {
 		return fmt.Errorf("claude credential is missing")
@@ -98,54 +90,12 @@ func EnsureInstallID(authDir string, credential *Credential) error {
 	if strings.TrimSpace(credential.InstallID) != "" {
 		return nil
 	}
-	if strings.TrimSpace(authDir) == "" {
-		return fmt.Errorf("Claude installation identity requires AuthDir")
-	}
-	installMu.Lock()
-	defer installMu.Unlock()
-	path := filepath.Join(authDir, ".claude-neopi-install-id")
-	readID := func() (string, error) {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return "", err
-		}
-		id := strings.TrimSpace(string(data))
-		if _, err = uuid.Parse(id); err != nil {
-			return "", fmt.Errorf("invalid Claude installation identity: %w", err)
-		}
-		return id, nil
-	}
-	if id, err := readID(); err == nil {
-		credential.InstallID = id
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	if err := os.MkdirAll(authDir, 0700); err != nil {
-		return err
-	}
-	file, err := os.CreateTemp(authDir, ".claude-install-*")
+	id, err := neopiid.InstallID(authDir)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
-	id := uuid.NewString()
-	if _, err = file.WriteString(id); err != nil {
-		file.Close()
-		return err
-	}
-	if err = file.Sync(); err != nil {
-		file.Close()
-		return err
-	}
-	if err = file.Close(); err != nil {
-		return err
-	}
-	if err = os.Link(file.Name(), path); err != nil && !os.IsExist(err) {
-		return err
-	}
-	credential.InstallID, err = readID()
-	return err
+	credential.InstallID = id
+	return nil
 }
 
 // FileName preserves the established organization/account-hashed Claude names.

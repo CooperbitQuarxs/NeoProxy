@@ -15,6 +15,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/singleflight"
 )
 
 // RefreshEvaluator allows runtime state to override refresh decisions.
@@ -134,14 +135,9 @@ func (m *Manager) shouldRefresh(a *Auth, now time.Time) bool {
 		return !next.After(now)
 	}
 
-	if _, hasSIWC, needSIWC := CodexSIWCNeedsRefresh(a, now); hasSIWC {
-		if needSIWC {
-			return true
-		}
-		if _, hasOuter, needOuter := CodexOuterNeedsRefresh(a, now); hasOuter {
-			return needOuter
-		}
-		return false
+	if strings.EqualFold(strings.TrimSpace(a.Provider), "codex") {
+		_, _, due := CodexNeedsRefresh(a, now)
+		return due
 	}
 
 	lastRefresh := a.LastRefreshedAt
@@ -398,21 +394,23 @@ func (m *Manager) finishRefreshJob(job *authRefreshJob, retryAt time.Time, queue
 }
 
 type authRefreshLock struct {
-	mu sync.Mutex
+	mu          sync.Mutex
+	codexFlight singleflight.Group
 }
 
-func authOuterAccessToken(auth *Auth) string {
+func (m *Manager) credentialRefreshLock(id string) *authRefreshLock {
+	if existing, ok := m.refreshLocks.Load(id); ok {
+		return existing.(*authRefreshLock)
+	}
+	existing, _ := m.refreshLocks.LoadOrStore(id, &authRefreshLock{})
+	return existing.(*authRefreshLock)
+}
+
+func authAccessToken(auth *Auth) string {
 	if token := authMetadataString(auth, "access_token"); token != "" {
 		return token
 	}
 	return authMetadataString(auth, "accessToken")
-}
-
-func authAccessToken(auth *Auth) string {
-	if IsCodexUseSIWC(auth) {
-		return authSIWCTokenField(auth, "access_token")
-	}
-	return authOuterAccessToken(auth)
 }
 
 func authRefreshToken(auth *Auth) string {
@@ -429,9 +427,6 @@ func authHasRefreshCredential(auth *Auth) bool {
 	if authMetadataString(auth, "refreshToken") != "" {
 		return true
 	}
-	if _, hasSIWC, _ := CodexSIWCNeedsRefresh(auth, time.Now()); hasSIWC {
-		return true
-	}
 	// Meta exchanges its device token for a replacement API key after a 401.
 	return auth != nil && strings.EqualFold(strings.TrimSpace(auth.Provider), "meta") &&
 		(authMetadataString(auth, "dca_token") != "" || strings.TrimSpace(auth.Attributes["dca_token"]) != "")
@@ -443,7 +438,7 @@ func CredentialsChanged(existing, incoming *Auth) bool {
 	if existing == nil || incoming == nil {
 		return false
 	}
-	if authAccessToken(existing) != authAccessToken(incoming) || authOuterAccessToken(existing) != authOuterAccessToken(incoming) {
+	if authAccessToken(existing) != authAccessToken(incoming) {
 		return true
 	}
 	if authRefreshToken(existing) != authRefreshToken(incoming) {
@@ -477,30 +472,7 @@ func CredentialsChanged(existing, incoming *Auth) bool {
 	if existingKey != incomingKey {
 		return true
 	}
-	if authSIWCTokenField(existing, "access_token") != authSIWCTokenField(incoming, "access_token") ||
-		authSIWCTokenField(existing, "refresh_token") != authSIWCTokenField(incoming, "refresh_token") ||
-		authSIWCTokenField(existing, "id_token") != authSIWCTokenField(incoming, "id_token") ||
-		authSIWCTokenField(existing, "client_id") != authSIWCTokenField(incoming, "client_id") {
-		return true
-	}
-	existingUseSIWC, existingHasUseSIWC := parseBoolAny(existing.Metadata["use_siwc"])
-	incomingUseSIWC, incomingHasUseSIWC := parseBoolAny(incoming.Metadata["use_siwc"])
-	if existingHasUseSIWC != incomingHasUseSIWC || existingUseSIWC != incomingUseSIWC {
-		return true
-	}
 	return false
-}
-
-func authSIWCTokenField(auth *Auth, key string) string {
-	if auth == nil || auth.Metadata == nil {
-		return ""
-	}
-	siwcMap, ok := auth.Metadata["siwc"].(map[string]any)
-	if !ok || len(siwcMap) == 0 {
-		return ""
-	}
-	val, _ := siwcMap[key].(string)
-	return strings.TrimSpace(val)
 }
 
 // ClearUnauthorizedModelStates resets model states whose last error was an unauthorized failure.
@@ -813,6 +785,43 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 	if m == nil {
 		return nil, errors.New("auth manager is nil")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	id = strings.TrimSpace(id)
+	m.mu.RLock()
+	current := m.auths[id]
+	codex := IsCodexAuthRecord(current)
+	var epoch uint64
+	if current != nil {
+		epoch = current.RegistrationEpoch
+	}
+	m.mu.RUnlock()
+	if !codex {
+		return m.refreshAuthForRequestOnce(ctx, id, failedAccessToken, registrationEpoch)
+	}
+	if registrationEpoch != 0 && epoch != registrationEpoch {
+		return nil, errors.New("auth registration changed before refresh")
+	}
+	flight := &m.credentialRefreshLock(id).codexFlight
+	result := flight.DoChan(strconv.FormatUint(epoch, 10), func() (any, error) {
+		return m.refreshAuthForRequestOnce(ctx, id, failedAccessToken, registrationEpoch)
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case completed := <-result:
+		if completed.Err != nil {
+			return nil, completed.Err
+		}
+		return completed.Val.(*Auth).Clone(), nil
+	}
+}
+
+func (m *Manager) refreshAuthForRequestOnce(ctx context.Context, id, failedAccessToken string, registrationEpoch uint64) (*Auth, error) {
+	if m == nil {
+		return nil, errors.New("auth manager is nil")
+	}
 	forceRefresh := isForceRefreshContext(ctx)
 	ctx = cliproxyexecutor.WithoutRequestProxyURL(ctx)
 	if ctx == nil {
@@ -829,12 +838,7 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 		m.markRejectedAccessToken(id, failedAccessToken)
 	}
 
-	lockValue, _ := m.refreshLocks.LoadOrStore(id, &authRefreshLock{})
-	lock, _ := lockValue.(*authRefreshLock)
-	if lock == nil {
-		lock = &authRefreshLock{}
-		m.refreshLocks.Store(id, lock)
-	}
+	lock := m.credentialRefreshLock(id)
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 
@@ -856,6 +860,9 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 	}
 	if registrationEpoch != 0 && auth.RegistrationEpoch != registrationEpoch {
 		return nil, errors.New("auth registration changed before refresh")
+	}
+	if IsCodexAuthRecord(auth) && (auth.Disabled || auth.Status == StatusDisabled) {
+		return nil, errors.New("codex credential is disabled")
 	}
 	if hasDisabledInvalidGrantFailure(auth) && !forceRefresh {
 		return nil, errors.New("auth is disabled with invalid grant")
@@ -891,9 +898,29 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 		return nil, err
 	}
 	log.Debugf("refreshed %s, %s, %v", auth.Provider, auth.ID, err)
+	if err != nil && IsCodexAuthRecord(base) && updated != nil && updated.Disabled && updated.CodexRefreshPatch != nil {
+		updated.NextRefreshAfter = time.Time{}
+		updated.NextRetryAfter = time.Time{}
+		updated.RefreshFailures = 0
+		updated.LastError = refreshErrorFromError(err)
+		updated.StatusMessage = "disabled (OAuth refresh failed)"
+		saved, errUpdate := m.UpdateRefreshedAuth(context.WithoutCancel(ctx), base, updated)
+		if errUpdate != nil {
+			return nil, errors.Join(err, errUpdate)
+		}
+		if saved != nil && !saved.Disabled && saved.Status != StatusDisabled {
+			// A login or edit won publication after the executor's CAS.
+			if expiry, known := saved.ExpirationTime(); known && expiry.After(now.Add(time.Minute)) {
+				return saved.Clone(), nil
+			}
+		}
+		return nil, err
+	}
 	if err != nil {
-		unauthorized := isUnauthorizedError(err)
-		invalidGrant := isInvalidGrantError(err)
+		// Codex's source-classified definitive failures are CAS-disabled above.
+		// A stale failure must not disable or invalidate the winning credential.
+		unauthorized := !IsCodexAuthRecord(base) && isUnauthorizedError(err)
+		invalidGrant := !IsCodexAuthRecord(base) && isInvalidGrantError(err)
 		shouldReschedule := false
 		isDisabled := false
 		shouldUnschedule := false

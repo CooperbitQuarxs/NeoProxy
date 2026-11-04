@@ -94,6 +94,9 @@ func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (str
 	// save when creating a missing disabled credential is intentional.
 	if auth.Disabled && !cliproxyauth.HasAuthCreationIntent(ctx) {
 		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			if auth.CodexRefreshPatch != nil {
+				return "", fmt.Errorf("auth filestore: refresh source removed: %w", statErr)
+			}
 			return "", nil
 		}
 	}
