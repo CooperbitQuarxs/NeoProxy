@@ -1,4 +1,4 @@
-import { navigate } from "../../app/router";
+import { openLayer } from "../../app/router";
 import type { Session } from "../../api/types";
 import { useLedger } from "../people/api";
 import { LedgerRow, LedgerSkeleton } from "./Ledger";
@@ -15,7 +15,7 @@ export function RecentRequests({ session, userId, emptyText, limit = 8 }: { sess
 	return (
 		<ul className="ledger is-compact">
 			{rows.map((r) => (
-				<LedgerRow key={r.id} r={r} L={lookup} compact onOpen={(x) => navigate(`activity/${encodeURIComponent(x.id)}`)} />
+				<LedgerRow key={r.id} r={r} L={lookup} compact onOpen={(x) => openLayer(`activity/${encodeURIComponent(x.id)}`)} />
 			))}
 		</ul>
 	);

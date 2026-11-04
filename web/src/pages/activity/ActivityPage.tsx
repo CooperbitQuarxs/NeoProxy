@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PageProps } from "../../app/App";
-import { navigate } from "../../app/router";
+import { closeLayer, navigate, openLayer } from "../../app/router";
 import { Avatar, Button, EmptyState, Notice, PageHeader, SearchInput, Select, cx } from "../../ui/components";
 import { Icon } from "../../ui/icons";
 import { fetchOlder, useLedger, useRequestRecord, type RequestRecord } from "../people/api";
@@ -71,16 +71,20 @@ export function ActivityPage({ session, params, query }: PageProps) {
 	const selected = useRequestRecord(selectedId, selectedInList);
 	const filtered = !!(userId || outcome || needle);
 
-	const setQuery = (next: { user?: string; outcome?: string }, id = selectedId) => {
+	// The open request lives in the route (activity/<id>), so the sheet's open state
+	// follows the URL: opening pushes it as a layer and closing pops it.
+	const path = (next: { user?: string; outcome?: string }, id?: string) => {
 		const q = new URLSearchParams();
 		const u = next.user ?? userId;
 		const o = next.outcome ?? outcome;
 		if (u) q.set("user", u);
 		if (o) q.set("outcome", o);
 		const qs = q.toString();
-		navigate(`activity${id ? `/${encodeURIComponent(id)}` : ""}${qs ? `?${qs}` : ""}`);
+		return `activity${id ? `/${encodeURIComponent(id)}` : ""}${qs ? `?${qs}` : ""}`;
 	};
-	const open = (r?: RequestRecord) => setQuery({}, r?.id);
+	const setQuery = (next: { user?: string; outcome?: string }) => navigate(path(next));
+	const open = (r: RequestRecord) => openLayer(path({}, r.id));
+	const close = () => closeLayer(path({}));
 
 	const loadOlder = async () => {
 		const last = all[all.length - 1];
@@ -213,13 +217,13 @@ export function ActivityPage({ session, params, query }: PageProps) {
 				record={selectedId ? selected.data : undefined}
 				L={lookup}
 				admin={admin}
-				onClose={() => open(undefined)}
-				onFilterPerson={admin ? (id) => setQuery({ user: id }, undefined) : undefined}
+				onClose={close}
+				onFilterPerson={admin ? (id) => navigate(path({ user: id }), { replace: true }) : undefined}
 			/>
 			{selectedId && selected.isError && (
 				<Notice tone="warn" title="That request isn't in the ledger">
 					It may belong to someone else, or the link is wrong.{" "}
-					<button className="link-btn" onClick={() => open(undefined)}>
+					<button className="link-btn" onClick={close}>
 						Close it
 					</button>
 				</Notice>

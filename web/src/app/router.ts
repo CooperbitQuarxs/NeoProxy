@@ -21,8 +21,24 @@ export function useRoute() {
 	return route;
 }
 
-export function navigate(to: string) {
-	location.hash = `#/${to.replace(/^\/+/, "")}`;
+export function navigate(to: string, { replace = false }: { replace?: boolean } = {}) {
+	const hash = `#/${to.replace(/^\/+/, "")}`;
+	if (replace) location.replace(hash);
+	else location.hash = hash;
+}
+
+// A layer is a route that opens a panel over its parent page. Opening pushes one
+// history entry and closing pops it, so close and browser Back agree and Back
+// never reopens a panel that was just closed. A layer reached by a direct link
+// has nothing of ours to pop, so closing replaces it with the parent instead.
+export function openLayer(to: string) {
+	navigate(to);
+	history.replaceState({ ...(history.state ?? {}), neoLayer: true }, "");
+}
+
+export function closeLayer(parent: string) {
+	if ((history.state as { neoLayer?: boolean } | null)?.neoLayer) history.back();
+	else navigate(parent, { replace: true });
 }
 
 // Old page ids map onto the new five surfaces.
