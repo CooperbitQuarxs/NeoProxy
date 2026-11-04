@@ -45,8 +45,11 @@ export function useSignOut() {
 	return useMutation({
 		mutationFn: () => del("/v8/session", { quiet401: true }),
 		onSettled: () => {
-			qc.clear();
+			// Null the session first so App swaps to the sign-in screen while its
+			// observer still points at this query; then drop everyone else's data.
+			// (clear() would remove the session query out from under that observer.)
 			qc.setQueryData(["session"], null);
+			qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "session" });
 		},
 	});
 }
