@@ -256,7 +256,7 @@ func (s *Store) reserve(ctx context.Context, req Request, run *runState, state r
 		reservation.Window = st.Window
 		// Use the exact bounded Lua/static budgets that produced this decision.
 		// The pool ledger atomically checks them against current in-flight usage.
-		reservation.PerAccount = st.PerAccount * allot
+		reservation.PerAccount = st.accountLimit(d.AccountID) * allot
 		reservation.Cap = st.Cap * allot
 		for _, step := range d.Trail {
 			if step.Kind != "stage" || step.StageID != d.StageID {

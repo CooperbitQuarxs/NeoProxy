@@ -62,22 +62,34 @@ type VirtualModel struct {
 //     provider-reported window, else a local configured token meter, else none
 //     (unmetered: always eligible, never counted toward Cap).
 //   - PerAccount: draw from an account while its used fraction is below it.
+//     AccountLimits overrides it for the accounts it names (keyed by account
+//     ID; entries for accounts outside the stage are inert).
 //   - Cap: skip the whole stage once the average used fraction across its
 //     metered accounts reaches it.
 //   - A grant's allotment (0..1) multiplies both for that person.
 //   - Used is the provider's value, else tokens/capacity of the local meter:
 //     account-wide when Per is "all", the person's own usage when "user".
 type Stage struct {
-	ID         string       `json:"id"`
-	Model      string       `json:"model"`
-	Accounts   AccountScope `json:"accounts"`
-	Draw       string       `json:"draw"`
-	PerAccount float64      `json:"perAccount"`
-	Cap        float64      `json:"cap"`
-	Window     string       `json:"window"`
-	Per        string       `json:"per"`
-	Effort     *string      `json:"effort"`
-	Lua        *LuaPolicy   `json:"lua,omitempty"`
+	ID            string             `json:"id"`
+	Model         string             `json:"model"`
+	Accounts      AccountScope       `json:"accounts"`
+	Draw          string             `json:"draw"`
+	PerAccount    float64            `json:"perAccount"`
+	AccountLimits map[string]float64 `json:"accountLimits,omitempty"`
+	Cap           float64            `json:"cap"`
+	Window        string             `json:"window"`
+	Per           string             `json:"per"`
+	Effort        *string            `json:"effort"`
+	Lua           *LuaPolicy         `json:"lua,omitempty"`
+}
+
+// accountLimit is the stage's per-account threshold for account id before
+// grant scaling: its AccountLimits override, else PerAccount.
+func (st Stage) accountLimit(id string) float64 {
+	if v, ok := st.AccountLimits[id]; ok {
+		return v
+	}
+	return st.PerAccount
 }
 
 // LuaPolicy names functions in VirtualModel.Script. Limits are absolute window
