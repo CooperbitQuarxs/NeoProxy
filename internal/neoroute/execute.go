@@ -273,6 +273,13 @@ func (s *Store) reserve(ctx context.Context, req Request, run *runState, state r
 		for _, account := range state.snapshot.Accounts {
 			if account.ProviderID == a.ProviderID && accountAllowed(state.principal, account) && (st.Accounts.All || contains(st.Accounts.IDs, account.ID)) {
 				reservation.AccountIDs = append(reservation.AccountIDs, account.ID)
+				// Carry the meter choice so the ledger reads what the resolver read.
+				if w, provider, _ := windowFor(account, st.Window, state.at); provider {
+					if reservation.ProviderUsed == nil {
+						reservation.ProviderUsed = make(map[string]float64)
+					}
+					reservation.ProviderUsed[account.ID] = w.Used
+				}
 			}
 		}
 	}

@@ -26,7 +26,7 @@ function snippets(base, model, key) {
 	return {
 		neocode: {
 			label: "NeoCode",
-			text: `Settings → Providers → NeoProxy\n  Address  ${base}\n  Key      ${k}\n\nNeoCode lists the models you may use and shows them as ${model}.`,
+			text: `In NeoCode: Models → NeoProxy → Connect.\nPaste this address, then your member key when asked.\n\n  Address  ${base}\n  Key      ${k}\n\nNo /v1 on the address; NeoCode adds it. Your models appear as ${model}.`,
 		},
 		neopi: {
 			label: "NeoPi",

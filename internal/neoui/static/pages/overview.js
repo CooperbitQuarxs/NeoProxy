@@ -179,6 +179,7 @@ function flowBoard(world, ctx) {
 
 	const ribbons = svgEl("svg", { class: "ribbons" });
 	const board = h("div", { class: "flow" }, ribbons, provCol, h("div"), vmCol, h("div"), userCol);
+	const boardHost = h("div", { class: "flow-host" }, board);
 	const pathEls = [];
 
 	const draw = () => {
@@ -273,7 +274,7 @@ function flowBoard(world, ctx) {
 		title: "Flow",
 		sub: "Every ribbon is a grant or a stage; the thicker, the more it has drawn this window.",
 		flush: true,
-		body: board,
+		body: boardHost,
 		rise: true,
 	});
 	el.append(foot);
