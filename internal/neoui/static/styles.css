@@ -2907,3 +2907,10 @@ body:has(.inspector .ins-foot) .toasts {
 .vm-acct .until-input { width: 52px; padding: 2px 6px; font-size: 12px; text-align: right; height: 24px; }
 .vm-acct .lt { min-width: 0; }
 .vm-acct .main code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- models: bulk serve/hide ---- */
+.group-row .bulk { display: inline-flex; gap: 2px; margin-right: 6px; opacity: 0; transition: opacity var(--dur-1); }
+.group-row:hover .bulk, .group-row:focus-within .bulk { opacity: 1; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-3); }
+.btn.ghost:hover { color: var(--ink-1); background: var(--hover); }
+@media (hover: none) { .group-row .bulk { opacity: 1; } }
