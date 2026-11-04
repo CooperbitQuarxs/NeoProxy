@@ -275,6 +275,9 @@ func LookupModelInfo(modelID string, provider ...string) *ModelInfo {
 	if info := GetGlobalRegistry().GetModelInfo(modelID, p); info != nil {
 		return cloneModelInfo(info)
 	}
+	if p == "anthropic-npi" {
+		return LookupStaticModelInfoByChannel(modelID, p)
+	}
 	return cloneModelInfo(LookupStaticModelInfo(modelID))
 }
 
@@ -1711,6 +1714,11 @@ func (r *ModelRegistry) GetModelInfo(modelID, provider string) *ModelInfo {
 					}
 				}
 			}
+		}
+		// Never borrow the production Claude engine's capability policy for the
+		// independent experimental route when it has no registered definition.
+		if provider == "anthropic-npi" {
+			return nil
 		}
 		// Fallback to global info (last registered)
 		return cloneModelInfo(reg.Info)

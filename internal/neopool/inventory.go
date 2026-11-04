@@ -82,7 +82,10 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 			if info == nil || info.ID == "" {
 				continue
 			}
-			modelID := a.Provider + "/" + info.ID
+			modelID := info.ID
+			if !strings.HasPrefix(modelID, a.Provider+"/") {
+				modelID = a.Provider + "/" + modelID
+			}
 			account.ModelIDs = append(account.ModelIDs, modelID)
 			if _, exists = models[modelID]; exists {
 				continue

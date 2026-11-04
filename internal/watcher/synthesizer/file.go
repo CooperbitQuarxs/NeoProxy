@@ -203,6 +203,9 @@ func synthesizeFileAuths(ctx *SynthesisContext, fullPath string, data []byte) ([
 			prefix = trimmed
 		}
 	}
+	if provider == "anthropic-npi" {
+		prefix = "anthropic-npi"
+	}
 
 	disabled, _ := metadata["disabled"].(bool)
 	status := coreauth.StatusActive

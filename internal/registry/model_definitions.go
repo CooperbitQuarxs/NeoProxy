@@ -44,6 +44,21 @@ func GetClaudeModels() []*ModelInfo {
 	return cloneModelInfos(getModels().Claude)
 }
 
+// GetAnthropicNPIModels uses Claude's model ids but keeps the experimental
+// thinking contract separate: NeoPi accepts Off and projects it per model.
+func GetAnthropicNPIModels() []*ModelInfo {
+	models := GetClaudeModels()
+	for _, model := range models {
+		if model != nil && model.Thinking != nil {
+			model.Thinking.ZeroAllowed = true
+			if model.ID == "claude-sonnet-4-6" {
+				model.Thinking.Levels = []string{"low", "medium", "high"}
+			}
+		}
+	}
+	return models
+}
+
 // GetGeminiModels returns the standard Gemini model definitions.
 func GetGeminiModels() []*ModelInfo {
 	return cloneModelInfos(getModels().Gemini)
@@ -513,6 +528,8 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 	switch key {
 	case "claude":
 		return GetClaudeModels()
+	case "anthropic-npi":
+		return GetAnthropicNPIModels()
 	case "gemini":
 		return GetGeminiModels()
 	case "gemini-interactions":
