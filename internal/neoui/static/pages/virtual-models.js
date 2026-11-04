@@ -6,9 +6,10 @@
 // user's request would land and why.
 
 import { h, icon, fmtPct, fmtAgo, plural, clear } from "../lib/dom.js";
-import { neo, onChange, ApiError } from "../lib/client.js";
+import { neo, engine, onChange, ApiError } from "../lib/client.js";
 import { meterFor, accountHealth } from "../lib/providers.js";
-import { pageHead, card, btn, avatar, servedName, chainRail, inspector, section, field, input, select, seg, modelPicker, trail, meterRing, providerDot, providerLabel, confirm, toast, empty, spinner, errorState, drawLabel, search, vmIdentity, vmSearchText, DRAW_MODES, WINDOW_WORDS, stagePool, stageLine } from "../lib/components.js";
+import { pageHead, card, btn, avatar, servedName, chainRail, inspector, section, field, input, select, seg, modelPicker, trail, meterRing, providerDot, providerLabel, confirm, toast, empty, spinner, errorState, drawLabel, search, vmIdentity, vmSearchText, DRAW_MODES, WINDOW_WORDS, stagePool, stageLine, picker, iconBtn } from "../lib/components.js";
+import { ruleBuilder, toText, TEMPLATES, DEFAULT_FIELDS } from "../lib/rules.js";
 import { luaEditor, luaFunctions, LUA_EXAMPLE } from "../lib/lua-editor.js";
 
 export async function render(ctx) {
@@ -65,12 +66,20 @@ async function catalogue(ctx) {
 				],
 				body: chainRail(vm, { models, providers: vault.providers, accounts: vault.accounts }),
 				foot: [
-					h("span", null, `Granted to ${granted.length ? granted.map((user) => user.handle).join(", ") : "nobody yet"}`),
+					h("span", { class: "vm-granted" }, granted.length ? [`Granted to ${granted.length === 1 ? granted[0].handle : plural(granted.length, "person")}`, granted.length > 1 ? h("span", { class: "ink-3" }, `: ${granted.slice(0, 4).map((u) => u.handle).join(", ")}${granted.length > 4 ? ` and ${granted.length - 4} more` : ""}`) : null] : "Granted to nobody yet"),
 					h("span", { class: "spacer" }),
 					h("span", { class: "ink-3", title: vm.updatedBy }, `Updated ${fmtAgo(vm.updatedAt)} by ${author}`),
 				],
 			});
 			node.dataset.vm = vm.id;
+			// The whole card opens the editor; that is what someone on this page wants.
+			node.classList.add("vm-card");
+			node.tabIndex = 0;
+			node.setAttribute("role", "link");
+			node.setAttribute("aria-label", `Edit ${vm.served}`);
+			const open = () => ctx.navigate(`virtual-models/${vm.id}`);
+			node.addEventListener("click", (e) => { if (!e.target.closest("button, a, input, select, textarea")) open(); });
+			node.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === node) { e.preventDefault(); open(); } });
 			host.append(node);
 		}
 		if (matches.length > limit) host.append(btn("Show 25 more", {
@@ -89,6 +98,33 @@ async function catalogue(ctx) {
 }
 
 // ---------- editor ----------
+
+
+// A usage bar: the account's current usage fills the track; the bright handle
+// is where this stage stops drawing from it. Drag the handle or type a number.
+function usageBar({ used, limit, window: win, label, onChange, disabled = false }) {
+	const range = h("input", { type: "range", class: "ub-range", min: 1, max: 100, step: 1, value: Math.round(limit * 100), "aria-label": `${label}: stop at percent of ${WINDOW_WORDS[win] ?? win} usage`, disabled });
+	const num = input({ type: "number", min: 1, max: 100, step: 1, value: Math.round(limit * 100), class: "input sm ub-num", "aria-label": `${label}: stop at percent`, disabled });
+	const fill = h("div", { class: "ub-fill" });
+	const words = h("div", { class: "ub-words" });
+	const paint = () => {
+		const l = Number(range.value) / 100;
+		range.style.setProperty("--limit", `${range.value}%`);
+		fill.style.width = `${Math.round((used ?? 0) * 100)}%`;
+		fill.classList.toggle("over", used !== null && used >= l);
+		words.replaceChildren(
+			used === null ? h("span", { class: "ink-3" }, `no ${WINDOW_WORDS[win] ?? win} meter`) : h("span", null, h("b", null, fmtPct(used)), ` of ${WINDOW_WORDS[win] ?? win} used`),
+			h("span", { class: "spacer" }),
+			h("span", null, "stops at ", h("b", null, `${range.value}%`)),
+		);
+	};
+	const commit = (v) => { const n = Math.min(100, Math.max(1, Math.round(v))); range.value = String(n); num.value = String(n); paint(); onChange(n / 100); };
+	range.addEventListener("input", () => { num.value = range.value; paint(); });
+	range.addEventListener("change", () => commit(Number(range.value)));
+	num.addEventListener("change", () => { if (Number.isFinite(num.valueAsNumber)) commit(num.valueAsNumber); });
+	paint();
+	return h("div", { class: `usage-bar ${disabled ? "disabled" : ""}` }, h("div", { class: "ub-track" }, fill, range), h("div", { class: "ub-row" }, words, h("span", { class: "ub-numwrap" }, num, "%")));
+}
 
 const MAX_STAGES = 128;
 const newStageId = () => `s${Math.random().toString(36).slice(2, 7)}`;
@@ -119,6 +155,8 @@ async function editor(ctx, id) {
 	root.lastChild.remove();
 
 	const draft = structuredClone(vm);
+	let ruleFields = DEFAULT_FIELDS;
+	engine.get("/v8/neo/virtual-models/fields").then((r) => { if (Array.isArray(r?.fields) && r.fields.length) ruleFields = r.fields.map((f) => ({ ...f, kind: f.kind === "number" && /usage|average/.test(f.name) ? "percent" : f.kind })); }).catch(() => {});
 	let dirty = isNew;
 	let selected = matchMedia("(max-width: 900px)").matches ? null : draft.stages[0]?.id ?? null;
 	let inspectorOpen = selected !== null;
@@ -137,7 +175,7 @@ async function editor(ctx, id) {
 		desc: isNew ? "Name it, add stages and save. Then try it against a user's actual grants." : null,
 		actions: [
 			isNew ? null : btn("Delete", { icon: "trash", cls: "danger", onClick: remove }),
-			btn("Discard", { cls: "outline", onClick: () => (dirty ? discard() : ctx.navigate("virtual-models")) }),
+			btn("Discard", { cls: "outline", title: "Throw away unsaved edits", onClick: () => (dirty ? discard() : toast("Nothing to discard")) }),
 			saveBtn,
 		],
 	});
@@ -160,7 +198,7 @@ async function editor(ctx, id) {
 		onInput: (e) => {
 			draft.name = e.target.value.trim().toLowerCase();
 			draft.served = `neoproxy/${draft.name}`;
-			errors.name = /^[a-z][a-z0-9-]{0,31}$/.test(draft.name) ? null : "lowercase letters, digits and dashes";
+			errors.name = /^[a-z][a-z0-9-]{0,31}$/.test(draft.name) ? null : (draft.name && !/^[a-z]/.test(draft.name) ? "must start with a letter; then lowercase letters, digits and dashes" : "a letter first, then lowercase letters, digits and dashes, up to 32");
 			if (models.some((m) => m.id === draft.name)) errors.name = "collides with a served model";
 			renderIdentityErrors();
 			setDirty();
@@ -189,12 +227,14 @@ async function editor(ctx, id) {
 	// ----- chain -----
 	const railHost = h("div");
 	const reorderStatus = h("div", { class: "sr-only", role: "status" });
+	// The selected stage opens here, under the chain, full width: no side panel.
+	const stageHost = h("div", { class: "vm-stage-host" });
 	root.append(
 		card({
 			title: "Chain",
-			sub: "A request tries stage 1 first and moves on when a stage is spent. When every stage is spent, the chain ends the way you choose. Click a stage to edit it; drag it, or press Alt+← and Alt+→, to reorder.",
+			sub: "A request tries stage 1 first and moves on when a stage cannot serve it. When no stage can, the chain ends the way you choose. Click a stage to edit it below; drag it, or press Alt+← and Alt+→, to reorder.",
 			actions: [btn("Add stage", { icon: "plus", cls: "outline sm", onClick: addStage })],
-			body: [railHost, reorderStatus],
+			body: [railHost, reorderStatus, stageHost],
 		}),
 	);
 	function renderRail(focusStage) {
@@ -452,8 +492,12 @@ async function editor(ctx, id) {
 	let simGeneration = 0;
 	resetSimulation = () => {
 		++simGeneration;
+		// Keep the last answer on screen, marked stale, instead of blanking it on
+		// every edit; the rail's lit stage is cleared because it no longer applies.
 		simResult = null;
-		simHost.replaceChildren(h("div", { class: "ink-3" }, "Save changes before running a real simulation."));
+		const prev = simHost.querySelector(".vm-why");
+		if (prev && !simHost.querySelector(".vm-stale")) simHost.prepend(h("div", { class: "vm-stale ink-3" }, "Unsaved edits: this is the answer for the saved chain. Save to re-run."));
+		else if (!prev) simHost.replaceChildren(h("div", { class: "ink-3" }, "Save changes, then run the simulation."));
 		renderRail();
 	};
 	// One sentence for why the request lands where it does (or why it ends).
@@ -516,34 +560,82 @@ async function editor(ctx, id) {
 	}
 
 	// ----- grants -----
+	// Who may ask for this model, managed here. A grant lives on the user record
+	// (PUT /users/:id), so each change saves that one user immediately.
 	const grantHost = h("div", { class: "list" });
-	const allotmentLine = (a) => (a >= 1 ? "may use up to 100% of every threshold" : `up to ${fmtPct(a, null)} of every threshold`);
+	const shareWords = (a) => (a >= 1 ? "full share: every stage's percentages apply as written" : `${fmtPct(a, null)} share: every percentage in this chain is scaled to ${fmtPct(a, null)} of itself for them`);
+	async function saveGrant(u, allotment) {
+		const grants = u.grants.filter((g) => g.virtualModel !== draft.id);
+		if (allotment !== null) grants.push({ virtualModel: draft.id, allotment });
+		const saved = await neo.saveUser({ ...u, grants, password: undefined });
+		Object.assign(u, saved);
+		renderGrants();
+	}
 	function renderGrants() {
 		clear(grantHost);
 		if (isNew) {
-			grantHost.append(h("div", { class: "ink-3", style: { padding: "12px 16px" } }, "Save first, then grant it to users from their page."));
+			grantHost.append(h("div", { class: "ink-3", style: { padding: "12px 16px" } }, "Save the model first; then grant it here."));
 			return;
 		}
 		const granted = users.filter((u) => u.grants.some((g) => g.virtualModel === draft.id));
-		if (!granted.length) grantHost.append(h("div", { class: "ink-3", style: { padding: "12px 16px" } }, "Nobody yet. Grant it from a user's page."));
+		const others = users.filter((u) => !granted.includes(u));
+		const addBtn = btn("Grant to someone…", { icon: "plus", cls: "outline sm" });
+		addBtn.setAttribute("aria-haspopup", "dialog");
+		addBtn.addEventListener("click", () => picker(addBtn, {
+			placeholder: "Find a person or service",
+			items: others.map((u) => ({ value: u.id, label: u.handle, sub: [u.name, u.role, u.state !== "active" ? u.state : null].filter(Boolean).join(" · "), lead: avatar(u, "sm") })),
+			empty: users.length === granted.length ? "Everyone already has it" : "No one matches",
+			onPick: async (id) => {
+				const u = users.find((x) => x.id === id);
+				try { await saveGrant(u, 1); toast(`${u.handle} may now ask for ${draft.served}`); }
+				catch (e) { toast(e.message, "bad"); }
+			},
+		}));
+		grantHost.append(h("div", { class: "vm-grant-tools" }, addBtn, h("span", { class: "ink-3" }, granted.length ? `${granted.length === 1 ? "1 person" : `${granted.length} people`} may ask for this model` : "Nobody may ask for this model yet")));
 		for (const u of granted) {
 			const g = u.grants.find((x) => x.virtualModel === draft.id);
-			grantHost.append(h("button", { type: "button", class: "li clickable", onClick: () => ctx.navigate(`users/${u.id}`) }, avatar(u), h("div", { class: "lt" }, h("div", { class: "main" }, u.handle), h("div", { class: "sub" }, allotmentLine(g.allotment))), icon("chevronRight", 14)));
+			const paused = g.allotment <= 0.0001;
+			const num = input({ type: "number", min: 0, max: 100, step: 5, value: Math.round(g.allotment * 100), class: "input sm vm-share", "aria-label": `${u.handle}'s share`, disabled: paused });
+			num.addEventListener("change", async () => {
+				const v = Math.min(100, Math.max(0, Number(num.value) || 0)) / 100;
+				try { await saveGrant(u, v); toast(`${u.handle}: ${fmtPct(v, null)} share`); } catch (e) { toast(e.message, "bad"); renderGrants(); }
+			});
+			grantHost.append(h("div", { class: `li vm-grant ${paused ? "paused" : ""}` },
+				avatar(u),
+				h("div", { class: "lt" },
+					h("div", { class: "main row", style: { gap: "8px" } }, h("a", { href: `#/users/${u.id}`, class: "link-text" }, u.handle), u.role !== "member" ? h("span", { class: "tag" }, u.role) : null, paused ? h("span", { class: "tag warn" }, "paused") : null),
+					h("div", { class: "sub" }, paused ? "Paused: requests from them get the limit error until resumed." : shareWords(g.allotment))),
+				paused ? null : h("span", { class: "vm-share-wrap", title: "Share of this chain's percentages for this person" }, num, "%"),
+				btn(paused ? "Resume" : "Pause", { cls: "sm ghost", title: paused ? "Let them use it again" : "Keep the grant but stop serving them for now", onClick: async () => {
+					try { await saveGrant(u, paused ? (u._resume ?? 1) : (u._resume = g.allotment, 0)); } catch (e) { toast(e.message, "bad"); }
+				} }),
+				iconBtn("x", `Revoke ${u.handle}'s access`, async () => {
+					if (!(await confirm({ title: `Revoke ${u.handle}'s access to ${draft.served}?`, text: "Their keys stop reaching this model immediately. You can grant it again any time.", confirmLabel: "Revoke", danger: true }))) return;
+					try { await saveGrant(u, null); toast(`${u.handle} no longer has ${draft.served}`); } catch (e) { toast(e.message, "bad"); }
+				}, "sm"),
+			));
 		}
 	}
-	root.append(card({ title: "Granted to", sub: "A person's allotment multiplies every threshold in this chain. At 30%, a stage that stops at 50% stops at 15% for them.", flush: true, body: grantHost }));
+	root.append(card({
+		title: "Who may ask for it",
+		sub: "People and services that can request this model with their key. The share scales this chain's percentages for one person: 30% turns a stage that stops at 50% into one that stops at 15% for them; 100% applies them as written. Set it per person here; nothing else decides it.",
+		flush: true,
+		body: grantHost,
+	}));
 	renderGrants();
 	if (luaCard) root.append(luaCard);
 
 	// ----- inspector -----
 	function renderInspector() {
-		if (!inspectorOpen || !selected) return ctx.setInspector(null);
+		ctx.setInspector(null);
+		if (!inspectorOpen || !selected) { clear(stageHost); return; }
 		const stageId = selected;
 		const stage = draft.stages.find((item) => item.id === stageId);
-		if (stageId !== "terminal" && !stage) return ctx.setInspector(null);
-		ctx.setInspector(stageId === "terminal" ? terminalInspector() : stageInspector(stage), {
-			restoreFocus: () => railHost.querySelector(`[data-stage="${CSS.escape(stageId)}"]`)?.focus({ preventScroll: true }),
-		});
+		if (stageId !== "terminal" && !stage) { clear(stageHost); return; }
+		const panel = stageId === "terminal" ? terminalInspector() : stageInspector(stage);
+		panel.classList.add("vm-stage-panel");
+		stageHost.replaceChildren(panel);
+		if (stageHost.getBoundingClientRect().top > innerHeight - 160) panel.scrollIntoView({ block: "start", behavior: "smooth" });
 	}
 	function stageInspector(s) {
 		const stageNumber = () => draft.stages.indexOf(s) + 1;
@@ -606,7 +698,6 @@ async function editor(ctx, id) {
 						if (m.providerId !== providerId()) {
 							s.accounts = "all";
 							delete s.lua;
-							renderLuaPickers();
 						}
 						s.model = m.id;
 						renderCurrentModel();
@@ -622,6 +713,8 @@ async function editor(ctx, id) {
 		// "until N%" per account: the stage threshold by default, or this account's
 		// own override, so one person can be allowed 50% of X and 70% of Y.
 		const limitOf = (a) => s.accountLimits?.[a.id] ?? s.perAccount;
+		const dupe = (a) => pool().some((b) => b !== a && b.label === a.label);
+		const otherMeters = (a) => { const ks = WINDOWS.filter((w) => meterFor(a, w)); return ks.length ? `It reports ${ks.map((w) => WINDOW_WORDS[w]).join(" and ")} usage; switch the window below to use one.` : ""; };
 		const setLimit = (a, v) => {
 			const next = { ...(s.accountLimits ?? {}) };
 			if (!Number.isFinite(v) || Math.abs(v - s.perAccount) < 0.0005) delete next[a.id];
@@ -629,12 +722,7 @@ async function editor(ctx, id) {
 			s.accountLimits = Object.keys(next).length ? next : undefined;
 			update();
 		};
-		const untilControl = (a) => {
-			const own = s.accountLimits?.[a.id] !== undefined;
-			const num = input({ type: "number", min: 1, max: 100, step: 1, value: Math.round(limitOf(a) * 100), class: "input sm until-input", "aria-label": `Threshold for ${a.label}`, onChange: (e) => setLimit(a, Number(e.target.value) / 100) });
-			return h("span", { class: `until ${own ? "own" : ""}`, title: own ? `This account has its own threshold; the stage default is ${fmtPct(s.perAccount, null)}. Set it back to ${Math.round(s.perAccount * 100)} to follow the stage.` : `Drawn from while its ${s.window} usage is below ${fmtPct(s.perAccount, null)}. Type a different number to give this account its own threshold.` },
-				"until ", num, "%");
-		};
+
 		const renderAccounts = () => {
 			clear(accountsSection);
 			const all = pool();
@@ -674,15 +762,15 @@ async function editor(ctx, id) {
 								update();
 							},
 						}),
-						meterRing(a, { size: 26, kind: s.window, budget: limitOf(a) }),
 						h(
 							"div",
-							{ class: "lt" },
-							h("div", { class: "main" }, h("code", null, a.label)),
-							h("div", { class: "sub" }, [a.plan, health.text, m ? `${fmtPct(m.used)} of ${WINDOW_WORDS[s.window]} used` : null].filter(Boolean).join(" · ")),
-							m ? null : h("div", { class: "sub nometer" }, "No meter — always available; thresholds do not apply"),
+							{ class: "lt vm-acct-main" },
+							h("div", { class: "main row", style: { gap: "8px" } }, h("code", null, a.label), dupe(a) ? h("span", { class: "tag", title: "The same account is in the pool twice: once signed in here and once shared from NeoPi. Either one serves; keep whichever you prefer." }, "also via " + (a.kind === "imported" || a.kind === "neopi" ? "sign-in" : "NeoPi")) : null, s.accountLimits?.[a.id] !== undefined ? h("span", { class: "tag own", title: "This account has its own stopping point; the stage default is " + fmtPct(s.perAccount, null) }, "own limit") : null),
+							h("div", { class: "sub" }, [a.plan, health.text].filter(Boolean).join(" · ")),
+							m
+								? usageBar({ used: m.used, limit: limitOf(a), window: s.window, label: a.label, onChange: (v) => setLimit(a, v), disabled: !on })
+								: h("div", { class: "sub nometer" }, `No ${WINDOW_WORDS[s.window]} meter on this account: it is always available and no percentage applies. ${otherMeters(a)}`),
 						),
-						m ? untilControl(a) : null,
 					),
 				);
 			}
@@ -700,14 +788,15 @@ async function editor(ctx, id) {
 		const meterNote = h("div", { class: "vm-note" });
 		function renderSentences() {
 			const overrides = Object.keys(s.accountLimits ?? {}).length;
-			sentenceEach.replaceChildren("Draw from each account while its ", WINDOW_WORDS[s.window], " usage is below ", bold(fmtPct(s.perAccount, null)), overrides ? ` by default; ${overrides === 1 ? "one account has" : `${overrides} accounts have`} its own number above.` : ".");
-			sentencePool.replaceChildren("Skip this stage once the pool averages ", bold(fmtPct(s.cap, null)), ".");
+			const n = stagePool(s, vault.accounts).length;
+			sentenceEach.replaceChildren("An account can serve while its ", bold(WINDOW_WORDS[s.window]), " usage is below ", bold(fmtPct(s.perAccount, null)), overrides ? ` (default; ${overrides === 1 ? "one account has" : `${overrides} accounts have`} its own stopping point on its bar).` : ".");
+			sentencePool.replaceChildren("The stage is skipped once the ", bold(`${n === 1 ? "selected account's" : `${n} selected accounts' average`}`), " ", bold(WINDOW_WORDS[s.window]), " usage reaches ", bold(fmtPct(s.cap, null)), ".");
 			const picked = stagePool(s, vault.accounts);
 			const unmetered = picked.filter((a) => !meterFor(a, s.window)).length;
 			meterNote.classList.toggle("hidden", !picked.length || unmetered === 0);
 			meterNote.textContent = unmetered === picked.length
-				? `No meter on ${picked.length === 1 ? "this account" : "these accounts"} for ${s.window} — always available; thresholds do not apply. Pick another window to meter them.`
-				: `${plural(unmetered, "account")} without a ${s.window} meter ${unmetered === 1 ? "is" : "are"} always available; thresholds do not apply to ${unmetered === 1 ? "it" : "them"}.`;
+				? `${picked.length === 1 ? "This account reports" : "These accounts report"} no ${WINDOW_WORDS[s.window]} usage, so these two percentages have nothing to measure and the stage is always available. Choose a window ${picked.length === 1 ? "it reports" : "they report"}, or use a rule that does not need usage.`
+				: `${plural(unmetered, "account")} without a ${WINDOW_WORDS[s.window]} meter ${unmetered === 1 ? "is" : "are"} always available; the percentages apply to the others.`;
 		}
 		const threshold = (label, key, hint) => {
 			const num = input({ type: "number", min: 0, max: 100, step: 0.5, value: pct(s[key]), class: "input vm-num", "aria-label": `${label} (percent)` });
@@ -732,39 +821,59 @@ async function editor(ctx, id) {
 			return h("div", { class: "vm-threshold" }, h("div", { class: "row" }, h("label", { for: num.id || (num.id = `vm-t-${key}-${s.id}`) }, label), h("span", { class: "spacer" }), h("span", { class: "vm-numwrap" }, num, "%")), range, hint);
 		};
 
-		// --- Lua functions ---
-		const luaSection = h("div");
-		function renderLuaPickers() {
-			clear(luaSection);
-			if (!isAdmin) return;
-			const names = luaFunctions(draft.script ?? "");
-			luaSection.append(h("p", { class: "hint", style: { marginTop: 0 } }, names.length ? "Optional. Pick functions from your Lua policy to make this stage stricter than its sliders." : "Optional. Write functions in the Lua policy card, then pick them here."));
-			for (const slot of LUA_SLOTS) {
-				const current = s.lua?.[slot.key] ?? "";
-				const options = [{ value: "", label: slot.builtin }, ...names.map((n) => ({ value: n, label: n }))];
-				if (current && !names.includes(current)) options.push({ value: current, label: `${current} (not defined in the script)` });
-				luaSection.append(field(slot.label, select(options, current, (value) => {
-					if (value) (s.lua ??= {})[slot.key] = value;
-					else {
-						delete s.lua?.[slot.key];
-						if (s.lua && !Object.keys(s.lua).length) delete s.lua;
-					}
-					setDirty();
-				}), slot.hint));
-			}
-			luaSection.append(btn(names.length ? "Edit Lua policy" : "Write a Lua policy", { cls: "outline sm", onClick: () => openLua() }));
-		}
-		scriptChanged = () => { if (aside.isConnected) renderLuaPickers(); };
+		// --- rules: the condition this stage serves under, beyond the percentages ---
+		const codeOut = h("pre", { class: "code", style: { whiteSpace: "pre-wrap" } });
+		const rules = ruleBuilder({ value: s.condition ?? null, fields: ruleFields, onChange: (tree) => { if (tree) s.condition = tree; else delete s.condition; codeOut.textContent = toText(s.condition); setDirty(); } });
+		codeOut.textContent = toText(s.condition);
+		const templateBtn = btn("Start from a template", { cls: "sm ghost" });
+		templateBtn.addEventListener("click", () => picker(templateBtn, {
+			placeholder: "Templates",
+			items: TEMPLATES.map((t, i) => ({ value: i, label: t.label, sub: toText(t.tree) })),
+			onPick: (i) => { s.condition = structuredClone(TEMPLATES[i].tree); rules.set(s.condition); codeOut.textContent = toText(s.condition); setDirty(); },
+		}));
+		const rulesSection = h("div", null,
+			h("p", { class: "hint", style: { marginTop: 0 } }, "Rules are checked on top of the percentages above. A rule about an account applies to each selected account; the others decide whether the stage is tried at all. Missing facts count as false."),
+			rules.el,
+			h("div", { class: "row", style: { gap: "6px", marginTop: "8px" } }, templateBtn, h("span", { class: "spacer" }), h("span", { class: "ink-3", style: { fontSize: "12px" } }, "as text")),
+			h("div", { class: "rules-code" }, codeOut),
+		);
 
 		const effortNote = h("p", { class: "hint", style: { margin: "6px 0 0" } });
-		const renderEffortNote = () => { effortNote.textContent = s.effort ? `Requests served by this stage always run at ${s.effort} effort, whatever the caller asked for.` : "The caller's own effort setting is passed through."; };
+		const EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+		const renderEffortNote = () => {
+			const set = s.efforts ?? [];
+			effortNote.textContent = s.effort ? `Every request served here runs at ${s.effort}, whatever the caller asked for.`
+				: set.length ? `The caller's effort is kept when it is one of ${set.join(", ")}; otherwise ${set[set.length - 1]} is used.`
+					: "The caller's own effort setting is passed through unchanged.";
+		};
+		// Allowed efforts as toggles; none selected = anything the caller asks.
+		function effortChips() {
+			const wrap = h("div", { class: "effort-chips", role: "group", "aria-label": "Allowed effort levels" });
+			const paint = () => {
+				wrap.replaceChildren(
+					...EFFORTS.map((e) => {
+						const on = (s.efforts ?? []).includes(e);
+						return h("button", { type: "button", class: `chip ${on ? "on" : ""}`, "aria-pressed": String(on), onClick: () => {
+							const set = new Set(s.efforts ?? []);
+							if (on) set.delete(e); else set.add(e);
+							s.efforts = EFFORTS.filter((x) => set.has(x));
+							if (!s.efforts.length) delete s.efforts;
+							s.effort = null;
+							paint(); renderEffortNote(); setDirty();
+						} }, e);
+					}),
+					h("span", { class: "ink-3", style: { marginLeft: "6px", fontSize: "12.5px" } }, (s.efforts ?? []).length ? "allowed" : "any"),
+				);
+			};
+			paint();
+			return wrap;
+		}
 
 		renderCurrentModel();
 		renderPicker();
 		renderAccounts();
 		renderDrawHint();
 		renderSentences();
-		renderLuaPickers();
 		renderEffortNote();
 		refreshHead();
 		aside.querySelector(".ins-body").append(
@@ -776,19 +885,19 @@ async function editor(ctx, id) {
 				drawHint,
 			),
 			section(
-				"Thresholds",
-				meterNote,
-				threshold("Each account", "perAccount", sentenceEach),
-				threshold("The whole pool", "cap", sentencePool),
+				"Serves a request while",
 				field(
-					"Usage window",
+					"Measured over",
 					seg(
-						WINDOWS.map((w) => ({ value: w, label: w })),
+						WINDOWS.map((w) => ({ value: w, label: WINDOW_WORDS[w] ?? w })),
 						s.window,
 						(v) => { s.window = v; update(); },
 					),
-					"Thresholds read the accounts' usage over this window.",
+					"Which of the provider's usage windows the two percentages below read. Providers differ: Claude reports weekly (and sometimes 5-hour), Codex 5-hour and weekly, API keys usually nothing unless you add a local meter.",
 				),
+				meterNote,
+				threshold("Each account's usage below", "perAccount", sentenceEach),
+				threshold("Selected accounts' average below", "cap", sentencePool),
 				h("details", { class: "vm-advanced" },
 					h("summary", null, "Advanced"),
 					field(
@@ -805,21 +914,11 @@ async function editor(ctx, id) {
 					),
 				),
 			),
-			isAdmin ? section("Lua functions", luaSection) : null,
+
+			Object.assign(section("And only when", rulesSection), { className: "section span-all" }),
 			section(
 				"Effort",
-				select(
-					[
-						{ value: "", label: "Caller's choice" },
-						{ value: "low", label: "Force low" },
-						{ value: "medium", label: "Force medium" },
-						{ value: "high", label: "Force high" },
-						{ value: "max", label: "Force max" },
-					],
-					s.effort ?? "",
-					(v) => { s.effort = v || null; update(); },
-					{ "aria-label": "Effort" },
-				),
+				effortChips(),
 				effortNote,
 			),
 		);
@@ -943,7 +1042,9 @@ async function editor(ctx, id) {
 		}
 	}
 	async function discard() {
-		if (await confirm({ title: "Discard changes?", text: "The chain goes back to the last saved version.", confirmLabel: "Discard", danger: true })) ctx.navigate("virtual-models");
+		if (!(await confirm({ title: "Discard changes?", text: "The chain goes back to the last saved version. You stay on this page.", confirmLabel: "Discard", danger: true }))) return;
+		if (isNew) { ctx.navigate("virtual-models"); return; }
+		ctx.rerender();
 	}
 	async function remove() {
 		const granted = users.filter((u) => u.grants.some((g) => g.virtualModel === draft.id));
