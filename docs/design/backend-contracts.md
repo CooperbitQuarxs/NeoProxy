@@ -1,6 +1,6 @@
 # Backend contracts the NeoProxy dashboard assumes
 
-The dashboard at `/neo/` was designed ahead of the backend. Its product pages initially used an in-memory fixture (`internal/neoui/static/lib/fixture.js`) behind one client (`lib/client.js`). This document specifies the real backend in the existing Go CLIProxyAPI-derived engine. NeoProxy owns provider accounts, credentials and refresh. NeoPi is an inference client, not the credential source. The authorized implementation and delivery status are tracked in `backend-plan.md`. Where the dashboard makes a decision the backend must honour, it is marked **must**. Where it only displays what it is given, the field is marked *display*.
+The dashboard at `/neo/` was designed ahead of the backend. Its product pages initially used an in-memory fixture (now the routing test oracle at `internal/neoroute/testdata/fixture.js`) behind one client. This document specifies the real backend in the existing Go CLIProxyAPI-derived engine. NeoProxy owns provider accounts, credentials and refresh. NeoPi is an inference client, not the credential source. The authorized implementation and delivery status are tracked in `backend-plan.md`. Where the dashboard makes a decision the backend must honour, it is marked **must**. Where it only displays what it is given, the field is marked *display*.
 
 Production product pages must use the real engine adapter; an unavailable backend is an error, not a fallback to demo accounts or generated requests. `fixture.js` remains importable only as the routing reference oracle. A source chip is display metadata, not proof of a live implementation or an authorization boundary. The delivery plan records whether the actual endpoint and browser checks have passed.
 
@@ -239,7 +239,7 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
 
 ### Resolution (the algorithm)
 
-`internal/neoui/static/lib/fixture.js › resolve()` is the reference implementation. Given a request for `asked` from `user` at time `at`:
+`internal/neoroute/testdata/fixture.js › resolve()` is the reference implementation. Given a request for `asked` from `user` at time `at`:
 
 1. Strip `neoproxy/`. If the remainder has one segment it is a virtual model name; otherwise it is `<provider>/<model>`.
 2. **Provider model**: the user **must** have `providerId` in `providerAccess`, the provider and model **must** be exposed, and a healthy account **must** exist. Serve from the first healthy account (the engine's own routing strategy applies here). No budget is applied. Outcome `ok` with `direct: true`.

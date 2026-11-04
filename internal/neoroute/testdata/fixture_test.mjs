@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolve } from "./static/lib/fixture.js";
+import { resolve } from "./fixture.js";
 
 function exhaustedRoute() {
 	const user = { id: "member", providerAccess: [], grants: [{ virtualModel: "vm-route", allotment: 1 }] };

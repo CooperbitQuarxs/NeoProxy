@@ -13,6 +13,10 @@ import { queryClient } from "./api/queries";
 import { App } from "./app/App";
 import { ToastProvider } from "./ui/toast";
 
+
+// Development only: lets design reviews feed the UI realistic data from the
+// browser console. Vite removes this branch from production builds.
+if (import.meta.env.DEV) (window as unknown as { __neoQuery: typeof queryClient }).__neoQuery = queryClient;
 createRoot(document.getElementById("app")!).render(
 	<StrictMode>
 		<QueryClientProvider client={queryClient}>

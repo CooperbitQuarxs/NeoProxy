@@ -30,7 +30,9 @@ export function PoolPage({ session }: PageProps) {
 	const models = new Set(items.flatMap((i) => i.models)).size;
 	const attention = items.filter((i) => i.health !== "healthy" || i.refresh === "locked");
 	const kindsPresent = new Set(items.map((i) => i.kind));
-	const providersPresent = [...new Set(items.map((i) => i.provider))];
+	const providerTotals = new Map<string, number>();
+	for (const i of items) providerTotals.set(i.provider, (providerTotals.get(i.provider) ?? 0) + i.plan.monthlyUSD);
+	const providersPresent = [...providerTotals.keys()].sort((a, b) => providerTotals.get(b)! - providerTotals.get(a)!);
 
 	const openAdd = (method?: AccessKind, provider?: string) => setAdding({ open: true, method, provider });
 

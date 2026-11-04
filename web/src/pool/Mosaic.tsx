@@ -11,8 +11,10 @@ import { KIND_COPY, healthCopy, personName } from "./copy";
 type Leaf = { item: AccessItem; value: number };
 type Group = { provider: string; children: Leaf[] };
 
-// A free plan still occupies visible space so it can be found and hovered.
+// A free or tiny plan still occupies enough space to be found and hovered:
+// at least 3% of the pool, never less than an absolute floor.
 const MIN_VALUE = 6;
+const MIN_SHARE = 0.03;
 
 export function Mosaic({
 	items,
@@ -48,10 +50,12 @@ export function Mosaic({
 
 	const tiles = useMemo(() => {
 		if (!size) return [];
+		const total = items.reduce((n, i) => n + i.plan.monthlyUSD, 0);
+		const floor = Math.max(MIN_VALUE, total * MIN_SHARE);
 		const groups = new Map<string, Group>();
 		for (const item of items) {
 			const g = groups.get(item.provider) ?? { provider: item.provider, children: [] };
-			g.children.push({ item, value: Math.max(MIN_VALUE, item.plan.monthlyUSD) });
+			g.children.push({ item, value: Math.max(floor, item.plan.monthlyUSD) });
 			groups.set(item.provider, g);
 		}
 		const root = hierarchy<{ children?: Array<Group | Leaf> } | Group | Leaf>({ children: [...groups.values()] }, (d) => ("children" in d ? (d.children as Array<Group | Leaf>) : undefined))
