@@ -121,6 +121,8 @@ export const icons = {
 	sliders: '<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
 	arrowDownRight: '<path d="m7 7 10 10"/><path d="M17 7v10H7"/>',
 	shuffle: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
+	// A path that leaves its line and continues elsewhere: a redirect.
+	redirect: '<circle cx="4" cy="6" r="1.5"/><path d="M5.5 6H11a4 4 0 0 1 4 4v8"/><path d="m11 14 4 4 4-4"/>',
 };
 
 export function icon(name, size = 16) {

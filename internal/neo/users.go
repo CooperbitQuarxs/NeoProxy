@@ -52,7 +52,34 @@ func validateUser(in UserInput, creating bool) error {
 		}
 		seen[p] = true
 	}
+	for p, patterns := range in.ModelAccess {
+		if strings.TrimSpace(p) != p || p == "" || len(p) > 100 {
+			return ErrInvalid
+		}
+		if !validModelPatterns(patterns, maxModelPatterns) {
+			return fmt.Errorf("%w: modelAccess[%q] needs 1 to %d distinct model ids or prefixes ending in *", ErrInvalid, p, maxModelPatterns)
+		}
+	}
 	return nil
+}
+
+// maxModelPatterns bounds one allowlist; providers list a few hundred models.
+const maxModelPatterns = 2000
+
+// storedModelAccess is the allowlist kept for in: entries of providers without
+// direct access are dropped, a nil input keeps the old allowlist.
+func storedModelAccess(in UserInput, old ModelAccess) ModelAccess {
+	source := in.ModelAccess
+	if source == nil {
+		source = old
+	}
+	out := make(ModelAccess, len(source))
+	for _, p := range in.ProviderAccess {
+		if patterns, ok := source[p]; ok {
+			out[p] = patterns
+		}
+	}
+	return out
 }
 
 type queryer interface {
@@ -62,8 +89,8 @@ type queryer interface {
 
 func readUserPolicy(ctx context.Context, q queryer, id string) (User, error) {
 	var u User
-	var access string
-	err := q.QueryRowContext(ctx, `SELECT id,handle,name,role,state,provider_access,rpm,tokens_per_day,created_at FROM neo_users WHERE id=?`, id).Scan(&u.ID, &u.Handle, &u.Name, &u.Role, &u.State, &access, &u.Limits.RPM, &u.Limits.TokensPerDay, &u.CreatedAt)
+	var access, models string
+	err := q.QueryRowContext(ctx, `SELECT id,handle,name,role,state,provider_access,model_access,rpm,tokens_per_day,created_at FROM neo_users WHERE id=?`, id).Scan(&u.ID, &u.Handle, &u.Name, &u.Role, &u.State, &access, &models, &u.Limits.RPM, &u.Limits.TokensPerDay, &u.CreatedAt)
 	if err != nil {
 		return u, databaseError(err)
 	}
@@ -72,6 +99,12 @@ func readUserPolicy(ctx context.Context, q queryer, id string) (User, error) {
 	}
 	if u.ProviderAccess == nil {
 		u.ProviderAccess = []string{}
+	}
+	if err = json.Unmarshal([]byte(models), &u.ModelAccess); err != nil {
+		return u, err
+	}
+	if len(u.ModelAccess) == 0 {
+		u.ModelAccess = nil
 	}
 	u.Grants = []Grant{}
 	u.Keys = []Key{}
@@ -102,19 +135,24 @@ func readUser(ctx context.Context, q queryer, id string) (User, error) {
 	if err != nil {
 		return u, err
 	}
-	rows, err := q.QueryContext(ctx, `SELECT id,prefix,label,account_ids,created_at,last_used_at,expires_at FROM neo_keys WHERE user_id=? AND revoked_at IS NULL ORDER BY created_at,id`, id)
+	rows, err := q.QueryContext(ctx, `SELECT id,prefix,label,account_ids,models,created_at,last_used_at,expires_at FROM neo_keys WHERE user_id=? AND revoked_at IS NULL ORDER BY created_at,id`, id)
 	if err != nil {
 		return u, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var k Key
-		var scope sql.NullString
-		if err = rows.Scan(&k.ID, &k.Prefix, &k.Label, &scope, &k.CreatedAt, &k.LastUsedAt, &k.ExpiresAt); err != nil {
+		var scope, models sql.NullString
+		if err = rows.Scan(&k.ID, &k.Prefix, &k.Label, &scope, &models, &k.CreatedAt, &k.LastUsedAt, &k.ExpiresAt); err != nil {
 			return u, err
 		}
 		if scope.Valid {
 			if err = json.Unmarshal([]byte(scope.String), &k.AccountIDs); err != nil {
+				return u, err
+			}
+		}
+		if models.Valid {
+			if err = json.Unmarshal([]byte(models.String), &k.Models); err != nil {
 				return u, err
 			}
 		}
@@ -190,7 +228,7 @@ func insertUser(ctx context.Context, tx *sql.Tx, id string, in UserInput, hash [
 	if access == nil {
 		access = []string{}
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO neo_users(id,handle,name,role,state,password_hash,provider_access,rpm,tokens_per_day,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, id, in.Handle, in.Name, in.Role, in.State, hash, jsonText(access), in.Limits.RPM, in.Limits.TokensPerDay, at); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO neo_users(id,handle,name,role,state,password_hash,provider_access,model_access,rpm,tokens_per_day,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, id, in.Handle, in.Name, in.Role, in.State, hash, jsonText(access), jsonText(storedModelAccess(in, nil)), in.Limits.RPM, in.Limits.TokensPerDay, at); err != nil {
 		return databaseError(err)
 	}
 	return setGrants(ctx, tx, id, in.Grants)
@@ -276,7 +314,7 @@ func (s *Store) UpdateUser(ctx context.Context, id string, in UserInput) (User, 
 	if access == nil {
 		access = []string{}
 	}
-	_, err = tx.ExecContext(ctx, `UPDATE neo_users SET handle=?,name=?,role=?,state=?,provider_access=?,rpm=?,tokens_per_day=? WHERE id=?`, in.Handle, in.Name, in.Role, in.State, jsonText(access), in.Limits.RPM, in.Limits.TokensPerDay, id)
+	_, err = tx.ExecContext(ctx, `UPDATE neo_users SET handle=?,name=?,role=?,state=?,provider_access=?,model_access=?,rpm=?,tokens_per_day=? WHERE id=?`, in.Handle, in.Name, in.Role, in.State, jsonText(access), jsonText(storedModelAccess(in, old.ModelAccess)), in.Limits.RPM, in.Limits.TokensPerDay, id)
 	if err != nil {
 		return User{}, databaseError(err)
 	}
@@ -346,7 +384,7 @@ func (s *Store) ChangePassword(ctx context.Context, id, current, password string
 	return s.commitMutation(tx)
 }
 func principal(u User) Principal {
-	return Principal{UserID: u.ID, Role: u.Role, ProviderAccess: u.ProviderAccess, Grants: u.Grants, Limits: u.Limits}
+	return Principal{UserID: u.ID, Role: u.Role, ProviderAccess: u.ProviderAccess, ModelAccess: u.ModelAccess, Grants: u.Grants, Limits: u.Limits}
 }
 func (s *Store) PrincipalForUser(ctx context.Context, id string) (Principal, error) {
 	u, err := s.User(ctx, id)

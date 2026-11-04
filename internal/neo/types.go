@@ -4,6 +4,8 @@ package neo
 import (
 	"context"
 	"errors"
+	"strings"
+	"unicode"
 )
 
 const (
@@ -32,51 +34,67 @@ type Limits struct {
 	TokensPerDay *int64 `json:"tokensPerDay"`
 }
 
+// Key.Models narrows the direct models a key may call ("<provider>/<model>"
+// patterns, a trailing "*" matches any suffix); empty means no extra narrowing.
 type Key struct {
 	ID         string   `json:"id"`
 	Prefix     string   `json:"prefix"`
 	Label      string   `json:"label"`
 	AccountIDs []string `json:"accountIds,omitempty"`
+	Models     []string `json:"models,omitempty"`
 	CreatedAt  int64    `json:"createdAt"`
 	LastUsedAt *int64   `json:"lastUsedAt"`
 	ExpiresAt  *int64   `json:"expiresAt,omitempty"`
 }
 
+// ModelAccess narrows direct provider access per provider: a provider in
+// ProviderAccess with an entry may serve only the models matching one of its
+// patterns (the model id without the "<provider>/" prefix, exact or with a
+// trailing "*"). A provider without an entry serves every exposed model.
+type ModelAccess map[string][]string
+
 type User struct {
-	ID             string   `json:"id"`
-	Handle         string   `json:"handle"`
-	Name           string   `json:"name"`
-	Role           string   `json:"role"`
-	State          string   `json:"state"`
-	Keys           []Key    `json:"keys"`
-	ProviderAccess []string `json:"providerAccess"`
-	Grants         []Grant  `json:"grants"`
-	Limits         Limits   `json:"limits"`
-	CreatedAt      int64    `json:"createdAt"`
+	ID             string      `json:"id"`
+	Handle         string      `json:"handle"`
+	Name           string      `json:"name"`
+	Role           string      `json:"role"`
+	State          string      `json:"state"`
+	Keys           []Key       `json:"keys"`
+	ProviderAccess []string    `json:"providerAccess"`
+	ModelAccess    ModelAccess `json:"modelAccess,omitempty"`
+	Grants         []Grant     `json:"grants"`
+	Limits         Limits      `json:"limits"`
+	CreatedAt      int64       `json:"createdAt"`
 }
 
-// UserInput replaces organization policy; a blank Password preserves its verifier.
+// UserInput replaces organization policy; a blank Password preserves its verifier
+// and a nil ModelAccess preserves the stored allowlist (send {} to clear it).
+// ModelAccess entries for providers outside ProviderAccess are dropped.
 type UserInput struct {
-	Handle         string   `json:"handle"`
-	Name           string   `json:"name"`
-	Role           string   `json:"role"`
-	State          string   `json:"state"`
-	ProviderAccess []string `json:"providerAccess"`
-	Grants         []Grant  `json:"grants"`
-	Limits         Limits   `json:"limits"`
-	Password       string   `json:"password,omitempty"`
+	Handle         string      `json:"handle"`
+	Name           string      `json:"name"`
+	Role           string      `json:"role"`
+	State          string      `json:"state"`
+	ProviderAccess []string    `json:"providerAccess"`
+	ModelAccess    ModelAccess `json:"modelAccess,omitempty"`
+	Grants         []Grant     `json:"grants"`
+	Limits         Limits      `json:"limits"`
+	Password       string      `json:"password,omitempty"`
 }
 
 // Principal is trusted server identity, never decoded from client JSON. Session is
 // true only after server-side cookie verification; an admin key is not a session.
 // A nil AccountIDs means no additional key scope; non-nil is an intersection.
+// KeyModels likewise narrows direct models for the key; nil means no narrowing.
 type Principal struct {
 	UserID         string
 	KeyID          string
 	Role           string
 	ProviderAccess []string
+	ModelAccess    ModelAccess
 	Grants         []Grant
 	AccountIDs     []string
+	KeyModels      []string
 	Limits         Limits
 	Session        bool
 }
@@ -93,6 +111,68 @@ func (p Principal) AllowsAccount(id string) bool {
 		}
 	}
 	return false
+}
+
+// AllowsDirect reports whether the principal may call model (the full
+// "<provider>/<model>" id) of providerID directly, bypassing virtual models.
+func (p Principal) AllowsDirect(providerID, model string) bool {
+	found := false
+	for _, id := range p.ProviderAccess {
+		if id == providerID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false
+	}
+	if patterns, ok := p.ModelAccess[providerID]; ok && !MatchModel(patterns, strings.TrimPrefix(model, providerID+"/")) {
+		return false
+	}
+	return p.KeyModels == nil || MatchModel(p.KeyModels, model)
+}
+
+// MatchModel reports whether id equals a pattern or starts with the prefix of
+// a pattern ending in "*".
+func MatchModel(patterns []string, id string) bool {
+	for _, pattern := range patterns {
+		if prefix, wild := strings.CutSuffix(pattern, "*"); wild {
+			if strings.HasPrefix(id, prefix) {
+				return true
+			}
+		} else if pattern == id {
+			return true
+		}
+	}
+	return false
+}
+
+// validModelPattern accepts an id or a prefix ending in one "*": printable,
+// without whitespace, at most 200 bytes.
+func validModelPattern(pattern string) bool {
+	if pattern == "" || len(pattern) > 200 || strings.Count(pattern, "*") > 1 || (strings.Contains(pattern, "*") && !strings.HasSuffix(pattern, "*")) {
+		return false
+	}
+	for _, r := range pattern {
+		if r <= ' ' || r == 0x7f || unicode.IsSpace(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func validModelPatterns(patterns []string, limit int) bool {
+	if len(patterns) == 0 || len(patterns) > limit {
+		return false
+	}
+	seen := make(map[string]bool, len(patterns))
+	for _, pattern := range patterns {
+		if !validModelPattern(pattern) || seen[pattern] {
+			return false
+		}
+		seen[pattern] = true
+	}
+	return true
 }
 
 type principalContextKey struct{}
