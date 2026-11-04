@@ -71,3 +71,32 @@ func RefreshLockExpired(a *Auth, now time.Time) bool {
 	expiry, ok := a.ExpirationTime()
 	return ok && !expiry.IsZero() && !expiry.After(now)
 }
+
+// markRefreshLocked records why a refresh-locked credential was not refreshed.
+// Once its access token has expired or upstream rejected it, the credential
+// stops being selected until a re-import replaces the token.
+func (m *Manager) markRefreshLocked(id string, registrationEpoch uint64, failedAccessToken string) {
+	now := time.Now()
+	m.mu.Lock()
+	current := m.auths[id]
+	if current == nil || current.RegistrationEpoch != registrationEpoch {
+		m.mu.Unlock()
+		return
+	}
+	rejected := failedAccessToken != "" && authAccessToken(current) == failedAccessToken
+	if rejected || !current.HasValidAccessToken(now) {
+		current.Generation++
+		current.UpdatedAt = now
+		current.Unavailable = true
+		current.Status = StatusError
+		current.StatusMessage = RefreshLockedMessage
+		current.LastError = &Error{Code: "refresh_locked", Message: RefreshLockedMessage, HTTPStatus: 401}
+		current.NextRefreshAfter = time.Time{}
+		current.NextRetryAfter = time.Time{}
+		if m.scheduler != nil {
+			m.scheduler.upsertAuth(current.Clone())
+		}
+	}
+	m.mu.Unlock()
+	m.queueRefreshUnschedule(id)
+}

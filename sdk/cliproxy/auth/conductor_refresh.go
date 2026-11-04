@@ -118,6 +118,9 @@ func (m *Manager) shouldRefresh(a *Auth, now time.Time) bool {
 	if a == nil {
 		return false
 	}
+	if IsRefreshLocked(a) {
+		return false
+	}
 	if hasUnauthorizedAuthFailure(a) || hasDisabledInvalidGrantFailure(a) {
 		return false
 	}
@@ -719,7 +722,7 @@ func (m *Manager) tryRefreshAfterUnauthorized(ctx context.Context, auth *Auth, e
 	if isRequestScopedError(execErr) {
 		return auth, false
 	}
-	if !isUnauthorizedError(execErr) || !authHasRefreshCredential(auth) {
+	if !isUnauthorizedError(execErr) || IsRefreshLocked(auth) || !authHasRefreshCredential(auth) {
 		return auth, false
 	}
 	if hasUnauthorizedAuthFailure(auth) {
@@ -849,6 +852,10 @@ func (m *Manager) refreshAuthForRequestAtEpoch(ctx context.Context, id, failedAc
 	}
 	if registrationEpoch != 0 && auth.RegistrationEpoch != registrationEpoch {
 		return nil, errors.New("auth registration changed before refresh")
+	}
+	if IsRefreshLocked(auth) {
+		m.markRefreshLocked(id, auth.RegistrationEpoch, failedAccessToken)
+		return nil, ErrRefreshLocked
 	}
 	if hasDisabledInvalidGrantFailure(auth) && !forceRefresh {
 		return nil, errors.New("auth is disabled with invalid grant")
