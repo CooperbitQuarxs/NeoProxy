@@ -301,6 +301,7 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		setNonEmpty(meta, "plan_type", planOf(c, r))
 	case "claude":
 		meta["access_token"] = access
+		meta["neopi_expiry_skewed"] = true
 		setNonEmpty(meta, "account_uuid", str(c.data, "accountId"))
 		setNonEmpty(meta, "organization_uuid", str(c.data, "orgId"))
 		setNonEmpty(meta, "organization_name", str(c.data, "orgName"))

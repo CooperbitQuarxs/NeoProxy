@@ -88,7 +88,6 @@ func detectChangedProviders(oldData, newData *staticModelsJSON) []string {
 	}
 
 	sections := []section{
-		{"claude", oldData.Claude, newData.Claude},
 		{"gemini", oldData.Gemini, newData.Gemini},
 		{"gemini-interactions", oldData.Gemini, newData.Gemini},
 		{"vertex", oldData.Vertex, newData.Vertex},
@@ -222,7 +221,6 @@ func validateModelsCatalog(data *staticModelsJSON) error {
 		name   string
 		models []*ModelInfo
 	}{
-		{name: "claude", models: data.Claude},
 		{name: "gemini", models: data.Gemini},
 		{name: "vertex", models: data.Vertex},
 		{name: "aistudio", models: data.AIStudio},

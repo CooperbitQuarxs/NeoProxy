@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/antigravity"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
@@ -32,167 +30,6 @@ type codexOAuthService interface {
 	GenerateAuthURL(state string, pkceCodes *codex.PKCECodes) (string, error)
 	ExchangeCodeForTokens(ctx context.Context, code string, pkceCodes *codex.PKCECodes) (*codex.CodexAuthBundle, error)
 	CreateTokenStorage(bundle *codex.CodexAuthBundle) *codex.CodexTokenStorage
-}
-
-func (h *Handler) RequestAnthropicToken(c *gin.Context) {
-	ctx := context.Background()
-	ctx = PopulateAuthContext(ctx, c)
-
-	fmt.Println("Initializing Claude authentication...")
-
-	// Generate PKCE codes
-	pkceCodes, err := claude.GeneratePKCECodes()
-	if err != nil {
-		log.Errorf("Failed to generate PKCE codes: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate PKCE codes"})
-		return
-	}
-
-	// Generate random state parameter
-	state, err := misc.GenerateRandomState()
-	if err != nil {
-		log.Errorf("Failed to generate state parameter: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate state parameter"})
-		return
-	}
-
-	// Initialize Claude auth service
-	anthropicAuth := claude.NewClaudeAuth(h.cfg)
-
-	// Generate authorization URL (then override redirect_uri to reuse server port)
-	authURL, state, err := anthropicAuth.GenerateAuthURL(state, pkceCodes)
-	if err != nil {
-		log.Errorf("Failed to generate authorization URL: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate authorization url"})
-		return
-	}
-
-	RegisterOAuthSession(state, "anthropic")
-
-	isWebUI := isWebUIRequest(c)
-	var forwarder *callbackForwarder
-	if isWebUI {
-		targetURL, errTarget := h.managementCallbackURL("/anthropic/callback")
-		if errTarget != nil {
-			log.WithError(errTarget).Error("failed to compute anthropic callback target")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "callback server unavailable"})
-			return
-		}
-		var errStart error
-		if forwarder, errStart = startCallbackForwarder(anthropicCallbackPort, "anthropic", targetURL); errStart != nil {
-			log.WithError(errStart).Error("failed to start anthropic callback forwarder")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start callback server"})
-			return
-		}
-	}
-
-	go func() {
-		if isWebUI {
-			defer stopCallbackForwarderInstance(anthropicCallbackPort, forwarder)
-		}
-
-		// Helper: wait for callback file
-		waitFile := filepath.Join(h.cfg.AuthDir, fmt.Sprintf(".oauth-anthropic-%s.oauth", state))
-		waitForFile := func(path string, timeout time.Duration) (map[string]string, error) {
-			deadline := time.Now().Add(timeout)
-			for {
-				if !IsOAuthSessionPending(state, "anthropic") {
-					return nil, errOAuthSessionNotPending
-				}
-				if time.Now().After(deadline) {
-					SetOAuthSessionError(state, "Timeout waiting for OAuth callback")
-					return nil, fmt.Errorf("timeout waiting for OAuth callback")
-				}
-				data, errRead := os.ReadFile(path)
-				if errRead == nil {
-					var m map[string]string
-					_ = json.Unmarshal(data, &m)
-					_ = os.Remove(path)
-					return m, nil
-				}
-				time.Sleep(500 * time.Millisecond)
-			}
-		}
-
-		fmt.Println("Waiting for authentication callback...")
-		// Wait up to 5 minutes
-		resultMap, errWait := waitForFile(waitFile, 5*time.Minute)
-		if errWait != nil {
-			if errors.Is(errWait, errOAuthSessionNotPending) {
-				return
-			}
-			authErr := claude.NewAuthenticationError(claude.ErrCallbackTimeout, errWait)
-			log.Error(claude.GetUserFriendlyMessage(authErr))
-			return
-		}
-		if errStr := resultMap["error"]; errStr != "" {
-			oauthErr := claude.NewOAuthError(errStr, "", http.StatusBadRequest)
-			log.Error(claude.GetUserFriendlyMessage(oauthErr))
-			SetOAuthSessionError(state, "Bad request")
-			return
-		}
-		if resultMap["state"] != state {
-			authErr := claude.NewAuthenticationError(claude.ErrInvalidState, fmt.Errorf("expected %s, got %s", state, resultMap["state"]))
-			log.Error(claude.GetUserFriendlyMessage(authErr))
-			SetOAuthSessionError(state, "State code error")
-			return
-		}
-
-		// Parse code (Claude may append state after '#')
-		rawCode := resultMap["code"]
-		code := strings.Split(rawCode, "#")[0]
-
-		// Exchange code for tokens using internal auth service
-		bundle, errExchange := anthropicAuth.ExchangeCodeForTokens(ctx, code, state, pkceCodes)
-		if errExchange != nil {
-			authErr := claude.NewAuthenticationError(claude.ErrCodeExchangeFailed, errExchange)
-			log.Errorf("Failed to exchange authorization code for tokens: %v", authErr)
-			SetOAuthSessionError(state, "Failed to exchange authorization code for tokens")
-			return
-		}
-
-		// Create token storage
-		tokenStorage := anthropicAuth.CreateTokenStorage(bundle)
-		metadata := map[string]any{"email": tokenStorage.Email}
-		if tokenStorage.AccountUUID != "" {
-			metadata["account_uuid"] = tokenStorage.AccountUUID
-		}
-		if tokenStorage.OrganizationUUID != "" {
-			metadata["organization_uuid"] = tokenStorage.OrganizationUUID
-		}
-		if tokenStorage.OrganizationName != "" {
-			metadata["organization_name"] = tokenStorage.OrganizationName
-		}
-		if len(tokenStorage.DeviceIDs) > 0 {
-			metadata[claude.ClaudeDeviceIDsMetadataKey] = append([]string(nil), tokenStorage.DeviceIDs...)
-		}
-		fileName := claude.CredentialFileName(tokenStorage.Email, tokenStorage.OrganizationUUID, tokenStorage.AccountUUID)
-		record := &coreauth.Auth{
-			ID:       fileName,
-			Provider: "claude",
-			FileName: fileName,
-			Storage:  tokenStorage,
-			Metadata: metadata,
-		}
-		if errGuard := guardOAuthSessionPendingForSave(state, "anthropic"); errGuard != nil {
-			return
-		}
-		savedPath, errSave := h.saveTokenRecord(ctx, record)
-		if errSave != nil {
-			log.Errorf("Failed to save authentication tokens: %v", errSave)
-			SetOAuthSessionError(state, "Failed to save authentication tokens")
-			return
-		}
-
-		fmt.Printf("Authentication successful! Token saved to %s\n", savedPath)
-		if bundle.APIKey != "" {
-			fmt.Println("API key obtained and saved")
-		}
-		fmt.Println("You can now use Claude services through this CLI")
-		CompleteOAuthSession(state)
-	}()
-
-	c.JSON(200, gin.H{"status": "ok", "url": authURL, "state": state})
 }
 
 func (h *Handler) RequestCodexToken(c *gin.Context) {

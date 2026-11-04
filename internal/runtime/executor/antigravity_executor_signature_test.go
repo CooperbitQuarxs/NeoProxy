@@ -1205,56 +1205,6 @@ func TestAntigravityExecutor_StrictBypassLogsStrippedInvalidSignature(t *testing
 	assertSignatureDebugDoesNotLeak(t, hook, rawSignature)
 }
 
-func TestClaudeExecutor_LogsSanitizedClaudeUpstreamSignatures(t *testing.T) {
-	hook := newSignatureDebugHook(t)
-	rawSignature := "skip_thought_signature_validator"
-	body := []byte(`{
-		"model": "claude-sonnet-4-5",
-		"messages": [
-			{
-				"role": "assistant",
-				"content": [
-					{"type": "thinking", "thinking": "bad", "signature": "` + rawSignature + `"},
-					{"type": "text", "text": "hello"},
-					{"type": "tool_use", "id": "call_123", "name": "get_weather", "input": {}, "signature": "` + rawSignature + `"}
-				]
-			}
-		]
-	}`)
-
-	output := sanitizeClaudeMessagesForClaudeUpstreamWithDebug(context.Background(), body, "claude-sonnet-4-5")
-	parts := gjson.GetBytes(output, "messages.0.content").Array()
-	if len(parts) != 2 {
-		t.Fatalf("content length = %d, want 2 after invalid thinking strip: %s", len(parts), output)
-	}
-	if parts[1].Get("signature").Exists() {
-		t.Fatalf("tool_use signature should be removed before Claude upstream: %s", output)
-	}
-
-	found := false
-	for _, entry := range hook.AllEntries() {
-		if entry.Level != log.DebugLevel {
-			continue
-		}
-		if entry.Data["component"] != "signature_sanitizer" ||
-			entry.Data["executor"] != "claude" ||
-			entry.Data["action"] != "sanitize_claude_messages" {
-			continue
-		}
-		if entry.Data["dropped_blocks"] != 1 {
-			t.Fatalf("dropped_blocks = %v, want 1", entry.Data["dropped_blocks"])
-		}
-		if entry.Data["dropped_signatures"] != 1 {
-			t.Fatalf("dropped_signatures = %v, want 1", entry.Data["dropped_signatures"])
-		}
-		found = true
-	}
-	if !found {
-		t.Fatal("expected debug log for Claude upstream signature sanitization")
-	}
-	assertSignatureDebugDoesNotLeak(t, hook, rawSignature)
-}
-
 func TestAntigravityExecutor_NonStrictBypassSkipsPrecheck(t *testing.T) {
 	previousCache := cache.SignatureCacheEnabled()
 	previousStrict := cache.SignatureBypassStrictMode()

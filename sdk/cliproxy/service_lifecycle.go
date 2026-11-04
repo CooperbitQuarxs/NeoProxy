@@ -40,6 +40,7 @@ func (s *Service) Run(ctx context.Context) error {
 	ctx, runCancel := context.WithCancel(ctx)
 	s.cfgMu.Lock()
 	s.antigravityContext = ctx
+	s.claudeDiscoveryContext = ctx
 	s.cfgMu.Unlock()
 	s.homeMu.Lock()
 	s.runCancel = runCancel
@@ -234,6 +235,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if !homeEnabled {
 		go s.runAntigravityModelRefresh(ctx)
 		go s.runXAIModelDiscovery(ctx)
+		go s.runClaudeModelDiscovery(ctx)
 	}
 
 	select {
