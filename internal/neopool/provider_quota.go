@@ -14,6 +14,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -109,6 +110,10 @@ func quotaProvider(a *coreauth.Auth) string {
 	if a.Provider == "claude" && strings.Contains(quotaAccessToken(a), "sk-ant-oat") {
 		return "claude"
 	}
+	// NeoPi meters every Z.ai credential, pasted key or sign-in, with its key.
+	if zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
+		return "zai"
+	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
@@ -131,6 +136,9 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		return ""
 	}
 	token, _ := a.Metadata["access_token"].(string)
+	if token == "" && zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
+		token = a.Attributes["api_key"]
+	}
 	if token == "" && a.Provider == "claude" {
 		token = a.Attributes["api_key"]
 		if token == "" {
@@ -245,6 +253,33 @@ func xaiUsageWindows(usage *xaiauth.Usage) []Window {
 	return out
 }
 
+// zaiUsageWindows adapts NeoPi's Z.ai report: each shared quota whose window
+// the budget model knows (5h, day, week, month) becomes that window. A limit
+// without a fraction is reported but unknown to routing.
+func zaiUsageWindows(usage *zaiauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "1d": "day", "1w": "week", "1mo": "month"}
+	for _, limit := range usage.Limits {
+		kind, ok := kinds[limit.WindowID]
+		if !ok || !limit.Shared {
+			continue
+		}
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() && limit.DurationMs > 0 {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		if limit.UsedFraction == nil {
+			out = append(out, Window{Kind: kind, Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+			continue
+		}
+		out = append(out, percentWindow(kind, *limit.UsedFraction*100, startsAt, limit.ResetsAt))
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -286,6 +321,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return xaiUsageWindows(usage), nil
+	case "zai":
+		usage, err := zaiauth.FetchUsage(ctx, client, token)
+		if err != nil {
+			return nil, err
+		}
+		return zaiUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
