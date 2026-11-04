@@ -266,6 +266,46 @@ func TestBuildAPIKey(t *testing.T) {
 	}
 }
 
+// Grok Build is NeoPi's mirror of the xai-oauth sign-in: no email, no account
+// id and a sentinel refresh value. It imports as the engine's xai sign-in with
+// the account taken from the token's subject.
+func TestGrokBuildImportsAsXAISignIn(t *testing.T) {
+	access := fakeJWT(t, map[string]any{"sub": "sub-grok-fixture", "exp": time.Now().Add(time.Hour).Unix()})
+	profile, _ := newProfile(t, []fixtureRow{
+		{"grok-build", "oauth", map[string]any{"access": access, "refresh": "__grok-build-shadows-xai-oauth__", "expires": float64(time.Now().Add(time.Hour).UnixMilli())}, ""},
+		{"grok-build", "oauth", map[string]any{"access": access, "refresh": "__grok-build-shadows-xai-oauth__", "expires": float64(time.Now().Add(-time.Hour).UnixMilli())}, ""},
+	})
+	creds, err := Read(context.Background(), profile)
+	if err != nil || len(creds) != 2 {
+		t.Fatalf("Read = %d, %v", len(creds), err)
+	}
+	now := time.Now()
+	live := Describe(creds[0], now)
+	if !live.Importable || live.Kind != KindSubscription || live.NeoProxyProvider == nil || *live.NeoProxyProvider != "xai" {
+		t.Fatalf("live grok-build = %+v", live)
+	}
+	if expired := Describe(creds[1], now); expired.Importable || !strings.Contains(expired.Reason, "Import xai-oauth instead") {
+		t.Fatalf("expired grok-build = %+v", expired)
+	}
+	file, err := BuildAuthFile(creds[0], profile, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(file.Data), "shadows-xai-oauth") {
+		t.Fatal("refresh sentinel copied into auth file")
+	}
+	var meta map[string]any
+	if err = json.Unmarshal(file.Data, &meta); err != nil {
+		t.Fatal(err)
+	}
+	if file.Provider != "xai" || meta["type"] != "xai" || meta["auth_kind"] != "oauth" || meta["access_token"] != access || meta["sub"] != "sub-grok-fixture" {
+		t.Fatalf("grok-build auth file = %s", file.Data)
+	}
+	if meta[coreauth.MetadataRefreshLocked] != true {
+		t.Fatal("grok-build import is not refresh-locked")
+	}
+}
+
 func TestProfileValidationAndReadOnly(t *testing.T) {
 	profile, db := newProfile(t, []fixtureRow{{"openrouter", "api_key", map[string]any{"key": "sk-or-v1-fixture5678"}, ""}})
 	before, _ := os.ReadDir(profile)

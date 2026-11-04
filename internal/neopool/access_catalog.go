@@ -93,7 +93,7 @@ var providerCatalog = []ProviderInfo{
 		Subscription: browser("Opens Google's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
 		Plans:        googlePlans},
 	{ID: "xai", Name: "Grok / xAI", Vendor: "xAI", Hue: 0, Chroma: 0, Methods: []string{"subscription", "apiKey"},
-		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there."),
+		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Covers SuperGrok and the Grok Build (Grok CLI) models."),
 		APIKey:       openAIKey("https://api.x.ai/v1", "xai-...", "https://console.x.ai/"),
 		Plans:        grokPlans, engine: "xai"},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
