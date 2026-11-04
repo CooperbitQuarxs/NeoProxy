@@ -3,6 +3,10 @@ package neopool
 import (
 	"regexp"
 	"strings"
+
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
 // ProviderPlan is a subscription tier or budget with its default monthly value.
@@ -13,11 +17,16 @@ type ProviderPlan struct {
 }
 
 // ProviderSubscription describes the existing engine sign-in for a provider.
-// Flow is "browser" (provider page in a new tab, redirect back) or "device"
-// (provider page plus a short code the person confirms).
+// Flow is "browser" (provider page in a new tab, redirect back), "device"
+// (provider page plus a short code the person confirms) or "code" (provider
+// page in a new tab; the provider cannot redirect back, so the person pastes
+// the final address or code into NeoProxy).
 type ProviderSubscription struct {
 	Flow string `json:"flow"`
 	Note string `json:"note"`
+	// Site names where the person signs in when that isn't the vendor
+	// (Cursor, not Anysphere); the dashboard falls back to Vendor.
+	Site string `json:"site,omitempty"`
 }
 
 // ProviderAPIKey describes how a pay-as-you-go key is validated and routed.
@@ -46,15 +55,59 @@ type ProviderInfo struct {
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
+	// regions are regional endpoints of one product whose keys each authenticate
+	// at exactly one of them; validation keeps the first that accepts the key.
+	// APIKey.BaseURL is the first region.
+	regions []string
+	// skipModels are model-id prefixes the provider lists but chat clients
+	// cannot use (image, audio, video and embedding SKUs).
+	skipModels []string
+	// upstreamErrors seeds that openai-compatibility entry's error
+	// classification with provider quirks.
+	upstreamErrors []config.RequestScopedErrorRule
+	// dialect is the upstream API of every model (chat-completions when empty);
+	// Responses-only gateways set "responses".
+	dialect string
+	// dialectRules route models whose model-list entry does not advertise its
+	// API, by id prefix; the first match wins and unmatched ids stay on dialect.
+	dialectRules []dialectRule
+	// sessionHeader is the request header that must carry a session id.
+	sessionHeader string
+	// headers are static request headers for the provider's entry.
+	headers map[string]string
+}
+
+// dialectRule routes model ids starting with prefix to dialect.
+type dialectRule struct {
+	prefix  string
+	dialect string
 }
 
 const providerChroma = 0.13
+
+// tintChroma tints a provider whose brand is monochrome (Cursor, OpenCode Zen,
+// Vercel) so tiles sharing one pool stay apart; xAI and custom servers keep
+// pure grey (Chroma 0).
+const tintChroma = 0.045
 
 var (
 	chatGPTPlans = []ProviderPlan{{"free", "ChatGPT Free", 0}, {"plus", "ChatGPT Plus", 20}, {"pro", "ChatGPT Pro", 200}, {"team", "ChatGPT Team", 30}, {"business", "ChatGPT Business", 30}, {"enterprise", "ChatGPT Enterprise", 60}}
 	claudePlans  = []ProviderPlan{{"pro", "Claude Pro", 20}, {"max5x", "Claude Max 5x", 100}, {"max20x", "Claude Max 20x", 200}}
 	grokPlans    = []ProviderPlan{{"supergrok", "SuperGrok", 30}, {"supergrok-heavy", "SuperGrok Heavy", 300}}
 	googlePlans  = []ProviderPlan{{"google-ai-pro", "Google AI Pro", 20}, {"google-ai-ultra", "Google AI Ultra", 250}}
+	// GLM Coding Plan list prices (monthly billing); ids match the level Z.ai's
+	// quota API reports.
+	zaiPlans = []ProviderPlan{{"lite", "GLM Coding Plan Lite", 18}, {"pro", "GLM Coding Plan Pro", 80}, {"max", "GLM Coding Plan Max", 168}}
+	// Cursor's plans on The X Subscription, then the legacy plans existing subscribers keep
+	// (cursor.com/help/account-and-billing/pricing).
+	cursorPlans = []ProviderPlan{{"plus", "Cursor Plus", 8}, {"premium", "Cursor Premium", 30}, {"super", "Cursor Super", 100}, {"ultra", "Cursor Ultra", 200}, {"pro", "Cursor Pro (legacy)", 20}, {"pro-plus", "Cursor Pro+ (legacy)", 60}}
+)
+
+// QwenCloud Token Plan endpoints. Keys are region-locked: a China (Beijing) key
+// is rejected by the International (Singapore) endpoint and vice versa.
+const (
+	qwenTokenPlanIntlURL = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+	qwenTokenPlanCNURL   = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
 )
 
 // Default monthly values when nothing more specific is known.
@@ -62,6 +115,23 @@ const (
 	defaultSubscriptionUSD = 20
 	defaultAPIKeyUSD       = 20
 )
+
+// OpenCode's model lists name each model's API (chat-completions, responses,
+// messages, generate-content) and its base URL. These family rules only cover
+// ids listed without that metadata. Every OpenCode inference request must carry
+// x-opencode-session, or the gateway answers 400 MissingSessionID.
+var openCodeDialectRules = []dialectRule{
+	{"claude-", "messages"},
+	{"gpt-", "responses"},
+	{"grok-", "responses"},
+	{"muse-", "responses"},
+}
+
+const openCodeSessionHeader = "x-opencode-session"
+
+// openCodeHeaders replace the engine's default OpenAI-compatible User-Agent,
+// which opencode.ai's Cloudflare front rejects (error 1010, HTTP 403).
+var openCodeHeaders = map[string]string{"User-Agent": "NeoProxy"}
 
 func openAIKey(base, hint, getKey string) *ProviderAPIKey {
 	return &ProviderAPIKey{Style: "openai", BaseURL: base, KeyHint: hint, GetKeyURL: getKey}
@@ -74,8 +144,14 @@ func device(note string) *ProviderSubscription {
 	return &ProviderSubscription{Flow: "device", Note: note}
 }
 
+// at sets where the person signs in, for sites not named after the vendor.
+func (s *ProviderSubscription) at(site string) *ProviderSubscription {
+	s.Site = site
+	return s
+}
+
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, devin, meta).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -93,14 +169,19 @@ var providerCatalog = []ProviderInfo{
 		Subscription: browser("Opens Google's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
 		Plans:        googlePlans},
 	{ID: "xai", Name: "Grok / xAI", Vendor: "xAI", Hue: 0, Chroma: 0, Methods: []string{"subscription", "apiKey"},
-		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there."),
+		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to the official xAI API."),
 		APIKey:       openAIKey("https://api.x.ai/v1", "xai-...", "https://console.x.ai/"),
 		Plans:        grokPlans, engine: "xai"},
+	// Same xAI sign-in and token as xai, served through the Grok CLI chat-proxy,
+	// which has its own speed, usage limits and model list.
+	{ID: "grok-build", Name: "Grok Build", Vendor: "xAI", Hue: 250, Chroma: tintChroma, Methods: []string{"subscription"},
+		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to Grok Build, the Grok CLI's endpoint, with its own speed, usage limits and models."),
+		Plans:        grokPlans},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
-		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there."),
+		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there.").at("Kimi"),
 		Plans:        []ProviderPlan{}},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
-		Subscription: browser("Opens Devin's sign-in in a new tab."),
+		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),
 		Plans:        []ProviderPlan{}},
 	{ID: "meta", Name: "Meta AI", Vendor: "Meta", Hue: 280, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
 		Subscription: device("Opens Meta in a new tab and shows a code to confirm there."),
@@ -122,10 +203,57 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
-	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.z.ai/api/paas/v4", "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"), Plans: []ProviderPlan{}},
+	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
+	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
+	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: (&ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."}).at("Z.ai"),
+		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
+		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
+	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 267, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:     openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
+		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
+		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
+		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 242, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
+	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 160, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/v1", "oc_... (OpenCode Zen key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
+	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 357, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.sakana.ai/v1", "fish_...", "https://console.sakana.ai/api-keys"), Plans: []ProviderPlan{},
+		dialect: "responses"},
+	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 57, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.abliteration.ai/v1", "ak_...", "https://abliteration.ai/console"), Plans: []ProviderPlan{},
+		dialect: "responses"},
+	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://router.huggingface.co/v1", "hf_...", "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained"), Plans: []ProviderPlan{}},
+	// NVIDIA's free catalogue keeps listing models an account cannot call
+	// (404 "Function ... Not found for account") or that reached end of life
+	// (410 Gone). Those concern the requested model only, never the whole key.
+	{ID: "nvidia", Name: "NVIDIA NIM", Vendor: "NVIDIA", Hue: 135, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://build.nvidia.com/settings/api-keys"), Plans: []ProviderPlan{},
+		upstreamErrors: []config.RequestScopedErrorRule{
+			{Status: 404, Match: []string{"Not Found", "not found"}, Action: "stop"},
+			{Status: 410, Match: []string{"Gone", "end of life"}, Action: "stop"},
+		}},
+	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 300, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://ai-gateway.vercel.sh/v1", "vck_...", "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys"), Plans: []ProviderPlan{}},
+	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed.").at("Nous Portal"),
+		APIKey:       openAIKey("https://inference-api.nousresearch.com/v1", "sk-...", "https://portal.nousresearch.com/"), Plans: []ProviderPlan{}},
+	// Marineris is a self-hosted gateway, so its address is chosen per key;
+	// the default is the gateway's own documented listen address.
+	{ID: "marineris", Name: "Marineris", Vendor: "Marineris gateway", Hue: 35, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://192.168.50.50:8801/v1", EditableBaseURL: true, KeyHint: "mrn_... (issued by the gateway's administrator)"},
+		Plans:  []ProviderPlan{}},
+	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 75, Chroma: tintChroma, Methods: []string{"subscription"},
+		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed.").at("Cursor"),
+		Plans:        cursorPlans},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},
@@ -138,6 +266,13 @@ var catalogBaseURL = func(id string) string {
 		return p.APIKey.BaseURL
 	}
 	return ""
+}
+
+// catalogRegions resolves a catalogue provider's regional endpoints (nil for
+// single-endpoint providers). Tests may replace it like catalogBaseURL.
+var catalogRegions = func(id string) []string {
+	p, _ := catalogProvider(id)
+	return p.regions
 }
 
 func catalogProvider(id string) (ProviderInfo, bool) {
@@ -163,6 +298,27 @@ func catalogPlan(provider, planID string) (ProviderPlan, bool) {
 }
 
 var compatSuffix = regexp.MustCompile(`-\d+$`)
+
+// accessProviderID is the catalogue ID an engine credential is shown under.
+// NeoPi-served credentials keep NeoPi's provider name; custom OpenAI-compatible
+// entries whose address is a known provider's fixed API (for example keys
+// imported before that provider had its own entry) show as that provider.
+func accessProviderID(a *coreauth.Auth, kind string) string {
+	if kind == "neopi" {
+		return catalogProviderID(a.Attributes["neopi_provider"], "")
+	}
+	id := catalogProviderID(a.Provider, a.Attributes["compat_name"])
+	if id != "custom" {
+		return id
+	}
+	base := strings.TrimRight(strings.TrimSpace(a.Attributes["base_url"]), "/")
+	for _, p := range providerCatalog {
+		if p.engine == "" && p.APIKey != nil && !p.APIKey.EditableBaseURL && base != "" && strings.EqualFold(p.APIKey.BaseURL, base) {
+			return p.ID
+		}
+	}
+	return id
+}
 
 // catalogProviderID maps an engine provider (or a NeoPi provider name) to the
 // catalogue ID shown to people. Unknown engine providers keep their own ID.

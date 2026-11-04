@@ -524,12 +524,23 @@ func (h *Handler) RequestAntigravityToken(c *gin.Context) {
 }
 
 func (h *Handler) RequestXAIToken(c *gin.Context) {
+	h.requestXAIToken(c, "xai")
+}
+
+// RequestGrokBuildToken signs in with the same xAI device flow and token as
+// RequestXAIToken, but saves a grok-build credential, which the engine serves
+// through the Grok CLI chat-proxy instead of the official API.
+func (h *Handler) RequestGrokBuildToken(c *gin.Context) {
+	h.requestXAIToken(c, xaiauth.GrokBuildType)
+}
+
+func (h *Handler) requestXAIToken(c *gin.Context, provider string) {
 	ctx := context.Background()
 	ctx = PopulateAuthContext(ctx, c)
 
 	fmt.Println("Initializing xAI authentication...")
 
-	state := fmt.Sprintf("xai-%d", time.Now().UnixNano())
+	state := fmt.Sprintf("%s-%d", provider, time.Now().UnixNano())
 	authSvc := xaiauth.NewXAIAuth(h.cfg)
 
 	deviceFlow, errStartDeviceFlow := authSvc.StartDeviceFlow(ctx)
@@ -543,24 +554,24 @@ func (h *Handler) RequestXAIToken(c *gin.Context) {
 		authURL = strings.TrimSpace(deviceFlow.VerificationURI)
 	}
 
-	RegisterOAuthSession(state, "xai")
+	RegisterOAuthSession(state, provider)
 
 	go func() {
 		pollCtx, cancelPoll := context.WithCancel(ctx)
 		defer cancelPoll()
-		go watchOAuthSessionCancel(pollCtx, cancelPoll, state, "xai")
+		go watchOAuthSessionCancel(pollCtx, cancelPoll, state, provider)
 
 		fmt.Println("Waiting for xAI authentication...")
 		bundle, errWaitForAuthorization := authSvc.WaitForAuthorization(pollCtx, deviceFlow)
 		if errWaitForAuthorization != nil {
-			if !IsOAuthSessionPending(state, "xai") {
+			if !IsOAuthSessionPending(state, provider) {
 				return
 			}
 			log.Errorf("xAI authentication failed: %v", errWaitForAuthorization)
 			SetOAuthSessionError(state, oauthSessionErrorWithCause("Authentication failed", errWaitForAuthorization))
 			return
 		}
-		if !IsOAuthSessionPending(state, "xai") {
+		if !IsOAuthSessionPending(state, provider) {
 			return
 		}
 
@@ -570,15 +581,21 @@ func (h *Handler) RequestXAIToken(c *gin.Context) {
 			SetOAuthSessionError(state, "Failed to exchange token")
 			return
 		}
+		tokenStorage.Type = provider
 
+		// The two providers share the account and token but are separate
+		// credentials, so their files must not overwrite each other.
 		fileName := xaiauth.CredentialFileName(tokenStorage.Email, tokenStorage.Subject)
 		label := strings.TrimSpace(tokenStorage.Email)
 		if label == "" {
 			label = "xAI"
 		}
+		if provider == xaiauth.GrokBuildType {
+			fileName = provider + "-" + strings.TrimPrefix(fileName, "xai-")
+		}
 
 		metadata := map[string]any{
-			"type":           "xai",
+			"type":           provider,
 			"access_token":   tokenStorage.AccessToken,
 			"refresh_token":  tokenStorage.RefreshToken,
 			"id_token":       tokenStorage.IDToken,
@@ -599,7 +616,7 @@ func (h *Handler) RequestXAIToken(c *gin.Context) {
 
 		record := &coreauth.Auth{
 			ID:       fileName,
-			Provider: "xai",
+			Provider: provider,
 			FileName: fileName,
 			Label:    label,
 			Storage:  tokenStorage,
@@ -609,7 +626,7 @@ func (h *Handler) RequestXAIToken(c *gin.Context) {
 				"base_url":  tokenStorage.BaseURL,
 			},
 		}
-		if errGuard := guardOAuthSessionPendingForSave(state, "xai"); errGuard != nil {
+		if errGuard := guardOAuthSessionPendingForSave(state, provider); errGuard != nil {
 			return
 		}
 		savedPath, errSave := h.saveTokenRecord(ctx, record)

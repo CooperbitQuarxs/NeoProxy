@@ -37,10 +37,13 @@ func (ts *TokenStorage) SetMetadata(meta map[string]any) {
 	ts.Metadata = meta
 }
 
-// SaveTokenToFile writes xAI credentials to a JSON auth file.
+// SaveTokenToFile writes xAI credentials to a JSON auth file. Type is "xai"
+// unless the caller chose "grok-build" (same token, Grok CLI chat-proxy).
 func (ts *TokenStorage) SaveTokenToFile(authFilePath string) error {
 	misc.LogSavingCredentials(authFilePath)
-	ts.Type = "xai"
+	if ts.Type != GrokBuildType {
+		ts.Type = "xai"
+	}
 	ts.AuthKind = "oauth"
 	if errMkdirAll := os.MkdirAll(filepath.Dir(authFilePath), 0o700); errMkdirAll != nil {
 		return fmt.Errorf("xai token storage: create directory: %w", errMkdirAll)

@@ -9,6 +9,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/modelconfig"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/config"
 )
@@ -185,7 +186,16 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
 		models = registry.GetKimiModels()
 		models = applyExcludedModels(models, excluded)
-	case "xai":
+	case "xai", executor.GrokBuildProvider:
+		if xaiUsesModelDiscovery(a) {
+			var stale bool
+			models, stale = xaiDiscoveredModels(a, time.Now())
+			if stale {
+				s.queueXAIModelDiscovery(a)
+			}
+			models = applyExcludedModels(models, excluded)
+			break
+		}
 		models = registry.GetXAIModels()
 		if entry := resolveConfigXAIKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
@@ -199,6 +209,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	case "devin":
 		models = registry.GetDevinModels()
 		models = applyExcludedModels(models, excluded)
+	case "nous-portal":
+		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
 		models = registry.GetMetaModels()
 		if entry := resolveConfigMetaKeyForConfig(cfg, a); entry != nil {
@@ -210,6 +222,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 			}
 		}
 		models = applyExcludedModels(models, excluded)
+	case "cursor":
+		models = applyExcludedModels(s.cursorModelsForAuth(a), excluded)
 	default:
 		// Handle OpenAI-compatibility providers by name using config
 		if cfg != nil {
