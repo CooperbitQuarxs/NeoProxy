@@ -155,6 +155,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 			}
 		}
 		models = applyExcludedModels(models, excluded)
+	case "claude-neopi":
+		models = applyExcludedModels(registry.GetClaudeNeoPiModels(), excluded)
 	case "codex":
 		if authKind == "apikey" {
 			if entry := resolveConfigCodexKeyForConfig(cfg, a); entry != nil {
@@ -330,7 +332,12 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	models = s.appendPluginModels(key, models, excluded)
 	if len(models) > 0 {
 		models = applyOAuthSettingsForAuth(cfg, provider, authKind, models)
-		published = s.registerResolvedModelsForAuthFenced(a, fence, key, applyModelPrefixes(models, a.Prefix, cfg != nil && cfg.ForceModelPrefix))
+		prefix, forcePrefix := a.Prefix, cfg != nil && cfg.ForceModelPrefix
+		if key == "claude-neopi" {
+			// Never publish a bare model from the experimental subscription.
+			prefix, forcePrefix = "claude-neopi", true
+		}
+		published = s.registerResolvedModelsForAuthFenced(a, fence, key, applyModelPrefixes(models, prefix, forcePrefix))
 		if strings.EqualFold(strings.TrimSpace(a.Provider), "antigravity") {
 			s.asyncProbeAntigravityCapabilities(ctx, a, key)
 		}

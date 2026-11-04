@@ -73,6 +73,16 @@ func (h *Handler) handleOAuthCallback(c *gin.Context, req oauthCallbackRequest) 
 			}
 		}
 	}
+	// NeoPi's manual fallback returns code#state. Keep this additive to the
+	// experimental flow; the established claude callback semantics do not change.
+	if strings.EqualFold(strings.TrimSpace(req.Provider), "claude-neopi") {
+		if pastedCode, pastedState, ok := strings.Cut(code, "#"); ok {
+			if state == "" {
+				state = strings.TrimSpace(pastedState)
+			}
+			code = pastedCode
+		}
+	}
 
 	if state == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "state is required"})

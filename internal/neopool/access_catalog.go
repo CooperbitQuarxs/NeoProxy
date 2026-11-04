@@ -43,6 +43,7 @@ type ProviderInfo struct {
 	Subscription *ProviderSubscription `json:"subscription,omitempty"`
 	APIKey       *ProviderAPIKey       `json:"apiKey,omitempty"`
 	Plans        []ProviderPlan        `json:"plans"`
+	Experimental bool                  `json:"experimental,omitempty"`
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
@@ -100,6 +101,9 @@ var providerCatalog = []ProviderInfo{
 		Subscription: browser("Opens Anthropic's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
 		APIKey:       &ProviderAPIKey{Style: "anthropic", BaseURL: "https://api.anthropic.com", KeyHint: "sk-ant-...", GetKeyURL: "https://console.anthropic.com/settings/keys"},
 		Plans:        claudePlans, engine: "claude"},
+	{ID: "claude-neopi", Name: "Claude (NeoPi flow)", Vendor: "Anthropic", Hue: 45, Chroma: providerChroma, Methods: []string{"subscription"},
+		Subscription: browser("Experimental: signs in and talks to Claude exactly like NeoPi."),
+		Plans:        claudePlans, Experimental: true, engine: "claude-neopi"},
 	{ID: "gemini", Name: "Gemini", Vendor: "Google", Hue: 255, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "gemini", BaseURL: "https://generativelanguage.googleapis.com", KeyHint: "AIza...", GetKeyURL: "https://aistudio.google.com/apikey"},
 		Plans:  []ProviderPlan{}, engine: "gemini"},

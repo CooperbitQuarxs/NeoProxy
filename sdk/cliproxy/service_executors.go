@@ -211,6 +211,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 	providers := []string{
 		"codex",
 		"claude",
+		"claude-neopi",
 		constant.Gemini,
 		constant.GeminiInteractions,
 		"vertex",
@@ -318,6 +319,8 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewAntigravityExecutor(cfg))
 	case "claude":
 		s.coreManager.RegisterExecutor(executor.NewClaudeExecutor(cfg))
+	case "claude-neopi":
+		s.coreManager.RegisterExecutor(executor.NewClaudeNeoPiExecutor(cfg))
 	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
 		s.coreManager.RegisterExecutor(executor.NewKimiExecutor(cfg))
 	case "xai":

@@ -84,6 +84,10 @@ func (h *Handler) FetchCredentialQuota(c *gin.Context) {
 	if provider == "" {
 		provider = auth.Provider
 	}
+	if pluginID == "" && auth.Provider == "claude-neopi" {
+		h.fetchClaudeNeoPiQuota(c, auth)
+		return
+	}
 
 	if host != nil {
 		req := pluginapi.QuotaFetchRequest{
