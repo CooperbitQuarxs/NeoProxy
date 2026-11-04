@@ -94,7 +94,6 @@ func detectChangedProviders(oldData, newData *staticModelsJSON) []string {
 		{"aistudio", oldData.AIStudio, newData.AIStudio},
 		{"antigravity", oldData.Antigravity, newData.Antigravity},
 		{"xai", oldData.XAI, newData.XAI},
-		{"devin", oldData.Devin, newData.Devin},
 		{"meta", oldData.Meta, newData.Meta},
 	}
 

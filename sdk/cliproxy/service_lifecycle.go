@@ -236,7 +236,7 @@ func (s *Service) Run(ctx context.Context) error {
 	if !homeEnabled {
 		go s.runAntigravityModelRefresh(ctx)
 		go s.runXAIModelDiscovery(ctx)
-		go s.runKimiModelDiscovery(ctx)
+		go s.runNeoPiDiscovery(ctx)
 		go s.runClaudeModelDiscovery(ctx)
 		go s.runCodexModelDiscovery(ctx)
 	}

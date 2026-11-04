@@ -1,0 +1,1137 @@
+{
+  "source": "NeoPi OWN streamDevin via streamSimple (loopback Cascade fake)",
+  "apiKey": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYXB0dXJlIn0.c2lnbmF0dXJl",
+  "sessionId": "capture-cascade-0001",
+  "models": {
+    "swe-1-6": {
+      "id": "swe-1-6",
+      "name": "SWE-1.6",
+      "api": "devin-agent",
+      "provider": "devin",
+      "baseUrl": "https://server.codeium.com",
+      "reasoning": true,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 200000,
+      "maxTokens": 128000,
+      "devinCompat": {
+        "modelRouter": false,
+        "supportsParallelToolCalls": true
+      }
+    },
+    "gpt-5-6-sol": {
+      "id": "gpt-5-6-sol",
+      "name": "GPT-5.6 Sol",
+      "api": "devin-agent",
+      "provider": "devin",
+      "baseUrl": "https://server.codeium.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 200000,
+      "maxTokens": 64000,
+      "requestModelId": "gpt-5-6-sol-high",
+      "thinking": {
+        "efforts": [
+          "low",
+          "high"
+        ],
+        "mode": "effort",
+        "requiresEffort": true,
+        "effortRouting": {
+          "low": "gpt-5-6-sol-low",
+          "high": "gpt-5-6-sol-high"
+        }
+      },
+      "devinCompat": {
+        "modelRouter": false,
+        "supportsParallelToolCalls": true
+      }
+    },
+    "adaptive": {
+      "id": "adaptive",
+      "name": "Adaptive",
+      "api": "devin-agent",
+      "provider": "devin",
+      "baseUrl": "https://server.codeium.com",
+      "reasoning": false,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 200000,
+      "maxTokens": 64000,
+      "devinCompat": {
+        "modelRouter": true,
+        "supportsParallelToolCalls": false
+      }
+    },
+    "gemini-3-1-pro": {
+      "id": "gemini-3-1-pro",
+      "name": "Gemini 3.1 Pro",
+      "api": "devin-agent",
+      "provider": "devin",
+      "baseUrl": "https://server.codeium.com",
+      "reasoning": false,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 200000,
+      "maxTokens": 65536,
+      "devinCompat": {
+        "modelRouter": false,
+        "supportsParallelToolCalls": false
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "name": "plain",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "345",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAVQKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjQKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgpTYXkgaGVsbG8uqgEHc3dlLTEtNjgFQh0IARCA6AcYkAMpAAAAAAAA8D84KEEAAABgZmbuP2IGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo0CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoKU2F5IGhlbGxvLqoBB3N3ZS0xLTY4BUIdCAEQgOgHGJADKQAAAAAAAPA/OChBAAAAYGZm7j9iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ=="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "system-tools",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "system": [
+          {
+            "type": "text",
+            "text": "First system."
+          },
+          {
+            "type": "text",
+            "text": "Second system."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "546",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAh0KowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlEh1GaXJzdCBzeXN0ZW0uCgpTZWNvbmQgc3lzdGVtLho1CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoLVXNlIGxvb2t1cC6qAQdzd2UtMS02OAVCHQgBEIDoBxiQAykAAAAAAADwPzgoQQAAAGBmZu4/UqYBCgZsb29rdXASD0xvb2sgdXAgYSB0ZXJtLhqKAXsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidGVybSI6eyJ0eXBlIjoic3RyaW5nIn0sImxpbWl0Ijp7InR5cGUiOlsibnVtYmVyIiwibnVsbCJdLCJkZXNjcmlwdGlvbiI6Ik1heCBoaXRzLiJ9fSwicmVxdWlyZWQiOlsidGVybSJdfWIGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRIdRmlyc3Qgc3lzdGVtLgoKU2Vjb25kIHN5c3RlbS4aNQokOGRkMTNhNWUtNjc2ZS00OTk5LWU0YTQtM2EzZDg5ZTViMmI4EAEaC1VzZSBsb29rdXAuqgEHc3dlLTEtNjgFQh0IARCA6AcYkAMpAAAAAAAA8D84KEEAAABgZmbuP1KmAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4aigF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjpbIm51bWJlciIsIm51bGwiXSwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4ifX0sInJlcXVpcmVkIjpbInRlcm0iXX1iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ=="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "sampling",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Count."
+          }
+        ],
+        "max_tokens": 777,
+        "temperature": 0.3,
+        "top_p": 0.5,
+        "stop_sequences": [
+          "END",
+          "STOP"
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "340",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAU8KowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjAKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgZDb3VudC6qAQdzd2UtMS02OAVCHAgBEIkGGJADKTMzMzMzM9M/OChBAAAAAAAA4D9iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ==",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRowCiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoGQ291bnQuqgEHc3dlLTEtNjgFQhwIARCJBhiQAykzMzMzMzPTPzgoQQAAAAAAAOA/YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "tool-history",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Need lookup.",
+                "signature": "sig-capture"
+              },
+              {
+                "type": "text",
+                "text": "Looking."
+              },
+              {
+                "type": "tool_use",
+                "id": "call_capture_1",
+                "name": "lookup",
+                "input": {
+                  "term": "a"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_capture_1",
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Found."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "700",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAArcKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjUKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgtVc2UgbG9va3VwLhp1CiRlZWIxZGQyMy0zMGFhLTZkMTctZmJiZi04N2U2ZjUzOTc1NjQQAhoITG9va2luZy4yJgoOY2FsbF9jYXB0dXJlXzESBmxvb2t1cBoMeyJ0ZXJtIjoiYSJ9WgxOZWVkIGxvb2t1cC5iC3NpZy1jYXB0dXJlGkAKJDRmZjdjOWZhLTkwNWEtZTY0OS03ZDZmLTFkNWYzNWI0MTA1ZBAEGgZGb3VuZC46DmNhbGxfY2FwdHVyZV8xqgEHc3dlLTEtNjgFQh0IARCA6AcYkAMpAAAAAAAA8D84KEEAAABgZmbuP1KmAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4aigF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjpbIm51bWJlciIsIm51bGwiXSwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4ifX0sInJlcXVpcmVkIjpbInRlcm0iXX1iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ==",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo1CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoLVXNlIGxvb2t1cC4adQokZWViMWRkMjMtMzBhYS02ZDE3LWZiYmYtODdlNmY1Mzk3NTY0EAIaCExvb2tpbmcuMiYKDmNhbGxfY2FwdHVyZV8xEgZsb29rdXAaDHsidGVybSI6ImEifVoMTmVlZCBsb29rdXAuYgtzaWctY2FwdHVyZRpACiQ0ZmY3YzlmYS05MDVhLWU2NDktN2Q2Zi0xZDVmMzViNDEwNWQQBBoGRm91bmQuOg5jYWxsX2NhcHR1cmVfMaoBB3N3ZS0xLTY4BUIdCAEQgOgHGJADKQAAAAAAAPA/OChBAAAAYGZm7j9SpgEKBmxvb2t1cBIPTG9vayB1cCBhIHRlcm0uGooBeyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0ZXJtIjp7InR5cGUiOiJzdHJpbmcifSwibGltaXQiOnsidHlwZSI6WyJudW1iZXIiLCJudWxsIl0sImRlc2NyaXB0aW9uIjoiTWF4IGhpdHMuIn19LCJyZXF1aXJlZCI6WyJ0ZXJtIl19YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "tool-result-error-image",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Shoot."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "call_capture_2",
+                "name": "lookup",
+                "input": {
+                  "term": "b"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_capture_2",
+                "is_error": true,
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Failed."
+                  },
+                  {
+                    "type": "image",
+                    "source": {
+                      "type": "base64",
+                      "media_type": "image/png",
+                      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "769",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAvwKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjAKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgZTaG9vdC4aUAokZWViMWRkMjMtMzBhYS02ZDE3LWZiYmYtODdlNmY1Mzk3NTY0EAIyJgoOY2FsbF9jYXB0dXJlXzISBmxvb2t1cBoMeyJ0ZXJtIjoiYiJ9Gq4BCiQxNjRiNDdlZC0xMzlmLTg4ZjItZjFlNy0yOWFmNTcyMzNmOWEQBBoHRmFpbGVkLjoOY2FsbF9jYXB0dXJlXzJIAVJpClxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBQUVBQUFBQkNBUUFBQUMxSEF3Q0FBQUFDMGxFUVZSNDJtTmtZQUFBQUFZQUFqQ0IwQzhBQUFBQVNVVk9SSzVDWUlJPRIJaW1hZ2UvcG5nqgEHc3dlLTEtNjgFQh0IARCA6AcYkAMpAAAAAAAA8D84KEEAAABgZmbuP1KmAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4aigF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjpbIm51bWJlciIsIm51bGwiXSwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4ifX0sInJlcXVpcmVkIjpbInRlcm0iXX1iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ==",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRowCiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoGU2hvb3QuGlAKJGVlYjFkZDIzLTMwYWEtNmQxNy1mYmJmLTg3ZTZmNTM5NzU2NBACMiYKDmNhbGxfY2FwdHVyZV8yEgZsb29rdXAaDHsidGVybSI6ImIifRquAQokMTY0YjQ3ZWQtMTM5Zi04OGYyLWYxZTctMjlhZjU3MjMzZjlhEAQaB0ZhaWxlZC46DmNhbGxfY2FwdHVyZV8ySAFSaQpcaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUFFQUFBQUJDQVFBQUFDMUhBd0NBQUFBQzBsRVFWUjQybU5rWUFBQUFBWUFBakNCMEM4QUFBQUFTVVZPUks1Q1lJST0SCWltYWdlL3BuZ6oBB3N3ZS0xLTY4BUIdCAEQgOgHGJADKQAAAAAAAPA/OChBAAAAYGZm7j9SpgEKBmxvb2t1cBIPTG9vayB1cCBhIHRlcm0uGooBeyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0ZXJtIjp7InR5cGUiOiJzdHJpbmcifSwibGltaXQiOnsidHlwZSI6WyJudW1iZXIiLCJudWxsIl0sImRlc2NyaXB0aW9uIjoiTWF4IGhpdHMuIn19LCJyZXF1aXJlZCI6WyJ0ZXJtIl19YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "missing-tool-result",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "call_capture_3",
+                "name": "lookup",
+                "input": {
+                  "term": "c"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": "Never mind."
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "732",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAtcKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjUKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgtVc2UgbG9va3VwLhpQCiRlZWIxZGQyMy0zMGFhLTZkMTctZmJiZi04N2U2ZjUzOTc1NjQQAjImCg5jYWxsX2NhcHR1cmVfMxIGbG9va3VwGgx7InRlcm0iOiJjIn0aTgokNmZmZGNiNzgtOTU0Ny01Y2EwLTI4OGMtYmJlZWFlZjA3MjlmEAQaEk5vIHJlc3VsdCBwcm92aWRlZDoOY2FsbF9jYXB0dXJlXzNIARo1CiRhZjZkNzQ1Mi05NjEzLTIwY2YtZmFmMi0xZjZmN2YwODdmMGUQARoLTmV2ZXIgbWluZC6qAQdzd2UtMS02OAVCHQgBEIDoBxiQAykAAAAAAADwPzgoQQAAAGBmZu4/UqYBCgZsb29rdXASD0xvb2sgdXAgYSB0ZXJtLhqKAXsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidGVybSI6eyJ0eXBlIjoic3RyaW5nIn0sImxpbWl0Ijp7InR5cGUiOlsibnVtYmVyIiwibnVsbCJdLCJkZXNjcmlwdGlvbiI6Ik1heCBoaXRzLiJ9fSwicmVxdWlyZWQiOlsidGVybSJdfWIGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo1CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoLVXNlIGxvb2t1cC4aUAokZWViMWRkMjMtMzBhYS02ZDE3LWZiYmYtODdlNmY1Mzk3NTY0EAIyJgoOY2FsbF9jYXB0dXJlXzMSBmxvb2t1cBoMeyJ0ZXJtIjoiYyJ9Gk4KJDZmZmRjYjc4LTk1NDctNWNhMC0yODhjLWJiZWVhZWYwNzI5ZhAEGhJObyByZXN1bHQgcHJvdmlkZWQ6DmNhbGxfY2FwdHVyZV8zSAEaNQokYWY2ZDc0NTItOTYxMy0yMGNmLWZhZjItMWY2ZjdmMDg3ZjBlEAEaC05ldmVyIG1pbmQuqgEHc3dlLTEtNjgFQh0IARCA6AcYkAMpAAAAAAAA8D84KEEAAABgZmbuP1KmAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4aigF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjpbIm51bWJlciIsIm51bGwiXSwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4ifX0sInJlcXVpcmVkIjpbInRlcm0iXX1iBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ=="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "large-compressed",
+      "model": "swe-1-6",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "swe-1-6",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum "
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum lorem ipsum "
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": "Again."
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-content-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "435",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AQAAAa4fiwgAAAAAAAAD7dg9bxMxGAfwONC0hOVUGKqTkCqUAZCek32+F1+Xqh1AOQmYEGXDL89Rh8ulyuX6NiFWFj4CEltHPhFiYqr6EVBCkNhhfJ7B9mPLi/Ub/vLwKxvecXjqG7C137srOeeREFHM0x9sYI99i7VZz9t/n4bPf99qsW39rIHF7D02I7woj80z61/6cvzqcixe+LKI8KK8dK/Hy83Jm6ND7o7KetzwyMZ1Y6ZPV/3DPjZPNmrfdOdXLOhanMPkbAFWnyy6OYaf7g1HyjkhdYqQ5RlCUhQFYKITkFo6VWBqYqMCFn7frmdznO76k7ab7tKa3oEMkAEyQAbIABkgA/9uYJXGEI1wLpYgudaQOZFDZUwFKsesSmWRp1kS9CmNURKlFE4GyAAZIANkgAzg//6ZCvkyjCmUXCaQ5tpAwlUFGTcSTBHHmS2ErQQPWDg4eKd9E12xzfYMQUCmNg4fbLHgw8/Nnc+3HvdWdbOvHh30er23VXW9bwbD27pbzCb9LfaR3V9/x4HVrdUOgXMuvjD2jY34upZbHJLloP606xK/AOmCWv9sFAAA",
+          "frameFlags": 1,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRqLEwokOGRkMTNhNWUtNjc2ZS00OTk5LWU0YTQtM2EzZDg5ZTViMmI4EAEa4BJsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSBsb3JlbSBpcHN1bSAaixMKJGVlYjFkZDIzLTMwYWEtNmQxNy1mYmJmLTg3ZTZmNTM5NzU2NBACGuASbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gbG9yZW0gaXBzdW0gGjAKJGVlOGUzMDM0LTU3YWItNDA4Zi02MGIzLWI5MjI2YzkxY2YxMBABGgZBZ2Fpbi6qAQdzd2UtMS02OAVCHQgBEIDoBxiQAykAAAAAAADwPzgoQQAAAGBmZu4/YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "user-image",
+      "model": "gpt-5-6-sol",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "gpt-5-6-sol",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Describe."
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+                }
+              }
+            ]
+          }
+        ],
+        "thinking": {
+          "type": "adaptive"
+        },
+        "output_config": {
+          "effort": "high"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "461",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAcgKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGp4BCiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoJRGVzY3JpYmUuUmkKXGlWQk9SdzBLR2dvQUFBQU5TVWhFVWdBQUFBRUFBQUFCQ0FRQUFBQzFIQXdDQUFBQUMwbEVRVlI0Mm1Oa1lBQUFBQVlBQWpDQjBDOEFBQUFBU1VWT1JLNUNZSUk9EglpbWFnZS9wbmeqARBncHQtNS02LXNvbC1oaWdoOAVCHQgBEID0AxiQAykAAAAAAADwPzgoQQAAAGBmZu4/YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE=",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRqeAQokOGRkMTNhNWUtNjc2ZS00OTk5LWU0YTQtM2EzZDg5ZTViMmI4EAEaCURlc2NyaWJlLlJpClxpVkJPUncwS0dnb0FBQUFOU1VoRVVnQUFBQUVBQUFBQkNBUUFBQUMxSEF3Q0FBQUFDMGxFUVZSNDJtTmtZQUFBQUFZQUFqQ0IwQzhBQUFBQVNVVk9SSzVDWUlJPRIJaW1hZ2UvcG5nqgEQZ3B0LTUtNi1zb2wtaGlnaDgFQh0IARCA9AMYkAMpAAAAAAAA8D84KEEAAABgZmbuP2IGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx"
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "effort-low",
+      "model": "gpt-5-6-sol",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "gpt-5-6-sol",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Think a little."
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "thinking": {
+          "type": "adaptive"
+        },
+        "output_config": {
+          "effort": "low"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "527",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAgoKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjkKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGg9UaGluayBhIGxpdHRsZS6qAQ9ncHQtNS02LXNvbC1sb3c4BUIdCAEQgPQDGJADKQAAAAAAAPA/OChBAAAAYGZm7j9SpgEKBmxvb2t1cBIPTG9vayB1cCBhIHRlcm0uGooBeyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0ZXJtIjp7InR5cGUiOiJzdHJpbmcifSwibGltaXQiOnsidHlwZSI6WyJudW1iZXIiLCJudWxsIl0sImRlc2NyaXB0aW9uIjoiTWF4IGhpdHMuIn19LCJyZXF1aXJlZCI6WyJ0ZXJtIl19YgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDE=",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo5CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoPVGhpbmsgYSBsaXR0bGUuqgEPZ3B0LTUtNi1zb2wtbG93OAVCHQgBEID0AxiQAykAAAAAAADwPzgoQQAAAGBmZu4/UqYBCgZsb29rdXASD0xvb2sgdXAgYSB0ZXJtLhqKAXsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidGVybSI6eyJ0eXBlIjoic3RyaW5nIn0sImxpbWl0Ijp7InR5cGUiOlsibnVtYmVyIiwibnVsbCJdLCJkZXNjcmlwdGlvbiI6Ik1heCBoaXRzLiJ9fSwicmVxdWlyZWQiOlsidGVybSJdfWIGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx"
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "router",
+      "model": "adaptive",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "adaptive",
+        "stream": true,
+        "system": "Route me.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Earlier."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Ok."
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": "Pick a model."
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/AssignModel",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "198",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4EghhZGFwdGl2ZRoUY2FwdHVyZS1jYXNjYWRlLTAwMDEqERABGg1QaWNrIGEgbW9kZWwu",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4EghhZGFwdGl2ZRoUY2FwdHVyZS1jYXNjYWRlLTAwMDEqERABGg1QaWNrIGEgbW9kZWwu"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "485",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAeAKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlEglSb3V0ZSBtZS4aMgokOGRkMTNhNWUtNjc2ZS00OTk5LWU0YTQtM2EzZDg5ZTViMmI4EAEaCEVhcmxpZXIuGi0KJGVlYjFkZDIzLTMwYWEtNmQxNy1mYmJmLTg3ZTZmNTM5NzU2NBACGgNPay4aNwokZWU4ZTMwMzQtNTdhYi00MDhmLTYwYjMtYjkyMjZjOTFjZjEwEAEaDVBpY2sgYSBtb2RlbC6qAQdzd2UtMS02OAVCHQgBEID0AxiQAykAAAAAAADwPzgoQQAAAGBmZu4/WAFiBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMdIBFmFzc2lnbm1lbnQtand0LWNhcHR1cmU=",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRIJUm91dGUgbWUuGjIKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGghFYXJsaWVyLhotCiRlZWIxZGQyMy0zMGFhLTZkMTctZmJiZi04N2U2ZjUzOTc1NjQQAhoDT2suGjcKJGVlOGUzMDM0LTU3YWItNDA4Zi02MGIzLWI5MjI2YzkxY2YxMBABGg1QaWNrIGEgbW9kZWwuqgEHc3dlLTEtNjgFQh0IARCA9AMYkAMpAAAAAAAA8D84KEEAAABgZmbuP1gBYgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDHSARZhc3NpZ25tZW50LWp3dC1jYXB0dXJl"
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "router-gemini-tools",
+      "model": "adaptive",
+      "assign": "MODEL_GOOGLE_GEMINI_2_5_PRO",
+      "downstream": {
+        "model": "adaptive",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/AssignModel",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "196",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4EghhZGFwdGl2ZRoUY2FwdHVyZS1jYXNjYWRlLTAwMDEqDxABGgtVc2UgbG9va3VwLg==",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4EghhZGFwdGl2ZRoUY2FwdHVyZS1jYXNjYWRlLTAwMDEqDxABGgtVc2UgbG9va3VwLg=="
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "605",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAlgKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjUKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgtVc2UgbG9va3VwLqoBG01PREVMX0dPT0dMRV9HRU1JTklfMl81X1BSTzgFQh0IARCA9AMYkAMpAAAAAAAA8D84KEEAAABgZmbuP1LRAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4atQF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjoibnVtYmVyIiwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4iLCJudWxsYWJsZSI6dHJ1ZX19LCJyZXF1aXJlZCI6WyJ0ZXJtIl0sInByb3BlcnR5T3JkZXJpbmciOlsidGVybSIsImxpbWl0Il19WAFiBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMdIBFmFzc2lnbm1lbnQtand0LWNhcHR1cmU=",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo1CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoLVXNlIGxvb2t1cC6qARtNT0RFTF9HT09HTEVfR0VNSU5JXzJfNV9QUk84BUIdCAEQgPQDGJADKQAAAAAAAPA/OChBAAAAYGZm7j9S0QEKBmxvb2t1cBIPTG9vayB1cCBhIHRlcm0uGrUBeyJ0eXBlIjoib2JqZWN0IiwicHJvcGVydGllcyI6eyJ0ZXJtIjp7InR5cGUiOiJzdHJpbmcifSwibGltaXQiOnsidHlwZSI6Im51bWJlciIsImRlc2NyaXB0aW9uIjoiTWF4IGhpdHMuIiwibnVsbGFibGUiOnRydWV9fSwicmVxdWlyZWQiOlsidGVybSJdLCJwcm9wZXJ0eU9yZGVyaW5nIjpbInRlcm0iLCJsaW1pdCJdfVgBYgYKBGF1dG9qAggBggEUY2FwdHVyZS1jYXNjYWRlLTAwMDGgAQGyASQwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDHSARZhc3NpZ25tZW50LWp3dC1jYXB0dXJl"
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    },
+    {
+      "name": "gemini-tools",
+      "model": "gemini-3-1-pro",
+      "assign": "swe-1-6",
+      "downstream": {
+        "model": "gemini-3-1-pro",
+        "stream": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                },
+                "limit": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Max hits."
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/exa.auth_pb.AuthService/GetUserJwt",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "147",
+            "content-type": "application/proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "npi/18.14.0"
+          },
+          "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4",
+          "proto": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+        },
+        {
+          "method": "POST",
+          "path": "/exa.api_server_pb.ApiServerService/GetChatMessage",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "identity",
+            "connect-accept-encoding": "gzip",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "567",
+            "content-type": "application/connect+proto",
+            "host": "127.0.0.1:42037",
+            "user-agent": "connect-go/1.18.1 (go1.26.3)"
+          },
+          "body": "AAAAAjIKowEKCWRldmluLWNsaToLMzAwMC4xMS4yMDXiAQZjaGlzZWxiBmNoaXNlbBILMzAwMC4xMS4yMDUaTWRldmluLXNlc3Npb24tdG9rZW4kZXlKaGJHY2lPaUpJVXpJMU5pSjkuZXlKemRXSWlPaUpqWVhCMGRYSmxJbjAuYzJsbmJtRjBkWEpsIgJlbioFbGludXiqARB1c2VyLWp3dC1jYXB0dXJlGjUKJDhkZDEzYTVlLTY3NmUtNDk5OS1lNGE0LTNhM2Q4OWU1YjJiOBABGgtVc2UgbG9va3VwLqoBDmdlbWluaS0zLTEtcHJvOAVCHQgBEICABBiQAykAAAAAAADwPzgoQQAAAGBmZu4/UtEBCgZsb29rdXASD0xvb2sgdXAgYSB0ZXJtLhq1AXsidHlwZSI6Im9iamVjdCIsInByb3BlcnRpZXMiOnsidGVybSI6eyJ0eXBlIjoic3RyaW5nIn0sImxpbWl0Ijp7InR5cGUiOiJudW1iZXIiLCJkZXNjcmlwdGlvbiI6Ik1heCBoaXRzLiIsIm51bGxhYmxlIjp0cnVlfX0sInJlcXVpcmVkIjpbInRlcm0iXSwicHJvcGVydHlPcmRlcmluZyI6WyJ0ZXJtIiwibGltaXQiXX1YAWIGCgRhdXRvagIIAYIBFGNhcHR1cmUtY2FzY2FkZS0wMDAxoAEBsgEkMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAx",
+          "frameFlags": 0,
+          "proto": "CqMBCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4qgEQdXNlci1qd3QtY2FwdHVyZRo1CiQ4ZGQxM2E1ZS02NzZlLTQ5OTktZTRhNC0zYTNkODllNWIyYjgQARoLVXNlIGxvb2t1cC6qAQ5nZW1pbmktMy0xLXBybzgFQh0IARCAgAQYkAMpAAAAAAAA8D84KEEAAABgZmbuP1LRAQoGbG9va3VwEg9Mb29rIHVwIGEgdGVybS4atQF7InR5cGUiOiJvYmplY3QiLCJwcm9wZXJ0aWVzIjp7InRlcm0iOnsidHlwZSI6InN0cmluZyJ9LCJsaW1pdCI6eyJ0eXBlIjoibnVtYmVyIiwiZGVzY3JpcHRpb24iOiJNYXggaGl0cy4iLCJudWxsYWJsZSI6dHJ1ZX19LCJyZXF1aXJlZCI6WyJ0ZXJtIl0sInByb3BlcnR5T3JkZXJpbmciOlsidGVybSIsImxpbWl0Il19WAFiBgoEYXV0b2oCCAGCARRjYXB0dXJlLWNhc2NhZGUtMDAwMaABAbIBJDAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMQ=="
+        }
+      ],
+      "reply": [
+        {
+          "type": "text",
+          "text": "Captured."
+        }
+      ]
+    }
+  ]
+}

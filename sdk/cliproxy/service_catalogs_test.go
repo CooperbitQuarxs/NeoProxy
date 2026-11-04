@@ -28,54 +28,36 @@ func TestServiceCatalogStartupAndConfigReload(t *testing.T) {
 		}
 		return path
 	}
-	original := registry.GetDevinModelsJSON()
+	// Byte-distinct copies of a valid catalog: the store publishes raw bytes.
+	original := registry.GetCodexClientModelsJSON()
 	originalPath := writeCatalog("original.json", original)
-	first := []byte(`{"devin":[{"id":"devin/sdk-startup-regression","display_name":"SDK startup"}]}`)
-	second := []byte(`{"devin":[{"id":"devin/sdk-reload-regression","display_name":"SDK reload"}]}`)
+	first := append(append([]byte(nil), original...), '\n')
+	second := append(append([]byte(nil), original...), '\n', '\n')
 	cfg := &config.Config{Models: config.ModelCatalogs{
 		Catalog:      fixture("models.json"),
-		CodexCatalog: fixture("codex_client_models.json"),
-		DevinCatalog: writeCatalog("first.json", first),
+		CodexCatalog: writeCatalog("first.json", first),
 	}}
 	s := &Service{cfg: cfg}
 	ctx, cancel := context.WithCancel(context.Background())
-	notifications := make(chan struct{}, 8)
-	registry.SetModelRefreshCallback(func(providers []string) {
-		for _, provider := range providers {
-			if provider == "devin" {
-				notifications <- struct{}{}
-			}
-		}
-	})
 	awaitCatalog := func(want []byte) {
 		t.Helper()
-		deadline := time.NewTimer(5 * time.Second)
-		defer deadline.Stop()
-		for {
-			select {
-			case <-notifications:
-				if string(registry.GetDevinModelsJSON()) == string(want) {
-					return
-				}
-			case <-deadline.C:
-				t.Fatal("service did not publish configured Devin catalog")
+		deadline := time.Now().Add(5 * time.Second)
+		for string(registry.GetCodexClientModelsJSON()) != string(want) {
+			if time.Now().After(deadline) {
+				t.Fatal("service did not publish the configured Codex catalog")
 			}
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 	defer func() {
 		cancel()
-		defer registry.SetModelRefreshCallback(nil)
 		restoreCtx, restoreCancel := context.WithCancel(context.Background())
 		defer restoreCancel()
 		restoreCfg := *cfg
 		restoreCfg.Home.Enabled = false
-		restoreCfg.Models = config.ModelCatalogs{
-			Catalog:      fixture("models.json"),
-			CodexCatalog: fixture("codex_client_models.json"),
-			DevinCatalog: originalPath,
-		}
+		restoreCfg.Models = config.ModelCatalogs{Catalog: fixture("models.json"), CodexCatalog: originalPath}
 		restore := &Service{cfg: &restoreCfg}
-		if string(registry.GetDevinModelsJSON()) != string(original) {
+		if string(registry.GetCodexClientModelsJSON()) != string(original) {
 			restore.startModelCatalogUpdaters(restoreCtx)
 			awaitCatalog(original)
 		}
@@ -85,7 +67,7 @@ func TestServiceCatalogStartupAndConfigReload(t *testing.T) {
 	s.startModelCatalogUpdaters(ctx)
 	awaitCatalog(first)
 	updated := *cfg
-	updated.Models.DevinCatalog = writeCatalog("second.json", second)
+	updated.Models.CodexCatalog = writeCatalog("second.json", second)
 	if commit := s.commitConfigUpdate(&updated); commit.cfg == nil {
 		t.Fatal("config update rejected")
 	}
@@ -93,7 +75,7 @@ func TestServiceCatalogStartupAndConfigReload(t *testing.T) {
 
 	// The same source must restart under a new service lifetime after cancellation.
 	cancel()
-	if errWrite := os.WriteFile(updated.Models.DevinCatalog, first, 0600); errWrite != nil {
+	if errWrite := os.WriteFile(updated.Models.CodexCatalog, first, 0600); errWrite != nil {
 		t.Fatal(errWrite)
 	}
 	restartCtx, restartCancel := context.WithCancel(context.Background())

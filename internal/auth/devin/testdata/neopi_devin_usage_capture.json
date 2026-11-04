@@ -1,0 +1,361 @@
+{
+  "source": "NeoPi OWN devinUsageProvider.fetchUsage against loopback GetUserStatus",
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjYXB0dXJlIn0.c2lnbmF0dXJl",
+  "fixtures": [
+    {
+      "name": "quota-plan",
+      "status": 200,
+      "response": "ClIqBnRlYW0tMToTIHBpbG90QGV4YW1wbGUuY29tIFAQaigSBgiA98TVBhoMCICR49YGEIDKte4BcDd4UIgBoITL1QaQAaC549UGogIGdXNlci0xEiMSCURldmluIFByb4oCEiIFb3JnLTFCCVBpbG90IE9yZ5gCAg==",
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": {
+        "provider": "devin",
+        "limits": [
+          {
+            "id": "devin:quota:daily",
+            "label": "Daily Quota",
+            "scope": {
+              "provider": "devin",
+              "accountId": "user-1",
+              "orgId": "org-1",
+              "tier": "Devin Pro",
+              "windowId": "1d"
+            },
+            "window": {
+              "id": "1d",
+              "label": "Daily Quota",
+              "durationMs": 86400000,
+              "resetsAt": 1790100000000
+            },
+            "amount": {
+              "used": 45,
+              "limit": 100,
+              "remaining": 55,
+              "usedFraction": 0.45,
+              "remainingFraction": 0.55,
+              "unit": "percent"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "devin:quota:weekly",
+            "label": "Weekly Quota",
+            "scope": {
+              "provider": "devin",
+              "accountId": "user-1",
+              "orgId": "org-1",
+              "tier": "Devin Pro",
+              "windowId": "7d"
+            },
+            "window": {
+              "id": "7d",
+              "label": "Weekly Quota",
+              "durationMs": 604800000,
+              "resetsAt": 1790500000000
+            },
+            "amount": {
+              "used": 20,
+              "limit": 100,
+              "remaining": 80,
+              "usedFraction": 0.2,
+              "remainingFraction": 0.8,
+              "unit": "percent"
+            },
+            "status": "ok"
+          }
+        ],
+        "metadata": {
+          "source": "seat-management",
+          "email": "pilot@example.com",
+          "accountId": "user-1",
+          "orgId": "org-1",
+          "orgName": "Pilot Org",
+          "planType": "Devin Pro",
+          "planEnd": 1792592000500
+        }
+      }
+    },
+    {
+      "name": "credit-plan",
+      "status": 200,
+      "response": "CjAqBnRlYW0tMmodEgYIgPfE1QYaBgiAkePWBkD8AigKMHiAAaDLmAGiAgZ1c2VyLTISCAgRYPQDmAIB",
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": {
+        "provider": "devin",
+        "limits": [
+          {
+            "id": "devin:credits:prompt",
+            "label": "Prompt Credits",
+            "scope": {
+              "provider": "devin",
+              "accountId": "user-2",
+              "orgId": "team-2",
+              "tier": "Devin Max",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Plan Period",
+              "durationMs": 2592000000,
+              "resetsAt": 1792592000000
+            },
+            "amount": {
+              "used": 120,
+              "remaining": 380,
+              "limit": 500,
+              "usedFraction": 0.24,
+              "remainingFraction": 0.76,
+              "unit": "unknown"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "devin:credits:flow",
+            "label": "Flow Credits",
+            "scope": {
+              "provider": "devin",
+              "accountId": "user-2",
+              "orgId": "team-2",
+              "tier": "Devin Max",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Plan Period",
+              "durationMs": 2592000000,
+              "resetsAt": 1792592000000
+            },
+            "amount": {
+              "used": 10,
+              "remaining": 0,
+              "unit": "unknown"
+            },
+            "status": "unknown"
+          }
+        ],
+        "notes": [
+          "Overage balance: $2.50"
+        ],
+        "metadata": {
+          "source": "seat-management",
+          "accountId": "user-2",
+          "orgId": "team-2",
+          "planType": "Devin Max",
+          "planEnd": 1792592000000,
+          "overageBalanceUsd": 2.5
+        }
+      }
+    },
+    {
+      "name": "hidden-quota",
+      "status": 200,
+      "response": "Ch1qEniMAYgBoITL1QaQAYCi95CONKICBnVzZXItMxIKEgVUZWFtc6ACAQ==",
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": {
+        "provider": "devin",
+        "limits": [
+          {
+            "id": "devin:quota:weekly",
+            "label": "Weekly Quota",
+            "scope": {
+              "provider": "devin",
+              "accountId": "user-3",
+              "tier": "Teams",
+              "windowId": "7d"
+            },
+            "window": {
+              "id": "7d",
+              "label": "Weekly Quota",
+              "durationMs": 604800000,
+              "resetsAt": 1790500000000
+            },
+            "amount": {
+              "used": 0,
+              "limit": 100,
+              "remaining": 100,
+              "usedFraction": 0,
+              "remainingFraction": 1,
+              "unit": "percent"
+            },
+            "status": "ok"
+          }
+        ],
+        "metadata": {
+          "source": "seat-management",
+          "accountId": "user-3",
+          "planType": "Teams"
+        }
+      }
+    },
+    {
+      "name": "nested-plan-info",
+      "status": 200,
+      "response": "Cg9QCWoLCgVwMpgCAiAFODw=",
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": {
+        "provider": "devin",
+        "limits": [
+          {
+            "id": "devin:credits:flex",
+            "label": "Flex Credits",
+            "scope": {
+              "provider": "devin",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Plan Period"
+            },
+            "amount": {
+              "used": 60,
+              "remaining": 5,
+              "limit": 50,
+              "usedFraction": 1.2,
+              "remainingFraction": 0,
+              "unit": "unknown"
+            },
+            "status": "exhausted"
+          },
+          {
+            "id": "devin:quota:daily",
+            "label": "Daily Quota",
+            "scope": {
+              "provider": "devin",
+              "windowId": "1d"
+            },
+            "window": {
+              "id": "1d",
+              "label": "Daily Quota",
+              "durationMs": 86400000
+            },
+            "amount": {
+              "used": 100,
+              "limit": 100,
+              "remaining": 0,
+              "usedFraction": 1,
+              "remainingFraction": 0,
+              "unit": "percent"
+            },
+            "status": "exhausted"
+          },
+          {
+            "id": "devin:quota:weekly",
+            "label": "Weekly Quota",
+            "scope": {
+              "provider": "devin",
+              "windowId": "7d"
+            },
+            "window": {
+              "id": "7d",
+              "label": "Weekly Quota",
+              "durationMs": 604800000
+            },
+            "amount": {
+              "used": 100,
+              "limit": 100,
+              "remaining": 0,
+              "usedFraction": 1,
+              "remainingFraction": 0,
+              "unit": "percent"
+            },
+            "status": "exhausted"
+          }
+        ],
+        "metadata": {
+          "source": "seat-management"
+        }
+      }
+    },
+    {
+      "name": "no-user-status",
+      "status": 200,
+      "response": "",
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": null
+    },
+    {
+      "name": "http-error",
+      "status": 503,
+      "response": null,
+      "request": {
+        "method": "POST",
+        "path": "/exa.seat_management_pb.SeatManagementService/GetUserStatus",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "connect-protocol-version": "1",
+          "connection": "keep-alive",
+          "content-length": "147",
+          "content-type": "application/proto",
+          "user-agent": "Bun/1.3.14"
+        },
+        "body": "CpABCglkZXZpbi1jbGk6CzMwMDAuMTEuMjA14gEGY2hpc2VsYgZjaGlzZWwSCzMwMDAuMTEuMjA1Gk1kZXZpbi1zZXNzaW9uLXRva2VuJGV5SmhiR2NpT2lKSVV6STFOaUo5LmV5SnpkV0lpT2lKallYQjBkWEpsSW4wLmMybG5ibUYwZFhKbCICZW4qBWxpbnV4"
+      },
+      "report": null
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "source": "NeoPi OWN devin oauth-code rule via DeclarativeOAuthCodeFlow",
+  "now": 1800000000000,
+  "redirectUri": "http://127.0.0.1:59653/callback",
+  "state": "11111111-2222-4333-8444-555555555555",
+  "callback": {
+    "port": 59653,
+    "path": "/callback",
+    "hostname": "127.0.0.1",
+    "portFallback": true,
+    "manualOnly": false,
+    "nativeScheme": false
+  },
+  "refresh": {
+    "kind": "none"
+  },
+  "pasteCode": true,
+  "scenarios": [
+    {
+      "name": "jwt-token",
+      "code": "auth-code",
+      "response": {
+        "status": 200,
+        "body": "{\"token\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZXZpbi11c2VyIiwiZXhwIjoxOTAwMDAwMDAwfQ.fake\"}"
+      },
+      "authorize": {
+        "url": "https://app.devin.ai/auth/cli/continue?response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A59653%2Fcallback&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555&prompt=select_account",
+        "instructions": "Sign in to Devin in your browser."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.devin.ai/auth/cli/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "167",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"code\":\"auth-code\",\"code_verifier\":\"AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc\"}"
+        }
+      ],
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZXZpbi11c2VyIiwiZXhwIjoxOTAwMDAwMDAwfQ.fake",
+        "refresh": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJkZXZpbi11c2VyIiwiZXhwIjoxOTAwMDAwMDAwfQ.fake",
+        "expires": 1899999700000,
+        "apiEndpoint": "https://api.devin.ai",
+        "enterpriseUrl": "https://app.devin.ai"
+      },
+      "error": null
+    },
+    {
+      "name": "opaque-token",
+      "code": "auth-code",
+      "response": {
+        "status": 200,
+        "body": "{\"token\":\"opaque-session-token\"}"
+      },
+      "authorize": {
+        "url": "https://app.devin.ai/auth/cli/continue?response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A59653%2Fcallback&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555&prompt=select_account",
+        "instructions": "Sign in to Devin in your browser."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.devin.ai/auth/cli/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "167",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"code\":\"auth-code\",\"code_verifier\":\"AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc\"}"
+        }
+      ],
+      "credentials": {
+        "access": "opaque-session-token",
+        "refresh": "opaque-session-token",
+        "expires": 1831536000000,
+        "apiEndpoint": "https://api.devin.ai",
+        "enterpriseUrl": "https://app.devin.ai"
+      },
+      "error": null
+    },
+    {
+      "name": "code-with-state-fragment",
+      "code": "auth-code#echoed-state",
+      "response": {
+        "status": 200,
+        "body": "{\"token\":\"eyJhbGciOiJub25lIn0.eyJleHAiOjE5MDAwMDAwMDB9.fake\"}"
+      },
+      "authorize": {
+        "url": "https://app.devin.ai/auth/cli/continue?response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A59653%2Fcallback&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555&prompt=select_account",
+        "instructions": "Sign in to Devin in your browser."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.devin.ai/auth/cli/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "167",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"code\":\"auth-code\",\"code_verifier\":\"AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc\"}"
+        }
+      ],
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJleHAiOjE5MDAwMDAwMDB9.fake",
+        "refresh": "eyJhbGciOiJub25lIn0.eyJleHAiOjE5MDAwMDAwMDB9.fake",
+        "expires": 1899999700000,
+        "apiEndpoint": "https://api.devin.ai",
+        "enterpriseUrl": "https://app.devin.ai"
+      },
+      "error": null
+    },
+    {
+      "name": "missing-token",
+      "code": "auth-code",
+      "response": {
+        "status": 200,
+        "body": "{\"error\":\"nope\"}"
+      },
+      "authorize": {
+        "url": "https://app.devin.ai/auth/cli/continue?response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A59653%2Fcallback&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555&prompt=select_account",
+        "instructions": "Sign in to Devin in your browser."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.devin.ai/auth/cli/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "167",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"code\":\"auth-code\",\"code_verifier\":\"AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc\"}"
+        }
+      ],
+      "credentials": null,
+      "error": "devin token response missing access token: {\"error\":\"nope\"}"
+    },
+    {
+      "name": "rejected",
+      "code": "auth-code",
+      "response": {
+        "status": 400,
+        "body": "{\"error\":\"invalid_grant\",\"error_description\":\"Code expired\"}"
+      },
+      "authorize": {
+        "url": "https://app.devin.ai/auth/cli/continue?response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A59653%2Fcallback&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555&prompt=select_account",
+        "instructions": "Sign in to Devin in your browser."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.devin.ai/auth/cli/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "167",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"code\":\"auth-code\",\"code_verifier\":\"AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc\"}"
+        }
+      ],
+      "credentials": null,
+      "error": "devin token exchange failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"Code expired\"}"
+    }
+  ]
+}

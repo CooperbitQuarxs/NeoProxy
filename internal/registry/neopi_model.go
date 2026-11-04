@@ -25,6 +25,17 @@ type NeoPiModel struct {
 	// an anthropic-messages or openai-completions row respectively.
 	AnthropicCompat   *NeoPiAnthropicCompat   `json:"anthropicCompat,omitempty"`
 	CompletionsCompat *NeoPiCompletionsCompat `json:"completionsCompat,omitempty"`
+	// RequestModelID is the default wire id of a collapsed family row.
+	RequestModelID string `json:"requestModelId,omitempty"`
+	// DevinCompat is the compat NeoPi resolves for a devin-agent row.
+	DevinCompat *NeoPiDevinCompat `json:"devinCompat,omitempty"`
+}
+
+// NeoPiDevinCompat is DevinCompat: whether the row is an AssignModel router
+// and whether it takes parallel tool calls.
+type NeoPiDevinCompat struct {
+	ModelRouter               bool `json:"modelRouter"`
+	SupportsParallelToolCalls bool `json:"supportsParallelToolCalls"`
 }
 
 // NeoPiThinking is the model's effort ladder (ThinkingConfig efforts/effortMap)
@@ -37,6 +48,9 @@ type NeoPiThinking struct {
 	// RequiresEffort models always think: no effort or thinking-off sends the lowest effort.
 	RequiresEffort  bool  `json:"requiresEffort,omitempty"`
 	SupportsDisplay *bool `json:"supportsDisplay,omitempty"`
+	// EffortRouting maps an effort (or "off") to the wire id that serves it.
+	EffortRouting map[string]string `json:"effortRouting,omitempty"`
+	DefaultLevel  string            `json:"defaultLevel,omitempty"`
 }
 
 // NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
@@ -136,16 +150,7 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 	}
 	out := *m
 	out.Input = slices.Clone(m.Input)
-	if m.Thinking != nil {
-		thinking := *m.Thinking
-		thinking.Efforts = slices.Clone(m.Thinking.Efforts)
-		thinking.EffortMap = maps.Clone(m.Thinking.EffortMap)
-		if m.Thinking.SupportsDisplay != nil {
-			display := *m.Thinking.SupportsDisplay
-			thinking.SupportsDisplay = &display
-		}
-		out.Thinking = &thinking
-	}
+	out.Thinking = m.Thinking.Clone()
 	if m.Compat != nil {
 		compat := *m.Compat
 		compat.ReasoningEffortMap = maps.Clone(m.Compat.ReasoningEffortMap)
@@ -159,6 +164,26 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 		compat := *m.CompletionsCompat
 		compat.ReasoningEffortMap = maps.Clone(m.CompletionsCompat.ReasoningEffortMap)
 		out.CompletionsCompat = &compat
+	}
+	if m.DevinCompat != nil {
+		compat := *m.DevinCompat
+		out.DevinCompat = &compat
+	}
+	return &out
+}
+
+// Clone deep-copies the effort ladder.
+func (t *NeoPiThinking) Clone() *NeoPiThinking {
+	if t == nil {
+		return nil
+	}
+	out := *t
+	out.Efforts = slices.Clone(t.Efforts)
+	out.EffortMap = maps.Clone(t.EffortMap)
+	out.EffortRouting = maps.Clone(t.EffortRouting)
+	if t.SupportsDisplay != nil {
+		display := *t.SupportsDisplay
+		out.SupportsDisplay = &display
 	}
 	return &out
 }
