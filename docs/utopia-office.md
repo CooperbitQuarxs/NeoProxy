@@ -37,12 +37,14 @@ secret-bearing files mode `0600`. Do not copy an existing NeoPi profile or an
 authentication broker's refresh tokens. The service profile is deliberately
 separate from the user's ordinary `~/.omp` profile.
 
-The first officially published NeoPi build containing native NeoProxy login is
-[`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1),
-from commit `fd5698a0772a555cb554b860d8f3208a0f7026a5`. The unqualified version
-`18.10.3` is insufficient: earlier builds with that version lack this feature.
-Verify downloaded assets against that release's `SHA256SUMS.txt` before running
-them. No source checkout or Bun installation is needed to use the native binary.
+NeoPi's NeoProxy login uses the server URL and an administrator-assigned inference
+key. That flow arrived in [NeoPi #647](https://github.com/PsychedelicShayna/neopi/pull/647),
+merged into NeoPi `nightly` as `07fca9db63934ecd518c95fe7ccc3b2f80261c70`; use a
+NeoPi build from that commit or later. Earlier builds, including
+`v18.10.3-nightly.fd5698a0772a.41001835518.1`, use the retired username/password
+flow. Verify downloaded assets against their release's `SHA256SUMS.txt` before
+running them. No source checkout or Bun installation is needed to use the native
+binary.
 
 ## NeoProxy and TLS
 
@@ -158,11 +160,16 @@ NODE_EXTRA_CA_CERTS="$HOME/.local/share/neoproxy-office/pki/ca.crt" \
   "$HOME/.local/lib/npi-office/current/npi" login neoproxy --url https://VPN_HOST:PORT
 ```
 
-The command prompts for username and a hidden password. It stores the minted
-scoped inference key, not the dashboard password or session cookie. Owners must
-explicitly select their owned account pool. Discover models with `npi models
-neoproxy --json`; use the returned native selector in `NPI_MODEL` below, or assign
-it to a role through the existing `modelRoles` setting.
+First issue an inference key (`nk_...`) for the profile's NeoProxy user in the
+dashboard: **Users** → that user → **Keys** → **Issue key**. On HTTPS the command
+shows the server and CA certificate SHA-256 fingerprints before sending anything;
+confirm them, then paste the key into the hidden prompt. NeoPi validates it with
+`GET /v1/models` and stores the key with the confirmed CA pin in the profile's
+credential storage. It never asks for the dashboard password and does not mint a
+key. `/login neoproxy` inside a session is the interactive equivalent. Discover
+models with `npi models neoproxy --json`; use the returned native selector in
+`NPI_MODEL` below, or assign it to a role through the existing `modelRoles`
+setting.
 
 Create `~/.config/neoproxy-office/npi.env` with the selected model, for example:
 

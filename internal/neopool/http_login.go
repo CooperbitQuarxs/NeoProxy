@@ -38,6 +38,45 @@ func (w *loginWriter) Size() int     { return w.body.Len() }
 func (w *loginWriter) Written() bool { return w.body.Len() > 0 }
 func (w *loginWriter) Flush()        {}
 
+// engineContext prepares one existing management handler call on a fresh gin
+// context. gin caches parsed query values per context on the first c.Query, and
+// the credential middleware has already read the original pool request's query,
+// so rewriting c.Request.URL in place would be invisible to the engine handler.
+// Copy keeps keys, params and the engine but never the query/form caches.
+func engineContext(c *gin.Context, path string, query url.Values) *gin.Context {
+	inner := c.Copy()
+	inner.Request = c.Request.Clone(c.Request.Context())
+	inner.Request.URL.Path = path
+	inner.Request.URL.RawPath = ""
+	inner.Request.URL.RawQuery = query.Encode()
+	inner.Request.RequestURI = inner.Request.URL.RequestURI()
+	inner.Writer = c.Writer
+	return inner
+}
+
+// engineErrorMessage extracts the engine's own error text from a failed
+// response so pool failures stay diagnosable without exposing raw bodies.
+func engineErrorMessage(body []byte) string {
+	var parsed struct {
+		Error   json.RawMessage `json:"error"`
+		Message string          `json:"message"`
+	}
+	if json.Unmarshal(body, &parsed) != nil {
+		return ""
+	}
+	var text string
+	if json.Unmarshal(parsed.Error, &text) == nil && text != "" {
+		return text
+	}
+	var nested struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(parsed.Error, &nested) == nil && nested.Message != "" {
+		return nested.Message
+	}
+	return parsed.Message
+}
+
 func (h *HTTP) login(c *gin.Context) {
 	p, ok := ownerSession(c)
 	if !ok {
@@ -60,17 +99,16 @@ func (h *HTTP) login(c *gin.Context) {
 	}
 	// Owners cannot smuggle engine config, filenames, account IDs, or SIWC bind
 	// targets through this narrow new-login operation.
-	c.Request.URL.RawQuery = url.Values{"provider": {dispatch}, "is_webui": {"true"}}.Encode()
-	original := c.Writer
-	captured := &loginWriter{ResponseWriter: original}
-	c.Writer = captured
-	originalPath := c.Request.URL.Path
-	c.Request.URL.Path = "/v8/management/oauth/auth-url"
-	h.management.StartOAuthV8(c)
-	c.Writer = original
-	c.Request.URL.Path = originalPath
+	inner := engineContext(c, "/v8/management/oauth/auth-url", url.Values{"provider": {dispatch}, "is_webui": {"true"}})
+	captured := &loginWriter{ResponseWriter: c.Writer}
+	inner.Writer = captured
+	h.management.StartOAuthV8(inner)
 	if captured.Status() >= 400 {
-		poolError(c, captured.Status(), "provider login is unavailable")
+		message := "provider login is unavailable"
+		if detail := engineErrorMessage(captured.body.Bytes()); detail != "" {
+			message += ": " + detail
+		}
+		c.AbortWithStatusJSON(captured.Status(), gin.H{"error": gin.H{"message": message, "engineStatus": captured.Status()}})
 		return
 	}
 	var body struct {
@@ -121,8 +159,7 @@ func (h *HTTP) loginStatus(c *gin.Context) {
 	if _, ok := h.loginOwned(c, state); !ok {
 		return
 	}
-	c.Request.URL.RawQuery = url.Values{"state": {state}}.Encode()
-	h.management.GetAuthStatus(c)
+	h.management.GetAuthStatus(engineContext(c, c.Request.URL.Path, url.Values{"state": {state}}))
 }
 func (h *HTTP) loginCallback(c *gin.Context) {
 	var body struct {
@@ -152,7 +189,8 @@ func (h *HTTP) loginCallback(c *gin.Context) {
 		respondError(c, err)
 		return
 	}
-	c.Request.Body = io.NopCloser(bytes.NewReader(encoded))
-	c.Request.ContentLength = int64(len(encoded))
-	h.management.PostOAuthCallbackV8(c)
+	inner := engineContext(c, c.Request.URL.Path, nil)
+	inner.Request.Body = io.NopCloser(bytes.NewReader(encoded))
+	inner.Request.ContentLength = int64(len(encoded))
+	h.management.PostOAuthCallbackV8(inner)
 }
