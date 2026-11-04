@@ -155,27 +155,31 @@ export async function render(ctx) {
 		);
 	}
 
-	// Serve or hide every model of a provider that matches the current search,
-	// one PATCH per model that actually changes, so curating 600 models does
-	// not mean 600 clicks.
+	// Serve, hide or invert every model of a provider that matches the current
+	// search: one request for all of them, however many there are.
 	function bulk(p, list, label) {
 		const scope = query ? `the ${fmtInt(list.length)} matching` : `all ${fmtInt(list.length)}`;
-		const run = async (exposed) => {
-			const targets = list.filter((m) => m.exposed !== exposed);
-			if (!targets.length) { toast(`Already ${exposed ? "served" : "hidden"}`); return; }
-			if (targets.length > 25 && !(await confirm({ title: `${exposed ? "Serve" : "Hide"} ${fmtInt(targets.length)} models?`, text: `${label.main}: ${scope} models${query ? ` matching “${query}”` : ""} will be ${exposed ? "served to" : "hidden from"} everyone.`, confirmLabel: exposed ? "Serve them" : "Hide them", danger: !exposed }))) return;
-			let failed = 0;
-			for (const m of targets) {
-				try { await neo.setModelExposed(m.id, exposed); m.exposed = exposed; }
-				catch { failed++; }
+		const run = async (mode) => {
+			const set = {};
+			for (const m of list) {
+				const next = mode === "invert" ? !m.exposed : mode === "serve";
+				if (m.exposed !== next) set[m.id] = next;
 			}
-			toast(failed ? `${fmtInt(targets.length - failed)} changed, ${failed} failed` : `${fmtInt(targets.length)} models ${exposed ? "served" : "hidden"}`, failed ? "warn" : "ok");
+			const n = Object.keys(set).length;
+			if (!n) { toast(mode === "invert" ? "Nothing to invert" : `Already ${mode === "serve" ? "served" : "hidden"}`); return; }
+			if (n > 50 && !(await confirm({ title: `${{ serve: "Serve", hide: "Hide", invert: "Invert" }[mode]} ${fmtInt(n)} models?`, text: `${label.main}: ${scope} models${query ? ` matching “${query}”` : ""}. ${mode === "hide" ? "Every user loses them at once." : mode === "serve" ? "Every user with direct access gains them at once." : "Served ones are hidden and hidden ones served."}`, confirmLabel: { serve: "Serve them", hide: "Hide them", invert: "Invert" }[mode], danger: mode === "hide" }))) return;
+			try {
+				const r = await neo.setModelsExposed(set);
+				for (const m of list) if (m.id in set) m.exposed = set[m.id];
+				toast(`${fmtInt(r.changed ?? n)} models ${mode === "invert" ? "inverted" : mode === "serve" ? "served" : "hidden"}${r.unknown?.length ? ` · ${r.unknown.length} unknown skipped` : ""}`);
+			} catch (e) { toast(e.message, "bad"); }
 			renderTree();
 			renderVMs();
 		};
-		return h("span", { class: "bulk" },
-			btn(`Serve ${scope}`, { cls: "sm ghost", onClick: () => run(true), title: `Serve ${scope} ${label.main} models` }),
-			btn(`Hide ${scope}`, { cls: "sm ghost", onClick: () => run(false), title: `Hide ${scope} ${label.main} models` }),
+		return h("div", { class: "seg sm bulk", role: "group", "aria-label": `${label.main}: ${scope} models` },
+			h("button", { type: "button", onClick: () => run("serve"), title: `Serve ${scope} ${label.main} models` }, icon("eye", 13), "Serve ", scope),
+			h("button", { type: "button", onClick: () => run("hide"), title: `Hide ${scope} ${label.main} models` }, icon("eyeOff", 13), "Hide"),
+			h("button", { type: "button", onClick: () => run("invert"), title: `Invert ${scope}: served become hidden and hidden become served` }, icon("shuffle", 13), "Invert"),
 		);
 	}
 

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopool"
@@ -114,12 +115,14 @@ func authorityError(err error) error {
 
 type routeState struct {
 	principal neo.Principal
+	handle    string
 	snapshot  neopool.Snapshot
 	usage     []neopool.Usage
 	vm        *VirtualModel
 	cursors   map[string]int64
 	blocked   map[string]map[string]bool
 	at        int64
+	now       time.Time
 }
 
 func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
@@ -136,7 +139,8 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 	if err != nil {
 		return routeState{}, err
 	}
-	state := routeState{principal: p, snapshot: snap, at: s.now().UnixMilli(), cursors: make(map[string]int64)}
+	now := s.now()
+	state := routeState{principal: p, snapshot: snap, at: now.UnixMilli(), now: now, cursors: make(map[string]int64)}
 	selector := strings.TrimPrefix(asked, "neoproxy/")
 	if strings.HasPrefix(asked, "neoproxy/") && !strings.Contains(selector, "/") {
 		vm, errVM := s.VirtualModel(ctx, selector)
@@ -158,6 +162,14 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 		state.usage, err = s.pools.Usage(ctx, "")
 		if err != nil {
 			return state, err
+		}
+		// Conditions and scripts may read the handle; resolve it only for them.
+		if state.vm.Script != "" || slices.ContainsFunc(state.vm.Stages, func(st Stage) bool { return st.Condition != nil }) {
+			user, errUser := s.identity.User(ctx, p.UserID)
+			if errUser != nil {
+				return state, authorityError(errUser)
+			}
+			state.handle = user.Handle
 		}
 	}
 	return state, nil
@@ -215,15 +227,21 @@ func stageUsage(state routeState, vm string, st Stage, a neopool.Account, w neop
 	}
 	return total
 }
-func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot float64) (TrailStep, []neopool.Account, int64) {
-	trail := TrailStep{Kind: "stage", Index: index, StageID: st.ID, Model: st.Model, Cap: st.Cap * allot, Candidates: []Candidate{}}
+
+// inStageScope reports whether the stage may consider account a at all: its
+// model's provider, the principal's ownership/key scope and the stage's list.
+func inStageScope(state routeState, st Stage, m neopool.Model, a neopool.Account) bool {
+	return a.ProviderID == m.ProviderID && accountAllowed(state.principal, a) && (st.Accounts.All || slices.Contains(st.Accounts.IDs, a.ID))
+}
+func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot float64, facts *requestFacts) (TrailStep, []neopool.Account, int64) {
+	trail := TrailStep{Kind: "stage", Index: index, StageID: st.ID, Model: st.Model, Window: st.Window, Cap: st.Cap * allot, Candidates: []Candidate{}}
 	m, visible := exposedModel(state.snapshot, st.Model)
 	var candidates []neopool.Account
 	unhealthy := !visible
 	var reset int64
 	var sum float64
 	for _, a := range state.snapshot.Accounts {
-		if a.ProviderID != m.ProviderID || !accountAllowed(state.principal, a) || (!st.Accounts.All && !slices.Contains(st.Accounts.IDs, a.ID)) {
+		if !inStageScope(state, st, m, a) {
 			continue
 		}
 		w, provider, metered := windowFor(a, st.Window, state.at)
@@ -255,10 +273,48 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 	if trail.Metered > 0 {
 		trail.Total = sum / float64(trail.Metered)
 	}
+	var scope *conditionScope
+	if st.Condition != nil {
+		pool := &poolFacts{size: len(candidates)}
+		if i := windowIndex(st.Window); i >= 0 {
+			pool.known[i] = 1
+			if trail.Metered > 0 {
+				pool.average[i], pool.known[i] = trail.Total, 2
+			}
+		}
+		scope = &conditionScope{facts: facts, state: &state, vm: vm.ID, stage: &st, model: m, pool: pool}
+		if !st.Condition.usesAccount() && !st.Condition.eval(scope) {
+			trail.Skipped = "condition"
+			trail.Candidates = []Candidate{}
+			return trail, nil, reset
+		}
+	}
 	if trail.Total >= trail.Cap {
 		trail.Skipped = "cap"
 		trail.Candidates = []Candidate{}
 		return trail, nil, reset
+	}
+	if scope != nil && st.Condition.usesAccount() && len(candidates) > 0 {
+		// Both slices were freshly built above; compact them in place.
+		kept := candidates[:0]
+		listed := trail.Candidates[:0]
+		var excluded []Candidate
+		for i := range candidates {
+			scope.account = &candidates[i]
+			if st.Condition.eval(scope) {
+				kept = append(kept, candidates[i])
+				listed = append(listed, trail.Candidates[i])
+				continue
+			}
+			candidate := trail.Candidates[i]
+			candidate.Reason = "condition"
+			excluded = append(excluded, candidate)
+		}
+		candidates, trail.Candidates, trail.excluded = kept, listed, excluded
+		if len(candidates) == 0 {
+			trail.Skipped = "condition"
+			return trail, nil, reset
+		}
 	}
 	if len(candidates) == 0 {
 		trail.Skipped = "per-account"
@@ -268,6 +324,18 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 		return trail, nil, reset
 	}
 	return trail, candidates, reset
+}
+
+// explained lists the condition-excluded accounts after the stage's candidates
+// unless the stage was skipped for a reason that hides every account.
+func explained(tr TrailStep) TrailStep {
+	switch tr.Skipped {
+	case "cap", "lua-cap", "upstream-error":
+	default:
+		tr.Candidates = append(tr.Candidates, tr.excluded...)
+	}
+	tr.excluded = nil
+	return tr
 }
 
 // decide is the canonical pure policy shared by simulation and execution. The
@@ -290,8 +358,9 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "not-granted", Trail: []TrailStep{{Kind: "denied", VirtualModel: vm.ID}}}
 	}
 	var resetsAt int64
+	facts := newRequestFacts(req, state)
 	for index, st := range vm.Stages {
-		tr, candidates, reset := evaluateStage(state, vm, st, index, allot)
+		tr, candidates, reset := evaluateStage(state, vm, st, index, allot, facts)
 		tr, candidates = applyPolicy(tr, candidates, st, allot, proposal)
 		if reset > 0 && (resetsAt == 0 || reset < resetsAt) {
 			resetsAt = reset
@@ -299,11 +368,11 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 		if index <= after {
 			tr.Skipped = "upstream-error"
 			tr.Candidates = nil
-			trail = append(trail, tr)
+			trail = append(trail, explained(tr))
 			continue
 		}
 		if tr.Skipped != "" {
-			trail = append(trail, tr)
+			trail = append(trail, explained(tr))
 			continue
 		}
 		chosen := 0
@@ -320,7 +389,7 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 		if proposal != nil && proposal.StageID != "" {
 			if proposal.StageID != st.ID {
 				tr.Skipped = "script"
-				trail = append(trail, tr)
+				trail = append(trail, explained(tr))
 				continue
 			}
 			chosen = -1
@@ -335,8 +404,8 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 			}
 		}
 		tr.Chosen = candidates[chosen].ID
-		trail = append(trail, tr)
-		return Decision{Outcome: "ok", VirtualModel: vm.ID, StageIndex: &index, StageID: st.ID, Model: st.Model, AccountID: candidates[chosen].ID, Effort: st.Effort, Trail: trail}
+		trail = append(trail, explained(tr))
+		return Decision{Outcome: "ok", VirtualModel: vm.ID, StageIndex: &index, StageID: st.ID, Model: st.Model, AccountID: candidates[chosen].ID, Effort: stageEffort(st, facts.effort), Trail: trail}
 	}
 	if proposal != nil && proposal.StageID != "" {
 		return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "invalid-script-proposal", Trail: trail}
@@ -365,10 +434,13 @@ func (s *Store) choose(ctx context.Context, req Request, state routeState, after
 			return Decision{}, state, scriptError(state.vm.ID, "routing script input exceeds 256 KiB")
 		}
 		allot, _ := grantFor(state.principal, state.vm.ID)
-		input := ScriptInput{Source: state.vm.Script, Asked: req.Asked, Protocol: req.Protocol, UserID: state.principal.UserID, VirtualModel: *state.vm, Stages: make([]ScriptStage, 0, len(state.vm.Stages))}
+		facts := newRequestFacts(req, state)
+		input := ScriptInput{Source: state.vm.Script, Asked: req.Asked, Protocol: req.Protocol, UserID: state.principal.UserID, VirtualModel: *state.vm, Stages: make([]ScriptStage, 0, len(state.vm.Stages)), Effort: facts.effort}
+		input.User = ScriptUser{ID: state.principal.UserID, Handle: state.handle, Role: state.principal.Role}
+		input.Time = ScriptTime{Weekday: strings.ToLower(facts.now.Weekday().String()), Hour: facts.now.Hour(), Date: facts.now.Format(time.DateOnly)}
 		input.Request = append(json.RawMessage(nil), req.Body...)
 		for i, st := range state.vm.Stages {
-			tr, _, _ := evaluateStage(state, *state.vm, st, i, allot)
+			tr, _, _ := evaluateStage(state, *state.vm, st, i, allot, facts)
 			if i <= after {
 				tr.Skipped = "upstream-error"
 				tr.Candidates = nil

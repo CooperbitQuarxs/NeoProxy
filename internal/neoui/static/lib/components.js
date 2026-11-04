@@ -756,12 +756,22 @@ export function stageSkip(t, { accounts = [], who = "this user" } = {}) {
 	const acct = (id) => accounts.find((a) => a.id === id)?.label ?? "an account in the pool";
 	const lua = t.policy?.accounts?.length && t.policy.accounts.every((a) => !a.eligible);
 	switch (t.skipped) {
-		case "cap":
+		case "cap": {
+			const win = t.window ? `${WINDOW_WORDS[t.window] ?? t.window} ` : "";
 			return t.cap > 0
-				? { short: `Over its ${pctLabel(t.cap)} threshold for ${who}, pool at ${pctLabel(t.total)}`, clause: `was over its ${pctLabel(t.cap)} threshold for ${who} (at ${pctLabel(t.total)})` }
+				? { short: `Its accounts' average ${win}usage is ${pctLabel(t.total)}, past the ${pctLabel(t.cap)} it allows ${who}`, clause: `had its accounts' average ${win}usage at ${pctLabel(t.total)}, past the ${pctLabel(t.cap)} it allows ${who}` }
 				: { short: `Its threshold is 0% for ${who}, so it is off`, clause: `has a 0% threshold for ${who}, so it is switched off` };
-		case "per-account":
-			return { short: "Every account has used its per-account share", clause: "had every account at its per-account share" };
+		}
+		case "per-account": {
+			const win = t.window ? `${WINDOW_WORDS[t.window] ?? t.window} ` : "";
+			return { short: `Every account is past the ${win}usage it may reach for ${who}`, clause: `had every account past the ${win}usage it may reach for ${who}` };
+		}
+		case "condition": {
+			const n = (t.candidates ?? []).filter((c) => c.reason === "condition").length;
+			return n
+				? { short: `Its rules ruled out ${n === 1 ? "the only account" : `all ${n} accounts`}`, clause: `had its rules rule out ${n === 1 ? "the only account" : `all ${n} accounts`}` }
+				: { short: "Its rules did not match this request", clause: "had rules that did not match this request" };
+		}
 		case "unhealthy":
 			return { short: "No healthy account could serve it", clause: "had no healthy account" };
 		case "script":
@@ -941,6 +951,43 @@ export function picker(anchor, { items, placeholder = "Search", onPick, empty: e
 	paint();
 	q.focus();
 	return { close };
+}
+
+// ---------- sheet ----------
+// A panel that rises from the bottom of the page for the detail of one row.
+// It never takes width from the table above it, scrolls itself, and goes away
+// when you click anywhere that is not a row (`keep` names what counts as a row)
+// or press Esc. `columns` lays the body out side by side when there is room.
+let openSheet = null;
+export function sheet({ title, sub, body, foot, onClose, keep = "tr, .li, .frow, .pool-acct", columns = true }) {
+	openSheet?.close();
+	const el = h("div", { class: `sheet ${columns ? "columns" : ""}`, role: "dialog", "aria-label": typeof title === "string" ? title : "Details" },
+		h("div", { class: "sheet-grab", "aria-hidden": "true" }),
+		h("div", { class: "sheet-head" },
+			h("div", { class: "titles" }, h("h2", null, title), sub ? h("div", { class: "sub" }, sub) : null),
+			foot ? h("div", { class: "sheet-actions" }, foot) : null,
+			iconBtn("x", "Close", () => close(), "sm"),
+		),
+		h("div", { class: "sheet-body" }, body),
+	);
+	const outside = (e) => { if (el.contains(e.target) || e.target.closest?.(keep) || e.target.closest?.(".dialog-backdrop, .picker, .pool-menu")) return; close(); };
+	const esc = (e) => { if (e.key === "Escape" && !document.querySelector(".dialog-backdrop")) { e.preventDefault(); close(); } };
+	function close() {
+		if (!el.isConnected) return;
+		el.classList.add("leaving");
+		setTimeout(() => el.remove(), 160);
+		document.removeEventListener("pointerdown", outside, true);
+		document.removeEventListener("keydown", esc, true);
+		document.body.classList.remove("has-sheet");
+		if (openSheet?.el === el) openSheet = null;
+		onClose?.();
+	}
+	document.body.append(el);
+	document.body.classList.add("has-sheet");
+	requestAnimationFrame(() => el.classList.add("open"));
+	setTimeout(() => { document.addEventListener("pointerdown", outside, true); document.addEventListener("keydown", esc, true); }, 0);
+	openSheet = { el, close };
+	return openSheet;
 }
 
 export { append, clear };

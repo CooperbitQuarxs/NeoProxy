@@ -298,7 +298,9 @@ func TestRealRoutingScriptCannotWidenScopeHealthExposureOrBudget(t *testing.T) {
 	if err = f.pools.Settle(context.Background(), neopool.Settlement{ID: reservation.ID, AccountID: reservation.AccountID, InputTokens: 100000, UsageKnown: true}); err != nil {
 		t.Fatal(err)
 	}
-	vm.Stages[0].Cap = 0.1
+	// 100k settled on one of two 1M accounts is a 5% pool average; the cap
+	// compares against that average, so 5% must still be refused.
+	vm.Stages[0].Cap = 0.05
 	vm = f.save(t, vm, false)
 	decision, err = f.routes.Simulate(f.memberContext(t), request)
 	if err != nil || decision.Outcome != "limited" {
