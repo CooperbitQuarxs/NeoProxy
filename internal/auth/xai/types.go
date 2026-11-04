@@ -16,22 +16,34 @@ const (
 	GrokBuildType = "grok-build"
 	// Issuer is xAI's OAuth issuer.
 	Issuer = "https://auth.x.ai"
-	// DiscoveryURL is the OIDC discovery endpoint used to resolve OAuth endpoints.
+	// DiscoveryURL is the OIDC discovery document that pins the token endpoint.
 	DiscoveryURL = Issuer + "/.well-known/openid-configuration"
+	// DeviceAuthorizationURL is the auth rule's fixed device endpoint.
+	DeviceAuthorizationURL = Issuer + "/oauth2/device/code"
+	// UserinfoURL supplies the signed-in email and subject.
+	UserinfoURL = Issuer + "/oauth2/userinfo"
 	// ClientID is the public xAI Grok CLI OAuth client ID.
 	ClientID = "b1a00492-073a-47ea-816f-4c329264a828"
 	// Scope is the OAuth scope set required for xAI API access.
 	Scope = "openid profile email offline_access grok-cli:access api:access"
 	// DeviceCodeGrantType is the OAuth2 device authorization grant type (RFC 8628).
 	DeviceCodeGrantType = "urn:ietf:params:oauth:grant-type:device_code"
-	// defaultPollInterval is used when the device endpoint omits interval.
+	// providerID names the provider in NeoPi's error messages.
+	providerID = "xai-oauth"
+	// defaultPollInterval, minimumPollInterval and slowDownIncrement are
+	// pollOAuthDeviceCodeFlow's cadence.
 	defaultPollInterval = 5 * time.Second
-	// httpClientTimeout bounds credential-acquisition HTTP calls (device/token/refresh).
-	httpClientTimeout = 30 * time.Second
-	// MaxPollDuration is the upper bound for waiting on user authorization.
+	minimumPollInterval = time.Second
+	slowDownIncrement   = 5 * time.Second
+	// discoveryTimeout and requestTimeout bound credential acquisition calls.
+	discoveryTimeout = 15 * time.Second
+	requestTimeout   = 30 * time.Second
+	// MaxPollDuration is what the dashboard shows when xAI omits expires_in.
 	MaxPollDuration = 30 * time.Minute
 )
 
+// refreshLead is the auth rule's five-minute expiry skew: stored expiries are
+// the server's, and NeoPi treats a token as expired five minutes early.
 var refreshLead = 5 * time.Minute
 
 // RefreshLead returns the refresh lead time for xAI OAuth credentials.

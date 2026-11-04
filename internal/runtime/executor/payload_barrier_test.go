@@ -144,24 +144,37 @@ func TestPayloadBarrierAIStudio(t *testing.T) {
 	}
 }
 
-func TestPayloadBarrierXAIWebsocketRetry(t *testing.T) {
+// TestPayloadBarrierXAINeoPi pins payload rules as the last word on the body
+// NeoPi's xAI port sends, after its shaping and on a transient-stream retry.
+func TestPayloadBarrierXAINeoPi(t *testing.T) {
 	cfg := &config.Config{Payload: config.PayloadConfig{
-		Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Params: map[string]any{"store": false, "instructions": "configured"}}},
-		Filter:   []config.PayloadFilterRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Params: []string{"input.0", "previous_response_id"}}},
+		Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Params: map[string]any{"store": true, "instructions": "configured"}}},
+		Filter:   []config.PayloadFilterRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Params: []string{"input.0", "prompt_cache_key"}}},
 	}}
-	req := cliproxyexecutor.Request{Model: "grok-4.3"}
-	body := []byte(`{"previous_response_id":"previous","input":[{"content":"first"},{"content":"second"}]}`)
-	finalize := helps.NewPayloadFinalizer(cfg, "xai", req.Model, "codex", "", body, req, cliproxyexecutor.Options{})
-	first := buildXAIWebsocketRequestBody(body, finalize)
-	retry := buildXAIWebsocketRequestBody(body, finalize)
-	if !bytes.Equal(first, retry) {
-		t.Fatalf("retry changed configured body: %s != %s", first, retry)
+	var bodies [][]byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		if len(bodies) == 1 {
+			// Ends before a terminal event: NeoPi retries the stream once.
+			_, _ = io.WriteString(w, "data: {\"type\":\"response.created\",\"response\":{\"id\":\"r\"}}\n\n")
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"type\":\"response.created\",\"response\":{\"id\":\"r\"}}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"r\",\"status\":\"completed\",\"output\":[]}}\n\n")
+	}))
+	defer server.Close()
+	auth := &cliproxyauth.Auth{ID: t.Name(), Provider: "xai", Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
+	payload := []byte(`{"model":"grok-4.3","input":[{"role":"user","content":"first"},{"role":"user","content":"second"}],"prompt_cache_key":"k"}`)
+	if _, err := NewXAIExecutor(cfg).Execute(t.Context(), auth, cliproxyexecutor.Request{Model: "grok-4.3", Payload: payload}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: payload}); err != nil {
+		t.Fatal(err)
 	}
-	if gjson.GetBytes(first, "store").Bool() || gjson.GetBytes(first, "instructions").String() != "configured" || gjson.GetBytes(first, "previous_response_id").Exists() || gjson.GetBytes(first, "input.#").Int() != 1 {
-		t.Fatalf("invalid final payload: %s", first)
+	if len(bodies) != 2 || !bytes.Equal(bodies[0], bodies[1]) {
+		t.Fatalf("retry changed the configured body: %q", bodies)
 	}
-	if gjson.GetBytes(first, "type").String() != "response.create" {
-		t.Fatalf("missing frame type: %s", first)
+	first := bodies[0]
+	if !gjson.GetBytes(first, "store").Bool() || gjson.GetBytes(first, "instructions").String() != "configured" || gjson.GetBytes(first, "prompt_cache_key").Exists() || gjson.GetBytes(first, "input.#").Int() != 1 {
+		t.Fatalf("payload rules did not win: %s", first)
 	}
 }
 

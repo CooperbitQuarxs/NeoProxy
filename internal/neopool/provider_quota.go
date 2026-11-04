@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -119,6 +120,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "claude"
 	case "codex":
 		return "codex"
+	case "xai":
+		return "xai"
 	}
 	return ""
 }
@@ -223,6 +226,25 @@ func codexUsageWindows(usage *codex.Usage, now time.Time) ([]Window, error) {
 	return out, nil
 }
 
+// xaiUsageWindows adapts NeoPi's SuperGrok report: weekly credits as the week
+// window, unified monthly included quota as the month window. A window NeoPi
+// does not gate on (an advisory monthly counter, or spent credits with
+// on-demand headroom left) is reported but not known to routing.
+func xaiUsageWindows(usage *xaiauth.Usage) []Window {
+	out := []Window{}
+	if weekly := usage.Weekly; weekly != nil {
+		w := percentWindow("week", weekly.CreditUsagePercent, weekly.PeriodStart, weekly.PeriodEnd)
+		w.Known = w.Used < 1 || !usage.OnDemandHeadroom()
+		out = append(out, w)
+	}
+	if monthly := usage.Monthly; monthly != nil {
+		w := percentWindow("month", math.Min(monthly.Used/monthly.Limit, 1)*100, monthly.PeriodStart, monthly.PeriodEnd)
+		w.Known = !usage.MonthlyAdvisory && (w.Used < 1 || !usage.OnDemandHeadroom())
+		out = append(out, w)
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -258,6 +280,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return codexUsageWindows(usage, now)
+	case "xai":
+		usage, err := xaiauth.FetchUsage(ctx, client, token, now)
+		if err != nil {
+			return nil, err
+		}
+		return xaiUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
@@ -314,6 +342,10 @@ func (q *quotaProber) windows(a *coreauth.Auth, now time.Time) []Window {
 		return append([]Window(nil), entry.windows...)
 	}
 	kinds := []string{"5h", "week"}
+	if quotaProvider(a) == "xai" {
+		// SuperGrok reports weekly credits (or a monthly quota), no 5h window.
+		kinds = []string{"week"}
+	}
 	if len(entry.windows) > 0 {
 		kinds = kinds[:0]
 		for _, w := range entry.windows {

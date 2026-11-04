@@ -47,17 +47,15 @@ func xaiCatalogKey(a *coreauth.Auth) string {
 }
 
 // xaiUsesModelDiscovery reports whether a's models come from upstream listing:
-// every grok-build credential and xai OAuth sign-ins. xai API keys keep their
-// configured or curated models.
+// every grok-build and xai credential. NeoPi lists /v1/models for both the
+// xai-oauth and the paid xai provider.
 func xaiUsesModelDiscovery(a *coreauth.Auth) bool {
 	if a == nil || a.ID == "" {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(a.Provider)) {
-	case executor.GrokBuildProvider:
+	case executor.GrokBuildProvider, "xai":
 		return true
-	case "xai":
-		return a.AuthKind() != coreauth.AuthKindAPIKey
 	default:
 		return false
 	}
@@ -77,21 +75,33 @@ func xaiDiscoveredModels(a *coreauth.Auth, now time.Time) ([]*ModelInfo, bool) {
 		stale = !fresh && !backingOff && !entry.inFlight
 	}
 	xaiCatalog.mu.Unlock()
-	grokBuild := strings.EqualFold(strings.TrimSpace(a.Provider), executor.GrokBuildProvider)
-	if listed == nil {
-		if grokBuild {
+	if strings.EqualFold(strings.TrimSpace(a.Provider), executor.GrokBuildProvider) {
+		if listed == nil {
 			// No curated fallback: the chat-proxy's set differs from the API's.
 			return nil, stale
 		}
-		return registry.GetXAIModels(), stale
+		return grokBuildModelInfos(listed), stale
 	}
-	return xaiModelInfos(listed, !grokBuild), stale
+	// xai follows NeoPi's catalogs: xai-oauth curates its seed over the roster;
+	// the paid xai provider keeps its bundle and adds unknown roster ids. The
+	// image, video and speech built-ins are served by the proxy's media endpoints.
+	var ids []string
+	if listed != nil {
+		ids = make([]string, 0, len(listed))
+		for _, m := range listed {
+			ids = append(ids, m.ID)
+		}
+	}
+	if a.AuthKind() == coreauth.AuthKindAPIKey {
+		return registry.WithXAIBuiltins(registry.XaiAPIKeyModels(ids)), stale
+	}
+	return registry.WithXAIBuiltins(registry.XaiOAuthModels(ids)), stale
 }
 
-// xaiModelInfos maps a listing onto model metadata. Known ids reuse the curated
-// definition (thinking levels, modalities, limits); unknown ids still route.
-// The official API also serves the image, video and speech built-ins.
-func xaiModelInfos(listed []executor.XAIListedModel, withBuiltins bool) []*ModelInfo {
+// grokBuildModelInfos maps a chat-proxy listing onto model metadata. Known ids
+// reuse the curated definition (thinking levels, modalities, limits); unknown
+// ids still route.
+func grokBuildModelInfos(listed []executor.XAIListedModel) []*ModelInfo {
 	known := map[string]*ModelInfo{}
 	for _, m := range registry.GetXAIModels() {
 		known[m.ID] = m
@@ -107,9 +117,6 @@ func xaiModelInfos(listed []executor.XAIListedModel, withBuiltins bool) []*Model
 			name = m.ID
 		}
 		out = append(out, &ModelInfo{ID: m.ID, Object: "model", OwnedBy: "xai", Type: "xai", DisplayName: name, Name: m.ID, ContextLength: m.ContextWindow})
-	}
-	if withBuiltins {
-		out = registry.WithXAIBuiltins(out)
 	}
 	return out
 }
