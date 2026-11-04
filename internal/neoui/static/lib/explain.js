@@ -5,7 +5,7 @@
 // Reason strings are the ones neoroute writes (resolve.go, execute.go).
 
 import { fmtIn } from "./dom.js";
-import { stageSkip, statusLabel, pctLabel } from "./components.js";
+import { stageSkip, statusLabel, pctLabel, redirectWords, redirectRule } from "./components.js";
 
 const capFirst = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
@@ -60,6 +60,10 @@ export function explainDecision(record, { models = [], accounts = [], users = []
 	let headline = "";
 	let hint = "";
 	const say = (...s) => sentences.push(...s.filter(Boolean));
+	// A redirect comes first: everything after it is about the model it sent to.
+	const redirect = d.redirect ?? trail.find((t) => t.kind === "redirect")?.redirect;
+	if (redirect) say(redirectWords(redirect));
+	const asked = redirect?.to ?? record.asked;
 
 	if (d.outcome === "ok") {
 		const where = `${modelName(d.model)} on ${acctLabel(d.accountId)}`;
@@ -77,6 +81,7 @@ export function explainDecision(record, { models = [], accounts = [], users = []
 			headline = "served by fall through";
 			say(lead, `The chain then fell through to ${where}, which is picked without a budget.`);
 		}
+		if (redirect) headline += " after a redirect";
 		return { headline, sentences, hint, status: null };
 	}
 
@@ -96,8 +101,8 @@ export function explainDecision(record, { models = [], accounts = [], users = []
 		switch (d.reason) {
 			case "unknown-model":
 				headline = "unknown model";
-				say(`Nothing on this proxy is called “${record.asked}” (HTTP 404).`, "Ask for neoproxy/<name> of a virtual model, or neoproxy/<provider>/<model> for a direct one.");
-				hint = "Check the exact name under Models or Virtual models.";
+				say(`Nothing on this proxy is called “${asked}” (HTTP 404).`, "Ask for neoproxy/<name> of a virtual model, or neoproxy/<provider>/<model> for a direct one.");
+				hint = redirect ? adminOr(`Point ${redirectRule(redirect)} at a model that exists, under Redirects.`, "Tell an admin: a redirect points at a model that no longer exists.") : "Check the exact name under Models or Virtual models.";
 				break;
 			case "no-provider-access":
 				headline = "no access to that provider";
@@ -174,6 +179,10 @@ export function explainDecision(record, { models = [], accounts = [], users = []
 			default:
 				headline = d.reason || "error";
 				say(d.message || (d.reason ? `The request failed with reason “${d.reason}”.` : "The request failed. The ledger did not record why."));
+		}
+		// A redirect never grants access; say where the gap is.
+		if (redirect && !redirect.bypassAccess && (d.reason === "not-granted" || d.reason === "no-provider-access" || d.reason === "no-model-access")) {
+			hint = adminOr(`${capFirst(redirectRule(redirect))} sends ${who} to ${redirect.to}, which they cannot use. Give them access to it, or turn on Bypass access on that redirect.`, `A redirect sends this model to ${redirect.to}, which you have no access to. Ask an admin.`);
 		}
 	}
 	return { headline, sentences, hint, status };

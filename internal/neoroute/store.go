@@ -45,6 +45,9 @@ type Store struct {
 	historyMu sync.Mutex
 	history   map[string]accountHistory
 	historyAt time.Time
+	// redirects is the cached neoroute_redirects table, oldest first.
+	redirectMu sync.RWMutex
+	redirects  []Redirect
 }
 
 func New(identity *neo.Store, pools Pool) (*Store, error) {
@@ -54,6 +57,9 @@ func New(identity *neo.Store, pools Pool) (*Store, error) {
 	s := &Store{identity: identity, db: identity.DB(), pools: pools, changed: make(chan struct{}), now: time.Now, memory: newDrawMemory(), rng: globalRand{}}
 	if err := s.migrate(context.Background()); err != nil {
 		return nil, fmt.Errorf("migrate routing: %w", err)
+	}
+	if err := s.loadRedirects(context.Background()); err != nil {
+		return nil, fmt.Errorf("load redirects: %w", err)
 	}
 	return s, nil
 }
@@ -74,7 +80,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err = tx.QueryRowContext(ctx, `SELECT version FROM neoroute_schema`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 0 && version != 1 {
+	if version < 0 || version > 2 {
 		return fmt.Errorf("unsupported routing schema version %d", version)
 	}
 	if version == 0 {
@@ -88,6 +94,15 @@ func (s *Store) migrate(ctx context.Context) error {
  CREATE TABLE IF NOT EXISTS neoroute_admissions(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,at INTEGER NOT NULL,day INTEGER NOT NULL,tokens INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS neoroute_admissions_user_at ON neoroute_admissions(user_id,at);
  UPDATE neoroute_schema SET version=1;
+ `); err != nil {
+			return err
+		}
+		version = 1
+	}
+	if version == 1 {
+		if _, err = tx.ExecContext(ctx, `
+ CREATE TABLE IF NOT EXISTS neoroute_redirects(id TEXT PRIMARY KEY,created_at INTEGER NOT NULL,body BLOB NOT NULL);
+ UPDATE neoroute_schema SET version=2;
  `); err != nil {
 			return err
 		}

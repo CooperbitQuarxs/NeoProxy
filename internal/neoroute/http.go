@@ -23,6 +23,10 @@ func (s *Store) RegisterRoutes(group *gin.RouterGroup) {
 	group.PUT("/virtual-models/:id", s.saveVirtual(false))
 	group.DELETE("/virtual-models/:id", s.deleteVirtual)
 	group.POST("/simulate", s.simulateHTTP)
+	group.GET("/redirects", s.listRedirects)
+	group.POST("/redirects", s.saveRedirect(true))
+	group.PUT("/redirects/:id", s.saveRedirect(false))
+	group.DELETE("/redirects/:id", s.deleteRedirect)
 	group.GET("/usage", s.usageHTTP)
 	group.GET("/requests", s.requestsHTTP)
 	group.GET("/requests/:id", s.requestHTTP)
@@ -184,6 +188,7 @@ func (s *Store) simulateHTTP(c *gin.Context) {
 	var input struct {
 		Asked    string          `json:"asked"`
 		UserID   string          `json:"userId"`
+		KeyID    string          `json:"keyId"`
 		Protocol string          `json:"protocol"`
 		Request  json.RawMessage `json:"request"`
 	}
@@ -210,6 +215,14 @@ func (s *Store) simulateHTTP(c *gin.Context) {
 	if input.UserID == p.UserID {
 		target = p
 	}
+	// keyId simulates a request made with that inference key of the user:
+	// its account scope and any key-scoped redirect apply.
+	if input.KeyID != "" {
+		if target, err = s.identity.RefreshPrincipal(c.Request.Context(), neo.Principal{UserID: input.UserID, KeyID: input.KeyID}); err != nil {
+			c.JSON(400, gin.H{"error": gin.H{"message": "That key is revoked, expired or belongs to someone else"}})
+			return
+		}
+	}
 	ctx := neo.WithPrincipal(c.Request.Context(), target)
 	d, err := s.Simulate(ctx, Request{Asked: input.Asked, Protocol: input.Protocol, Body: input.Request})
 	if err != nil {
@@ -217,6 +230,51 @@ func (s *Store) simulateHTTP(c *gin.Context) {
 		return
 	}
 	c.JSON(200, policyDecisionForViewer(d, p))
+}
+func (s *Store) listRedirects(c *gin.Context) {
+	if _, ok := adminPrincipal(c); !ok {
+		return
+	}
+	c.JSON(200, s.Redirects())
+}
+func (s *Store) saveRedirect(create bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if _, ok := adminPrincipal(c); !ok {
+			return
+		}
+		var r Redirect
+		if err := c.ShouldBindJSON(&r); err != nil {
+			c.JSON(400, gin.H{"error": gin.H{"message": "Invalid redirect JSON"}})
+			return
+		}
+		if !create {
+			r.ID = c.Param("id")
+		}
+		saved, err := s.SaveRedirect(c.Request.Context(), r, create)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				routeHTTPError(c, err)
+			} else {
+				c.JSON(400, gin.H{"error": gin.H{"message": err.Error()}})
+			}
+			return
+		}
+		status := 200
+		if create {
+			status = 201
+		}
+		c.JSON(status, saved)
+	}
+}
+func (s *Store) deleteRedirect(c *gin.Context) {
+	if _, ok := adminPrincipal(c); !ok {
+		return
+	}
+	if err := s.DeleteRedirect(c.Request.Context(), c.Param("id")); err != nil {
+		routeHTTPError(c, err)
+		return
+	}
+	c.Status(204)
 }
 func (s *Store) usageHTTP(c *gin.Context) {
 	p, ok := sessionPrincipal(c)

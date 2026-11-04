@@ -6,6 +6,8 @@
 import { h, icon, fmtAgo, fmtIn, fmtTime, fmtDate, fmtCompact, plural, clear, copyText } from "../lib/dom.js";
 import { neo, onChange, ApiError } from "../lib/client.js";
 import { pageHead, card, btn, badge, avatar, status, servedName, providerLabel, providerDot, search, field, input, select, seg, toggle, dialog, confirm, toast, empty, spinner, errorState, outcomeBadge, table, healthStatus } from "../lib/components.js";
+import { multiSelect, selectionBar } from "../lib/multiselect.js";
+import { matchModel, modelName, directModelsFor } from "../lib/access.js";
 
 export async function render(ctx) {
 	if (ctx.params[0]) return detail(ctx, ctx.params[0]);
@@ -41,12 +43,13 @@ export function expiryCell(key, now = Date.now()) {
 }
 
 function scopeCell(key, accounts, providers) {
-	if (!key.accountIds?.length) return h("span", { class: "ink-2" }, "every account this person may use");
+	const narrowed = key.models?.length ? h("span", { class: "key-models", title: key.models.join("\n") }, `only ${plural(key.models.length, "direct model")}`) : null;
+	if (!key.accountIds?.length) return h("span", { class: "key-scope" }, h("span", { class: "ink-2" }, "every account this person may use"), narrowed);
 	return h("span", { class: "key-scope" }, key.accountIds.map((id) => {
 		const a = accounts.find((x) => x.id === id);
 		const p = a && providers.find((x) => x.id === a.providerId);
 		return h("span", { class: "tag", title: id }, p ? providerDot(p, 7) : null, a ? `${providerLabel(p).main} · ${a.label}` : "an account");
-	}));
+	}), narrowed);
 }
 
 // A person's keys as a table. `onRevoke` is omitted when the viewer may not revoke;
@@ -70,9 +73,10 @@ export function drawableAccounts(user, accounts) {
 	return accounts.filter((a) => a.ownerId && (user.role !== "owner" || a.ownerId === user.id));
 }
 
-// Mint a key: label, optional expiry, optional account scope. Calls
+// Mint a key: label, optional expiry, optional account scope, optional direct
+// models (`models`: the provider models the person may call directly). Calls
 // `onMinted(key)` once minted, then shows the secret once.
-export function mintKeyDialog({ user, accounts = [], providers = [], onMinted }) {
+export function mintKeyDialog({ user, accounts = [], providers = [], models = [], onMinted }) {
 	const ownerRole = user.role === "owner";
 	let label = "", expiry = "never", date = "", limited = ownerRole;
 	const scope = new Set();
@@ -120,6 +124,47 @@ export function mintKeyDialog({ user, accounts = [], providers = [], onMinted })
 		ownerRole ? "An owner's key must name at least one account they contribute." : "A scope can only narrow what the person may draw from, never widen it.")
 		: null;
 
+	// "Only these models": the same list interaction as the person's direct models.
+	const keyModels = new Set();
+	let narrowModels = false;
+	let mQuery = "";
+	const mList = h("div", { class: "dm-list", role: "listbox", "aria-multiselectable": "true", "aria-label": "Direct models this key may call" });
+	const mCount = h("div", { class: "dm-note" });
+	const mVisible = () => models.filter((m) => !mQuery || `${m.id}\n${m.display}`.toLowerCase().includes(mQuery));
+	function renderModelScope() {
+		const list = mVisible();
+		const shown = list.slice(0, 150);
+		mList.replaceChildren(
+			...shown.map((m) => h("div", { class: "dm-row", role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id },
+				h("button", { type: "button", class: "dm-check", role: "checkbox", "aria-checked": String(keyModels.has(m.id)), "aria-label": `Allow ${m.display}`, tabindex: "-1", "data-act": "check" }, icon("check", 12)),
+				servedName(m.served))),
+			list.length > shown.length ? h("div", { class: "dm-more" }, `${shown.length} of ${list.length.toLocaleString()} shown; search to find the rest`) : "",
+			list.length ? "" : h("div", { class: "dm-more" }, "No models match."),
+		);
+		mCount.textContent = keyModels.size ? `${plural(keyModels.size, "model")} ticked. Drag or Shift+click to select several, Space ticks them.` : "Tick the models this key may call. Drag or Shift+click to select several, Space ticks them.";
+		msel.refresh();
+	}
+	const setKeyModels = (ids, on) => {
+		for (const id of ids) if (on) keyModels.add(id); else keyModels.delete(id);
+		renderModelScope();
+	};
+	const msel = multiSelect(mList, { row: ".dm-row", onSpace: (keys) => setKeyModels(keys, !keys.every((k) => keyModels.has(k))) });
+	mList.addEventListener("click", (e) => {
+		const id = e.target.closest('[data-act="check"]')?.closest(".dm-row")?.dataset.key;
+		if (id) setKeyModels([id], !keyModels.has(id));
+	});
+	const modelScope = h("div", { class: "hidden" }, h("div", { class: "dm key-dm" }, models.length > 8 ? search("Find a model", (v) => { mQuery = v.trim().toLowerCase(); renderModelScope(); }, { "aria-label": "Find a model" }) : null, mList, mCount));
+	const modelField = models.length
+		? field("Direct models", h("div", { class: "scope-field" },
+			seg([{ value: "all", label: "Every direct model they may call" }, { value: "some", label: "Only these models" }], "all", (v) => {
+				narrowModels = v === "some";
+				modelScope.classList.toggle("hidden", !narrowModels);
+				if (narrowModels) renderModelScope();
+			}),
+			modelScope),
+		"Narrows only neoproxy/<provider>/<model> calls. Virtual models follow the person's grants.")
+		: null;
+
 	dialog({
 		title: `Mint a key for ${user.handle}`,
 		sub: "A key is only as powerful as the person: it reaches the virtual models and direct providers granted above. It never signs in to the dashboard.",
@@ -129,6 +174,7 @@ export function mintKeyDialog({ user, accounts = [], providers = [], onMinted })
 				seg([{ value: "never", label: "Never" }, { value: "30", label: "30 days" }, { value: "90", label: "90 days" }, { value: "date", label: "On a date" }], expiry, (v) => { expiry = v; showWhen(); }),
 				dateRow, when)),
 			scopeField,
+			modelField,
 			err,
 		],
 		actions: (close) => [
@@ -138,10 +184,11 @@ export function mintKeyDialog({ user, accounts = [], providers = [], onMinted })
 				const at = expiresAt();
 				if (Number.isNaN(at) || (at !== undefined && at <= Date.now())) { err.textContent = "Choose a day in the future for the key to expire."; return; }
 				if (limited && !scope.size) { err.textContent = "Pick at least one account, or switch to every account they may use."; return; }
+				if (narrowModels && !keyModels.size) { err.textContent = "Tick at least one model, or switch to every direct model they may call."; return; }
 				const button = event.currentTarget;
 				button.disabled = true;
 				try {
-					const { key, secret } = await neo.createKey(user.id, label.trim() || "unnamed", limited ? [...scope] : undefined, at);
+					const { key, secret } = await neo.createKey(user.id, label.trim() || "unnamed", limited ? [...scope] : undefined, at, narrowModels ? [...keyModels] : undefined);
 					close();
 					onMinted?.(key);
 					revealSecret(key, secret);
@@ -283,9 +330,12 @@ async function detail(ctx, id) {
 		saveBtn.disabled = !v;
 	};
 	async function save() {
+		const unticked = Object.entries(draft.modelAccess ?? {}).filter(([pid, pats]) => draft.providerAccess.includes(pid) && !pats.length).map(([pid]) => providerLabel(vault.providers.find((p) => p.id === pid)).main);
+		if (unticked.length) { toast(`Tick at least one ${unticked.join(", ")} model, or turn that provider's direct access off.`, "bad", 5000); return; }
 		try {
 			const saved = await neo.saveUser(draft);
 			Object.assign(user, saved);
+			user.modelAccess = saved.modelAccess; // omitted when empty
 			delete draft.password;
 			toast(`Saved ${user.handle}`);
 			setDirty(false);
@@ -386,39 +436,151 @@ async function detail(ctx, id) {
 	}));
 
 	// ----- direct provider access -----
+	// A provider that is on serves every served model unless the person has a
+	// list for it (modelAccess[provider]); then only the ticked models.
 	const providers = vault.providers.filter((p) => p.kind !== "neopi-gateway");
-	const exposedModels = (p) => models.filter((m) => m.providerId === p.id && m.exposed);
+	const modelById = new Map(models.map((m) => [m.id, m]));
+	const providerModels = (pid) => models.filter((m) => m.providerId === pid && !m.virtualOnly);
+	const patternsOf = (pid) => draft.modelAccess?.[pid];
+	const allowed = (m) => { const pats = patternsOf(m.providerId); return !pats || matchModel(pats, modelName(m)); };
+	// Everything served, plus anything hidden that was ticked for them.
+	const listed = (pid) => providerModels(pid).filter((m) => m.exposed || (patternsOf(pid) ?? []).includes(modelName(m)));
+	const dmQuery = new Map();
+	const dmShown = new Map();
+	const DM_PAGE = 100;
+	const visibleIn = (pid) => { const q = dmQuery.get(pid) ?? ""; return listed(pid).filter((m) => !q || `${m.id}\n${m.display}`.toLowerCase().includes(q)); };
+	function setPatterns(pid, pats) {
+		draft.modelAccess = { ...(draft.modelAccess ?? {}) };
+		if (pats) draft.modelAccess[pid] = pats;
+		else delete draft.modelAccess[pid];
+		setDirty();
+	}
+	function setAllowed(list, on) {
+		for (const [pid, chosen] of Map.groupBy(list, (m) => m.providerId)) {
+			let pats = patternsOf(pid);
+			if (!pats) {
+				if (on) continue; // every model is already allowed
+				pats = providerModels(pid).filter((m) => m.exposed).map(modelName);
+			}
+			// Unticking a model a wildcard covers: spell the wildcard out first.
+			if (!on && pats.some((p) => p.endsWith("*"))) pats = [...new Set(pats.flatMap((p) => (p.endsWith("*") ? providerModels(pid).map(modelName).filter((n) => matchModel([p], n)) : [p])))];
+			const next = new Set(pats);
+			for (const m of chosen) {
+				const name = modelName(m);
+				if (!on) next.delete(name);
+				else if (!matchModel([...next], name)) next.add(name);
+			}
+			setPatterns(pid, [...next]);
+			paintProvider(pid);
+		}
+	}
+	function countText(p) {
+		if (!p.exposed) return "hidden from direct use";
+		const served = providerModels(p.id).filter((m) => m.exposed);
+		if (!served.length) return "no served models";
+		if (!patternsOf(p.id)) return ["all ", h("b", null, served.length.toLocaleString()), served.length === 1 ? " model" : " models"];
+		return [h("b", null, served.filter(allowed).length.toLocaleString()), ` of ${plural(served.length, "model")}`];
+	}
+	function dmRow(m) {
+		return h("div", { class: `dm-row ${m.exposed ? "" : "off"}`, role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id, "aria-label": `${m.display}, ${allowed(m) ? "allowed" : "not allowed"}` },
+			h("button", { type: "button", class: "dm-check", role: "checkbox", "aria-checked": String(allowed(m)), "aria-label": `Allow ${m.display}`, tabindex: "-1", "data-act": "check" }, icon("check", 12)),
+			servedName(m.served),
+			m.exposed ? null : h("span", { class: "tag warn", title: "Hidden on the Models page: nobody can call it until it is served" }, "hidden"));
+	}
 	const directHost = h("div", { class: "direct" });
 	const expanded = new Set();
+	const blocks = new Map(); // provider id -> { p, count, list, modeHost }
+	function paintProvider(pid) {
+		const b = blocks.get(pid);
+		if (!b) return;
+		b.count.replaceChildren(...[countText(b.p)].flat());
+		if (!b.list) return;
+		b.modeHost.replaceChildren(seg([{ value: "all", label: "Every model, new ones too" }, { value: "only", label: "Only the ticked ones" }], patternsOf(pid) ? "only" : "all", (v) => {
+			if (v === "all") setPatterns(pid, undefined);
+			else if (!patternsOf(pid)) setPatterns(pid, providerModels(pid).filter((m) => m.exposed).map(modelName));
+			paintProvider(pid);
+		}));
+		const list = visibleIn(pid);
+		const shown = Math.min(list.length, dmShown.get(pid) ?? DM_PAGE);
+		b.list.replaceChildren(
+			...list.slice(0, shown).map(dmRow),
+			shown < list.length ? h("div", { class: "dm-more" }, h("button", { type: "button", class: "link-btn", "data-act": "more", "data-pid": pid }, `Show ${Math.min(DM_PAGE, list.length - shown)} more`), `${shown.toLocaleString()} of ${list.length.toLocaleString()} shown`) : "",
+			list.length ? "" : h("div", { class: "dm-more" }, "No models match."),
+		);
+		dms.refresh();
+	}
 	function renderDirect() {
 		clear(directHost);
+		blocks.clear();
 		for (const p of providers) {
 			const on = draft.providerAccess.includes(p.id);
-			const ms = exposedModels(p);
-			const row = h("div", { class: `direct-row ${on ? "on" : ""}` });
+			const lab = providerLabel(p).main;
 			const sw = toggle(on, (v) => {
 				draft.providerAccess = v ? [...draft.providerAccess, p.id] : draft.providerAccess.filter((x) => x !== p.id);
+				if (!v) {
+					expanded.delete(p.id);
+					if (patternsOf(p.id)) setPatterns(p.id, undefined);
+				}
 				setDirty();
-				if (!v) expanded.delete(p.id);
 				renderDirect();
-			}, providerLabel(p).main, { disabled: !p.exposed && !on });
-			row.append(h("div", { class: "direct-head" }, providerDot(p, 9), sw, h("span", { class: "ink-3 direct-count" }, !p.exposed ? "hidden from direct use" : ms.length ? plural(ms.length, "model") : "no exposed models")));
-			if (on) {
-				const open = expanded.has(p.id);
-				const shown = open ? ms : ms.slice(0, 8);
-				row.append(h("div", { class: "direct-models" },
-					ms.length ? shown.map((m) => h("span", { class: "tag mono", title: m.display }, servedName(m.served))) : h("span", { class: "ink-3" }, "Nothing to call yet: expose some of this provider's models under Models."),
-					ms.length > 8 ? h("button", { type: "button", class: "link-btn", onClick: () => { open ? expanded.delete(p.id) : expanded.add(p.id); renderDirect(); } }, open ? "show fewer" : `show all ${ms.length}`) : null));
+			}, lab, { disabled: !p.exposed && !on });
+			const open = on && expanded.has(p.id);
+			const b = { p, count: h("span", { class: "ink-3 direct-count" }), list: null, modeHost: null };
+			blocks.set(p.id, b);
+			const choose = on && listed(p.id).length ? h("button", { type: "button", class: "link-btn", "aria-expanded": String(open), onClick: () => { if (open) expanded.delete(p.id); else expanded.add(p.id); renderDirect(); } }, open ? "Done" : "Choose models") : null;
+			const row = h("div", { class: `direct-row ${on ? "on" : ""}` }, h("div", { class: "direct-head" }, providerDot(p, 9), sw, b.count, choose));
+			if (open) {
+				b.list = h("div", { class: "dm-list", role: "listbox", "aria-multiselectable": "true", "aria-label": `${lab} models ${user.handle} may call` });
+				b.modeHost = h("span");
+				row.append(h("div", { class: "dm" },
+					h("div", { class: "dm-tools" },
+						b.modeHost,
+						listed(p.id).length > 8 ? search(`Find a ${lab} model`, (v) => {
+							dmQuery.set(p.id, v.trim().toLowerCase());
+							dmShown.delete(p.id);
+							const shown = new Set(visibleIn(p.id));
+							const keep = [...dms.selected].filter((k) => modelById.get(k)?.providerId !== p.id || shown.has(modelById.get(k)));
+							if (keep.length !== dms.selected.size) dms.set(keep);
+							paintProvider(p.id);
+						}, { "aria-label": `Find a ${lab} model`, value: dmQuery.get(p.id) ?? "" }) : null,
+						h("button", { type: "button", class: "link-btn", onClick: () => setAllowed(visibleIn(p.id), true) }, "Tick all shown"),
+						h("button", { type: "button", class: "link-btn", onClick: () => setAllowed(visibleIn(p.id), false) }, "Untick all shown")),
+					b.list,
+					h("div", { class: "dm-note" }, "Drag across models or Shift+click to select several, then press Space to tick or untick them together. Ctrl+A selects every model shown.")));
 			}
 			directHost.append(row);
+			paintProvider(p.id);
 		}
 		if (!providers.length) directHost.append(h("div", { class: "ink-3" }, "No providers are connected yet."));
+		dms.refresh();
 	}
+	const selectedModels = () => [...dms.selected].map((k) => modelById.get(k)).filter(Boolean);
+	const dmBar = selectionBar({
+		noun: "models selected",
+		actions: [
+			{ label: "Allow", icon: "check", title: "Tick the selected models", onClick: () => setAllowed(selectedModels(), true) },
+			{ label: "Don't allow", icon: "x", title: "Untick the selected models", onClick: () => setAllowed(selectedModels(), false) },
+		],
+		onClear: () => { dms.clear(); dms.focus(); },
+	});
+	const dms = multiSelect(directHost, {
+		row: ".dm-row",
+		groupKeys: (el) => visibleIn(modelById.get(el.dataset.key)?.providerId).map((m) => m.id),
+		onChange: (sel) => dmBar.update(sel.size),
+		onSpace: (keys) => { const list = keys.map((k) => modelById.get(k)).filter(Boolean); setAllowed(list, !list.every(allowed)); },
+	});
+	directHost.addEventListener("click", (e) => {
+		const check = e.target.closest('[data-act="check"]');
+		const m = check && modelById.get(check.closest(".dm-row")?.dataset.key);
+		if (m) { setAllowed([m], !allowed(m)); return; }
+		const more = e.target.closest('[data-act="more"]');
+		if (more) { dmShown.set(more.dataset.pid, (dmShown.get(more.dataset.pid) ?? DM_PAGE) + DM_PAGE); paintProvider(more.dataset.pid); }
+	});
 	renderDirect();
 	root.append(card({
 		title: "Direct provider access",
 		sub: "Direct access bypasses virtual models and their budgets; the engine routing strategy applies.",
-		body: [directHost, h("div", { class: "hint", style: { marginTop: "10px" } }, "Turn a provider on and this person may call every model listed under it as neoproxy/<provider>/<model>.")],
+		body: [directHost, h("div", { class: "hint", style: { marginTop: "10px" } }, "Turn a provider on and this person may call its served models as neoproxy/<provider>/<model>. Choose models to narrow that to a list; a key can narrow it further.")],
 	}));
 
 	// ----- limits -----
@@ -450,7 +612,7 @@ async function detail(ctx, id) {
 	root.append(card({
 		title: "Keys",
 		sub: "What this person's tools send as the bearer token. Each key is its own line in Activity.",
-		actions: [btn("Mint key", { icon: "plus", cls: "outline sm", onClick: () => mintKeyDialog({ user, accounts: drawable, providers: vault.providers, onMinted: (key) => { user.keys.push(key); renderKeys(); } }) })],
+		actions: [btn("Mint key", { icon: "plus", cls: "outline sm", onClick: () => mintKeyDialog({ user, accounts: drawable, providers: vault.providers, models: directModelsFor(user, models), onMinted: (key) => { user.keys.push(key); renderKeys(); } }) })],
 		flush: true,
 		body: keysHost,
 	}));
@@ -508,5 +670,6 @@ async function detail(ctx, id) {
 				: empty({ title: "Nothing yet", hint: "Requests with this person's keys will show here." }),
 		}),
 	);
+	root.append(dmBar.el);
 	setDirty(false);
 }

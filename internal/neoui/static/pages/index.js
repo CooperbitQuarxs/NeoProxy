@@ -5,6 +5,7 @@ import * as overview from "./overview.js";
 import * as pool from "./pool.js";
 import * as models from "./models.js";
 import * as virtualModels from "./virtual-models.js";
+import * as redirects from "./redirects.js";
 import * as users from "./users.js";
 import * as activity from "./activity.js";
 import * as mine from "./mine.js";
@@ -30,6 +31,7 @@ export const pages = [
 	{ id: "pool", title: "Pool", group: "core", icon: "shield", chord: "gn", roles: ["admin", "owner"], render: pool.render },
 	{ id: "models", title: "Models", group: "serving", icon: "box", chord: "gm", roles: ADMIN, render: models.render },
 	{ id: "virtual-models", title: "Virtual models", group: "serving", icon: "route", chord: "gv", roles: ADMIN, render: virtualModels.render },
+	{ id: "redirects", title: "Redirects", group: "serving", icon: "redirect", chord: "gd", roles: ADMIN, render: redirects.render },
 	{ id: "users", title: "Users", group: "serving", icon: "users", chord: "gu", roles: ADMIN, render: users.render },
 	{ id: "activity", title: "Activity", group: "serving", icon: "activity", chord: "ga", render: activity.render },
 	{ id: "mine", title: "My models", group: "you", icon: "user", chord: "gy", roles: ["user", "member", "owner"], render: mine.render },

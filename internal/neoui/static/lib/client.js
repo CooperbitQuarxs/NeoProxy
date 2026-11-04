@@ -129,16 +129,23 @@ export const neo = {
 	deleteVirtualModel: (model) => mutate("DELETE", `virtual-models/${id(model)}`, undefined, "virtual-models"),
 	users: () => request("GET", path("users")),
 	user: (user) => request("GET", path(`users/${id(user)}`)),
+	// modelAccess left undefined keeps the stored allowlist; {} clears it.
 	saveUser: (user) => {
-		const { handle, name, password, role, state, providerAccess, grants, limits } = user;
-		return mutate(user.id ? "PUT" : "POST", `users${user.id ? `/${id(user.id)}` : ""}`, { handle, name, password, role, state, providerAccess, grants, limits }, "users");
+		const { handle, name, password, role, state, providerAccess, modelAccess, grants, limits } = user;
+		return mutate(user.id ? "PUT" : "POST", `users${user.id ? `/${id(user.id)}` : ""}`, { handle, name, password, role, state, providerAccess, modelAccess, grants, limits }, "users");
 	},
-	createKey: (user, label, accountIds, expiresAt) => mutate("POST", `users/${id(user)}/keys`, { label, ...(accountIds ? { accountIds } : {}), ...(expiresAt ? { expiresAt } : {}) }, "users"),
+	createKey: (user, label, accountIds, expiresAt, models) => mutate("POST", `users/${id(user)}/keys`, { label, ...(accountIds ? { accountIds } : {}), ...(expiresAt ? { expiresAt } : {}), ...(models?.length ? { models } : {}) }, "users"),
 	revokeKey: (user, key) => mutate("DELETE", `users/${id(user)}/keys/${id(key)}`, undefined, "users"),
 	usage: () => request("GET", path("usage")),
 	requests: (query = {}) => request("GET", path("requests"), { query: { limit: 100, ...query } }),
 	request: (requestId) => request("GET", path(`requests/${id(requestId)}`)),
-	simulate: ({ asked, userId, protocol, request: payload }) => request("POST", path("simulate"), { json: { asked, userId, protocol, request: payload } }),
+	simulate: ({ asked, userId, keyId, protocol, request: payload }) => request("POST", path("simulate"), { json: { asked, userId, keyId, protocol, request: payload } }),
+	redirects: () => request("GET", path("redirects")),
+	saveRedirect: (redirect) => {
+		const { from, to, scope, enabled, bypassAccess, note } = redirect;
+		return mutate(redirect.id ? "PUT" : "POST", `redirects${redirect.id ? `/${id(redirect.id)}` : ""}`, { from, to, scope, enabled, bypassAccess, note }, "redirects");
+	},
+	deleteRedirect: (redirectId) => mutate("DELETE", `redirects/${id(redirectId)}`, undefined, "redirects"),
 	async restore() {
 		try { const s = await request("GET", "/v8/session", { auth: false }); session.set(s); return s; }
 		catch (e) { session.clear(); if (e.status === 401) return null; throw e; }

@@ -156,6 +156,8 @@ type TrailStep struct {
 	Asked         string              `json:"asked,omitempty"`
 	FailureStatus int                 `json:"failureStatus,omitempty"`
 	Policy        *ScriptPolicyResult `json:"policy,omitempty"`
+	// Redirect is set on the "redirect" step that precedes the resolution.
+	Redirect *RedirectRef `json:"redirect,omitempty"`
 	// excluded are the accounts the condition removed, appended to Candidates
 	// (Reason "condition") only once the decision no longer draws from them.
 	excluded []Candidate
@@ -183,18 +185,19 @@ func (t TrailStep) MarshalJSON() ([]byte, error) {
 }
 
 type Decision struct {
-	Outcome      string      `json:"outcome"`
-	Direct       bool        `json:"direct,omitempty"`
-	VirtualModel string      `json:"virtualModel,omitempty"`
-	StageIndex   *int        `json:"stageIndex,omitempty"`
-	StageID      string      `json:"stageId,omitempty"`
-	Model        string      `json:"model,omitempty"`
-	AccountID    string      `json:"accountId,omitempty"`
-	Effort       *string     `json:"effort,omitempty"`
-	Reason       string      `json:"reason,omitempty"`
-	Message      string      `json:"message,omitempty"`
-	ResetsAt     int64       `json:"resetsAt,omitempty"`
-	Trail        []TrailStep `json:"trail"`
+	Outcome      string       `json:"outcome"`
+	Direct       bool         `json:"direct,omitempty"`
+	VirtualModel string       `json:"virtualModel,omitempty"`
+	StageIndex   *int         `json:"stageIndex,omitempty"`
+	StageID      string       `json:"stageId,omitempty"`
+	Model        string       `json:"model,omitempty"`
+	AccountID    string       `json:"accountId,omitempty"`
+	Effort       *string      `json:"effort,omitempty"`
+	Reason       string       `json:"reason,omitempty"`
+	Message      string       `json:"message,omitempty"`
+	ResetsAt     int64        `json:"resetsAt,omitempty"`
+	Redirect     *RedirectRef `json:"redirect,omitempty"` // the redirect that sent this request to another model
+	Trail        []TrailStep  `json:"trail"`
 }
 
 // Request describes client input, not a privileged provider selection. Identity is
