@@ -34,6 +34,7 @@ const LOGOS: Record<string, string> = {
 	antigravity,
 	xai: grok,
 	"xai-oauth": grok,
+	"grok-build": grok,
 	grok,
 	kimi,
 	"kimi-code": kimi,

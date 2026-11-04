@@ -68,7 +68,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		hue: 280,
 		neutral: true,
 		methods: ["subscription", "apiKey"],
-		subscription: { flow: "device", note: "Shows a code to confirm on xAI's site." },
+		subscription: { flow: "device", note: "Opens x.ai in a new tab and shows a code to confirm there. Covers SuperGrok and the Grok Build (Grok CLI) models." },
 		apiKey: { style: "openai", baseUrl: "https://api.x.ai/v1", keyHint: "xai-…", getKeyUrl: "https://console.x.ai" },
 		plans: [
 			{ id: "supergrok", name: "SuperGrok", monthlyUSD: 30 },

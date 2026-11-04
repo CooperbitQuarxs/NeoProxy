@@ -65,6 +65,11 @@ var oauthRoutes = map[string]route{
 	"anthropic":          {target: "claude"},
 	"google-antigravity": {target: "antigravity"},
 	"xai-oauth":          {target: "xai"},
+	// Grok Build is a NeoPi extension that mirrors the xai-oauth sign-in (same
+	// xAI account and Grok CLI client) onto cli-chat-proxy.grok.com, the door
+	// the engine's xai provider already uses for sign-ins. Its stored refresh
+	// value is a sentinel, never a real token.
+	"grok-build":         {target: "xai"},
 	"kimi-code":          {target: "kimi"},
 	"devin":              {target: "devin"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
@@ -154,6 +159,9 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			return "NeoPi's record has no access token."
 		}
 		if exp := expiresAt(c); !exp.IsZero() && !exp.After(now) {
+			if c.Provider == "grok-build" {
+				return "NeoPi's Grok Build copy of the xai-oauth sign-in has expired. Import xai-oauth instead; it is the same xAI account."
+			}
 			return "NeoPi's access token has expired. Use this account once in NeoPi so it refreshes, then import."
 		}
 		if r.target == "antigravity" && str(c.data, "projectId") == "" {
@@ -252,7 +260,11 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 	case "xai":
 		meta["access_token"] = access
 		meta["auth_kind"] = "oauth"
-		setNonEmpty(meta, "sub", str(c.data, "accountId"))
+		accountID := str(c.data, "accountId")
+		if accountID == "" {
+			accountID, _ = jwtClaims(access)["sub"].(string)
+		}
+		setNonEmpty(meta, "sub", accountID)
 	case "kimi":
 		meta["access_token"] = access
 		meta["token_type"] = "Bearer"
