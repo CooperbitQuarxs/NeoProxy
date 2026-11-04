@@ -85,14 +85,23 @@ a working shared source is available; never copy the broker's refresh tokens.
 
 ### Share logged-in NeoPi accounts
 
-1. Start NeoPi's authenticated auth gateway against its existing broker. Use its
-   gateway bearer, not a provider API key or a NeoProxy inference key. Prefer
-   HTTPS, or carry loopback HTTP over an authenticated private tunnel.
-2. As an organization administrator, open **Core & vault → Connect NeoPi / manage
-   pools**, then **Connect NeoPi**. Enter a source name, gateway URL (an optional
-   `/v1` suffix is accepted), bearer and default owner for newly discovered
-   accounts. Source credentials cannot be supplied or read by ordinary members
-   or account owners.
+1. Start NeoPi's authenticated auth gateway against its existing broker
+   (`npi auth-gateway serve`, or `npi auth-gateway serve --bind=0.0.0.0:4000`
+   when NeoProxy runs on another machine). Use its gateway bearer, not a
+   provider API key or a NeoProxy inference key. Prefer HTTPS, or carry
+   loopback HTTP over an authenticated private tunnel.
+2. As an organization administrator, connect the gateway one of three ways.
+   Source credentials cannot be supplied or read by ordinary members or
+   account owners.
+   - **Same machine:** when NeoPi runs as the same user as NeoProxy, NeoProxy
+     finds its gateway itself and connects it with one click; the token is
+     read from NeoPi's config directory and never reaches the browser.
+   - **Connection link:** run `npi auth-gateway link` on the NeoPi machine and
+     paste the single `neopi-gateway://host:port?token=…&name=…` link. Its
+     name becomes the source name. The link contains the bearer: treat it as
+     a password.
+   - **By hand:** enter a source name, gateway URL (an optional `/v1` suffix is
+     accepted), bearer and default owner for newly discovered accounts.
 3. The proxy discovers `/v1/models` and `/v1/neoproxy/accounts`. Each broker
    credential becomes an independently selectable account. In **Account pools**,
    configure an explicit **local day token budget** on the intended accounts.
@@ -104,6 +113,32 @@ a working shared source is available; never copy the broker's refresh tokens.
    grant the intended models in **Users**, then issue a key scoped to the selected
    accounts. No source model can bypass its virtual route through direct
    provider access. Without a configured local budget and grant, it does not run.
+
+API for the first two paths (session-authenticated administrator; errors are
+`{"error":{"message":…}}`):
+
+- `POST /v8/neo/vault/sources` and `PUT /v8/neo/vault/sources/:id` accept
+  `{"connectionLink": "neopi-gateway://…", "ownerId": "u_…", "label": "…"}` in
+  place of `url` + `bearer`. `label` defaults to the link's `name`; `enabled`
+  defaults to `true` for a link. A link with another scheme, no token, or sent
+  together with `url`/`bearer` is a `400` naming the problem. `tls=1` in the
+  link selects `https://`.
+- `GET /v8/neo/access/neopi/local` →
+  `{"found":true,"running":true,"url":"http://127.0.0.1:4000","name":"blackswan","accountCount":3,"alreadyConnected":"src_…","reason":"…","startCommand":"npi auth-gateway serve"}`.
+  NeoProxy reads NeoPi's config directory (`$HOME/.omp`, honouring
+  `PI_CONFIG_DIR` and `PI_PROFILE`) read-only: the listener from
+  `auth-gateway.runtime.json` (written by `serve`; default `127.0.0.1:4000`
+  without it) and the bearer from `auth-gateway.token`. It probes `/healthz`,
+  then lists `/v1/neoproxy/accounts` with the bearer. `accountCount` appears
+  only when the gateway accepted the token; `reason` explains anything that
+  prevents connecting (not set up, not running, `--no-auth`, token rejected);
+  `startCommand` appears when the gateway is not running; `alreadyConnected`
+  is the existing source with the same URL or bearer.
+- `POST /v8/neo/access/neopi/local/connect` `{"ownerId": "u_…"}` (optional,
+  defaults to the caller) creates and syncs that source and returns it like
+  `POST /v8/neo/vault/sources`. When it is already connected it returns the
+  existing source; when it cannot connect it answers `409` with the reason and
+  the detection under `local`.
 
 On **Models**, the search narrows both provider models and virtual names; the
 All / Served / Hidden switch applies only to provider models. Virtual results

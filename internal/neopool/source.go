@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopigateway"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -43,6 +44,9 @@ type SourceInput struct {
 	Bearer  string `json:"bearer"`
 	OwnerID string `json:"ownerId"`
 	Enabled bool   `json:"enabled"`
+	// ConnectionLink (`npi auth-gateway link`) replaces URL and Bearer; its
+	// name becomes the label when Label is empty.
+	ConnectionLink string `json:"connectionLink"`
 }
 
 type sourceWindow struct {
@@ -117,6 +121,19 @@ func (s *Store) SaveSource(ctx context.Context, id string, in SourceInput) (Sour
 	if err != nil {
 		return Source{}, err
 	}
+	if link := strings.TrimSpace(in.ConnectionLink); link != "" {
+		if in.URL != "" || in.Bearer != "" {
+			return Source{}, fmt.Errorf("%w: send either a connection link or a URL and bearer, not both", neopigateway.ErrInvalidLink)
+		}
+		parsed, linkErr := neopigateway.ParseLink(link)
+		if linkErr != nil {
+			return Source{}, linkErr
+		}
+		in.URL, in.Bearer = parsed.BaseURL, parsed.Token
+		if strings.TrimSpace(in.Label) == "" {
+			in.Label = parsed.Name
+		}
+	}
 	base, err := normalizeSourceURL(in.URL)
 	if err != nil {
 		return Source{}, err
@@ -171,6 +188,21 @@ func (s *Store) SaveSource(ctx context.Context, id string, in SourceInput) (Sour
 	s.notifyLocked()
 	s.mu.Unlock()
 	return v, err
+}
+
+// sourceForGateway returns the source that already points at a gateway, by
+// URL or by bearer (the same gateway reached under another host name).
+func (s *Store) sourceForGateway(ctx context.Context, rawURL, bearer string) (string, error) {
+	base, err := normalizeSourceURL(rawURL)
+	if err != nil {
+		base = rawURL
+	}
+	var id string
+	err = s.db.QueryRowContext(ctx, `SELECT id FROM neo_pool_sources WHERE url=? OR (bearer<>'' AND bearer=?) ORDER BY id LIMIT 1`, base, bearer).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
 }
 
 func (s *Store) DeleteSource(ctx context.Context, id string) error {
