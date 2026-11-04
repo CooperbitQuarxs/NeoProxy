@@ -39,7 +39,7 @@ func (s *Server) initNeoPool(manager *coreauth.Manager) {
 // single credential. The dashboard principal is dropped from the context so the
 // request is not routed through virtual models and never touches the pool
 // ledger: a test is budget-free, like a direct attempt.
-func (s *Server) probeAccess(ctx context.Context, authID, provider string, body []byte) ([]byte, int, error) {
+func (s *Server) probeAccess(ctx context.Context, authID, provider, protocol string, body []byte) ([]byte, int, error) {
 	model := gjson.GetBytes(body, "model").String()
 	// A test means "try the provider now": lift the cooldown or quota hold the
 	// engine placed on this credential for the probed model only, so the request
@@ -51,8 +51,8 @@ func (s *Server) probeAccess(ctx context.Context, authID, provider string, body 
 		}
 	}
 	resp, errMsg := s.handlers.ExecuteModel(neo.WithPrincipal(ctx, neo.Principal{}), handlers.ModelExecutionRequest{
-		EntryProtocol:  "openai",
-		ExitProtocol:   "openai",
+		EntryProtocol:  protocol,
+		ExitProtocol:   protocol,
 		Model:          model,
 		Body:           body,
 		ForcedProvider: provider,

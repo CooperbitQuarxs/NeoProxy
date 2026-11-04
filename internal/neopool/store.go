@@ -59,6 +59,9 @@ func New(db *sql.DB, manager *coreauth.Manager) (*Store, error) {
 	if err == nil {
 		_, err = tx.Exec(accessSchema)
 	}
+	if err == nil {
+		_, err = tx.Exec(probeSchema)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("migrate account pools: %w", err)
 	}
