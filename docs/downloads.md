@@ -10,17 +10,21 @@ this document does not invent a public endpoint.
 
 ## Connect using a released NeoPi client
 
-The minimum published native client for this office connection is
-[`v18.10.3-nightly.fd5698a0772a.41001835518.1`](https://github.com/PsychedelicShayna/neopi/releases/tag/v18.10.3-nightly.fd5698a0772a.41001835518.1),
-from source `fd5698a0772a555cb554b860d8f3208a0f7026a5`, including
-[NeoPi #602](https://github.com/PsychedelicShayna/neopi/pull/602). Use that release
-or a later release retaining native NeoProxy login. The base version `18.10.3`
-alone is not sufficient; the older
-`v18.10.3-nightly.0e5812fa0bb8.40952896996.1` predates this command.
+NeoPi connects with the service URL and an inference key (`nk_...`) that an
+administrator issued for your user in the dashboard (**Users** → your user →
+**Keys** → **Issue key**). NeoPi does not sign in to the dashboard, ask for your
+dashboard password or mint keys itself. This key-based login arrived in
+[NeoPi #647](https://github.com/PsychedelicShayna/neopi/pull/647), merged into
+NeoPi `nightly` as `07fca9db63934ecd518c95fe7ccc3b2f80261c70`. Use a NeoPi release
+built from that commit or later. Earlier releases, including
+`v18.10.3-nightly.fd5698a0772a.41001835518.1` and
+`v18.14.0-nightly.f0137340c065.41058410555.1`, predate it and still use the
+retired username/password flow of [NeoPi #602](https://github.com/PsychedelicShayna/neopi/pull/602).
+The base version number alone does not tell you which flow a build has.
 
 NeoPi release assets are **standalone executables, not archives**:
 
-| Client system | Asset from the pinned NeoPi release |
+| Client system | Asset from the chosen NeoPi release |
 | --- | --- |
 | Linux x86-64, glibc | `npi-linux-x64` |
 | Linux ARM64, glibc | `npi-linux-arm64` |
@@ -38,14 +42,14 @@ client. No source clone, Bun installation or hand-written `models.yml` is needed
 
 ### Install the released client on Windows
 
-In PowerShell, choose a fresh private directory. The example is x86-64; use
-`npi-windows-arm64.exe` on ARM64.
+In PowerShell, choose a fresh private directory. Set `$tag` to the NeoPi release
+tag you chose above. The example is x86-64; use `npi-windows-arm64.exe` on ARM64.
 
 ```powershell
 if (Test-Path .\NeoPi-office) { throw "Choose a fresh client directory" }
 New-Item -ItemType Directory .\NeoPi-office | Out-Null
 Set-Location .\NeoPi-office
-$tag = "v18.10.3-nightly.fd5698a0772a.41001835518.1"
+$tag = "NEOPI-RELEASE-TAG"
 $asset = "npi-windows-x64.exe"
 $base = "https://github.com/PsychedelicShayna/neopi/releases/download/$tag"
 Invoke-WebRequest "$base/$asset" -OutFile $asset
@@ -61,12 +65,12 @@ npi login neoproxy --help
 ```
 
 The PATH change above is for this terminal only; it does not replace another
-NeoPi installation or edit a permanent profile. The pinned Windows x86-64 asset's
-SHA-256 is `2cbb3842832ff2e93fbfa105953b8231310c4d53cc0be86fbe2b758e45f30e35`.
+NeoPi installation or edit a permanent profile.
 
 ### Install the released client on Linux
 
-Use a fresh private directory and select the matching asset from the table.
+Use a fresh private directory, set `tag` to the chosen NeoPi release tag and select
+the matching asset from the table.
 NixOS is a **glibc** distribution; do not treat it as a musl platform or assume
 that the official NeoPi musl client has been verified there.
 
@@ -89,7 +93,7 @@ architecture or a genuinely musl-based Linux host.
 ```sh
 mkdir NeoPi-office &&
 cd NeoPi-office &&
-tag=v18.10.3-nightly.fd5698a0772a.41001835518.1 &&
+tag=NEOPI-RELEASE-TAG &&
 asset=npi-linux-x64 &&
 base="https://github.com/PsychedelicShayna/neopi/releases/download/$tag" &&
 curl -fL "$base/$asset" -o "$asset" &&
@@ -102,17 +106,15 @@ npi --version &&
 npi login neoproxy --help
 ```
 
-The pinned glibc Linux x86-64 asset is 326,813,872 bytes; its SHA-256 is
-`5487bf833b71f41e0f52c7c6e12d29915932e0085ffefd9681ae424ac50ecd17`.
 For macOS, download the matching Darwin asset, compare `shasum -a 256 <asset>`
 with its line in `SHA256SUMS.txt`, then make it executable and name it `npi`.
 
 ### Log in and select a granted model
 
 The released client's `npi login neoproxy --help` must show `--url`. If it does
-not, use the pinned release above instead of a source run or manual provider
-configuration. Publication and native startup checks alone do not prove your
-office service is reachable: the login and real reply below are separate steps.
+not, choose a newer release as described above instead of a source run or manual
+provider configuration. Publication and native startup checks alone do not prove
+your office service is reachable: the login and real reply below are separate steps.
 
 ```sh
 npi login neoproxy --url https://YOUR-PROXY-HOST
@@ -120,13 +122,16 @@ npi models neoproxy --json
 npi
 ```
 
-Use the actual HTTPS URL provided by your administrator. Login prompts for your
-NeoProxy username and hidden password. Account owners explicitly choose their
-owned accounts. NeoPi mints a scoped inference key through the real user
-interface, stores it through its normal auth storage, configures endpoint/model
-discovery, and logs out the temporary dashboard session. It does not copy a
-provider token or save your dashboard password as the inference credential.
-The interactive equivalents are `npi login` → NeoProxy and `/login neoproxy`.
+Use the actual HTTPS URL provided by your administrator. On HTTPS, NeoPi first
+shows the server and CA certificate SHA-256 fingerprints without sending a
+credential; compare them with your administrator and confirm. It then asks for
+the administrator-assigned inference key in a hidden prompt and validates it with
+`GET /v1/models`. The key and the confirmed CA are stored in NeoPi's normal
+credential storage, bound to that exact origin; endpoint/model discovery is
+configured for you. There is no command-line key flag. Without `--url`, the server
+URL is asked for first. The interactive equivalents are `npi login` → NeoProxy and
+`/login neoproxy` inside a session; `/logout` → NeoProxy removes the local key
+without revoking it on the server.
 
 In NeoPi, open `/model` and choose a model that the authenticated NeoProxy
 catalogue actually lists. For role assignments use `/models` and its normal
@@ -241,7 +246,7 @@ $operator = -join ($random | ForEach-Object { $_.ToString("x2") })
 $config = @{
   'config-version' = 8
   server = @{ host = '127.0.0.1'; port = 8317; discovery = @{ enabled = $false } }
-  management = @{ 'secret-key' = $operator; 'disable-control-panel' = $true; 'disable-auto-update-panel' = $true }
+  management = @{ 'secret-key' = $operator; 'disable-control-panel' = $false; 'disable-auto-update-panel' = $true }
   oauth = @{ 'auth-dir' = (Join-Path (Get-Location) 'auths') }
   access = @{ 'api-keys' = @() }
 }
@@ -269,7 +274,7 @@ from pathlib import Path
 config = {
     "config-version": 8,
     "server": {"host": "127.0.0.1", "port": 8317, "discovery": {"enabled": False}},
-    "management": {"secret-key": secrets.token_hex(32), "disable-control-panel": True,
+    "management": {"secret-key": secrets.token_hex(32), "disable-control-panel": False,
                    "disable-auto-update-panel": True},
     "oauth": {"auth-dir": str(Path("auths").resolve())},
     "access": {"api-keys": []},
@@ -283,9 +288,11 @@ ${EDITOR:-vi} config.yaml
 ./neoproxy --config ./config.yaml --local-model
 ```
 
-Open **http://127.0.0.1:8317/neo/**. Choose **First-time setup**, enter a new
-username and password (12–72 UTF-8 bytes), and the generated **Operator management
-secret**. Create the first administrator; bootstrap then closes permanently.
+Keep `management.disable-control-panel` set to `false`: `true` removes the
+dashboard and `/neo/` returns 404. Open **http://127.0.0.1:8317/neo/**. Choose
+**First-time setup**, enter a new username and password (12–72 UTF-8 bytes), and
+the generated **Operator management secret**. Create the first administrator;
+bootstrap then closes permanently.
 Afterward, ordinary sign-in uses only username/password. A service principal
 cannot sign in to the dashboard.
 
