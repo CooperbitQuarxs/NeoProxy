@@ -54,7 +54,7 @@ export interface ProviderInfo {
 	name: string;
 	vendor: string;
 	hue: number;
-	/** 0 means a neutral, near-grey provider color (xAI, custom servers). */
+	/** 0 means a neutral, near-grey provider color (xAI, custom servers); below 0.13 a faint tint of the hue. */
 	chroma?: number;
 	neutral?: boolean;
 	methods: Array<"subscription" | "apiKey">;

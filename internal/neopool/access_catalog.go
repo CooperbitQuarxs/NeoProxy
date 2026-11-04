@@ -85,6 +85,11 @@ type dialectRule struct {
 
 const providerChroma = 0.13
 
+// tintChroma tints a provider whose brand is monochrome (Cursor, OpenCode Zen,
+// Vercel) so tiles sharing one pool stay apart; xAI and custom servers keep
+// pure grey (Chroma 0).
+const tintChroma = 0.045
+
 var (
 	chatGPTPlans = []ProviderPlan{{"free", "ChatGPT Free", 0}, {"plus", "ChatGPT Plus", 20}, {"pro", "ChatGPT Pro", 200}, {"team", "ChatGPT Team", 30}, {"business", "ChatGPT Business", 30}, {"enterprise", "ChatGPT Enterprise", 60}}
 	claudePlans  = []ProviderPlan{{"pro", "Claude Pro", 20}, {"max5x", "Claude Max 5x", 100}, {"max20x", "Claude Max 20x", 200}}
@@ -169,7 +174,7 @@ var providerCatalog = []ProviderInfo{
 		Plans:        grokPlans, engine: "xai"},
 	// Same xAI sign-in and token as xai, served through the Grok CLI chat-proxy,
 	// which has its own speed, usage limits and model list.
-	{ID: "grok-build", Name: "Grok Build", Vendor: "xAI", Hue: 0, Chroma: 0, Methods: []string{"subscription"},
+	{ID: "grok-build", Name: "Grok Build", Vendor: "xAI", Hue: 250, Chroma: tintChroma, Methods: []string{"subscription"},
 		Subscription: device("Opens x.ai in a new tab and shows a code to confirm there. Requests go to Grok Build, the Grok CLI's endpoint, with its own speed, usage limits and models."),
 		Plans:        grokPlans},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
@@ -206,23 +211,23 @@ var providerCatalog = []ProviderInfo{
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
-	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 285, Chroma: providerChroma, Methods: []string{"apiKey"},
+	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 267, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:     openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
 		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
 		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
 		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
-	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
+	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 242, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
 		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
-	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
+	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 160, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/v1", "oc_... (OpenCode Zen key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{},
 		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
-	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
+	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 357, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.sakana.ai/v1", "fish_...", "https://console.sakana.ai/api-keys"), Plans: []ProviderPlan{},
 		dialect: "responses"},
-	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
+	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 57, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.abliteration.ai/v1", "ak_...", "https://abliteration.ai/console"), Plans: []ProviderPlan{},
 		dialect: "responses"},
 	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
@@ -236,7 +241,7 @@ var providerCatalog = []ProviderInfo{
 			{Status: 404, Match: []string{"Not Found", "not found"}, Action: "stop"},
 			{Status: 410, Match: []string{"Gone", "end of life"}, Action: "stop"},
 		}},
-	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
+	{ID: "vercel-ai-gateway", Name: "Vercel AI Gateway", Vendor: "Vercel", Hue: 300, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://ai-gateway.vercel.sh/v1", "vck_...", "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys"), Plans: []ProviderPlan{}},
 	{ID: "nous-portal", Name: "Nous Portal", Vendor: "Nous Research", Hue: 320, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
 		Subscription: device("Opens the Nous Portal in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed.").at("Nous Portal"),
@@ -246,7 +251,7 @@ var providerCatalog = []ProviderInfo{
 	{ID: "marineris", Name: "Marineris", Vendor: "Marineris gateway", Hue: 35, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://192.168.50.50:8801/v1", EditableBaseURL: true, KeyHint: "mrn_... (issued by the gateway's administrator)"},
 		Plans:  []ProviderPlan{}},
-	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 0, Chroma: 0, Methods: []string{"subscription"},
+	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 75, Chroma: tintChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed.").at("Cursor"),
 		Plans:        cursorPlans},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},

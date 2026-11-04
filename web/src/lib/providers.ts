@@ -79,8 +79,8 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		id: "grok-build",
 		name: "Grok Build",
 		vendor: "xAI",
-		hue: 280,
-		neutral: true,
+		hue: 250,
+		chroma: 0.045,
 		methods: ["subscription"],
 		subscription: { flow: "device", note: "Opens x.ai in a new tab and shows a code to confirm there. Requests go to Grok Build, the Grok CLI's endpoint, with its own speed, usage limits and models." },
 		plans: [
@@ -118,7 +118,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		id: "alibaba-token-plan",
 		name: "QwenCloud Token Plan",
 		vendor: "Qwen",
-		hue: 285,
+		hue: 267,
 		methods: ["apiKey"],
 		apiKey: { style: "openai", baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", keyHint: "sk-sp-… (International or China key)", getKeyUrl: "https://home.qwencloud.com/billing/subscription/token-plan-individual" },
 		plans: [
@@ -132,7 +132,7 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 		id: "opencode-go",
 		name: "OpenCode Go",
 		vendor: "OpenCode",
-		hue: 150,
+		hue: 242,
 		methods: ["apiKey"],
 		apiKey: { style: "openai", baseUrl: "https://opencode.ai/zen/go/v1", keyHint: "oc_… (OpenCode Go key)", getKeyUrl: "https://opencode.ai/auth" },
 		plans: [
@@ -141,20 +141,20 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 			{ id: "go-teams", name: "Go Teams (per member)", monthlyUSD: 20 },
 		],
 	},
-	{ id: "opencode-zen", name: "OpenCode Zen", vendor: "OpenCode", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://opencode.ai/zen/v1", keyHint: "oc_… (OpenCode Zen key)", getKeyUrl: "https://opencode.ai/auth" } },
-	{ id: "sakana", name: "Sakana AI", vendor: "Sakana AI", hue: 15, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.sakana.ai/v1", keyHint: "fish_…", getKeyUrl: "https://console.sakana.ai/api-keys" } },
-	{ id: "abliteration", name: "Abliteration", vendor: "Abliteration", hue: 320, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.abliteration.ai/v1", keyHint: "ak_…", getKeyUrl: "https://abliteration.ai/console" } },
+	{ id: "opencode-zen", name: "OpenCode Zen", vendor: "OpenCode", hue: 160, chroma: 0.045, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://opencode.ai/zen/v1", keyHint: "oc_… (OpenCode Zen key)", getKeyUrl: "https://opencode.ai/auth" } },
+	{ id: "sakana", name: "Sakana AI", vendor: "Sakana AI", hue: 357, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.sakana.ai/v1", keyHint: "fish_…", getKeyUrl: "https://console.sakana.ai/api-keys" } },
+	{ id: "abliteration", name: "Abliteration", vendor: "Abliteration", hue: 57, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.abliteration.ai/v1", keyHint: "ak_…", getKeyUrl: "https://abliteration.ai/console" } },
 	{ id: "huggingface", name: "Hugging Face", vendor: "Hugging Face", hue: 85, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://router.huggingface.co/v1", keyHint: "hf_…", getKeyUrl: "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained" } },
 	{ id: "nvidia", name: "NVIDIA NIM", vendor: "NVIDIA", hue: 135, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://integrate.api.nvidia.com/v1", keyHint: "nvapi-…", getKeyUrl: "https://build.nvidia.com/settings/api-keys" } },
-	{ id: "vercel-ai-gateway", name: "Vercel AI Gateway", vendor: "Vercel", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://ai-gateway.vercel.sh/v1", keyHint: "vck_…", getKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys" } },
+	{ id: "vercel-ai-gateway", name: "Vercel AI Gateway", vendor: "Vercel", hue: 300, chroma: 0.045, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://ai-gateway.vercel.sh/v1", keyHint: "vck_…", getKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys" } },
 	{ id: "nous-portal", name: "Nous Portal", vendor: "Nous Research", hue: 320, methods: ["subscription", "apiKey"], subscription: { flow: "device", note: "Shows a code to confirm on the Nous Portal.", site: "Nous Portal" }, apiKey: { style: "openai", baseUrl: "https://inference-api.nousresearch.com/v1", keyHint: "sk-…", getKeyUrl: "https://portal.nousresearch.com/" } },
 	{ id: "marineris", name: "Marineris", vendor: "Marineris gateway", hue: 35, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "http://192.168.50.50:8801/v1", editableBaseUrl: true, keyHint: "mrn_… (issued by the gateway's administrator)" } },
 	{
 		id: "cursor",
 		name: "Cursor",
 		vendor: "Anysphere",
-		hue: 0,
-		neutral: true,
+		hue: 75,
+		chroma: 0.045,
 		methods: ["subscription"],
 		subscription: { flow: "browser", note: "Opens Cursor's sign-in page in a new tab.", site: "Cursor" },
 		plans: [
@@ -184,12 +184,23 @@ export function providerInfo(id: string, catalog: ProviderInfo[] = FALLBACK_PROV
 	);
 }
 
+// The catalogue's full provider chroma; smaller values are tints of it.
+const FULL_CHROMA = 0.13;
+
 // Provider color follows the theme's lightness/chroma so data colors stay
-// harmonious on both chassis. Neutral providers (xAI, custom) are near-grey.
+// harmonious on both chassis. Neutral providers (xAI, custom) are near-grey;
+// monochrome brands (Cursor, OpenCode Zen, Vercel) get a faint tint so they
+// stay apart in one pool.
 export function providerColor(id: string, hue?: number, alpha?: number) {
 	const info = providerInfo(id);
 	const h = hue ?? info.hue;
-	const c = info.neutral || info.chroma === 0 ? "0.02" : "var(--provider-c)";
+	const chroma = info.chroma;
+	const c =
+		info.neutral || chroma === 0
+			? "0.02"
+			: chroma !== undefined && chroma < FULL_CHROMA
+				? `calc(var(--provider-c) * ${+(chroma / FULL_CHROMA).toFixed(3)})`
+				: "var(--provider-c)";
 	return `oklch(var(--provider-l) ${c} ${h}${alpha !== undefined ? ` / ${alpha}` : ""})`;
 }
 
