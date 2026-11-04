@@ -18,10 +18,12 @@ func TestPoolPolicyReductionsRespectGrantAndStaticCeilings(t *testing.T) {
 	if decision.AccountID != "b" || decision.Trail[0].Cap != 0.4 || len(decision.Trail[0].Candidates) != 1 || decision.Trail[0].Candidates[0].Budget != 0.25 {
 		t.Fatalf("Lua widened a grant, hard ceiling or fresh account scope: %+v", decision)
 	}
-	// Revoked authority and unavailable denominators still win over true / 1.
+	// Revoked authority still wins over true / 1; an unmetered account is
+	// always eligible and Lua cannot give it a denominator or a larger budget.
 	state.snapshot.Accounts[1].Windows = nil
-	if decision = decide(Request{Asked: state.vm.Served}, state, -1, proposal); decision.Outcome == "ok" {
-		t.Fatalf("Lua invented a denominator for an unmetered account: %+v", decision)
+	decision = decide(Request{Asked: state.vm.Served}, state, -1, proposal)
+	if decision.AccountID != "b" || decision.Trail[0].Metered != 0 || decision.Trail[0].Candidates[0].Metered || decision.Trail[0].Candidates[0].Budget != 0.25 {
+		t.Fatalf("unmetered account was not eligible within the grant: %+v", decision)
 	}
 	state.principal.Grants = nil
 	if decision = decide(Request{Asked: state.vm.Served}, state, -1, proposal); decision.Reason != "not-granted" {

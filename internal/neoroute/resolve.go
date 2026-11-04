@@ -39,13 +39,29 @@ func exposedModel(snap neopool.Snapshot, id string) (neopool.Model, bool) {
 	}
 	return neopool.Model{}, false
 }
-func windowFor(a neopool.Account, kind string, now int64) (neopool.Window, bool) {
+
+// localWindow is the account's current configured token meter of that kind.
+func localWindow(a neopool.Account, kind string, now int64) (neopool.Window, bool) {
 	for _, w := range a.Windows {
 		if w.Kind == kind && w.Known && w.Capacity > 0 && w.StartsAt <= now && w.ResetsAt > now {
 			return w, true
 		}
 	}
 	return neopool.Window{}, false
+}
+
+// windowFor returns the meter a stage of that window kind reads for the account:
+// the provider-reported window when one is known and current, else the local
+// configured meter. metered is false when the account has neither, i.e. it is
+// unmetered and always eligible. provider tells which of the two was returned.
+func windowFor(a neopool.Account, kind string, now int64) (w neopool.Window, provider, metered bool) {
+	for _, pw := range a.ProviderWindows {
+		if pw.Kind == kind && pw.Known && (pw.ResetsAt == 0 || pw.ResetsAt > now) {
+			return pw, true, true
+		}
+	}
+	w, metered = localWindow(a, kind, now)
+	return w, false, metered
 }
 func accountByID(snap neopool.Snapshot, id string) (neopool.Account, bool) {
 	for _, a := range snap.Accounts {
@@ -179,10 +195,21 @@ func directDecision(asked, model string, state routeState, vm string, trail []Tr
 	d.Reason = "no-healthy-account"
 	return d
 }
-func stageUsage(state routeState, vm string, st Stage, a neopool.Account, w neopool.Window) float64 {
+
+// stageUsage is the account's used fraction of its meter w for stage st:
+// the provider-reported value as is; for a local meter the account-wide tokens
+// (every user, stage and direct call, reservations included) when Per is "all",
+// or this user's own ledger usage of the stage when Per is "user".
+func stageUsage(state routeState, vm string, st Stage, a neopool.Account, w neopool.Window, provider bool) float64 {
+	if provider {
+		return w.Used
+	}
+	if st.Per == "all" {
+		return float64(w.UsedTokens) / float64(w.Capacity)
+	}
 	total := float64(0)
 	for _, u := range state.usage {
-		if u.VirtualModelID == vm && u.StageID == st.ID && u.AccountID == a.ID && u.Window == st.Window && u.StartsAt == w.StartsAt && u.ResetsAt == w.ResetsAt && (st.Per == "all" || u.UserID == state.principal.UserID) {
+		if u.VirtualModelID == vm && u.StageID == st.ID && u.AccountID == a.ID && u.Window == st.Window && u.StartsAt == w.StartsAt && u.ResetsAt == w.ResetsAt && u.UserID == state.principal.UserID {
 			total += float64(u.Tokens+u.Reserved) / float64(w.Capacity)
 		}
 	}
@@ -194,30 +221,38 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 	var candidates []neopool.Account
 	unhealthy := !visible
 	var reset int64
+	var sum float64
 	for _, a := range state.snapshot.Accounts {
 		if a.ProviderID != m.ProviderID || !accountAllowed(state.principal, a) || (!st.Accounts.All && !slices.Contains(st.Accounts.IDs, a.ID)) {
 			continue
 		}
-		w, known := windowFor(a, st.Window, state.at)
+		w, provider, metered := windowFor(a, st.Window, state.at)
 		if a.CooldownUntil > state.at && (reset == 0 || a.CooldownUntil < reset) {
 			reset = a.CooldownUntil
 		}
+		// An unmetered account has nothing to run out of: used stays 0, it never
+		// enters the cap average and contributes no reset time.
 		used := float64(0)
-		if known {
-			used = stageUsage(state, vm.ID, st, a, w)
-			trail.Total += used
-			if reset == 0 || w.ResetsAt < reset {
+		if metered {
+			used = stageUsage(state, vm.ID, st, a, w, provider)
+			sum += used
+			trail.Metered++
+			if w.ResetsAt > 0 && (reset == 0 || w.ResetsAt < reset) {
 				reset = w.ResetsAt
 			}
 		}
-		if a.State != "healthy" || !visible || !known || !accountSupports(a, st.Model) || w.UsedTokens >= w.Capacity {
+		exhausted := metered && !provider && w.UsedTokens >= w.Capacity
+		if a.State != "healthy" || !visible || !accountSupports(a, st.Model) || exhausted {
 			unhealthy = true
 			continue
 		}
 		if used < st.PerAccount*allot && !state.blocked[st.ID][a.ID] {
 			candidates = append(candidates, a)
-			trail.Candidates = append(trail.Candidates, Candidate{AccountID: a.ID, Used: used, Budget: st.PerAccount * allot})
+			trail.Candidates = append(trail.Candidates, Candidate{AccountID: a.ID, Window: st.Window, Metered: metered, Used: used, Budget: st.PerAccount * allot})
 		}
+	}
+	if trail.Metered > 0 {
+		trail.Total = sum / float64(trail.Metered)
 	}
 	if trail.Total >= trail.Cap {
 		trail.Skipped = "cap"
