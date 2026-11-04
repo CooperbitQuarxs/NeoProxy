@@ -377,6 +377,50 @@ func TestAccessFileUploadDetectsProviderPlanAndOwner(t *testing.T) {
 		t.Fatalf("claude upload item: %+v", claude)
 	}
 
+	// Download is admin-only and returns the engine auth file as an attachment.
+	if acts := strings.Join(item.Actions, ","); !strings.Contains(acts, "refresh") || !strings.Contains(acts, "download") {
+		t.Fatalf("admin actions on a sign-in file: %v", item.Actions)
+	}
+	if acts := strings.Join(claude.Actions, ","); !strings.Contains(acts, "refresh") || strings.Contains(acts, "download") {
+		t.Fatalf("owner actions on own sign-in file: %v", claude.Actions)
+	}
+	dl := f.do("admin", "GET", "/v8/neo/access/"+item.ID+"/file", nil, "")
+	if dl.Code != 200 || !strings.Contains(dl.Header().Get("Content-Disposition"), `attachment; filename="codex-`) || !strings.HasSuffix(strings.TrimSuffix(dl.Header().Get("Content-Disposition"), `"`), "-pro.json") || !strings.Contains(dl.Body.String(), "rt-codex-secret") {
+		t.Fatalf("download: %d %v %s", dl.Code, dl.Header(), dl.Body.String())
+	}
+	f.json("owner-b", "GET", "/v8/neo/access/"+item.ID+"/file", "", 403)
+	key := itemOf(t, f.json("admin", "POST", "/v8/neo/access/api-key", `{"provider":"openrouter","apiKey":"`+routerKey+`"}`, 201))
+	if w = f.do("admin", "GET", "/v8/neo/access/"+key.ID+"/file", nil, ""); w.Code != 409 || !strings.Contains(w.Body.String(), "API key") || strings.Contains(w.Body.String(), routerKey) {
+		t.Fatalf("api key download: %d %s", w.Code, w.Body.String())
+	}
+	if w = f.do("admin", "POST", "/v8/neo/access/"+key.ID+"/refresh", nil, ""); w.Code != 409 {
+		t.Fatalf("api key refresh: %d %s", w.Code, w.Body.String())
+	}
+	f.json("admin", "DELETE", "/v8/neo/access/"+key.ID, "", 204)
+	// The fixture engine has no provider executors, so a forced refresh fails
+	// without any network call and must say so instead of pretending success.
+	f.json("owner-b", "POST", "/v8/neo/access/"+claude.ID+"/refresh", "", 404)
+	if w = f.do("owner-a", "POST", "/v8/neo/access/"+claude.ID+"/refresh", nil, ""); w.Code != 502 || !strings.Contains(w.Body.String(), "did not renew") {
+		t.Fatalf("refresh without executor: %d %s", w.Code, w.Body.String())
+	}
+	locked := &coreauth.Auth{ID: "neopi-codex-locked.json", FileName: "neopi-codex-locked.json", Provider: "codex", Status: coreauth.StatusActive,
+		Attributes: map[string]string{"path": filepath.Join(f.authDir, "neopi-codex-locked.json")},
+		Metadata:   map[string]any{"type": "codex", "access_token": "at-locked-secret", coreauth.MetadataRefreshLocked: true, coreauth.MetadataImportedFrom: map[string]any{"source": "neopi", "profile": "/p", "credential_id": "c1", "imported_at": float64(1)}}}
+	if _, err = f.manager.Register(context.Background(), locked); err != nil {
+		t.Fatal(err)
+	}
+	lockedID := neopool.AccountID(locked.ID)
+	for _, path := range []string{"/refresh", "/file"} {
+		method := "POST"
+		if path == "/file" {
+			method = "GET"
+		}
+		if w = f.do("admin", method, "/v8/neo/access/"+lockedID+path, nil, ""); w.Code != 409 || !strings.Contains(w.Body.String(), "refresh locked") || strings.Contains(w.Body.String(), "at-locked-secret") {
+			t.Fatalf("locked %s: %d %s", path, w.Code, w.Body.String())
+		}
+	}
+	f.manager.Remove(context.Background(), locked.ID)
+
 	if w = f.upload("admin", "notes.json", `{"hello":"world"}`, ""); w.Code != 400 || !strings.Contains(w.Body.String(), "~/.codex/auth.json") {
 		t.Fatalf("unknown format: %d %s", w.Code, w.Body.String())
 	}

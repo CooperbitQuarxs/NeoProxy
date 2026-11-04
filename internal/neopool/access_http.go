@@ -26,6 +26,8 @@ func (h *HTTP) registerAccess(group *gin.RouterGroup) {
 	group.POST("/access/file", h.accessFile)
 	group.PATCH("/access/:id", h.accessPatch)
 	group.DELETE("/access/:id", h.accessDelete)
+	group.POST("/access/:id/refresh", h.accessRefresh)
+	group.GET("/access/:id/file", h.accessDownload)
 }
 
 func respondAccessError(c *gin.Context, err error) {

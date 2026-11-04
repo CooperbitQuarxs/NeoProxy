@@ -323,7 +323,16 @@ func accessUsage(a *coreauth.Auth, ledger ledgerUsage, now time.Time) AccessUsag
 	return u
 }
 
-func accessActions(p neo.Principal, kind string, owned bool) []string {
+// credentialFilePath returns the engine auth file behind a sign-in or file item,
+// or "" when the item has none NeoProxy may refresh or hand out.
+func credentialFilePath(a *coreauth.Auth, kind string) string {
+	if (kind != "subscription" && kind != "file") || a.AuthSourceKind() != coreauth.AuthSourceFile || coreauth.IsRefreshLocked(a) {
+		return ""
+	}
+	return strings.TrimSpace(a.Attributes["path"])
+}
+
+func accessActions(p neo.Principal, kind string, owned, fileBacked bool) []string {
 	out := []string{}
 	admin := p.Role == neo.RoleAdmin
 	if admin {
@@ -331,6 +340,12 @@ func accessActions(p neo.Principal, kind string, owned bool) []string {
 	}
 	if admin || (owned && p.Role == neo.RoleOwner && kind != "neopi") {
 		out = append(out, "disable", "remove")
+	}
+	if fileBacked && (admin || (owned && p.Role == neo.RoleOwner)) {
+		out = append(out, "refresh")
+	}
+	if fileBacked && admin {
+		out = append(out, "download")
 	}
 	if kind == "imported" && (admin || (owned && p.Role == neo.RoleOwner)) {
 		out = append(out, "reimport", "signInSeparately")
@@ -393,7 +408,7 @@ func (h *HTTP) buildAccessItem(p neo.Principal, a *coreauth.Auth, account *Accou
 		item.Refresh = "none"
 	}
 	item.Usage = accessUsage(a, ledger, now)
-	item.Actions = accessActions(p, kind, item.OwnerID != "" && item.OwnerID == p.UserID)
+	item.Actions = accessActions(p, kind, item.OwnerID != "" && item.OwnerID == p.UserID, credentialFilePath(a, kind) != "")
 	return item
 }
 
@@ -511,6 +526,6 @@ func (h *HTTP) AccessItemByEngineID(ctx context.Context, p neo.Principal, engine
 	row.CreatedAt = created
 	item := h.buildAccessItem(p, a, nil, row, ledgerUsage{}, h.pool.now())
 	item.OwnerID = owner.String
-	item.Actions = accessActions(p, item.Kind, owner.String != "" && owner.String == p.UserID)
+	item.Actions = accessActions(p, item.Kind, owner.String != "" && owner.String == p.UserID, credentialFilePath(a, item.Kind) != "")
 	return item, nil
 }
