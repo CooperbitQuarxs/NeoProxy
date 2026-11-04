@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/browser"
-	// legacy client removed
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -32,7 +32,8 @@ func (a *ClaudeAuthenticator) Provider() string {
 }
 
 func (a *ClaudeAuthenticator) RefreshLead() *time.Duration {
-	return new(4 * time.Hour)
+	lead := anthropicnpi.RefreshLead
+	return &lead
 }
 
 func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
@@ -51,24 +52,22 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 		callbackPort = opts.CallbackPort
 	}
 
-	pkceCodes, err := claude.GeneratePKCECodes()
+	session, err := anthropicnpi.NewSession()
 	if err != nil {
-		return nil, fmt.Errorf("claude pkce generation failed: %w", err)
+		return nil, fmt.Errorf("claude OAuth session generation failed: %w", err)
 	}
-
-	state, err := misc.GenerateRandomState()
-	if err != nil {
-		return nil, fmt.Errorf("claude state generation failed: %w", err)
-	}
+	session.Redirect = fmt.Sprintf("http://localhost:%d/callback", callbackPort)
+	state := session.State
 
 	oauthServer := claude.NewOAuthServer(callbackPort)
-	if err = oauthServer.Start(); err != nil {
-		if strings.Contains(err.Error(), "already in use") {
-			return nil, claude.NewAuthenticationError(claude.ErrPortInUse, err)
-		}
-		return nil, claude.NewAuthenticationError(claude.ErrServerStartFailed, err)
+	started := oauthServer.Start() == nil
+	if !started && opts.Prompt == nil {
+		return nil, fmt.Errorf("claude callback listener unavailable; use a prompt-enabled login for pasted authorization codes")
 	}
 	defer func() {
+		if !started {
+			return
+		}
 		stopCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if stopErr := oauthServer.Stop(stopCtx); stopErr != nil {
@@ -76,13 +75,7 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 		}
 	}()
 
-	authSvc := claude.NewClaudeAuth(cfg)
-
-	authURL, returnedState, err := authSvc.GenerateAuthURL(state, pkceCodes)
-	if err != nil {
-		return nil, fmt.Errorf("claude authorization url generation failed: %w", err)
-	}
-	state = returnedState
+	authURL := session.AuthURL()
 
 	if !opts.NoBrowser {
 		fmt.Println("Opening browser for Claude authentication")
@@ -107,6 +100,9 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 	manualDescription := ""
 
 	go func() {
+		if !started {
+			return
+		}
 		result, errWait := oauthServer.WaitForCallback(5 * time.Minute)
 		if errWait != nil {
 			callbackErrCh <- errWait
@@ -124,12 +120,20 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 		defer manualPromptTimer.Stop()
 	}
 
+	// A pasted-code-only flow has the same bounded lifetime as loopback.
+	loginTimeout := time.NewTimer(5 * time.Minute)
+	defer loginTimeout.Stop()
+
 	var manualInputCh <-chan string
 	var manualInputErrCh <-chan error
 
 waitForCallback:
 	for {
 		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-loginTimeout.C:
+			return nil, claude.NewAuthenticationError(claude.ErrCallbackTimeout, fmt.Errorf("timeout waiting for Claude authorization"))
 		case result = <-callbackCh:
 			break waitForCallback
 		case err = <-callbackErrCh:
@@ -152,16 +156,29 @@ waitForCallback:
 				return nil, err
 			default:
 			}
-			manualInputCh, manualInputErrCh = misc.AsyncPrompt(opts.Prompt, "Paste the Claude callback URL (or press Enter to keep waiting): ")
+			manualInputCh, manualInputErrCh = misc.AsyncPrompt(opts.Prompt, "Paste the Claude callback URL or authorization code (or press Enter to keep waiting): ")
 			continue
 		case input := <-manualInputCh:
 			manualInputCh = nil
 			manualInputErrCh = nil
-			parsed, errParse := misc.ParseOAuthCallback(input)
+			input = strings.TrimSpace(input)
+			var parsed *misc.OAuthCallback
+			var errParse error
+			if input != "" && !strings.Contains(input, "://") && !strings.Contains(input, "?") {
+				code, pastedState, _ := strings.Cut(input, "#")
+				if pastedState == "" {
+					pastedState = state
+				}
+				parsed = &misc.OAuthCallback{Code: code, State: pastedState}
+			} else {
+				parsed, errParse = misc.ParseOAuthCallback(input)
+			}
 			if errParse != nil {
 				return nil, errParse
 			}
 			if parsed == nil {
+				manualPromptTimer.Reset(15 * time.Second)
+				manualPromptC = manualPromptTimer.C
 				continue
 			}
 			manualDescription = parsed.ErrorDescription
@@ -181,46 +198,30 @@ waitForCallback:
 	}
 
 	if result.State != state {
-		log.Errorf("State mismatch: expected %s, got %s", state, result.State)
 		return nil, claude.NewAuthenticationError(claude.ErrInvalidState, fmt.Errorf("state mismatch"))
 	}
 
-	log.Debug("Claude authorization code received; exchanging for tokens")
-	log.Debugf("Code: %s, State: %s", result.Code[:min(20, len(result.Code))], state)
-
-	authBundle, err := authSvc.ExchangeCodeForTokens(ctx, result.Code, state, pkceCodes)
+	tokenStorage, err := anthropicnpi.NewClient(cfg, "").Exchange(ctx, session, result.Code)
 	if err != nil {
 		log.Errorf("Token exchange failed: %v", err)
 		return nil, claude.NewAuthenticationError(claude.ErrCodeExchangeFailed, err)
 	}
 
-	tokenStorage := authSvc.CreateTokenStorage(authBundle)
+	if err = anthropicnpi.EnsureInstallID(cfg.AuthDir, tokenStorage); err != nil {
+		return nil, fmt.Errorf("persist Claude installation identity: %w", err)
+	}
 
 	if tokenStorage == nil || tokenStorage.Email == "" {
 		return nil, fmt.Errorf("claude token storage missing account information")
 	}
 
-	fileName := claude.CredentialFileName(tokenStorage.Email, tokenStorage.OrganizationUUID, tokenStorage.AccountUUID)
-	metadata := map[string]any{
-		"email": tokenStorage.Email,
-	}
-	if tokenStorage.AccountUUID != "" {
-		metadata["account_uuid"] = tokenStorage.AccountUUID
-	}
-	if tokenStorage.OrganizationUUID != "" {
-		metadata["organization_uuid"] = tokenStorage.OrganizationUUID
-	}
-	if tokenStorage.OrganizationName != "" {
-		metadata["organization_name"] = tokenStorage.OrganizationName
-	}
-	if len(tokenStorage.DeviceIDs) > 0 {
-		metadata[claude.ClaudeDeviceIDsMetadataKey] = append([]string(nil), tokenStorage.DeviceIDs...)
+	fileName := tokenStorage.FileName()
+	metadata, err := anthropicnpi.CredentialMetadata(tokenStorage)
+	if err != nil {
+		return nil, err
 	}
 
 	fmt.Println("Claude authentication successful")
-	if authBundle.APIKey != "" {
-		fmt.Println("Claude API key obtained and stored")
-	}
 
 	return &coreauth.Auth{
 		ID:       fileName,

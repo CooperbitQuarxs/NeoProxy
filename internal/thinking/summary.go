@@ -469,7 +469,7 @@ func interactionsSummaryConfig(body []byte, path string) (SummaryConfig, bool) {
 // The exact model-aware summary pass can then activate enabled thinking with a
 // valid budget, or leave thinking absent when max_tokens cannot accommodate it.
 func stripInferredClaudeSummaryActivation(body []byte, modelInfo *registry.ModelInfo) []byte {
-	if modelInfo == nil || modelInfo.Thinking == nil || len(modelInfo.Thinking.Levels) > 0 || modelInfo.Thinking.Min <= 0 {
+	if modelInfo == nil || modelInfo.Thinking == nil || modelInfo.Thinking.Min <= 0 {
 		return body
 	}
 	if !strings.EqualFold(strings.TrimSpace(gjson.GetBytes(body, "thinking.type").String()), "adaptive") {
@@ -505,7 +505,7 @@ func enableClaudeThinkingForSummary(body []byte, model string, resolvedModelInfo
 		return body
 	}
 
-	if len(modelInfo.Thinking.Levels) > 0 {
+	if modelInfo.Thinking.Min <= 0 && len(modelInfo.Thinking.Levels) > 0 {
 		body, _ = sjson.SetBytes(body, "thinking.type", "adaptive")
 		body, _ = sjson.DeleteBytes(body, "thinking.budget_tokens")
 		return body

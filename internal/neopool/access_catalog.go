@@ -159,7 +159,7 @@ var providerCatalog = []ProviderInfo{
 		APIKey:       &ProviderAPIKey{Style: "openai", BaseURL: "https://api.openai.com/v1", KeyHint: "sk-...", GetKeyURL: "https://platform.openai.com/api-keys"},
 		Plans:        chatGPTPlans, engine: "codex"},
 	{ID: "claude", Name: "Claude", Vendor: "Anthropic", Hue: 45, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: browser("Opens Anthropic's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
+		Subscription: browser("Uses NeoPi's Claude sign-in and returns automatically through its localhost callback. If this page does not move on, paste the redirect URL or code using the sign-in fallback."),
 		APIKey:       &ProviderAPIKey{Style: "anthropic", BaseURL: "https://api.anthropic.com", KeyHint: "sk-ant-...", GetKeyURL: "https://console.anthropic.com/settings/keys"},
 		Plans:        claudePlans, engine: "claude"},
 	{ID: "gemini", Name: "Gemini", Vendor: "Google", Hue: 255, Chroma: providerChroma, Methods: []string{"apiKey"},

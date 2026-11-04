@@ -151,13 +151,11 @@ func TestIssue6478_ClaudeLegacyEncodingCollision(t *testing.T) {
 		if len(uses) != 4 || len(results) != 4 {
 			t.Fatalf("history lost calls/results: %s", body)
 		}
-		seen := make(map[string]bool)
 		for i, use := range uses {
 			id := use.Get("id").String()
-			if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(id) || seen[id] {
-				t.Errorf("legacy normalization produced invalid or colliding ID %q (stream=%v)", id, stream)
+			if id != ids[i] {
+				t.Errorf("custom same-model endpoint changed opaque ID %q to %q (stream=%v)", ids[i], id, stream)
 			}
-			seen[id] = true
 			if results[i].Get("tool_use_id").String() != id {
 				t.Errorf("legacy collision mapping broke pair[%d]", i)
 			}
@@ -167,7 +165,7 @@ func TestIssue6478_ClaudeLegacyEncodingCollision(t *testing.T) {
 		}
 		// Repairing a repaired transcript must be byte-stable at schema ID fields.
 		again := executeClaudeContextManagementRequest(t, &config.Config{}, body, stream)
-		if gjson.GetBytes(again, "messages.1.content").Raw != gjson.GetBytes(body, "messages.1.content").Raw {
+		if gjson.GetBytes(again, "messages.1.content.#.id").Raw != gjson.GetBytes(body, "messages.1.content.#.id").Raw {
 			t.Errorf("history ID repair is not idempotent")
 		}
 	}
@@ -218,8 +216,9 @@ func TestIssue6478_ClaudeUpstreamCountTokensRepairBeforePayload(t *testing.T) {
 				if resultIDs[i].String() != id.String() {
 					t.Errorf("count_tokens call/result pair[%d] differs: %q vs %q", i, id.String(), resultIDs[i].String())
 				}
-				if i >= 2 && id.String() != ids[i] {
-					t.Errorf("count_tokens changed legal ID[%d]: %q", i, id.String())
+				expected := []string{"Write_1_e1f0da81143649f3a378d24af6fc3ec9", "PowerShell_66_cd50350578c34275a26a09a477a81ffb", "Write_1_e1f0da81143649f3a378d24af6fc3ec9_dup1", "call_8jAZYBK5veMdr1DD2DqObARK"}
+				if id.String() != expected[i] {
+					t.Errorf("count_tokens source ID[%d]: got %q want %q", i, id.String(), expected[i])
 				}
 			}
 		}

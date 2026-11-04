@@ -73,6 +73,19 @@ func (h *Handler) handleOAuthCallback(c *gin.Context, req oauthCallbackRequest) 
 			}
 		}
 	}
+	// NeoPi's manual fallback returns code#state for the official Claude flow.
+	if provider := strings.ToLower(strings.TrimSpace(req.Provider)); provider == "claude" || provider == "anthropic" || provider == "" {
+		if pastedCode, pastedState, ok := strings.Cut(code, "#"); ok {
+			if state != "" && strings.TrimSpace(pastedState) != "" && state != strings.TrimSpace(pastedState) {
+				c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "state does not match pasted code"})
+				return
+			}
+			if state == "" {
+				state = strings.TrimSpace(pastedState)
+			}
+			code = pastedCode
+		}
+	}
 
 	if state == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "state is required"})

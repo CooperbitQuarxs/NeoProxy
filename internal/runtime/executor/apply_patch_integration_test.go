@@ -90,7 +90,9 @@ func task6Executor(provider string) cliproxyauth.ProviderExecutor {
 	cfg := &config.Config{}
 	switch provider {
 	case "claude", "claude-oauth":
-		return NewClaudeExecutor(cfg)
+		executor := NewClaudeExecutor(cfg)
+		executor.wait = func(context.Context, time.Duration) error { return nil }
+		return executor
 	case "gemini":
 		return NewGeminiExecutor(cfg)
 	case "gemini-interactions":
@@ -171,7 +173,7 @@ func TestApplyPatchActualProviderErrorAndEOF(t *testing.T) {
 				auth := &cliproxyauth.Auth{ID: "task6", Provider: exec.Identifier(), Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 				if provider == "claude-oauth" {
 					auth.Attributes["api_key"] = "sk-ant-oat-test"
-					auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
+					auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "neopi_install_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}
 				}
 				if provider == "antigravity" {
 					auth.Metadata = map[string]any{"access_token": "test", "expires_in": 3600, "timestamp": "2099-01-01T00:00:00Z", "project_id": "test"}
@@ -195,6 +197,13 @@ func TestApplyPatchActualProviderErrorAndEOF(t *testing.T) {
 					assertTask6PatchError(t, errExecute)
 				} else {
 					stream, errExecuteStream := exec.ExecuteStream(context.Background(), auth, req, opts)
+					if strings.HasPrefix(provider, "claude") && mode == "empty" {
+						// NeoPi exhausts its pre-output retries before exposing a stream.
+						if errExecuteStream == nil || stream != nil {
+							t.Fatalf("empty upstream escaped stream preflight: stream=%v err=%v", stream, errExecuteStream)
+						}
+						return
+					}
 					if errExecuteStream != nil {
 						t.Fatal(errExecuteStream)
 					}
@@ -495,7 +504,7 @@ func TestApplyPatchHTTPGatewayErrorMatrix(t *testing.T) {
 				auth := &cliproxyauth.Auth{ID: "task6-http-" + provider + mode, Provider: exec.Identifier(), Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 				if provider == "claude-oauth" {
 					auth.Attributes["api_key"] = "sk-ant-oat-test"
-					auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
+					auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "neopi_install_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}
 				}
 				if provider == "antigravity" {
 					auth.Metadata = map[string]any{"access_token": "test", "expires_in": 3600, "timestamp": "2099-01-01T00:00:00Z", "project_id": "test"}

@@ -146,14 +146,17 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "claude":
-		models = registry.GetClaudeModels()
 		if entry := resolveConfigClaudeKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildClaudeConfigModels(entry)
+			} else {
+				models = claudeModelInfos(s.claudeModelsForAuth(cfg, a, time.Now()))
 			}
 			if authKind == "apikey" {
 				excluded = entry.ExcludedModels
 			}
+		} else {
+			models = claudeModelInfos(s.claudeModelsForAuth(cfg, a, time.Now()))
 		}
 		models = applyExcludedModels(models, excluded)
 	case "codex":
@@ -344,7 +347,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	models = s.appendPluginModels(key, models, excluded)
 	if len(models) > 0 {
 		models = applyOAuthSettingsForAuth(cfg, provider, authKind, models)
-		published = s.registerResolvedModelsForAuthFenced(a, fence, key, applyModelPrefixes(models, a.Prefix, cfg != nil && cfg.ForceModelPrefix))
+		prefix, forcePrefix := a.Prefix, cfg != nil && cfg.ForceModelPrefix
+		published = s.registerResolvedModelsForAuthFenced(a, fence, key, applyModelPrefixes(models, prefix, forcePrefix))
 		if strings.EqualFold(strings.TrimSpace(a.Provider), "antigravity") {
 			s.asyncProbeAntigravityCapabilities(ctx, a, key)
 		}
