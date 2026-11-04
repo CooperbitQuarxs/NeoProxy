@@ -154,8 +154,10 @@ authenticated) is documented in [neo-access-api.md](neo-access-api.md).
 
 `claude` uses the NeoPi Anthropic implementation for both subscription OAuth
 and API keys; there is no separate experimental provider. The dashboard starts
-the same authorization-code flow at `/v8/neo/vault/login/claude` and accepts the
-returned `code#state` through its callback form. Existing Claude credential
+the same authorization-code flow at `/v8/neo/vault/login/claude`. The provider
+catalog reports `subscription.flow = "browser"` because NeoProxy catches its
+`http://localhost:54545/callback` redirect. The dialog retains a pasted URL/code
+fallback when the browser cannot reach that listener. Existing Claude credential
 files keep their filenames, ownership and prefixes. Imported NeoPi credentials
 remain refresh-locked; model and usage discovery never refreshes them.
 
