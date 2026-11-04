@@ -12,22 +12,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claudeneopi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
-// RequestClaudeNeoPiToken owns an independent login session and auth-file type.
+// RequestAnthropicNPIToken owns an independent login session and auth-file type.
 // A busy loopback port never replaces another provider's callback listener: the
 // ordinary pasted-callback endpoint remains available in that case.
-func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
+func (h *Handler) RequestAnthropicNPIToken(c *gin.Context) {
 	ctx := PopulateAuthContext(context.Background(), c)
-	session, err := claudeneopi.NewSession()
+	session, err := anthropicnpi.NewSession()
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to generate OAuth session"})
 		return
 	}
-	RegisterOAuthSession(session.State, claudeneopi.Provider)
+	RegisterOAuthSession(session.State, anthropicnpi.Provider)
 	listener, listenErr := net.Listen("tcp", "127.0.0.1:54545")
 	var callback *http.Server
 	if listenErr == nil {
@@ -46,7 +46,7 @@ func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
 				http.Error(w, "Missing OAuth code", 400)
 				return
 			}
-			if _, err := WriteOAuthCallbackFileForPendingSession(h.cfg.AuthDir, claudeneopi.Provider, session.State, query.Get("code"), query.Get("error")); err != nil {
+			if _, err := WriteOAuthCallbackFileForPendingSession(h.cfg.AuthDir, anthropicnpi.Provider, session.State, query.Get("code"), query.Get("error")); err != nil {
 				http.Error(w, "OAuth session is unavailable", 409)
 				return
 			}
@@ -59,7 +59,7 @@ func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
 		if callback != nil {
 			defer callback.Close()
 		}
-		path := filepath.Join(h.cfg.AuthDir, fmt.Sprintf(".oauth-%s-%s.oauth", claudeneopi.Provider, session.State))
+		path := filepath.Join(h.cfg.AuthDir, fmt.Sprintf(".oauth-%s-%s.oauth", anthropicnpi.Provider, session.State))
 		defer os.Remove(path)
 		timer := time.NewTimer(5 * time.Minute)
 		defer timer.Stop()
@@ -71,7 +71,7 @@ func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
 				SetOAuthSessionError(session.State, "Timeout waiting for OAuth callback")
 				return
 			case <-ticker.C:
-				if !IsOAuthSessionPending(session.State, claudeneopi.Provider) {
+				if !IsOAuthSessionPending(session.State, anthropicnpi.Provider) {
 					return
 				}
 				data, err := os.ReadFile(path)
@@ -87,13 +87,13 @@ func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
 					SetOAuthSessionError(session.State, "OAuth authorization was rejected")
 					return
 				}
-				credential, err := claudeneopi.NewClient(h.cfg, "").Exchange(ctx, session, result["code"])
+				credential, err := anthropicnpi.NewClient(h.cfg, "").Exchange(ctx, session, result["code"])
 				if err != nil {
-					log.WithError(err).Warn("claude-neopi sign-in failed")
+					log.WithError(err).Warn("anthropic-npi sign-in failed")
 					SetOAuthSessionError(session.State, "Claude (NeoPi flow) token exchange failed")
 					return
 				}
-				installPath := filepath.Join(h.cfg.AuthDir, ".claude-neopi-install-id")
+				installPath := filepath.Join(h.cfg.AuthDir, ".anthropic-npi-install-id")
 				installID, err := neoPiInstallID(installPath)
 				if err != nil {
 					SetOAuthSessionError(session.State, "Could not persist installation identity")
@@ -104,8 +104,8 @@ func (h *Handler) RequestClaudeNeoPiToken(c *gin.Context) {
 				var metadata map[string]any
 				_ = json.Unmarshal(metadataBytes, &metadata)
 				fileName := credential.FileName()
-				record := &coreauth.Auth{ID: fileName, FileName: fileName, Provider: claudeneopi.Provider, Prefix: claudeneopi.Provider, Storage: credential, Metadata: metadata}
-				if guardOAuthSessionPendingForSave(session.State, claudeneopi.Provider) != nil {
+				record := &coreauth.Auth{ID: fileName, FileName: fileName, Provider: anthropicnpi.Provider, Prefix: anthropicnpi.Provider, Storage: credential, Metadata: metadata}
+				if guardOAuthSessionPendingForSave(session.State, anthropicnpi.Provider) != nil {
 					return
 				}
 				if _, err := h.saveTokenRecord(ctx, record); err != nil {

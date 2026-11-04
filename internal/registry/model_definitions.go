@@ -44,9 +44,9 @@ func GetClaudeModels() []*ModelInfo {
 	return cloneModelInfos(getModels().Claude)
 }
 
-// GetClaudeNeoPiModels uses Claude's model ids but keeps the experimental
+// GetAnthropicNPIModels uses Claude's model ids but keeps the experimental
 // thinking contract separate: NeoPi accepts Off and projects it per model.
-func GetClaudeNeoPiModels() []*ModelInfo {
+func GetAnthropicNPIModels() []*ModelInfo {
 	models := GetClaudeModels()
 	for _, model := range models {
 		if model != nil && model.Thinking != nil {
@@ -528,8 +528,8 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 	switch key {
 	case "claude":
 		return GetClaudeModels()
-	case "claude-neopi":
-		return GetClaudeNeoPiModels()
+	case "anthropic-npi":
+		return GetAnthropicNPIModels()
 	case "gemini":
 		return GetGeminiModels()
 	case "gemini-interactions":

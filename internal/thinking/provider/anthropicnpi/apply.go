@@ -1,7 +1,7 @@
-// Package claudeneopi projects normalized reasoning intent for the independent
+// Package anthropicnpi projects normalized reasoning intent for the independent
 // NeoPi executor. The wire layer applies NeoPi's model-specific off, display,
 // binding and context-management rules after dialect translation.
-package claudeneopi
+package anthropicnpi
 
 import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -11,7 +11,7 @@ import (
 
 type Applier struct{}
 
-func init() { thinking.RegisterProvider("claude-neopi", &Applier{}) }
+func init() { thinking.RegisterProvider("anthropic-npi", &Applier{}) }
 
 func (*Applier) Apply(body []byte, intent thinking.ThinkingConfig, model *registry.ModelInfo) ([]byte, error) {
 	adaptive := model != nil && model.Thinking != nil && len(model.Thinking.Levels) > 0

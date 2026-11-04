@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claudeneopi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
@@ -28,10 +28,10 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// ClaudeNeoPiExecutor owns only the experimental subscription flow. It shares
+// AnthropicNPIExecutor owns only the experimental subscription flow. It shares
 // dialect translation and usage accounting, never ClaudeExecutor's cloaking,
 // signing, aliases, transport fingerprint, or thinking-replay state.
-type ClaudeNeoPiExecutor struct {
+type AnthropicNPIExecutor struct {
 	cfg     *config.Config
 	refresh singleflight.Group
 	wait    func(context.Context, time.Duration) error
@@ -39,11 +39,11 @@ type ClaudeNeoPiExecutor struct {
 	random  func() float64
 }
 
-func NewClaudeNeoPiExecutor(cfg *config.Config) *ClaudeNeoPiExecutor {
-	return &ClaudeNeoPiExecutor{cfg: cfg, wait: neoPiWait, now: time.Now, random: rand.Float64}
+func NewAnthropicNPIExecutor(cfg *config.Config) *AnthropicNPIExecutor {
+	return &AnthropicNPIExecutor{cfg: cfg, wait: neoPiWait, now: time.Now, random: rand.Float64}
 }
 
-func (*ClaudeNeoPiExecutor) Identifier() string { return claudeneopi.Provider }
+func (*AnthropicNPIExecutor) Identifier() string { return anthropicnpi.Provider }
 
 func neoPiWait(ctx context.Context, delay time.Duration) error {
 	timer := time.NewTimer(delay)
@@ -56,20 +56,20 @@ func neoPiWait(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func neoPiCredential(auth *cliproxyauth.Auth) (*claudeneopi.Credential, error) {
+func neoPiCredential(auth *cliproxyauth.Auth) (*anthropicnpi.Credential, error) {
 	if auth == nil {
-		return nil, errors.New("claude-neopi: missing credential")
+		return nil, errors.New("anthropic-npi: missing credential")
 	}
 	encoded, err := json.Marshal(auth.Metadata)
 	if err != nil {
 		return nil, err
 	}
-	var credential claudeneopi.Credential
+	var credential anthropicnpi.Credential
 	if err = json.Unmarshal(encoded, &credential); err != nil {
 		return nil, err
 	}
 	if credential.AccessToken == "" {
-		return nil, errors.New("claude-neopi: missing subscription access token")
+		return nil, errors.New("anthropic-npi: missing subscription access token")
 	}
 	return &credential, nil
 }
@@ -114,13 +114,13 @@ type neoPiPrepared struct {
 	base       string
 }
 
-func (e *ClaudeNeoPiExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*neoPiPrepared, error) {
+func (e *AnthropicNPIExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*neoPiPrepared, error) {
 	credential, err := neoPiCredential(auth)
 	if err != nil {
 		return nil, err
 	}
 	model := thinking.ParseSuffix(req.Model).ModelName
-	model = strings.TrimPrefix(model, claudeneopi.Provider+"/")
+	model = strings.TrimPrefix(model, anthropicnpi.Provider+"/")
 	original := req.Payload
 	if len(opts.OriginalRequest) > 0 {
 		original = opts.OriginalRequest
@@ -135,7 +135,7 @@ func (e *ClaudeNeoPiExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 	}
 	identity := neoPiWireIdentity{InstallID: credential.InstallID, AccountID: credential.AccountUUID, SessionID: neoPiSession(opts, translated)}
 	base := neoPiBaseURL(auth)
-	body, headers, err := projectNeoPiRequest(translated, model, base, claudeneopi.WireVersion(), identity)
+	body, headers, err := projectNeoPiRequest(translated, model, base, anthropicnpi.WireVersion(), identity)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (e *ClaudeNeoPiExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 	return &neoPiPrepared{body: body, translated: translated, headers: headers, url: base + "/v1/messages?beta=true", model: model, token: credential.AccessToken, identity: identity, base: base}, nil
 }
 
-func (e *ClaudeNeoPiExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, request *http.Request) (*http.Response, error) {
+func (e *AnthropicNPIExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, request *http.Request) (*http.Response, error) {
 	credential, err := neoPiCredential(auth)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func (e *ClaudeNeoPiExecutor) HttpRequest(ctx context.Context, auth *cliproxyaut
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
 }
 
-func (e *ClaudeNeoPiExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+func (e *AnthropicNPIExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
 	credential, err := neoPiCredential(auth)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (e *ClaudeNeoPiExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 	// executor callers; the key never appears in logs or persisted metadata.
 	key := auth.ID + "\x00" + credential.RefreshToken
 	value, err, _ := e.refresh.Do(key, func() (any, error) {
-		updated, refreshErr := claudeneopi.NewClient(e.cfg, auth.ProxyURL).Refresh(ctx, credential)
+		updated, refreshErr := anthropicnpi.NewClient(e.cfg, auth.ProxyURL).Refresh(ctx, credential)
 		if refreshErr != nil {
 			return nil, refreshErr
 		}
@@ -189,8 +189,8 @@ func (e *ClaudeNeoPiExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 		for name, field := range fields {
 			next.Metadata[name] = field
 		}
-		next.Provider = claudeneopi.Provider
-		next.Prefix = claudeneopi.Provider
+		next.Provider = anthropicnpi.Provider
+		next.Prefix = anthropicnpi.Provider
 		next.LastRefreshedAt = time.Now()
 		return next, nil
 	})
@@ -282,7 +282,7 @@ func neoPiRetryable(err error) bool {
 	return upstream.code == 408 || upstream.code == 429 || upstream.code >= 500
 }
 
-func (e *ClaudeNeoPiExecutor) retry(ctx context.Context, err error, attempt int) error {
+func (e *AnthropicNPIExecutor) retry(ctx context.Context, err error, attempt int) error {
 	// streamAnthropic passes maxRetries:0 to its client and owns ten retries.
 	// Consequently 409 and x-should-retry do not use the client's dormant policy.
 	if attempt >= 10 || ctx.Err() != nil || !neoPiRetryable(err) {
@@ -351,7 +351,7 @@ func neoPiSSEError(data []byte) error {
 	return &neoPiUpstreamError{code: status, body: string(data)}
 }
 
-func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, prepared *neoPiPrepared) (*neoPiStream, error) {
+func (e *AnthropicNPIExecutor) open(ctx context.Context, client *http.Client, prepared *neoPiPrepared) (*neoPiStream, error) {
 	emptyRetries := 0
 	for attempt := 0; ; attempt++ {
 		requestCtx, cancel := context.WithCancel(ctx)
@@ -389,8 +389,8 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 			} else {
 				err = &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 			}
-			if claudeneopi.AdoptRequiredVersion(err.Error()) {
-				projected, headers, projectErr := projectNeoPiRequest(prepared.translated, prepared.model, prepared.base, claudeneopi.WireVersion(), prepared.identity)
+			if anthropicnpi.AdoptRequiredVersion(err.Error()) {
+				projected, headers, projectErr := projectNeoPiRequest(prepared.translated, prepared.model, prepared.base, anthropicnpi.WireVersion(), prepared.identity)
 				if projectErr != nil {
 					return nil, projectErr
 				}
@@ -433,7 +433,7 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 				stream.started = true
 				outputTokens = gjson.GetBytes(data, "message.usage.output_tokens").Int()
 			} else if !stream.started && kind != "ping" {
-				err = errors.New("claude-neopi: content before message_start")
+				err = errors.New("anthropic-npi: content before message_start")
 				break
 			}
 			if kind == "content_block_start" {
@@ -452,7 +452,7 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 			stream.pending = append(stream.pending, bytes.Clone(data))
 			if neoPiMeaningful(data) {
 				if !stream.started {
-					err = errors.New("claude-neopi: content before message_start")
+					err = errors.New("anthropic-npi: content before message_start")
 					break
 				}
 				return stream, nil
@@ -460,7 +460,7 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 			if kind == "message_stop" {
 				stream.stopped = true
 				if !stream.started {
-					err = errors.New("claude-neopi: message_stop without message_start")
+					err = errors.New("anthropic-npi: message_stop without message_start")
 					break
 				}
 				if visibleTool || outputTokens > 1 || (stopReason != "" && stopReason != "end_turn" && stopReason != "stop_sequence" && stopReason != "pause_turn" && stopReason != "compaction") || emptyRetries >= 2 {
@@ -482,7 +482,7 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 			continue
 		}
 		if err == nil {
-			err = errors.New("claude-neopi: stream ended before message_stop")
+			err = errors.New("anthropic-npi: stream ended before message_stop")
 		}
 		if replayUnsafe {
 			return nil, err
@@ -531,14 +531,14 @@ func (s *neoPiStream) consume(emit func([]byte) error) error {
 	if err := s.scanner.Err(); err != nil {
 		return err
 	}
-	return errors.New("claude-neopi: stream ended before message_stop")
+	return errors.New("anthropic-npi: stream ended before message_stop")
 }
 
 func neoPiFrame(data []byte) []byte {
 	return []byte("event: " + gjson.GetBytes(data, "type").String() + "\ndata: " + string(data) + "\n\n")
 }
 
-func (e *ClaudeNeoPiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (result cliproxyexecutor.Response, err error) {
+func (e *AnthropicNPIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (result cliproxyexecutor.Response, err error) {
 	prepared, err := e.prepare(ctx, auth, req, opts)
 	if err != nil {
 		return result, err
@@ -574,7 +574,7 @@ func (e *ClaudeNeoPiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 		var state any
 		data = sdktranslator.TranslateNonStream(ctx, sdktranslator.FromString("claude"), format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.body, data, &state)
 		if helps.ApplyPatchTranslationError(state) != nil || len(data) == 0 {
-			return result, errors.New("claude-neopi: response translation failed")
+			return result, errors.New("anthropic-npi: response translation failed")
 		}
 	}
 	usage.Publish(ctx, reporter)
@@ -582,7 +582,7 @@ func (e *ClaudeNeoPiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 	return cliproxyexecutor.Response{Payload: data, Headers: stream.response.Header.Clone()}, nil
 }
 
-func (e *ClaudeNeoPiExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
+func (e *AnthropicNPIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
 	prepared, err := e.prepare(ctx, auth, req, opts)
 	if err != nil {
 		return nil, err
@@ -609,7 +609,7 @@ func (e *ClaudeNeoPiExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				chunks = sdktranslator.TranslateStream(ctx, sdktranslator.FromString("claude"), format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.body, line, &state)
 			}
 			if helps.ApplyPatchTranslationError(state) != nil {
-				return errors.New("claude-neopi: stream translation failed")
+				return errors.New("anthropic-npi: stream translation failed")
 			}
 			for _, chunk := range chunks {
 				select {
@@ -634,7 +634,7 @@ func (e *ClaudeNeoPiExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	return &cliproxyexecutor.StreamResult{Headers: stream.response.Header.Clone(), Chunks: out}, nil
 }
 
-func (e *ClaudeNeoPiExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+func (e *AnthropicNPIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
 	prepared, err := e.prepare(ctx, auth, req, opts)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err

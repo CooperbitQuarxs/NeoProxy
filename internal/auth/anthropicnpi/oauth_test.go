@@ -1,4 +1,4 @@
-package claudeneopi
+package anthropicnpi
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func (r *captureTransport) RoundTrip(request *http.Request) (*http.Response, err
 	return r.base.RoundTrip(clone)
 }
 
-func TestClaudeNeoPiOAuthCaptureParity(t *testing.T) {
+func TestAnthropicNPIOAuthCaptureParity(t *testing.T) {
 	data, err := os.ReadFile("testdata/oauth_capture.json")
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestClaudeNeoPiOAuthCaptureParity(t *testing.T) {
 	}
 }
 
-func TestClaudeNeoPiCredentialIsolation(t *testing.T) {
+func TestAnthropicNPICredentialIsolation(t *testing.T) {
 	credential := &Credential{AccessToken: "fake", RefreshToken: "fake", AccountUUID: "account", InstallID: "install"}
 	path := t.TempDir() + "/credential.json"
 	if err := credential.SaveTokenToFile(path); err != nil {
@@ -154,7 +154,7 @@ func TestClaudeNeoPiCredentialIsolation(t *testing.T) {
 	}
 }
 
-func TestClaudeNeoPiVersionAdoption(t *testing.T) {
+func TestAnthropicNPIVersionAdoption(t *testing.T) {
 	wireVersionState.Lock()
 	previous := wireVersionState.adopted
 	wireVersionState.adopted = ""

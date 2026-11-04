@@ -1,4 +1,4 @@
-package claudeneopi
+package anthropicnpi
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func (c *Client) Usage(ctx context.Context, token string) (*Usage, error) {
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("claude-neopi usage endpoint returned HTTP %d", response.StatusCode)
+		return nil, fmt.Errorf("anthropic-npi usage endpoint returned HTTP %d", response.StatusCode)
 	}
 	var result Usage
 	if err := decodeJSON(response, &result); err != nil {

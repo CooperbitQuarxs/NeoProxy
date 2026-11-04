@@ -7,22 +7,22 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 )
 
-func TestClaudeNeoPiModelsArePrefixOnly(t *testing.T) {
+func TestAnthropicNPIModelsArePrefixOnly(t *testing.T) {
 	original := registry.GetClaudeModels()
-	experimental := registry.GetClaudeNeoPiModels()
+	experimental := registry.GetAnthropicNPIModels()
 	if len(original) != len(experimental) {
 		t.Fatal("experimental provider lost Claude model ids")
 	}
-	published := applyModelPrefixes(experimental, "claude-neopi", true)
+	published := applyModelPrefixes(experimental, "anthropic-npi", true)
 	if len(published) != len(original) {
 		t.Fatal("experimental provider published extra bare model ids")
 	}
 	found := false
 	for index, model := range published {
-		if model.ID != "claude-neopi/"+original[index].ID {
+		if model.ID != "anthropic-npi/"+original[index].ID {
 			t.Fatalf("model routing differs: %s", model.ID)
 		}
-		if model.ID == "claude-neopi/claude-opus-5-5" {
+		if model.ID == "anthropic-npi/claude-opus-5-5" {
 			found = true
 		}
 	}
@@ -30,7 +30,7 @@ func TestClaudeNeoPiModelsArePrefixOnly(t *testing.T) {
 		t.Fatal("distinct Opus 5.5 address is absent")
 	}
 	for index, model := range registry.GetClaudeModels() {
-		if strings.HasPrefix(model.ID, "claude-neopi/") {
+		if strings.HasPrefix(model.ID, "anthropic-npi/") {
 			t.Fatal("existing Claude model id changed")
 		}
 		if original[index].Thinking != nil && original[index].Thinking.ZeroAllowed != model.Thinking.ZeroAllowed {

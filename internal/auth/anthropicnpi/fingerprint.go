@@ -1,4 +1,4 @@
-package claudeneopi
+package anthropicnpi
 
 import (
 	"os"

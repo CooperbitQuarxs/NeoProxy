@@ -9,7 +9,7 @@ import (
 // It is captured by buildModel in NeoPi, rather than inheriting claude's model
 // heuristics. Updating it requires repeating the reference capture.
 //
-//go:embed testdata/claude_neopi_profiles.json
+//go:embed testdata/anthropic_npi_profiles.json
 var neoPiProfileJSON []byte
 
 type neoPiProfile struct {

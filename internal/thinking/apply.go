@@ -252,7 +252,7 @@ func applyThinking(body, sourceBody []byte, model string, fromFormat string, toF
 	applier := GetProviderApplier(providerFormat)
 	// The experimental OAuth engine shares Claude's wire dialect, not its
 	// effort policy. Keep format parsing unchanged while selecting its applier.
-	if providerKey == "claude-neopi" {
+	if providerKey == "anthropic-npi" {
 		applier = GetProviderApplier(providerKey)
 	}
 	if applier == nil {
@@ -564,7 +564,7 @@ func applyUserDefinedModel(body []byte, modelInfo *registry.ModelInfo, fromForma
 	}
 
 	applier := GetProviderApplier(toFormat)
-	if providerKey == "claude-neopi" {
+	if providerKey == "anthropic-npi" {
 		applier = GetProviderApplier(providerKey)
 	}
 	if applier == nil {

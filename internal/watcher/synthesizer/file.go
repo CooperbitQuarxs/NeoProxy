@@ -203,8 +203,8 @@ func synthesizeFileAuths(ctx *SynthesisContext, fullPath string, data []byte) ([
 			prefix = trimmed
 		}
 	}
-	if provider == "claude-neopi" {
-		prefix = "claude-neopi"
+	if provider == "anthropic-npi" {
+		prefix = "anthropic-npi"
 	}
 
 	disabled, _ := metadata["disabled"].(bool)

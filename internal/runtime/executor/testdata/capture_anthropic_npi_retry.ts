@@ -5,7 +5,7 @@ const modules = process.env.NEOPI_SOURCE_MODULES;
 if (!modules) throw new Error("NEOPI_SOURCE_MODULES is required");
 const { streamAnthropic } = await import(modules + "/pi-ai/src/providers/anthropic.ts");
 const { buildModel } = await import(modules + "/pi-catalog/src/build.ts");
-const fixture = JSON.parse(await readFile(new URL("claude_neopi_requests.json", import.meta.url), "utf8"));
+const fixture = JSON.parse(await readFile(new URL("anthropic_npi_requests.json", import.meta.url), "utf8"));
 const baseline = fixture.fixtures.find((item: any) => item.name === "official/plain-high");
 const now = Date.parse("2026-11-04T00:00:00Z");
 const originalNow = Date.now;

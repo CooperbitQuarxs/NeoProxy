@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	xxHash64 "github.com/pierrec/xxHash/xxHash64"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claudeneopi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -172,10 +172,10 @@ func neoPiTextBlock(text string) json.RawMessage {
 // wire controls are preserved rather than inventing that missing session state.
 func projectNeoPiRequest(input []byte, model, base, version string, identity neoPiWireIdentity) ([]byte, http.Header, error) {
 	if !gjson.ValidBytes(input) {
-		return nil, nil, fmt.Errorf("claude-neopi: invalid Messages JSON")
+		return nil, nil, fmt.Errorf("anthropic-npi: invalid Messages JSON")
 	}
 	if identity.InstallID == "" {
-		return nil, nil, fmt.Errorf("claude-neopi: credential has no installation identity")
+		return nil, nil, fmt.Errorf("anthropic-npi: credential has no installation identity")
 	}
 	headerSession := identity.SessionID
 	if identity.SessionID == "" {
@@ -184,7 +184,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 	root := gjson.ParseBytes(input)
 	profile, known := neoPiProfiles[model]
 	if !known {
-		return nil, nil, fmt.Errorf("claude-neopi: no captured NeoPi capability profile for %q", model)
+		return nil, nil, fmt.Errorf("anthropic-npi: no captured NeoPi capability profile for %q", model)
 	}
 	cache := json.RawMessage(`{"type":"ephemeral"}`)
 	if neoPiOfficialEndpoint(base) && profile.Compat.SupportsLongCacheRetention {
@@ -224,7 +224,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		messages = append(messages, raw)
 	}
 	if len(messages) == 0 {
-		return nil, nil, fmt.Errorf("claude-neopi: messages must not be empty")
+		return nil, nil, fmt.Errorf("anthropic-npi: messages must not be empty")
 	}
 	if gjson.GetBytes(messages[len(messages)-1], "role").String() == "assistant" {
 		messages = append(messages, json.RawMessage(`{"role":"user","content":"Continue."}`))
@@ -582,7 +582,7 @@ func neoPiHeaders(body []byte, session, version string, thinking, tools bool, ba
 		"Accept": "application/json", "Accept-Encoding": "gzip, deflate, br, zstd", "Connection": "keep-alive", "Content-Type": "application/json",
 		"anthropic-beta": strings.Join(betas, ","), "anthropic-dangerous-direct-browser-access": "true", "anthropic-version": "2023-06-01",
 		"User-Agent": "claude-cli/" + version + " (external, cli)", "x-app": "cli", "X-Claude-Code-Session-Id": session,
-		"X-Stainless-Arch": arch, "X-Stainless-Lang": "js", "X-Stainless-OS": osName, "X-Stainless-Package-Version": claudeneopi.SDKVersion,
+		"X-Stainless-Arch": arch, "X-Stainless-Lang": "js", "X-Stainless-OS": osName, "X-Stainless-Package-Version": anthropicnpi.SDKVersion,
 		"X-Stainless-Retry-Count": "0", "X-Stainless-Runtime": "node", "X-Stainless-Runtime-Version": "v26.3.0", "X-Stainless-Timeout": "600",
 	} {
 		h.Set(key, value)

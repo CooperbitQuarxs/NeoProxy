@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claudeneopi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -41,8 +41,8 @@ type neoPiRetryFixture struct {
 	Cases  []neoPiRetryCase `json:"cases"`
 }
 
-func TestClaudeNeoPiRetryCapturedParity(t *testing.T) {
-	data, err := os.ReadFile("testdata/claude_neopi_retries.json")
+func TestAnthropicNPIRetryCapturedParity(t *testing.T) {
+	data, err := os.ReadFile("testdata/anthropic_npi_retries.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestClaudeNeoPiRetryCapturedParity(t *testing.T) {
 		if home == "" {
 			t.Fatal("NEOPI_CAPTURE_HOME must be an isolated capture home")
 		}
-		script, err := filepath.Abs("testdata/capture_claude_neopi_retry.ts")
+		script, err := filepath.Abs("testdata/capture_anthropic_npi_retry.ts")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -139,8 +139,8 @@ func TestClaudeNeoPiRetryCapturedParity(t *testing.T) {
 			active, requests = tc, nil
 			mu.Unlock()
 			transport := &neoPiCaptureTransport{target: target, base: http.DefaultTransport}
-			auth := &cliproxyauth.Auth{ID: "retry-parity", Provider: claudeneopi.Provider, Metadata: map[string]any{"access_token": wire.Token, "neopi_install_id": wire.InstallID, "account_uuid": wire.AccountID}}
-			executor := NewClaudeNeoPiExecutor(nil)
+			auth := &cliproxyauth.Auth{ID: "retry-parity", Provider: anthropicnpi.Provider, Metadata: map[string]any{"access_token": wire.Token, "neopi_install_id": wire.InstallID, "account_uuid": wire.AccountID}}
+			executor := NewAnthropicNPIExecutor(nil)
 			executor.now = func() time.Time { return time.UnixMilli(fixture.Now) }
 			executor.random = func() float64 { return fixture.Random }
 			waits := make([]float64, 0)
@@ -177,8 +177,8 @@ func TestClaudeNeoPiRetryCapturedParity(t *testing.T) {
 	}
 }
 
-func TestClaudeNeoPiRetryDoesNotReplayCallerCancellation(t *testing.T) {
-	executor := NewClaudeNeoPiExecutor(nil)
+func TestAnthropicNPIRetryDoesNotReplayCallerCancellation(t *testing.T) {
+	executor := NewAnthropicNPIExecutor(nil)
 	executor.wait = func(context.Context, time.Duration) error {
 		t.Fatal("cancelled request scheduled a retry")
 		return nil

@@ -80,7 +80,7 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 }
 
 func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
-	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "kimi": true, "devin": true, "meta": true}
+	working := map[string]bool{"codex": true, "claude": true, "anthropic-npi": true, "antigravity": true, "xai": true, "kimi": true, "devin": true, "meta": true}
 	for _, p := range providerCatalog {
 		hasSub := p.Subscription != nil
 		if hasSub != working[p.ID] {

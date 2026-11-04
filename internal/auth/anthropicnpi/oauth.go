@@ -1,7 +1,7 @@
-// Package claudeneopi implements the experimental NeoPi Anthropic subscription
+// Package anthropicnpi implements the experimental NeoPi Anthropic subscription
 // flow independently of the existing claude provider. Wire constants and token
 // projection follow NeoPi's rules/auth/anthropic.kdl and oauth-code engine.
-package claudeneopi
+package anthropicnpi
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	Provider     = "claude-neopi"
+	Provider     = "anthropic-npi"
 	AuthorizeURL = "https://claude.ai/oauth/authorize"
 	TokenURL     = "https://api.anthropic.com/v1/oauth/token"
 	BootstrapURL = "https://api.anthropic.com/api/claude_cli/bootstrap?entrypoint=cli&model=claude-opus-4-8"
@@ -98,7 +98,7 @@ func (c *Credential) SaveTokenToFile(path string) error {
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".claude-neopi-*")
+	file, err := os.CreateTemp(filepath.Dir(path), ".anthropic-npi-*")
 	if err != nil {
 		return err
 	}
@@ -166,18 +166,18 @@ func (c *Client) token(ctx context.Context, body any, refresh bool) (*Credential
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("claude-neopi token transport: %w", err)
+		return nil, fmt.Errorf("anthropic-npi token transport: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("claude-neopi token endpoint returned HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("anthropic-npi token endpoint returned HTTP %d", resp.StatusCode)
 	}
 	var token tokenResponse
 	if err = decodeJSON(resp, &token); err != nil {
-		return nil, fmt.Errorf("claude-neopi token endpoint returned invalid JSON")
+		return nil, fmt.Errorf("anthropic-npi token endpoint returned invalid JSON")
 	}
 	if token.Access == "" || token.Expires == nil {
-		return nil, fmt.Errorf("claude-neopi token response is missing access_token or expires_in")
+		return nil, fmt.Errorf("anthropic-npi token response is missing access_token or expires_in")
 	}
 	now := time.Now()
 	credential := &Credential{Type: Provider, Prefix: Provider, AccessToken: token.Access, RefreshToken: token.Refresh,
@@ -214,7 +214,7 @@ func (c *Client) Exchange(ctx context.Context, session *Session, code string) (*
 // have rotated the refresh token. The executor serializes calls per credential.
 func (c *Client) Refresh(ctx context.Context, previous *Credential) (*Credential, error) {
 	if previous.RefreshToken == "" {
-		return nil, fmt.Errorf("claude-neopi refresh token is missing")
+		return nil, fmt.Errorf("anthropic-npi refresh token is missing")
 	}
 	body := struct {
 		GrantType      string `json:"grant_type"`

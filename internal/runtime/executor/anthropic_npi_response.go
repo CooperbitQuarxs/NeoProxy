@@ -28,7 +28,7 @@ func neoPiAggregateMessage(transcript []byte) ([]byte, error) {
 			message = []byte(event.Get("message").Raw)
 		case "content_block_start":
 			if index < 0 || index > len(blocks) {
-				return nil, fmt.Errorf("claude-neopi: out-of-order content block %d", index)
+				return nil, fmt.Errorf("anthropic-npi: out-of-order content block %d", index)
 			}
 			block := json.RawMessage(event.Get("content_block").Raw)
 			if index == len(blocks) {
@@ -38,7 +38,7 @@ func neoPiAggregateMessage(transcript []byte) ([]byte, error) {
 			}
 		case "content_block_delta":
 			if index < 0 || index >= len(blocks) {
-				return nil, fmt.Errorf("claude-neopi: delta for unopened content block %d", index)
+				return nil, fmt.Errorf("anthropic-npi: delta for unopened content block %d", index)
 			}
 			delta := event.Get("delta")
 			switch delta.Get("type").String() {
@@ -56,7 +56,7 @@ func neoPiAggregateMessage(transcript []byte) ([]byte, error) {
 		case "content_block_stop":
 			if input := partialJSON[index]; len(input) > 0 {
 				if !gjson.ValidBytes(input) {
-					return nil, fmt.Errorf("claude-neopi: malformed tool input in block %d", index)
+					return nil, fmt.Errorf("anthropic-npi: malformed tool input in block %d", index)
 				}
 				blocks[index] = neoPiSetRaw(blocks[index], "input", input)
 				delete(partialJSON, index)
@@ -75,7 +75,7 @@ func neoPiAggregateMessage(transcript []byte) ([]byte, error) {
 		}
 	}
 	if len(message) == 0 || !stopped {
-		return nil, fmt.Errorf("claude-neopi: incomplete message envelope")
+		return nil, fmt.Errorf("anthropic-npi: incomplete message envelope")
 	}
 	return neoPiSet(message, "content", blocks), nil
 }

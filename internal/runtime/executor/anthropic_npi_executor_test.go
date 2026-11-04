@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claudeneopi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	_ "github.com/router-for-me/CLIProxyAPI/v8/internal/translator"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -63,7 +63,7 @@ func (r *neoPiCaptureTransport) RoundTrip(request *http.Request) (*http.Response
 
 func neoPiLoadFixture(t *testing.T) neoPiCaptureFixture {
 	t.Helper()
-	data, err := os.ReadFile("testdata/claude_neopi_requests.json")
+	data, err := os.ReadFile("testdata/anthropic_npi_requests.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func neoPiLoadFixture(t *testing.T) neoPiCaptureFixture {
 	return fixture
 }
 
-func TestClaudeNeoPiCapturedParity(t *testing.T) {
+func TestAnthropicNPICapturedParity(t *testing.T) {
 	fixture := neoPiLoadFixture(t)
 	var mu sync.Mutex
 	var latest neoPiCapturedRequest
@@ -105,7 +105,7 @@ func TestClaudeNeoPiCapturedParity(t *testing.T) {
 		if home == "" {
 			t.Fatal("NEOPI_CAPTURE_HOME must be an isolated capture home")
 		}
-		script, err := filepath.Abs("testdata/capture_claude_neopi.ts")
+		script, err := filepath.Abs("testdata/capture_anthropic_npi.ts")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,10 +123,10 @@ func TestClaudeNeoPiCapturedParity(t *testing.T) {
 	target, _ := url.Parse(server.URL)
 	for _, capture := range fixture.Fixtures {
 		t.Run(capture.Name, func(t *testing.T) {
-			auth := &cliproxyauth.Auth{ID: "parity", Provider: claudeneopi.Provider, Prefix: claudeneopi.Provider, Metadata: map[string]any{"access_token": fixture.Token, "neopi_install_id": fixture.InstallID, "account_uuid": fixture.AccountID, "base_url": capture.BaseURL}}
+			auth := &cliproxyauth.Auth{ID: "parity", Provider: anthropicnpi.Provider, Prefix: anthropicnpi.Provider, Metadata: map[string]any{"access_token": fixture.Token, "neopi_install_id": fixture.InstallID, "account_uuid": fixture.AccountID, "base_url": capture.BaseURL}}
 			transport := &neoPiCaptureTransport{target: target, base: http.DefaultTransport}
 			ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", transport)
-			executor := NewClaudeNeoPiExecutor(&config.Config{})
+			executor := NewAnthropicNPIExecutor(&config.Config{})
 			request := cliproxyexecutor.Request{Model: "claude-opus-5-5", Payload: capture.Input}
 			options := cliproxyexecutor.Options{SourceFormat: sdktranslator.FromString("claude"), Headers: http.Header{"X-Claude-Code-Session-Id": []string{fixture.SessionID}}}
 			if capture.DownstreamStream {
@@ -172,10 +172,10 @@ func TestClaudeNeoPiCapturedParity(t *testing.T) {
 	}
 }
 
-func TestClaudeNeoPiRetryPolicy(t *testing.T) {
+func TestAnthropicNPIRetryPolicy(t *testing.T) {
 	for _, code := range []int{429, 529} {
 		t.Run(http.StatusText(code), func(t *testing.T) {
-			executor := NewClaudeNeoPiExecutor(nil)
+			executor := NewAnthropicNPIExecutor(nil)
 			var waited time.Duration
 			executor.wait = func(_ context.Context, delay time.Duration) error { waited = delay; return nil }
 			err := &neoPiUpstreamError{code: code, body: "rate_limit_error", headers: http.Header{"Retry-After": []string{"2"}}}
@@ -204,13 +204,13 @@ func TestClaudeNeoPiRetryPolicy(t *testing.T) {
 	}
 }
 
-func TestClaudeNeoPiCacheAndTools(t *testing.T) {
+func TestAnthropicNPICacheAndTools(t *testing.T) {
 	messages := make([]map[string]any, 0, 70)
 	for index := 0; index < 35; index++ {
 		messages = append(messages, map[string]any{"role": "user", "content": "turn"}, map[string]any{"role": "assistant", "content": []map[string]any{{"type": "thinking", "thinking": "reasoning", "signature": "signed"}, {"type": "text", "text": "answer"}}})
 	}
 	body := neoPiJSON(map[string]any{"messages": messages, "max_tokens": 64, "thinking": map[string]any{"type": "adaptive"}, "output_config": map[string]any{"effort": "high"}, "tools": []map[string]any{{"name": "lookup", "input_schema": map[string]any{"type": "object"}}}})
-	projected, _, err := projectNeoPiRequest(body, "claude-opus-5-5", "https://api.anthropic.com", claudeneopi.CodeVersion, neoPiWireIdentity{InstallID: "install", SessionID: "session"})
+	projected, _, err := projectNeoPiRequest(body, "claude-opus-5-5", "https://api.anthropic.com", anthropicnpi.CodeVersion, neoPiWireIdentity{InstallID: "install", SessionID: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}
