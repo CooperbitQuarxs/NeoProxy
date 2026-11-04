@@ -69,7 +69,7 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 			h.mu.Unlock()
 			return nil, coreauth.ErrAccountKeyInvalid
 		}
-		if err = appendCompatKey(next, name, base, key, k.Models); err != nil {
+		if err = appendCompatKey(next, name, base, key, k.Models, k.RequestScopedErrors); err != nil {
 			h.mu.Unlock()
 			return nil, err
 		}
@@ -113,8 +113,9 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 
 // appendCompatKey adds key to the openai-compatibility entry named name, creating
 // it when absent. An existing entry with a different base URL is a conflict: one
-// name maps to exactly one upstream. Models are merged by upstream name.
-func appendCompatKey(cfg *config.Config, name, base, key string, models []string) error {
+// name maps to exactly one upstream. Models are merged by upstream name; rules
+// seed an entry's error classification unless an operator already set some.
+func appendCompatKey(cfg *config.Config, name, base, key string, models []string, rules []config.RequestScopedErrorRule) error {
 	for i := range cfg.OpenAICompatibility {
 		entry := &cfg.OpenAICompatibility[i]
 		if !strings.EqualFold(strings.TrimSpace(entry.Name), name) {
@@ -124,6 +125,9 @@ func appendCompatKey(cfg *config.Config, name, base, key string, models []string
 			return fmt.Errorf("%w: openai-compatibility entry %q already exists", coreauth.ErrAccountKeyConflict, name)
 		}
 		entry.APIKeyEntries = append(entry.APIKeyEntries, config.OpenAICompatibilityAPIKey{APIKey: key})
+		if len(entry.RequestScopedErrors) == 0 && len(rules) > 0 {
+			entry.RequestScopedErrors = slices.Clone(rules)
+		}
 		for _, model := range models {
 			model = strings.TrimSpace(model)
 			if model == "" || slices.ContainsFunc(entry.Models, func(m config.OpenAICompatibilityModel) bool { return m.Name == model }) {
@@ -133,7 +137,7 @@ func appendCompatKey(cfg *config.Config, name, base, key string, models []string
 		}
 		return nil
 	}
-	entry := config.OpenAICompatibility{Name: name, BaseURL: base, Models: []config.OpenAICompatibilityModel{}}
+	entry := config.OpenAICompatibility{Name: name, BaseURL: base, Models: []config.OpenAICompatibilityModel{}, RequestScopedErrors: slices.Clone(rules)}
 	if key != "" {
 		entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key}}
 	}

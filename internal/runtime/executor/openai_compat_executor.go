@@ -154,6 +154,7 @@ func (e *OpenAICompatExecutor) executeWithCredentials(ctx context.Context, auth 
 	if opts.Alt != "responses/compact" {
 		useMCT := helps.ShouldUseMaxCompletionTokensForModel(compat, baseModel, requestedModel)
 		translated = helps.NormalizeOpenAIMaxTokens(translated, useMCT)
+		translated = applyNousPortalTags(translated, baseURL)
 		translated, err = e.applyPromptCacheKeyWithCompat(ctx, auth, compat, from, baseModel, req, opts, translated)
 		if err != nil {
 			return resp, err
@@ -397,6 +398,7 @@ func (e *OpenAICompatExecutor) executeStreamWithCredentials(ctx context.Context,
 	if opts.Alt != "responses/compact" {
 		useMCT := helps.ShouldUseMaxCompletionTokensForModel(compat, baseModel, requestedModel)
 		translated = helps.NormalizeOpenAIMaxTokens(translated, useMCT)
+		translated = applyNousPortalTags(translated, baseURL)
 		translated, err = e.applyPromptCacheKeyWithCompat(ctx, auth, compat, from, baseModel, req, opts, translated)
 		if err != nil {
 			return nil, err

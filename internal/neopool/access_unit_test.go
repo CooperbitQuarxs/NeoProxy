@@ -98,6 +98,26 @@ func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
 	if catalogProviderID("openai-compatible-openrouter", "openrouter-2") != "openrouter" || catalogProviderID("x", "custom-office") != "custom" || catalogProviderID("anthropic", "") != "claude" {
 		t.Fatal("engine provider mapping")
 	}
+	compat := func(name, base string) *coreauth.Auth {
+		return &coreauth.Auth{Provider: "openai-compatible-" + name, Attributes: map[string]string{"compat_name": name, "base_url": base}}
+	}
+	for _, tc := range []struct {
+		auth       *coreauth.Auth
+		kind, want string
+	}{
+		// A Hugging Face key imported before it had its own catalogue entry.
+		{compat("custom-90ab", "https://router.huggingface.co/v1/"), "imported", "huggingface"},
+		{compat("nvidia", "https://integrate.api.nvidia.com/v1"), "apiKey", "nvidia"},
+		{compat("marineris-2", "http://127.0.0.1:18801/v1"), "apiKey", "marineris"},
+		// An editable address never identifies a provider by URL alone.
+		{compat("custom-gateway", "http://192.168.50.50:8801/v1"), "apiKey", "custom"},
+		{compat("custom-office", "http://10.0.0.5/v1"), "apiKey", "custom"},
+		{&coreauth.Auth{Provider: "neopi", Attributes: map[string]string{"neopi_provider": "vercel-ai-gateway"}}, "neopi", "vercel-ai-gateway"},
+	} {
+		if got := accessProviderID(tc.auth, tc.kind); got != tc.want {
+			t.Errorf("accessProviderID(%v) = %q, want %q", tc.auth.Attributes, got, tc.want)
+		}
+	}
 }
 
 func TestDetectCredentialFileFormats(t *testing.T) {

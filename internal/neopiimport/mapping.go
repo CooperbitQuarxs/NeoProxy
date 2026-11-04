@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -24,15 +26,15 @@ type route struct {
 	kind string
 	// target is the dashboard catalog id for API keys, or the engine provider
 	// (auth-file "type") for subscriptions.
-	target  string
-	baseURL string
+	target string
 	// reason is set when NeoProxy cannot use the credential.
 	reason string
 }
 
 // apiKeyRoutes maps NeoPi API-key providers onto the dashboard catalog.
 // Catalog ids codex/claude/gemini are the engine's native OpenAI/Anthropic/Gemini
-// key paths; the rest are OpenAI-compatible entries with fixed base URLs.
+// key paths; the rest are OpenAI-compatible entries with fixed base URLs, except
+// the self-hosted Marineris gateway whose address comes from the profile.
 var apiKeyRoutes = map[string]route{
 	"openai":             {target: "codex"},
 	"anthropic":          {target: "claude"},
@@ -49,9 +51,11 @@ var apiKeyRoutes = map[string]route{
 	"moonshot":           {target: "moonshot"},
 	"zai":                {target: "zai"},
 	"nanogpt":            {target: "nanogpt"},
-	"huggingface":        {target: "custom", baseURL: "https://router.huggingface.co/v1"},
-	"nvidia":             {target: "custom", baseURL: "https://integrate.api.nvidia.com/v1"},
-	"vercel-ai-gateway":  {target: "custom", baseURL: "https://ai-gateway.vercel.sh/v1"},
+	"huggingface":        {target: "huggingface"},
+	"nvidia":             {target: "nvidia"},
+	"vercel-ai-gateway":  {target: "vercel-ai-gateway"},
+	"nous-portal":        {target: "nous-portal"},
+	"marineris":          {target: "marineris"},
 	"opencode-go":        {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
 	"opencode-zen":       {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
 	"alibaba-token-plan": {target: "alibaba-token-plan"},
@@ -69,9 +73,9 @@ var oauthRoutes = map[string]route{
 	// xAI account and Grok CLI client) onto cli-chat-proxy.grok.com, the door
 	// the engine's xai provider already uses for sign-ins. Its stored refresh
 	// value is a sentinel, never a real token.
-	"grok-build":         {target: "xai"},
-	"kimi-code":          {target: "kimi"},
-	"devin":              {target: "devin"},
+	"grok-build": {target: "xai"},
+	"kimi-code":  {target: "kimi"},
+	"devin":      {target: "devin"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
 	"zai":               {kind: KindAPIKey, target: "zai"},
@@ -101,6 +105,38 @@ func routeFor(c Credential) route {
 		r.reason = "NeoProxy has no matching provider for NeoPi's \"" + c.Provider + "\"."
 	}
 	return r
+}
+
+// profileBaseURL returns the address NeoPi uses for a provider whose endpoint
+// lives in the profile rather than in the credential. NeoPi's Marineris
+// extension keeps the gateway URL in extensions/marineris/config.json and
+// normalizes it to an http(s) base ending in /v1; an absent file means the
+// gateway's default address, which is also the catalog's.
+func profileBaseURL(profile, provider string) string {
+	if provider != "marineris" {
+		return ""
+	}
+	raw, err := os.ReadFile(filepath.Join(profile, "extensions", "marineris", "config.json"))
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		BaseURL string `json:"baseUrl"`
+	}
+	if json.Unmarshal(raw, &cfg) != nil {
+		return ""
+	}
+	base := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	if base == "" {
+		return ""
+	}
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
+	if !strings.HasSuffix(base, "/v1") {
+		base += "/v1"
+	}
+	return base
 }
 
 // Candidate describes one importable (or not) credential without any secret.
@@ -190,8 +226,10 @@ type APIKey struct {
 	// Provider is the dashboard catalog id.
 	Provider string
 	APIKey   string
-	BaseURL  string
-	Label    string
+	// BaseURL is set only for self-hosted providers whose address NeoPi keeps
+	// outside the credential; empty means the catalog's fixed address.
+	BaseURL string
+	Label   string
 }
 
 // BuildAPIKey returns the catalog entry for an importable API-key credential.
@@ -203,7 +241,7 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	baseURL := r.baseURL
+	baseURL := c.baseURL
 	if c.Provider == "alibaba-token-plan" {
 		// The region the key belongs to; NeoProxy tries it first.
 		key, _ := parseTokenPlanKey(str(c.data, "key"))
