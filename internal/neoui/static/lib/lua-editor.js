@@ -164,6 +164,7 @@ export function luaEditor({ value = "", onInput, label = "Lua source", described
 	});
 	area.addEventListener("input", changed);
 	area.addEventListener("scroll", sync);
+	wireCompletion(area, insert);
 	paint();
 	return {
 		el,
@@ -173,6 +174,89 @@ export function luaEditor({ value = "", onInput, label = "Lua source", described
 			changed();
 		},
 	};
+}
+
+// ---- completion ----
+// What a policy can read, so nobody has to guess names. Typing `ctx.` or a
+// prefix of a known path opens the list; Enter or Tab accepts, Esc closes.
+export const LUA_COMPLETIONS = [
+	["ctx.asked", "the model the caller asked for"],
+	["ctx.protocol", "openai, openai-response or claude"],
+	["ctx.userId", "who is asking (id)"],
+	["ctx.user.handle", "who is asking (username)"],
+	["ctx.user.role", "admin, owner, member or service"],
+	["ctx.request", "the decoded request body"],
+	["ctx.request.messages", "chat messages, when the protocol has them"],
+	["ctx.request.prompt", "text of the last user message"],
+	["ctx.request.effort", "the effort the caller asked for"],
+	["ctx.allotment", "this person's share, 0 to 1"],
+	["ctx.stage", "{ stageId, model, window, total, cap, allotment }"],
+	["ctx.stage.total", "how full the pool is, 0 to 1"],
+	["ctx.stage.cap", "where the stage stops, 0 to 1"],
+	["ctx.account", "{ accountId, providerId, state, windows, providerWindows }"],
+	["ctx.account.state", "healthy, cooldown, expired or disabled"],
+	["ctx.account.providerWindows", "usage windows the provider reports"],
+	["ctx.window", "this account's meter for the stage's window: { kind, known, used, resetsAt }"],
+	["ctx.window.used", "0 to 1"],
+	["ctx.used", "how much of the window the account has used, 0 to 1"],
+	["ctx.budget", "the threshold the stage allows for this account, 0 to 1"],
+	["ctx.time.weekday", "monday … sunday, server time"],
+	["ctx.time.hour", "0 to 23, server time"],
+	["ctx.time.date", "YYYY-MM-DD"],
+	["ipairs(", "iterate an array: for i, v in ipairs(t) do … end"],
+	["pairs(", "iterate a table: for k, v in pairs(t) do … end"],
+	["string.find(", "string.find(s, pattern)"],
+	["string.sub(", "string.sub(s, from, to)"],
+	["string.lower(", "lowercase"],
+	["string.match(", "string.match(s, pattern)"],
+	["math.min(", "smallest of its arguments"],
+	["math.max(", "largest of its arguments"],
+];
+
+function wireCompletion(area, insert) {
+	const pop = h("div", { class: "lua-complete", role: "listbox" });
+	let items = [], active = 0, from = 0;
+	const close = () => { pop.remove(); items = []; };
+	const wordBefore = () => {
+		const v = area.value.slice(0, area.selectionStart);
+		const m = /[A-Za-z_][\w.]*$/.exec(v);
+		return m ? { word: m[0], from: area.selectionStart - m[0].length } : null;
+	};
+	const paint = () => {
+		pop.replaceChildren(...items.map(([name, doc], i) => h("div", { class: `lua-complete-item ${i === active ? "active" : ""}`, role: "option", "aria-selected": String(i === active), onMousedown: (e) => { e.preventDefault(); accept(i); } }, h("code", null, name), h("span", null, doc))));
+	};
+	const accept = (i) => {
+		const [name] = items[i] ?? [];
+		if (!name) return close();
+		area.setSelectionRange(from, area.selectionStart);
+		insert(name);
+		close();
+	};
+	const update = () => {
+		const w = wordBefore();
+		if (!w || w.word.length < 2) return close();
+		const needle = w.word.toLowerCase();
+		items = LUA_COMPLETIONS.filter(([n]) => n.toLowerCase().startsWith(needle) && n.toLowerCase() !== needle).slice(0, 9);
+		if (!items.length) return close();
+		from = w.from;
+		active = 0;
+		paint();
+		if (!pop.isConnected) area.parentElement.append(pop);
+		// Place under the caret line: cheap approximation using line count.
+		const line = area.value.slice(0, area.selectionStart).split("\n").length;
+		pop.style.top = `${Math.min(line * LINE + 8 - area.scrollTop, area.clientHeight - 40)}px`;
+		pop.style.left = "48px";
+	};
+	area.addEventListener("input", update);
+	area.addEventListener("click", close);
+	area.addEventListener("blur", () => setTimeout(close, 120));
+	area.addEventListener("keydown", (e) => {
+		if (!items.length) { if (e.key === " " && e.ctrlKey) { e.preventDefault(); update(); } return; }
+		if (e.key === "ArrowDown") { e.preventDefault(); active = (active + 1) % items.length; paint(); }
+		else if (e.key === "ArrowUp") { e.preventDefault(); active = (active - 1 + items.length) % items.length; paint(); }
+		else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); e.stopImmediatePropagation(); accept(active); }
+		else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); close(); }
+	}, true);
 }
 
 // A worked example against the real contract: every function takes the single

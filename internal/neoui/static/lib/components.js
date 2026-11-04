@@ -903,4 +903,44 @@ export function providerDot(provider, size = 8) {
 	return h("span", { class: "prov-dot", style: { ...providerHueStyle(provider?.hue, provider?.chroma), width: `${size}px`, height: `${size}px` } });
 }
 
+// ---------- picker ----------
+// A popover list with search: for choosing one of many named things (people,
+// models) without a bare <select>. `items`: [{value, label, sub?, lead?}].
+export function picker(anchor, { items, placeholder = "Search", onPick, empty: emptyText = "Nothing matches" }) {
+	const list = h("div", { class: "picker-list", role: "listbox" });
+	const q = input({ type: "search", placeholder, autocomplete: "off", class: "input picker-search" });
+	const pop = h("div", { class: "picker", role: "dialog" }, q, list);
+	let active = -1;
+	let shown = [];
+	const paint = () => {
+		const needle = q.value.trim().toLowerCase();
+		shown = items.filter((it) => !needle || `${it.label} ${it.sub ?? ""}`.toLowerCase().includes(needle));
+		list.replaceChildren(
+			...(shown.length ? shown.map((it, i) => h("button", { type: "button", role: "option", class: `picker-item ${i === active ? "active" : ""}`, "aria-selected": String(i === active), onClick: () => choose(it), onMousemove: () => { active = i; paintActive(); } },
+				it.lead ?? null, h("div", { class: "lt" }, h("div", { class: "main" }, it.label), it.sub ? h("div", { class: "sub" }, it.sub) : null))) : [h("div", { class: "picker-empty" }, emptyText)]),
+		);
+	};
+	const paintActive = () => [...list.children].forEach((el, i) => { el.classList.toggle("active", i === active); el.setAttribute("aria-selected", String(i === active)); });
+	const close = () => { pop.remove(); document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", keys, true); anchor.setAttribute("aria-expanded", "false"); };
+	const choose = (it) => { close(); onPick(it.value, it); };
+	const outside = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) close(); };
+	const keys = (e) => {
+		if (e.key === "Escape") { e.preventDefault(); close(); anchor.focus(); }
+		else if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(shown.length - 1, active + 1); paintActive(); list.children[active]?.scrollIntoView({ block: "nearest" }); }
+		else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(0, active - 1); paintActive(); }
+		else if (e.key === "Enter" && shown[active]) { e.preventDefault(); choose(shown[active]); }
+	};
+	q.addEventListener("input", () => { active = shown.length ? 0 : -1; paint(); });
+	const r = anchor.getBoundingClientRect();
+	pop.style.top = `${r.bottom + 6 + scrollY}px`;
+	pop.style.left = `${Math.min(r.left + scrollX, innerWidth - 320)}px`;
+	document.body.append(pop);
+	anchor.setAttribute("aria-expanded", "true");
+	document.addEventListener("pointerdown", outside, true);
+	document.addEventListener("keydown", keys, true);
+	paint();
+	q.focus();
+	return { close };
+}
+
 export { append, clear };
