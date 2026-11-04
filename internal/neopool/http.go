@@ -19,7 +19,7 @@ import (
 type EngineLogin interface {
 	StartOAuthV8(*gin.Context)
 	GetAuthStatus(*gin.Context)
-	PostOAuthCallbackV8(*gin.Context)
+	PostOAuthCallback(*gin.Context)
 	SetAccountOwnershipHook(coreauth.PostAuthHook)
 	CreateAccountAPIKey(context.Context, coreauth.AccountKey) (*coreauth.Auth, error)
 	SetAccountDisabled(context.Context, string, bool) error

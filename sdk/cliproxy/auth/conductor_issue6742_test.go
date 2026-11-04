@@ -23,54 +23,10 @@ func makeIssue6742JWT(exp time.Time) string {
 	return header + "." + payload + ".sig"
 }
 
-func TestIssue6742_CodexProactiveRefreshBeforeSevenDayInvalidation(t *testing.T) {
-	issuedAt := time.Date(2026, 9, 26, 14, 39, 9, 0, time.FixedZone("UTC+8", 8*3600))
-	jwtExpiry := issuedAt.Add(10 * 24 * time.Hour) // Oct 6 14:39:09
-	jwtToken := makeIssue6742JWT(jwtExpiry)
-
-	auth := &Auth{
-		ID:              "codex-issue6742-a.json",
-		Provider:        "codex",
-		Status:          StatusActive,
-		LastRefreshedAt: issuedAt,
-		Metadata: map[string]any{
-			"type":          "codex",
-			"access_token":  jwtToken,
-			"refresh_token": "codex-refresh-a",
-			"last_refresh":  issuedAt.Format(time.RFC3339),
-			"expired":       jwtExpiry.Format(time.RFC3339),
-		},
-	}
-
-	mgr := NewManager(nil, nil, nil)
-
-	// At 6 days + 1 hour after issuance (still ~3.9 days before 10-day JWT expiry,
-	// and before the ~7-day upstream invalidation on Oct 3 16:33:55), proactive refresh must be due.
-	checkAt := issuedAt.Add(6*24*time.Hour + time.Hour)
-	dueAt, hasOuter, needOuter := CodexOuterNeedsRefresh(auth, checkAt)
-	if !hasOuter {
-		t.Fatal("CodexOuterNeedsRefresh hasRefresh = false, want true")
-	}
-	if !needOuter {
-		t.Fatalf("CodexOuterNeedsRefresh needsRefresh = false at %v (dueAt=%v), want true before 7-day upstream invalidation", checkAt, dueAt)
-	}
-	if !mgr.shouldRefresh(auth, checkAt) {
-		t.Fatalf("mgr.shouldRefresh = false at %v, want true before 7-day upstream invalidation", checkAt)
-	}
-	nextAt, okSchedule := nextRefreshCheckAt(issuedAt, auth, 5*time.Second)
-	if !okSchedule {
-		t.Fatal("nextRefreshCheckAt ok = false, want true")
-	}
-	sevenDayInvalidation := time.Date(2026, 10, 3, 16, 33, 55, 0, time.FixedZone("UTC+8", 8*3600))
-	if !nextAt.Before(sevenDayInvalidation) {
-		t.Fatalf("nextRefreshCheckAt = %v, want before 7-day invalidation at %v", nextAt, sevenDayInvalidation)
-	}
-}
-
 func TestIssue6742_RejectedUnexpiredJWTRecoversViaBackgroundRefreshAfterTransientFailure(t *testing.T) {
 	now := time.Now()
-	// Use 8 days remaining (> 96h proactive refresh lead) so shouldRefresh is false
-	// before rejection and can only become true via RejectedAccessToken tracking.
+	// Keep the token well outside NeoPi's sixty-second refresh window so only
+	// rejection can make this grant immediately due.
 	staleJWTToken := makeIssue6742JWT(now.Add(8 * 24 * time.Hour))
 	freshJWTToken := makeIssue6742JWT(now.Add(10 * 24 * time.Hour))
 

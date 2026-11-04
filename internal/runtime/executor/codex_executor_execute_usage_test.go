@@ -61,7 +61,7 @@ func TestCodexExecutorExecutePublishesMainUsageBeforeImageUsage(t *testing.T) {
 				})
 				ctx := coreusage.WithRequestedModelAlias(context.Background(), alias)
 				executor := NewCodexExecutor(&config.Config{})
-				resp, errExecute := executor.Execute(ctx, codexOAuthTestAuth(server.URL), cliproxyexecutor.Request{
+				resp, errExecute := executor.Execute(ctx, codexTestAuth(server.URL), cliproxyexecutor.Request{
 					Model:   "gpt-5.5",
 					Payload: []byte(`{"model":"gpt-5.5","input":"hi"}`),
 				}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse})
@@ -130,7 +130,7 @@ func TestCodexExecutorExecuteRecordsFinalizedPayloadOverrideReasoningEffort(t *t
 
 	ctx := coreusage.WithRequestedModelAlias(context.Background(), alias)
 	executor := NewCodexExecutor(cfg)
-	resp, errExecute := executor.Execute(ctx, codexOAuthTestAuth(server.URL), cliproxyexecutor.Request{
+	resp, errExecute := executor.Execute(ctx, codexTestAuth(server.URL), cliproxyexecutor.Request{
 		Model:   "gpt-5.6-luna",
 		Payload: []byte(`{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"hello"}]}`),
 	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI})
@@ -188,7 +188,7 @@ func TestCodexExecutorExecuteStreamRecordsFinalizedPayloadOverrideReasoningEffor
 
 	ctx := coreusage.WithRequestedModelAlias(context.Background(), alias)
 	executor := NewCodexExecutor(cfg)
-	streamRes, errStream := executor.ExecuteStream(ctx, codexOAuthTestAuth(server.URL), cliproxyexecutor.Request{
+	streamRes, errStream := executor.ExecuteStream(ctx, codexTestAuth(server.URL), cliproxyexecutor.Request{
 		Model:   "gpt-5.6-luna",
 		Payload: []byte(`{"model":"gpt-5.6-luna","messages":[{"role":"user","content":"hello"}]}`),
 	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, Stream: true})
@@ -245,7 +245,7 @@ func TestCodexExecutorExecuteCompactRecordsFinalizedPayloadOverrideReasoningEffo
 
 	ctx := coreusage.WithRequestedModelAlias(context.Background(), alias)
 	executor := NewCodexExecutor(cfg)
-	resp, errExecute := executor.Execute(ctx, codexOAuthTestAuth(server.URL), cliproxyexecutor.Request{
+	resp, errExecute := executor.Execute(ctx, codexTestAuth(server.URL), cliproxyexecutor.Request{
 		Model:   "gpt-5.6-luna",
 		Payload: []byte(`{"model":"gpt-5.6-luna","input":[{"type":"message","role":"user","content":"history"},{"type":"compaction_trigger"}]}`),
 	}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, Alt: "responses/compact"})

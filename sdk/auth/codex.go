@@ -9,7 +9,6 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/browser"
-	// legacy client removed
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -18,13 +17,11 @@ import (
 )
 
 // CodexAuthenticator implements the OAuth login flow for Codex accounts.
-type CodexAuthenticator struct {
-	CallbackPort int
-}
+type CodexAuthenticator struct{}
 
 // NewCodexAuthenticator constructs a Codex authenticator with default settings.
 func NewCodexAuthenticator() *CodexAuthenticator {
-	return &CodexAuthenticator{CallbackPort: 1455}
+	return &CodexAuthenticator{}
 }
 
 func (a *CodexAuthenticator) Provider() string {
@@ -32,7 +29,7 @@ func (a *CodexAuthenticator) Provider() string {
 }
 
 func (a *CodexAuthenticator) RefreshLead() *time.Duration {
-	return new(coreauth.CodexOuterRefreshLead)
+	return new(coreauth.CodexRefreshLead)
 }
 
 func (a *CodexAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
@@ -50,10 +47,7 @@ func (a *CodexAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 		return a.loginWithDeviceFlow(ctx, cfg, opts)
 	}
 
-	callbackPort := a.CallbackPort
-	if opts.CallbackPort > 0 {
-		callbackPort = opts.CallbackPort
-	}
+	const callbackPort = 1455
 
 	pkceCodes, err := codex.GeneratePKCECodes()
 	if err != nil {

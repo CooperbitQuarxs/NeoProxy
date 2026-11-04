@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 )
 
 const UsageURL = "https://api.anthropic.com/api/oauth/usage"
@@ -189,32 +191,10 @@ func usageRetryDelay(attempt int, retryAfter string, now time.Time) time.Duratio
 }
 
 func usageNumber(value any) *float64 {
-	var number float64
-	switch value := value.(type) {
-	case float64:
-		number = value
-	case string:
-		value = strings.TrimSpace(value)
-		if len(value) > 2 && value[0] == '0' && strings.ContainsRune("xXoObB", rune(value[1])) {
-			integer, err := strconv.ParseUint(value, 0, 64)
-			if err != nil {
-				return nil
-			}
-			number = float64(integer)
-		} else {
-			var err error
-			number, err = strconv.ParseFloat(value, 64)
-			if err != nil {
-				return nil
-			}
-		}
-	default:
-		return nil
+	if number, ok := jsjson.ToNumber(value); ok {
+		return &number
 	}
-	if math.IsNaN(number) || math.IsInf(number, 0) {
-		return nil
-	}
-	return &number
+	return nil
 }
 
 func parseUsageBucket(value any, percentKey string) *UsageBucket {

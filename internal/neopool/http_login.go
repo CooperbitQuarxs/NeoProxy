@@ -97,9 +97,13 @@ func (h *HTTP) login(c *gin.Context) {
 	if dispatch == "anthropic" {
 		dispatch = "claude"
 	}
-	// Owners cannot smuggle engine config, filenames, account IDs, or SIWC bind
-	// targets through this narrow new-login operation.
-	inner := engineContext(c, "/v8/management/oauth/auth-url", url.Values{"provider": {dispatch}, "is_webui": {"true"}})
+	// Owners cannot smuggle engine config, filenames, or account IDs through this
+	// narrow new-login operation.
+	query := url.Values{"provider": {dispatch}, "is_webui": {"true"}}
+	if dispatch == "codex" && c.Query("mode") == "device" {
+		query.Set("mode", "device")
+	}
+	inner := engineContext(c, "/v8/management/oauth/auth-url", query)
 	captured := &loginWriter{ResponseWriter: c.Writer}
 	inner.Writer = captured
 	h.management.StartOAuthV8(inner)
@@ -192,5 +196,5 @@ func (h *HTTP) loginCallback(c *gin.Context) {
 	inner := engineContext(c, c.Request.URL.Path, nil)
 	inner.Request.Body = io.NopCloser(bytes.NewReader(encoded))
 	inner.Request.ContentLength = int64(len(encoded))
-	h.management.PostOAuthCallbackV8(inner)
+	h.management.PostOAuthCallback(inner)
 }

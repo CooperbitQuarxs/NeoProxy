@@ -27,10 +27,6 @@ type staticModelsJSON struct {
 	Gemini      []*ModelInfo `json:"gemini"`
 	Vertex      []*ModelInfo `json:"vertex"`
 	AIStudio    []*ModelInfo `json:"aistudio"`
-	CodexFree   []*ModelInfo `json:"codex-free"`
-	CodexTeam   []*ModelInfo `json:"codex-team"`
-	CodexPlus   []*ModelInfo `json:"codex-plus"`
-	CodexPro    []*ModelInfo `json:"codex-pro"`
 	Kimi        []*ModelInfo `json:"kimi"`
 	Antigravity []*ModelInfo `json:"antigravity"`
 	XAI         []*ModelInfo `json:"xai"`
@@ -56,26 +52,6 @@ func GetGeminiVertexModels() []*ModelInfo {
 // GetAIStudioModels returns model definitions for AI Studio.
 func GetAIStudioModels() []*ModelInfo {
 	return cloneModelInfos(getModels().AIStudio)
-}
-
-// GetCodexFreeModels returns model definitions for the Codex free plan tier.
-func GetCodexFreeModels() []*ModelInfo {
-	return WithCodexBuiltins(cloneModelInfos(getModels().CodexFree))
-}
-
-// GetCodexTeamModels returns model definitions for the Codex team plan tier.
-func GetCodexTeamModels() []*ModelInfo {
-	return WithCodexBuiltins(cloneModelInfos(getModels().CodexTeam))
-}
-
-// GetCodexPlusModels returns model definitions for the Codex plus plan tier.
-func GetCodexPlusModels() []*ModelInfo {
-	return WithCodexBuiltins(cloneModelInfos(getModels().CodexPlus))
-}
-
-// GetCodexProModels returns model definitions for the Codex pro plan tier.
-func GetCodexProModels() []*ModelInfo {
-	return WithCodexBuiltins(cloneModelInfos(getModels().CodexPro))
 }
 
 // GetKimiModels returns the standard Kimi (Moonshot AI) model definitions.
@@ -521,7 +497,7 @@ func GetStaticModelDefinitionsByChannel(channel string) []*ModelInfo {
 	case "aistudio":
 		return GetAIStudioModels()
 	case "codex":
-		return GetCodexProModels()
+		return GetCodexModels()
 	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
 		return GetKimiModels()
 	case "antigravity":
@@ -580,7 +556,7 @@ func LookupStaticModelInfo(modelID string) *ModelInfo {
 		data.Gemini,
 		data.Vertex,
 		data.AIStudio,
-		data.CodexPro,
+		GetCodexModels(),
 		data.Kimi,
 		data.Antigravity,
 		data.XAI,

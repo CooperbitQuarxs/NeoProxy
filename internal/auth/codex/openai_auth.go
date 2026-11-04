@@ -6,17 +6,13 @@ package codex
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -26,15 +22,14 @@ const (
 	TokenURL            = "https://auth.openai.com/oauth/token"
 	ClientID            = "app_EMoamEEZ73f0CkXaXp7hrann"
 	RedirectURI         = "http://localhost:1455/auth/callback"
-	codexRefreshTimeout = 30 * time.Second
+	codexRefreshTimeout = 15 * time.Second
 )
 
 // CodexAuth handles the OpenAI OAuth2 authentication flow.
 // It manages the HTTP client and provides methods for generating authorization URLs,
 // exchanging authorization codes for tokens, and refreshing access tokens.
 type CodexAuth struct {
-	httpClient        *http.Client
-	siwcAgentNameHint string
+	httpClient *http.Client
 }
 
 var codexRefreshGroup singleflight.Group
@@ -50,19 +45,14 @@ func NewCodexAuth(cfg *config.Config) *CodexAuth {
 func NewCodexAuthWithProxyURL(cfg *config.Config, proxyURL string) *CodexAuth {
 	effectiveProxyURL := strings.TrimSpace(proxyURL)
 	var sdkCfg config.SDKConfig
-	agentNameHint := SIWCAgentNameHint
 	if cfg != nil {
 		sdkCfg = cfg.SDKConfig
 		if effectiveProxyURL == "" {
 			effectiveProxyURL = strings.TrimSpace(cfg.ProxyURL)
 		}
-		agentNameHint = cfg.Codex.EffectiveSignInWithChatGPTIdentifier()
 	}
 	sdkCfg.ProxyURL = effectiveProxyURL
-	return &CodexAuth{
-		httpClient:        util.SetProxy(&sdkCfg, &http.Client{}),
-		siwcAgentNameHint: agentNameHint,
-	}
+	return &CodexAuth{httpClient: util.SetProxy(&sdkCfg, &http.Client{})}
 }
 
 // GenerateAuthURL creates the OAuth authorization URL with PKCE (Proof Key for Code Exchange).
@@ -73,122 +63,44 @@ func (o *CodexAuth) GenerateAuthURL(state string, pkceCodes *PKCECodes) (string,
 		return "", fmt.Errorf("PKCE codes are required")
 	}
 
-	params := url.Values{
-		"client_id":                  {ClientID},
-		"response_type":              {"code"},
-		"redirect_uri":               {RedirectURI},
-		"scope":                      {"openid email profile offline_access"},
-		"state":                      {state},
-		"code_challenge":             {pkceCodes.CodeChallenge},
-		"code_challenge_method":      {"S256"},
-		"prompt":                     {"login"},
-		"id_token_add_organizations": {"true"},
-		"codex_cli_simplified_flow":  {"true"},
-	}
-
-	authURL := fmt.Sprintf("%s?%s", AuthURL, params.Encode())
-	return authURL, nil
+	return AuthURL + "?" + codexForm(
+		[2]string{"client_id", ClientID},
+		[2]string{"response_type", "code"},
+		[2]string{"redirect_uri", RedirectURI},
+		[2]string{"scope", "openid profile email offline_access api.connectors.read api.connectors.invoke"},
+		[2]string{"code_challenge", pkceCodes.CodeChallenge},
+		[2]string{"code_challenge_method", "S256"},
+		[2]string{"state", state},
+		[2]string{"id_token_add_organizations", "true"},
+		[2]string{"codex_cli_simplified_flow", "true"},
+		[2]string{"originator", "omp"},
+	), nil
 }
 
 // ExchangeCodeForTokens exchanges an authorization code for access and refresh tokens.
 // It performs an HTTP POST request to the OpenAI token endpoint with the provided
 // authorization code and PKCE verifier.
 func (o *CodexAuth) ExchangeCodeForTokens(ctx context.Context, code string, pkceCodes *PKCECodes) (*CodexAuthBundle, error) {
-	return o.ExchangeCodeForTokensWithRedirect(ctx, code, RedirectURI, pkceCodes)
-}
-
-// ExchangeCodeForTokensWithRedirect exchanges an authorization code for tokens using
-// a caller-provided redirect URI. This supports alternate auth flows such as device
-// login while preserving the existing token parsing and storage behavior.
-func (o *CodexAuth) ExchangeCodeForTokensWithRedirect(ctx context.Context, code, redirectURI string, pkceCodes *PKCECodes) (*CodexAuthBundle, error) {
 	if pkceCodes == nil {
 		return nil, fmt.Errorf("PKCE codes are required for token exchange")
 	}
-	if strings.TrimSpace(redirectURI) == "" {
-		return nil, fmt.Errorf("redirect URI is required for token exchange")
-	}
 
-	// Prepare token exchange request
-	data := url.Values{
-		"grant_type":    {"authorization_code"},
-		"client_id":     {ClientID},
-		"code":          {code},
-		"redirect_uri":  {strings.TrimSpace(redirectURI)},
-		"code_verifier": {pkceCodes.CodeVerifier},
+	// Preserve URLSearchParams insertion order as well as the values.
+	if fragment := strings.IndexByte(code, '#'); fragment >= 0 {
+		code = code[:fragment]
 	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", TokenURL, strings.NewReader(data.Encode()))
+	fields := [][2]string{
+		{"grant_type", "authorization_code"},
+		{"client_id", ClientID},
+		{"code", code},
+		{"redirect_uri", RedirectURI},
+		{"code_verifier", pkceCodes.CodeVerifier},
+	}
+	tokenData, err := o.requestNeoPiToken(ctx, codexForm(fields...), "", false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create token request: %w", err)
+		return nil, err
 	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := o.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("token exchange request failed: %w", err)
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read token response: %w", err)
-	}
-	// log.Debugf("Token response: %s", string(body))
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse token response
-	var tokenResp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		IDToken      string `json:"id_token"`
-		TokenType    string `json:"token_type"`
-		ExpiresIn    int    `json:"expires_in"`
-	}
-
-	if err = json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("failed to parse token response: %w", err)
-	}
-
-	// Extract account ID from ID token
-	claims, err := ParseJWTToken(tokenResp.IDToken)
-	if err != nil {
-		log.Warnf("Failed to parse ID token: %v", err)
-	}
-
-	accountID := ""
-	email := ""
-	planType := DefaultPlanType
-	if claims != nil {
-		accountID = claims.GetAccountID()
-		email = claims.GetUserEmail()
-		planType = claims.GetPlanType()
-	}
-
-	// Create token data
-	tokenData := CodexTokenData{
-		IDToken:      tokenResp.IDToken,
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		AccountID:    accountID,
-		Email:        email,
-		PlanType:     planType,
-		Expire:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second).Format(time.RFC3339),
-	}
-
-	// Create auth bundle
-	bundle := &CodexAuthBundle{
-		TokenData:   tokenData,
-		LastRefresh: time.Now().Format(time.RFC3339),
-	}
-
-	return bundle, nil
+	return &CodexAuthBundle{TokenData: *tokenData, LastRefresh: time.Now().Format(time.RFC3339Nano)}, nil
 }
 
 // RefreshTokens refreshes an access token using a refresh token.
@@ -202,100 +114,40 @@ func (o *CodexAuth) RefreshTokens(ctx context.Context, refreshToken string) (*Co
 		ctx = context.Background()
 	}
 
-	result, err, _ := codexRefreshGroup.Do(refreshToken, func() (interface{}, error) {
-		refreshCtx, cancelRefresh := context.WithTimeout(context.WithoutCancel(ctx), codexRefreshTimeout)
-		defer cancelRefresh()
-		return o.refreshTokensSingleFlight(refreshCtx, refreshToken)
-	})
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	tokenData, ok := result.(*CodexTokenData)
-	if !ok || tokenData == nil {
-		return nil, fmt.Errorf("token refresh failed: invalid single-flight result")
+	result := codexRefreshGroup.DoChan(refreshToken, func() (any, error) {
+		return o.refreshTokensSingleFlight(ctx, refreshToken)
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case refreshed := <-result:
+		if refreshed.Err != nil {
+			return nil, refreshed.Err
+		}
+		tokenData, ok := refreshed.Val.(*CodexTokenData)
+		if !ok || tokenData == nil {
+			return nil, fmt.Errorf("token refresh failed: invalid single-flight result")
+		}
+		return tokenData, nil
 	}
-	return tokenData, nil
 }
 
 func (o *CodexAuth) refreshTokensSingleFlight(ctx context.Context, refreshToken string) (*CodexTokenData, error) {
-	data := url.Values{
-		"client_id":     {ClientID},
-		"grant_type":    {"refresh_token"},
-		"refresh_token": {refreshToken},
-		"scope":         {"openid profile email"},
-	}
-
-	req, errReq := http.NewRequestWithContext(ctx, "POST", TokenURL, strings.NewReader(data.Encode()))
-	if errReq != nil {
-		return nil, fmt.Errorf("failed to create refresh request: %w", errReq)
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	resp, errDo := o.httpClient.Do(req)
-	if errDo != nil {
-		return nil, fmt.Errorf("token refresh request failed: %w", errDo)
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.Errorf("token refresh response body close error: %v", errClose)
-		}
-	}()
-
-	body, errRead := io.ReadAll(resp.Body)
-	if errRead != nil {
-		return nil, fmt.Errorf("failed to read refresh response: %w", errRead)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var tokenResp struct {
-		AccessToken  string `json:"access_token"`
-		RefreshToken string `json:"refresh_token"`
-		IDToken      string `json:"id_token"`
-		TokenType    string `json:"token_type"`
-		ExpiresIn    int    `json:"expires_in"`
-	}
-
-	if errUnmarshal := json.Unmarshal(body, &tokenResp); errUnmarshal != nil {
-		return nil, fmt.Errorf("failed to parse refresh response: %w", errUnmarshal)
-	}
-
-	// Extract account ID from ID token
-	claims, errParseJWT := ParseJWTToken(tokenResp.IDToken)
-	if errParseJWT != nil {
-		log.Warnf("Failed to parse refreshed ID token: %v", errParseJWT)
-	}
-
-	accountID := ""
-	email := ""
-	planType := DefaultPlanType
-	if claims != nil {
-		accountID = claims.GetAccountID()
-		email = claims.Email
-		planType = claims.GetPlanType()
-	}
-
-	return &CodexTokenData{
-		IDToken:      tokenResp.IDToken,
-		AccessToken:  tokenResp.AccessToken,
-		RefreshToken: tokenResp.RefreshToken,
-		AccountID:    accountID,
-		Email:        email,
-		PlanType:     planType,
-		Expire:       time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second).Format(time.RFC3339),
-	}, nil
+	return o.requestNeoPiToken(ctx, codexForm(
+		[2]string{"grant_type", "refresh_token"},
+		[2]string{"client_id", ClientID},
+		[2]string{"refresh_token", refreshToken},
+	), refreshToken, true)
 }
 
 // CreateTokenStorage creates a new CodexTokenStorage from a CodexAuthBundle.
 // It populates the storage struct with token data, user information, and timestamps.
 func (o *CodexAuth) CreateTokenStorage(bundle *CodexAuthBundle) *CodexTokenStorage {
-	planType := DefaultPlanType
-	if bundle != nil && strings.TrimSpace(bundle.TokenData.PlanType) != "" {
-		planType = strings.TrimSpace(bundle.TokenData.PlanType)
+	if bundle == nil {
+		return nil
 	}
 	storage := &CodexTokenStorage{
 		IDToken:      bundle.TokenData.IDToken,
@@ -305,42 +157,10 @@ func (o *CodexAuth) CreateTokenStorage(bundle *CodexAuthBundle) *CodexTokenStora
 		LastRefresh:  bundle.LastRefresh,
 		Email:        bundle.TokenData.Email,
 		Expire:       bundle.TokenData.Expire,
-		PlanType:     planType,
+		PlanType:     bundle.TokenData.PlanType,
 	}
 
 	return storage
-}
-
-// RefreshTokensWithRetry refreshes tokens with a built-in retry mechanism.
-// It attempts to refresh the tokens up to a specified maximum number of retries,
-// with an exponential backoff strategy to handle transient network errors.
-func (o *CodexAuth) RefreshTokensWithRetry(ctx context.Context, refreshToken string, maxRetries int) (*CodexTokenData, error) {
-	var lastErr error
-
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			// Wait before retry
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(time.Duration(attempt) * time.Second):
-			}
-		}
-
-		tokenData, err := o.RefreshTokens(ctx, refreshToken)
-		if err == nil {
-			return tokenData, nil
-		}
-		if isNonRetryableRefreshErr(err) {
-			log.Warnf("Token refresh attempt %d failed with non-retryable error: %v", attempt+1, err)
-			return nil, err
-		}
-
-		lastErr = err
-		log.Warnf("Token refresh attempt %d failed: %v", attempt+1, err)
-	}
-
-	return nil, fmt.Errorf("token refresh failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 func isNonRetryableRefreshErr(err error) bool {
@@ -357,16 +177,20 @@ func (o *CodexAuth) UpdateTokenStorage(storage *CodexTokenStorage, tokenData *Co
 	if storage == nil || tokenData == nil {
 		return
 	}
-	storage.IDToken = tokenData.IDToken
-	storage.AccessToken = tokenData.AccessToken
-	storage.RefreshToken = tokenData.RefreshToken
-	storage.AccountID = tokenData.AccountID
-	storage.LastRefresh = time.Now().Format(time.RFC3339)
-	storage.Email = tokenData.Email
-	storage.Expire = tokenData.Expire
-	planType := DefaultPlanType
-	if strings.TrimSpace(tokenData.PlanType) != "" {
-		planType = strings.TrimSpace(tokenData.PlanType)
+	if tokenData.IDToken != "" {
+		storage.IDToken = tokenData.IDToken
 	}
-	storage.PlanType = planType
+	storage.AccessToken = tokenData.AccessToken
+	if tokenData.RefreshToken != "" {
+		storage.RefreshToken = tokenData.RefreshToken
+	}
+	if tokenData.AccountID != "" {
+		storage.AccountID = tokenData.AccountID
+	}
+	if tokenData.Email != "" {
+		storage.Email = tokenData.Email
+	}
+	storage.LastRefresh = time.Now().Format(time.RFC3339Nano)
+	storage.Expire = tokenData.Expire
+	// NeoPi retains the stored organization name (plan) on refresh.
 }

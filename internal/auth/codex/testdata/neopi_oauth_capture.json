@@ -1,0 +1,356 @@
+{
+  "source": "NeoPi OWN openai-codex auth rule, DeclarativeOAuthCodeFlow, createRefresh and openAICodexProfileHook",
+  "normalizations": [
+    "PKCE verifier/challenge are replayed from the fixture",
+    "expiry is compared relative to the request time; zero stored skew"
+  ],
+  "deviceOffered": true,
+  "scenarios": [
+    {
+      "name": "login-access-claims-first",
+      "phase": "login",
+      "response": {
+        "access_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1hY2Nlc3MiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6IiBQUk8gIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6IiBBY2Nlc3NARXhhbXBsZS5JbnZhbGlkICJ9fQ.fake",
+        "refresh_token": "refresh-fake",
+        "id_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1pZCIsImNoYXRncHRfcGxhbl90eXBlIjoidGVhbSJ9LCJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJpZEBleGFtcGxlLmludmFsaWQifX0.fake",
+        "expires_in": 3600
+      },
+      "authURL": "https://auth.openai.com/oauth/authorize?client_id=app_EMoamEEZ73f0CkXaXp7hrann&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile+email+offline_access+api.connectors.read+api.connectors.invoke&code_challenge=Gfshbqg6SHEDF1lLKYKoP4cGiQNDdf3l7boR9HkI5BM&code_challenge_method=S256&state=state-parity-fake&id_token_add_organizations=true&codex_cli_simplified_flow=true&originator=omp",
+      "before": 1793798856686,
+      "after": 1793798856806,
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1hY2Nlc3MiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6IiBQUk8gIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6IiBBY2Nlc3NARXhhbXBsZS5JbnZhbGlkICJ9fQ.fake",
+        "refresh": "refresh-fake",
+        "expires": 1793802456701,
+        "accountId": "account-access",
+        "email": "access@example.invalid",
+        "orgId": "account-access",
+        "orgName": "pro"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "294",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=app_EMoamEEZ73f0CkXaXp7hrann&code=code-parity-fake&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&code_verifier=6wEel6N8YaPrKX6yFQI31oqfsAMMTEbe_N0tUxPH2jHTzf_Q4Cd2psfl9Ycm37VvRkVr85zPGJ07krGILHQ9bcX7WV8_YgYyTLSv6ZgN4a_ow5XJv3i2cWpsHS1n_NsO"
+        }
+      ]
+    },
+    {
+      "name": "login-id-token-fallback",
+      "phase": "login",
+      "response": {
+        "access_token": "eyJhbGciOiJub25lIn0.e30.fake",
+        "refresh_token": "refresh-fake",
+        "id_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1pZCIsImNoYXRncHRfcGxhbl90eXBlIjoidGVhbSJ9LCJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJpZEBleGFtcGxlLmludmFsaWQifX0.fake",
+        "expires_in": 3600
+      },
+      "authURL": "https://auth.openai.com/oauth/authorize?client_id=app_EMoamEEZ73f0CkXaXp7hrann&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile+email+offline_access+api.connectors.read+api.connectors.invoke&code_challenge=PTwfqgv_hiooj_oMHnu5lbPRuSpaQpmSEY7kYsp6nGI&code_challenge_method=S256&state=state-parity-fake&id_token_add_organizations=true&codex_cli_simplified_flow=true&originator=omp",
+      "before": 1793798856806,
+      "after": 1793798856807,
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.e30.fake",
+        "refresh": "refresh-fake",
+        "expires": 1793802456807,
+        "accountId": "account-id",
+        "email": "id@example.invalid",
+        "orgId": "account-id",
+        "orgName": "team"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "294",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=app_EMoamEEZ73f0CkXaXp7hrann&code=code-parity-fake&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&code_verifier=Mb9RsH8WWI_3zDgt7Io6BquBgW6rPPeqdf5vWefIvfVRBcC5VE9VqViUWKYOyyvhVsneH6LMgCAvcber1RgrwBywI_eknoCYylVHntjRj0swRFFhZwhmfARV2Oq0QTOk"
+        }
+      ]
+    },
+    {
+      "name": "login-account-only",
+      "phase": "login",
+      "response": {
+        "access_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1vbmx5In19.fake",
+        "refresh_token": "refresh-fake",
+        "id_token": "invalid",
+        "expires_in": 3600
+      },
+      "authURL": "https://auth.openai.com/oauth/authorize?client_id=app_EMoamEEZ73f0CkXaXp7hrann&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile+email+offline_access+api.connectors.read+api.connectors.invoke&code_challenge=AHHR1slVZIKP0PBphYlMApDeAeq_3FzMUzQoe-dpLDI&code_challenge_method=S256&state=state-parity-fake&id_token_add_organizations=true&codex_cli_simplified_flow=true&originator=omp",
+      "before": 1793798856807,
+      "after": 1793798856808,
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1vbmx5In19.fake",
+        "refresh": "refresh-fake",
+        "expires": 1793802456808,
+        "accountId": "account-only",
+        "orgId": "account-only"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "294",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=app_EMoamEEZ73f0CkXaXp7hrann&code=code-parity-fake&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&code_verifier=jQe1uZCmpN0Ay-iLPeOJDKL9KxB446Mf-xtkvpanOeLOSDJD77zYDIhtxaOADKbodpVaELpiTEHj-XRNmwQ0-CHwW5-HPFCQZXHdXP0c6Prybx5da-eO2UPK1raAQt2S"
+        }
+      ]
+    },
+    {
+      "name": "refresh-preserves-organization",
+      "phase": "refresh",
+      "response": {
+        "access_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1hY2Nlc3MiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6IiBQUk8gIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6IiBBY2Nlc3NARXhhbXBsZS5JbnZhbGlkICJ9fQ.fake",
+        "refresh_token": "refresh-fake",
+        "id_token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1pZCIsImNoYXRncHRfcGxhbl90eXBlIjoidGVhbSJ9LCJodHRwczovL2FwaS5vcGVuYWkuY29tL3Byb2ZpbGUiOnsiZW1haWwiOiJpZEBleGFtcGxlLmludmFsaWQifX0.fake",
+        "expires_in": 3600
+      },
+      "previous": {
+        "access": "previous-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1893456000000,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "before": 1793798856808,
+      "after": 1793798856809,
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1hY2Nlc3MiLCJjaGF0Z3B0X3BsYW5fdHlwZSI6IiBQUk8gIn0sImh0dHBzOi8vYXBpLm9wZW5haS5jb20vcHJvZmlsZSI6eyJlbWFpbCI6IiBBY2Nlc3NARXhhbXBsZS5JbnZhbGlkICJ9fQ.fake",
+        "refresh": "refresh-fake",
+        "expires": 1793802456809,
+        "accountId": "account-access",
+        "email": "access@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "99",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=app_EMoamEEZ73f0CkXaXp7hrann&refresh_token=previous-refresh-fake"
+        }
+      ]
+    },
+    {
+      "name": "refresh-missing-claims-and-refresh",
+      "phase": "refresh",
+      "response": {
+        "access_token": "rotated-access-fake",
+        "expires_in": 3600
+      },
+      "previous": {
+        "access": "previous-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1893456000000,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "before": 1793798856809,
+      "after": 1793798856809,
+      "credential": {
+        "access": "rotated-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1793802456809,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "99",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=app_EMoamEEZ73f0CkXaXp7hrann&refresh_token=previous-refresh-fake"
+        }
+      ]
+    },
+    {
+      "name": "refresh-zero-expiry",
+      "phase": "refresh",
+      "response": {
+        "access_token": "rotated-access-fake",
+        "expires_in": 0
+      },
+      "previous": {
+        "access": "previous-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1893456000000,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "before": 1793798856809,
+      "after": 1793798856809,
+      "credential": {
+        "access": "rotated-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1793798856809,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "99",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=app_EMoamEEZ73f0CkXaXp7hrann&refresh_token=previous-refresh-fake"
+        }
+      ]
+    },
+    {
+      "name": "login-missing-identity",
+      "phase": "login",
+      "response": {
+        "access_token": "invalid",
+        "refresh_token": "fake",
+        "expires_in": 3600
+      },
+      "authURL": "https://auth.openai.com/oauth/authorize?client_id=app_EMoamEEZ73f0CkXaXp7hrann&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&scope=openid+profile+email+offline_access+api.connectors.read+api.connectors.invoke&code_challenge=wjzUB5UmedVlmZTWUmv6F6Byzf5txfqaLh7NrAj7nyo&code_challenge_method=S256&state=state-parity-fake&id_token_add_organizations=true&codex_cli_simplified_flow=true&originator=omp",
+      "before": 1793798856809,
+      "after": 1793798856810,
+      "error": "Failed to extract account identity from token",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "294",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=app_EMoamEEZ73f0CkXaXp7hrann&code=code-parity-fake&redirect_uri=http%3A%2F%2Flocalhost%3A1455%2Fauth%2Fcallback&code_verifier=b8aZqXYUN8ZdTwDELal4z0eTBFmnMVA6e9odYR9YydhnTW33Q-IrysCwJYxmgyZqpmnh-Nsd4u3uy2V90HLtjLYnX6jUNtgAC0W61PJRb5q2-cCDKbKpmdFX9tTXQxkG"
+        }
+      ]
+    },
+    {
+      "name": "refresh-missing-expiry",
+      "phase": "refresh",
+      "response": {
+        "access_token": "rotated-access-fake"
+      },
+      "previous": {
+        "access": "previous-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1893456000000,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "before": 1793798856810,
+      "after": 1793798856814,
+      "error": "openai-codex token response missing expires_in",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "99",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=app_EMoamEEZ73f0CkXaXp7hrann&refresh_token=previous-refresh-fake"
+        }
+      ]
+    },
+    {
+      "name": "refresh-rejected",
+      "phase": "refresh",
+      "status": 400,
+      "response": {
+        "error": "invalid_grant"
+      },
+      "previous": {
+        "access": "previous-access-fake",
+        "refresh": "previous-refresh-fake",
+        "expires": 1893456000000,
+        "accountId": "stored-account",
+        "email": "stored@example.invalid",
+        "orgId": "stored-org",
+        "orgName": "stored-plan"
+      },
+      "before": 1793798856814,
+      "after": 1793798856814,
+      "error": "openai-codex token refresh failed: 400 {\"error\":\"invalid_grant\"}",
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.openai.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "99",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.openai.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=app_EMoamEEZ73f0CkXaXp7hrann&refresh_token=previous-refresh-fake"
+        }
+      ]
+    }
+  ]
+}

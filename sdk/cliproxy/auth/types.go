@@ -792,35 +792,21 @@ func (a *Auth) AccountInfo() (string, string) {
 	}
 }
 
-// IsCodexUseSIWC reports whether a Codex auth record is configured to use its nested "siwc" section.
-func IsCodexUseSIWC(a *Auth) bool {
-	if a == nil {
-		return false
-	}
-	enabled := false
-	if len(a.Attributes) > 0 {
-		if raw := strings.TrimSpace(a.Attributes["use_siwc"]); raw != "" {
-			if parsed, ok := parseBoolAny(raw); ok {
-				enabled = parsed
-			}
-		}
-	}
-	if !enabled && a.Metadata != nil {
-		if parsed, ok := parseBoolAny(a.Metadata["use_siwc"]); ok {
-			enabled = parsed
-		}
-	}
-	return enabled
-}
-
-// OuterExpirationTime extracts the outer credential expiration timestamp, ignoring the nested "siwc" section.
-func (a *Auth) OuterExpirationTime() (time.Time, bool) {
+// ExpirationTime extracts the credential's access-token expiration timestamp.
+func (a *Auth) ExpirationTime() (time.Time, bool) {
 	if a == nil {
 		return time.Time{}, false
 	}
-	tokenStr := authOuterAccessToken(a)
+	tokenStr := authAccessToken(a)
 	if tokenStr != "" && a.RejectedAccessToken != "" && a.RejectedAccessToken == tokenStr {
 		return time.Unix(0, 0), true
+	}
+	// NeoPi's Codex grant lifetime comes from expires_in, not the bearer JWT.
+	// Older files without a stored lifetime can still use their JWT expiry.
+	if IsCodexAuthRecord(a) {
+		if expiry, ok := expirationFromMap(a.Metadata); ok {
+			return expiry, true
+		}
 	}
 	if tokenStr != "" {
 		if jwtExp, ok := parseJWTExp(tokenStr); ok {
@@ -833,180 +819,41 @@ func (a *Auth) OuterExpirationTime() (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// ExpirationTime attempts to extract the active credential expiration timestamp from metadata.
-// When use_siwc is enabled on a Codex credential, the active SIWC section expiration is returned.
-func (a *Auth) ExpirationTime() (time.Time, bool) {
-	if a == nil {
-		return time.Time{}, false
-	}
-	if IsCodexUseSIWC(a) {
-		siwcToken := authSIWCTokenField(a, "access_token")
-		if siwcToken != "" && a.RejectedAccessToken != "" && a.RejectedAccessToken == siwcToken {
-			return time.Unix(0, 0), true
-		}
-		return a.SIWCExpirationTime()
-	}
-	return a.OuterExpirationTime()
-}
+// CodexRefreshLead matches NeoPi's ordinary sixty-second proactive refresh.
+const CodexRefreshLead = time.Minute
 
-// CodexOuterRefreshLead is the conservative proactive refresh lead time before
-// the nominal 10-day Codex OAuth JWT expiration, refreshing tokens well ahead
-// of early upstream access-token invalidation.
-const CodexOuterRefreshLead = 96 * time.Hour
-
-// CodexSIWCRefreshLead is the minimum remaining validity required before refreshing
-// a Sign in with ChatGPT (SIWC) token, matching pi's DEFAULT_OAUTH_MINIMUM_VALIDITY_MS (5 minutes).
-const CodexSIWCRefreshLead = 5 * time.Minute
-
-// SIWCExpirationTime extracts the expiration timestamp from the nested "siwc" metadata section.
-func (a *Auth) SIWCExpirationTime() (time.Time, bool) {
-	if a == nil || a.Metadata == nil {
-		return time.Time{}, false
-	}
-	siwcMap, ok := a.Metadata["siwc"].(map[string]any)
-	if !ok || len(siwcMap) == 0 {
-		return time.Time{}, false
-	}
-	if ts, okExp := expirationFromMap(siwcMap); okExp && !ts.IsZero() {
-		return ts, true
-	}
-	if rawToken, okTok := siwcMap["access_token"].(string); okTok && strings.TrimSpace(rawToken) != "" {
-		if jwtExp, okJWT := parseJWTExp(rawToken); okJWT && !jwtExp.IsZero() {
-			return jwtExp, true
-		}
-	}
-	return time.Time{}, false
-}
-
-// CodexOuterNeedsRefresh evaluates the outer credential refresh due time and whether it needs refresh at now.
-func CodexOuterNeedsRefresh(a *Auth, now time.Time) (dueAt time.Time, hasRefresh bool, needsRefresh bool) {
-	if a == nil {
+// CodexNeedsRefresh uses NeoPi's strict sixty-second freshness boundary.
+// Local refresh intervals and auxiliary credentials do not change the grant's lifetime.
+func CodexNeedsRefresh(a *Auth, now time.Time) (dueAt time.Time, hasRefresh bool, needsRefresh bool) {
+	if a == nil || IsRefreshLocked(a) || authRefreshToken(a) == "" {
 		return time.Time{}, false, false
 	}
-	if authRefreshToken(a) == "" {
-		return time.Time{}, false, false
-	}
-	hasRefresh = true
-
-	outerToken := authOuterAccessToken(a)
-	if outerToken == "" || (a.RejectedAccessToken != "" && a.RejectedAccessToken == outerToken) {
+	token := authAccessToken(a)
+	if token == "" || token == a.RejectedAccessToken {
 		return now, true, true
 	}
-
-	var lastRefresh time.Time
-	if ts, ok := authLastRefreshTimestamp(a); ok && !ts.IsZero() {
-		lastRefresh = ts
-	} else {
-		lastRefresh = a.LastRefreshedAt
-	}
-	expiry, hasExpiry := a.OuterExpirationTime()
-
-	if pref := authPreferredInterval(a); pref > 0 {
-		candidates := make([]time.Time, 0, 2)
-		if hasExpiry && !expiry.IsZero() {
-			candidates = append(candidates, expiry.Add(-pref))
-		}
-		if lastRefresh.IsZero() {
-			return now, true, true
-		}
-		candidates = append(candidates, lastRefresh.Add(pref))
-		next := candidates[0]
-		for _, candidate := range candidates[1:] {
-			if candidate.Before(next) {
-				next = candidate
-			}
-		}
-		if !next.After(now) {
-			return now, true, true
-		}
-		return next, true, false
-	}
-
-	provider := strings.ToLower(strings.TrimSpace(a.Provider))
-	if provider == "" {
-		provider = strings.ToLower(authMetadataString(a, "type"))
-	}
-	lead := ProviderRefreshLead(provider, a.Runtime)
-	if lead == nil && provider == "codex" {
-		d := CodexOuterRefreshLead
-		lead = &d
-	}
-	if lead == nil {
-		return time.Time{}, false, false
-	}
-	if *lead <= 0 {
-		if hasExpiry && !expiry.IsZero() {
-			if !expiry.After(now) {
-				return now, true, true
-			}
-			return expiry, true, false
-		}
-		return time.Time{}, false, false
-	}
-	if hasExpiry && !expiry.IsZero() {
-		due := expiry.Add(-*lead)
-		if !due.After(now) {
-			return now, true, true
-		}
-		return due, true, false
-	}
-	if !lastRefresh.IsZero() {
-		due := lastRefresh.Add(*lead)
-		if !due.After(now) {
-			return now, true, true
-		}
-		return due, true, false
-	}
-	return now, true, true
-}
-
-// CodexSIWCNeedsRefresh evaluates the nested "siwc" credential section refresh due time and whether it needs refresh at now.
-func CodexSIWCNeedsRefresh(a *Auth, now time.Time) (dueAt time.Time, hasRefresh bool, needsRefresh bool) {
-	if a == nil || a.Metadata == nil {
-		return time.Time{}, false, false
-	}
-	siwcMap, ok := a.Metadata["siwc"].(map[string]any)
-	if !ok || len(siwcMap) == 0 {
-		return time.Time{}, false, false
-	}
-	refreshToken, _ := siwcMap["refresh_token"].(string)
-	clientID, _ := siwcMap["client_id"].(string)
-	if strings.TrimSpace(refreshToken) == "" || strings.TrimSpace(clientID) == "" {
-		return time.Time{}, false, false
-	}
-	hasRefresh = true
-
-	siwcToken, _ := siwcMap["access_token"].(string)
-	siwcToken = strings.TrimSpace(siwcToken)
-	if siwcToken == "" {
+	expiry, ok := a.ExpirationTime()
+	if !ok || expiry.IsZero() {
 		return now, true, true
 	}
-	if a.RejectedAccessToken != "" && a.RejectedAccessToken == siwcToken {
+	due := expiry.Add(-CodexRefreshLead)
+	if !due.After(now) {
 		return now, true, true
 	}
-	expiry, hasExpiry := a.SIWCExpirationTime()
-	if hasExpiry && !expiry.IsZero() {
-		due := expiry.Add(-CodexSIWCRefreshLead)
-		if !due.After(now) {
-			return now, true, true
-		}
-		return due, true, false
-	}
-	if lastRefresh, okLast := lookupMetadataTime(siwcMap, "last_refresh", "lastRefresh"); okLast && !lastRefresh.IsZero() {
-		due := lastRefresh.Add(CodexSIWCRefreshLead)
-		if !due.After(now) {
-			return now, true, true
-		}
-		return due, true, false
-	}
-	return now, true, true
+	return due, true, false
 }
 
 // AccessTokenExpirationTime returns the expiration time of the specific access_token.
-// If the access_token is a JWT, its exp claim takes strict precedence.
+// Codex trusts the stored grant lifetime; other providers retain JWT precedence.
 func (a *Auth) AccessTokenExpirationTime() (time.Time, bool) {
 	if a == nil {
 		return time.Time{}, false
+	}
+	if IsCodexAuthRecord(a) {
+		if authAccessToken(a) == "" {
+			return time.Time{}, false
+		}
+		return a.ExpirationTime()
 	}
 	tokenStr := authAccessToken(a)
 	if tokenStr == "" {
@@ -1190,7 +1037,7 @@ func ProviderRefreshLead(provider string, runtime any) *time.Duration {
 		return nil
 	}
 	if provider == "codex" {
-		d := CodexOuterRefreshLead
+		d := CodexRefreshLead
 		return &d
 	}
 	return nil

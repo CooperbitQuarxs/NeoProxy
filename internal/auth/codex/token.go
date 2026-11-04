@@ -4,6 +4,7 @@
 package codex
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	log "github.com/sirupsen/logrus"
@@ -41,22 +43,56 @@ func canonicalLockPath(authFilePath string) string {
 	return cleaned
 }
 
-// WithFileLock executes fn while holding both an in-process mutex and an inter-process lockfile for authFilePath.
+// WithFileLock serializes credential writes without a caller cancellation signal.
 func WithFileLock(authFilePath string, fn func() error) error {
-	mu := lockForFilePath(authFilePath)
-	mu.Lock()
-	defer mu.Unlock()
+	return WithFileLockContext(context.Background(), authFilePath, fn)
+}
 
+// WithFileLockContext waits for credential ownership without trapping an aborted caller.
+// Native locks release on process exit, so file stores need no expiring SQLite lease.
+func WithFileLockContext(ctx context.Context, authFilePath string, fn func() error) error {
+	mu := lockForFilePath(authFilePath)
+	if err := waitForFileLock(ctx, func() (bool, error) { return mu.TryLock(), nil }); err != nil {
+		return err
+	}
+	defer mu.Unlock()
 	if errDir := os.MkdirAll(filepath.Dir(authFilePath), 0o700); errDir != nil {
 		return fmt.Errorf("failed to create credential directory: %w", errDir)
 	}
-	releaseLockFile, errLock := acquireInterProcessLockFile(authFilePath)
+	releaseLockFile, errLock := acquireInterProcessLockFile(ctx, authFilePath)
 	if errLock != nil {
 		return errLock
 	}
 	defer releaseLockFile()
-
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return fn()
+}
+
+func waitForFileLock(ctx context.Context, tryLock func() (bool, error)) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if locked, err := tryLock(); locked || err != nil {
+		return err
+	}
+	timer := time.NewTimer(50 * time.Millisecond)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if locked, err := tryLock(); locked || err != nil {
+				return err
+			}
+			timer.Reset(50 * time.Millisecond)
+		}
+	}
 }
 
 // WriteJSONFileAtomic writes data as JSON to authFilePath atomically via a temporary file in the same directory.
@@ -98,7 +134,7 @@ func WriteJSONFileAtomic(authFilePath string, data map[string]any) error {
 	return nil
 }
 
-var codexOuterCredentialKeys = []string{
+var codexCredentialKeys = []string{
 	"id_token",
 	"access_token",
 	"refresh_token",
@@ -107,6 +143,8 @@ var codexOuterCredentialKeys = []string{
 	"email",
 	"expired",
 	"plan_type",
+	"scope",
+	"scopes",
 }
 
 func cloneStringAnyMap(src map[string]any) map[string]any {
@@ -144,11 +182,6 @@ func MergeWithDiskMap(diskMap, incomingMap map[string]any) map[string]any {
 		if value == nil {
 			continue
 		}
-		if key == "siwc" || key == "use_siwc" {
-			if _, exists := diskMap[key]; exists {
-				continue
-			}
-		}
 		if text, ok := value.(string); ok && strings.TrimSpace(text) == "" {
 			if _, exists := diskMap[key]; exists {
 				continue
@@ -156,15 +189,12 @@ func MergeWithDiskMap(diskMap, incomingMap map[string]any) map[string]any {
 		}
 		merged[key] = value
 	}
-	for _, key := range codexOuterCredentialKeys {
+	for _, key := range codexCredentialKeys {
 		if value, exists := diskMap[key]; exists {
 			merged[key] = value
 		} else if len(diskMap) > 0 {
 			delete(merged, key)
 		}
-	}
-	if _, exists := diskMap["siwc"]; !exists && len(diskMap) > 0 {
-		delete(merged, "siwc")
 	}
 	return merged
 }
@@ -190,7 +220,7 @@ func MergeCodexCredentialsFromDisk(diskMap, incomingMetadata map[string]any) map
 		merged = make(map[string]any)
 	}
 	if hasDiskOAuthOuter(diskMap) {
-		for _, key := range codexOuterCredentialKeys {
+		for _, key := range codexCredentialKeys {
 			if value, exists := diskMap[key]; exists {
 				merged[key] = value
 			} else {
@@ -198,7 +228,7 @@ func MergeCodexCredentialsFromDisk(diskMap, incomingMetadata map[string]any) map
 			}
 		}
 	} else {
-		for _, key := range codexOuterCredentialKeys {
+		for _, key := range codexCredentialKeys {
 			if value, exists := diskMap[key]; exists {
 				if inVal, hadIn := merged[key]; !hadIn || inVal == nil || (func() bool {
 					s, ok := inVal.(string)
@@ -207,18 +237,6 @@ func MergeCodexCredentialsFromDisk(diskMap, incomingMetadata map[string]any) map
 					merged[key] = value
 				}
 			}
-		}
-	}
-	if value, exists := diskMap["siwc"]; exists {
-		if siwcMap, ok := value.(map[string]any); ok {
-			merged["siwc"] = cloneStringAnyMap(siwcMap)
-		} else {
-			merged["siwc"] = value
-		}
-	}
-	if value, exists := diskMap["use_siwc"]; exists {
-		if _, specified := incomingMetadata["use_siwc"]; !specified {
-			merged["use_siwc"] = value
 		}
 	}
 	return merged
@@ -246,14 +264,10 @@ type CodexTokenStorage struct {
 	Expire string `json:"expired"`
 	// PlanType indicates the ChatGPT subscription plan type, defaults to "free" if not present.
 	PlanType string `json:"plan_type,omitempty"`
-	// UseSIWC controls whether API requests use the Sign in with ChatGPT (SIWC) credential section.
-	UseSIWC *bool `json:"use_siwc,omitempty"`
-	// SIWC holds the Sign in with ChatGPT OAuth credential fields.
-	SIWC map[string]any `json:"siwc,omitempty"`
 
-	// ReplaceCredentials permits an explicit login to replace existing outer tokens.
+	// ReplaceCredentials permits an explicit login to replace existing tokens.
 	ReplaceCredentials bool `json:"-"`
-	// RefreshPatch updates only refreshed partitions during a direct storage save.
+	// RefreshPatch applies a version-checked refresh during a direct storage save.
 	RefreshPatch *CredentialRefreshPatch `json:"-"`
 
 	// Metadata holds arbitrary key-value pairs injected via hooks.
@@ -280,7 +294,7 @@ func (ts *CodexTokenStorage) SaveTokenToFile(authFilePath string) error {
 		}
 
 		existingBytes, errRead := os.ReadFile(authFilePath)
-		if errRead != nil && !os.IsNotExist(errRead) {
+		if errRead != nil && (!os.IsNotExist(errRead) || ts.RefreshPatch != nil) {
 			return fmt.Errorf("failed to read existing credentials: %w", errRead)
 		}
 		if errRead == nil {
@@ -293,7 +307,7 @@ func (ts *CodexTokenStorage) SaveTokenToFile(authFilePath string) error {
 			}
 			merged := MergeWithDiskMap(diskMap, data)
 			if ts.ReplaceCredentials {
-				for _, key := range codexOuterCredentialKeys {
+				for _, key := range codexCredentialKeys {
 					if value, exists := data[key]; exists {
 						merged[key] = value
 					}

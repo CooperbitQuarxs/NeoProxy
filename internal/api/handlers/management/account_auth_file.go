@@ -42,8 +42,6 @@ func (h *Handler) SaveAccountAuthFile(ctx context.Context, name string, data []b
 	} else if _, ok := h.authManager.GetByID(auth.ID); !ok {
 		return nil, fmt.Errorf("%w: %s", errAuthFileNotFound, name)
 	}
-	release := h.beginSIWCFileMutation(ctx, dst)
-	defer release()
 	if err = h.writeAuthFileBytes(dst, data, auth); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}

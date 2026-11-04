@@ -169,22 +169,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 			break
 		}
 
-		codexPlanType := ""
-		if a.Attributes != nil {
-			codexPlanType = strings.TrimSpace(a.Attributes["plan_type"])
-		}
-		switch strings.ToLower(codexPlanType) {
-		case "pro":
-			models = registry.GetCodexProModels()
-		case "plus":
-			models = registry.GetCodexPlusModels()
-		case "team", "business", "go":
-			models = registry.GetCodexTeamModels()
-		case "free":
-			models = registry.GetCodexFreeModels()
-		default:
-			models = registry.GetCodexProModels()
-		}
+		models = s.codexModelsForAuth(cfg, a, time.Now())
 		models = applyExcludedModels(models, excluded)
 	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
 		models = registry.GetKimiModels()
@@ -1098,7 +1083,7 @@ func buildCodexConfigModels(entry *config.CodexKey) []*ModelInfo {
 		return nil
 	}
 	if len(entry.Models) == 0 {
-		models := registry.GetCodexProModels()
+		models := registry.GetCodexModels()
 		for _, model := range models {
 			if model != nil {
 				model.SupportConfigurationUpdate = false
