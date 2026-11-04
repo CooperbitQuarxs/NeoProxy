@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -80,7 +81,7 @@ var oauthRoutes = map[string]route{
 	// nothing to refresh, so it imports as an ordinary API key.
 	"zai":               {kind: KindAPIKey, target: "zai"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
-	"cursor":            {reason: "Cursor uses its own agent protocol; NeoProxy has no Cursor engine."},
+	"cursor":            {target: "cursor"},
 	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
@@ -324,6 +325,11 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["session_token"] = token
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "org_id", str(c.data, "orgId"))
+	case "cursor":
+		meta["access_token"] = access
+		meta["base_url"] = cursorauth.APIBaseURL
+		meta["auth_kind"] = "oauth"
+		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}

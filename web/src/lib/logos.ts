@@ -5,6 +5,7 @@ import anthropic from "@lobehub/icons-static-svg/icons/anthropic.svg";
 import antigravity from "@lobehub/icons-static-svg/icons/antigravity.svg";
 import cerebras from "@lobehub/icons-static-svg/icons/cerebras.svg";
 import claude from "@lobehub/icons-static-svg/icons/claude.svg";
+import cursor from "@lobehub/icons-static-svg/icons/cursor.svg";
 import deepseek from "@lobehub/icons-static-svg/icons/deepseek.svg";
 import devin from "@lobehub/icons-static-svg/icons/devin.svg";
 import fireworks from "@lobehub/icons-static-svg/icons/fireworks.svg";
@@ -48,6 +49,7 @@ const LOGOS: Record<string, string> = {
 	"kimi-code": kimi,
 	moonshot,
 	devin,
+	cursor,
 	meta,
 	openrouter,
 	deepseek,

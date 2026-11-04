@@ -63,14 +63,15 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 	if got := resolvePlan("codex", "subscription", sub, planOverride{MonthlyUSD: &monthly}); got.ID != "team" || got.MonthlyUSD != 150 || got.Source != "admin" {
 		t.Fatalf("admin monthly = %+v", got)
 	}
-	for provider, plans := range map[string][]string{"codex": {"free", "plus", "pro", "team", "business", "enterprise"}, "claude": {"pro", "max5x", "max20x"}, "xai": {"supergrok", "supergrok-heavy"}, "antigravity": {"google-ai-pro", "google-ai-ultra"}} {
+	for provider, plans := range map[string][]string{"codex": {"free", "plus", "pro", "team", "business", "enterprise"}, "claude": {"pro", "max5x", "max20x"}, "xai": {"supergrok", "supergrok-heavy"}, "antigravity": {"google-ai-pro", "google-ai-ultra"}, "cursor": {"plus", "premium", "super", "ultra", "pro", "pro-plus"}} {
 		for _, id := range plans {
 			if !validPlanID(provider, id) {
 				t.Errorf("%s plan %s missing from catalogue", provider, id)
 			}
 		}
 	}
-	want := map[string]float64{"codex/free": 0, "codex/plus": 20, "codex/pro": 200, "codex/team": 30, "codex/business": 30, "codex/enterprise": 60, "claude/pro": 20, "claude/max5x": 100, "claude/max20x": 200, "xai/supergrok": 30, "xai/supergrok-heavy": 300, "antigravity/google-ai-pro": 20, "antigravity/google-ai-ultra": 250}
+	want := map[string]float64{"codex/free": 0, "codex/plus": 20, "codex/pro": 200, "codex/team": 30, "codex/business": 30, "codex/enterprise": 60, "claude/pro": 20, "claude/max5x": 100, "claude/max20x": 200, "xai/supergrok": 30, "xai/supergrok-heavy": 300, "antigravity/google-ai-pro": 20, "antigravity/google-ai-ultra": 250,
+		"cursor/plus": 8, "cursor/premium": 30, "cursor/super": 100, "cursor/ultra": 200, "cursor/pro": 20, "cursor/pro-plus": 60}
 	for key, usd := range want {
 		parts := strings.SplitN(key, "/", 2)
 		if plan, ok := catalogPlan(parts[0], parts[1]); !ok || plan.MonthlyUSD != usd {
@@ -80,7 +81,7 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 }
 
 func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
-	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "kimi": true, "devin": true, "meta": true}
+	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "kimi": true, "devin": true, "meta": true, "cursor": true}
 	for _, p := range providerCatalog {
 		hasSub := p.Subscription != nil
 		if hasSub != working[p.ID] {
