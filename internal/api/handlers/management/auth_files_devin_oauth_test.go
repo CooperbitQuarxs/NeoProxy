@@ -243,13 +243,13 @@ func TestCompleteDevinOAuthFailures(t *testing.T) {
 	}
 }
 
-func TestWaitDevinOAuthCallbackExpiredContext(t *testing.T) {
+func TestWaitOAuthCallbackFileExpiredContext(t *testing.T) {
 	const state = "devin-expired-context"
 	RegisterOAuthSession(state, "devin")
 	defer CompleteOAuthSession(state)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Unix(1, 0))
 	defer cancel()
-	_, errWait := waitDevinOAuthCallback(ctx, filepath.Join(t.TempDir(), "missing.oauth"), state)
+	_, errWait := waitOAuthCallbackFile(ctx, filepath.Join(t.TempDir(), "missing.oauth"), state, "devin")
 	if errWait == nil || errWait.Error() != "Timeout waiting for OAuth callback" {
 		t.Fatalf("error = %v", errWait)
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -60,22 +61,41 @@ const (
 	xaiClientIdentifierValue      = "grok-shell"
 	xaiAuthenticateResponseHeader = "x-authenticateresponse"
 	xaiAuthenticateResponseValue  = "authenticate-response"
-	// xaiUsingAPIAttr enables the official API path for HTTP chat and media.
-	xaiUsingAPIAttr = "using_api"
+	// xaiDialect names the wire dialect (thinking, translation and payload rules)
+	// shared by the xai and grok-build providers.
+	xaiDialect = "xai"
+	// GrokBuildProvider is the engine provider that serves the xAI OAuth token
+	// through the Grok CLI chat-proxy instead of the official API.
+	GrokBuildProvider = xaiauth.GrokBuildType
 )
 
 // xaiXSearchToolJSON is the native X Search tool injected when enabled by config.
 // Internal subtool traces are still filtered downstream when this tool is present.
 var xaiXSearchToolJSON = []byte(`{"type":"x_search"}`)
 
-// XAIExecutor is a stateless executor for xAI Grok's Responses API.
+// XAIExecutor is a stateless executor for xAI Grok's Responses API. It serves
+// the xai provider (official API) and, as NewGrokBuildExecutor, the grok-build
+// provider (Grok CLI chat-proxy); routing follows the auth's provider.
 type XAIExecutor struct {
-	cfg *config.Config
+	cfg      *config.Config
+	provider string
 }
 
 // NewXAIExecutor creates a new xAI executor.
 func NewXAIExecutor(cfg *config.Config) *XAIExecutor {
-	return &XAIExecutor{cfg: cfg}
+	return &XAIExecutor{cfg: cfg, provider: "xai"}
+}
+
+// NewGrokBuildExecutor creates the executor for the grok-build provider. It
+// speaks the same Responses dialect as xai over HTTP; the chat-proxy has no
+// websocket transport.
+func NewGrokBuildExecutor(cfg *config.Config) *XAIExecutor {
+	return &XAIExecutor{cfg: cfg, provider: GrokBuildProvider}
+}
+
+// UsesConfig reports whether the executor was created for cfg.
+func (e *XAIExecutor) UsesConfig(cfg *config.Config) bool {
+	return e != nil && e.cfg == cfg
 }
 
 // xaiClientVersion returns the active Grok CLI client version (dynamically fetched
@@ -92,7 +112,10 @@ func StartXAIVersionUpdater(ctx context.Context, proxyURL string) {
 
 // Identifier returns the provider identifier.
 func (e *XAIExecutor) Identifier() string {
-	return "xai"
+	if e == nil || e.provider == "" {
+		return "xai"
+	}
+	return e.provider
 }
 
 // PrepareRequest injects xAI credentials into the outgoing HTTP request.

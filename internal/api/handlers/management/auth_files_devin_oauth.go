@@ -80,7 +80,7 @@ func (h *Handler) completeDevinOAuth(ctx context.Context, authDir, state, codeVe
 			log.Warn("failed to remove Devin OAuth callback file")
 		}
 	}()
-	result, errWait := waitDevinOAuthCallback(ctx, waitFile, state)
+	result, errWait := waitOAuthCallbackFile(ctx, waitFile, state, "devin")
 	if errWait != nil {
 		if IsOAuthSessionPending(state, "devin") {
 			SetOAuthSessionError(state, errWait.Error())
@@ -132,11 +132,13 @@ func (h *Handler) completeDevinOAuth(ctx context.Context, authDir, state, codeVe
 	log.Info("Devin authentication successful")
 }
 
-func waitDevinOAuthCallback(ctx context.Context, path, state string) (*oauthCallbackFilePayload, error) {
+// waitOAuthCallbackFile waits for the callback file the management callback
+// endpoint writes for a pending provider session.
+func waitOAuthCallbackFile(ctx context.Context, path, state, provider string) (*oauthCallbackFilePayload, error) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		if !IsOAuthSessionPending(state, "devin") {
+		if !IsOAuthSessionPending(state, provider) {
 			return nil, errOAuthSessionNotPending
 		}
 		if ctx.Err() != nil {
