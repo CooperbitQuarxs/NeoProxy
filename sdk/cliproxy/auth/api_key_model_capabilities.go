@@ -261,17 +261,26 @@ func lookupUnlistedCodexAPIKeyModelCapability(routing *apiKeyModelRoutingSnapsho
 
 // lookupOAuthModelCapability resolves the account-scoped model an OAuth
 // sign-in registered: Codex and xAI shape requests from that discovered
-// NeoPi record.
+// NeoPi record. An account with no roster yet (discovery has not answered,
+// or Home dispatched an account this process never discovered) uses NeoPi's
+// bundled catalog, as NeoPi does until its discovery replaces it.
 func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.ModelInfo, bool) {
 	if auth == nil || auth.AuthKind() != AuthKindOAuth {
 		return nil, false
 	}
+	models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
 	switch strings.ToLower(strings.TrimSpace(auth.Provider)) {
-	case "codex", "xai":
+	case "codex":
+		if len(models) == 0 {
+			models = registry.GetCodexModels()
+		}
+	case "xai":
+		if len(models) == 0 {
+			models = registry.XaiOAuthModels(nil)
+		}
 	default:
 		return nil, false
 	}
-	models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
 	selected := strings.TrimSpace(thinking.ParseSuffix(strings.TrimSpace(upstreamModel)).ModelName)
 	for _, model := range models {
 		if model != nil && strings.EqualFold(model.ID, selected) {

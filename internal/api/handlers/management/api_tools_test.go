@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -846,13 +847,12 @@ func TestAPICallRefreshesExpiredXAIOAuthToken(t *testing.T) {
 			"base_url":  "https://api.x.ai/v1",
 		},
 		Metadata: map[string]any{
-			"type":           "xai",
-			"auth_kind":      "oauth",
-			"access_token":   "xai-access-stale",
-			"refresh_token":  "xai-refresh-old",
-			"token_endpoint": tokenServer.URL,
-			"base_url":       "https://api.x.ai/v1",
-			"expired":        time.Now().Add(-time.Hour).Format(time.RFC3339),
+			"type":          "xai",
+			"auth_kind":     "oauth",
+			"access_token":  "xai-access-stale",
+			"refresh_token": "xai-refresh-old",
+			"base_url":      "https://api.x.ai/v1",
+			"expired":       time.Now().Add(-time.Hour).Format(time.RFC3339),
 		},
 	}
 	if _, errRegister := manager.Register(context.Background(), xaiAuth); errRegister != nil {
@@ -860,7 +860,7 @@ func TestAPICallRefreshesExpiredXAIOAuthToken(t *testing.T) {
 	}
 	authIndex := xaiAuth.EnsureIndex()
 
-	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store}
+	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store, newXAIAuth: xaiTestAuth(tokenServer)}
 	router := gin.New()
 	router.POST("/", h.APICall)
 
@@ -1003,12 +1003,11 @@ func TestAPICallRefreshesExpiredXAIOAuthToken_RefreshFailure(t *testing.T) {
 			"base_url":  "https://api.x.ai/v1",
 		},
 		Metadata: map[string]any{
-			"type":           "xai",
-			"auth_kind":      "oauth",
-			"access_token":   "xai-expired-token",
-			"refresh_token":  "xai-bad-refresh",
-			"token_endpoint": tokenServer.URL,
-			"expired":        time.Now().Add(-time.Hour).Format(time.RFC3339),
+			"type":          "xai",
+			"auth_kind":     "oauth",
+			"access_token":  "xai-expired-token",
+			"refresh_token": "xai-bad-refresh",
+			"expired":       time.Now().Add(-time.Hour).Format(time.RFC3339),
 		},
 	}
 	if _, errRegister := manager.Register(context.Background(), xaiAuth); errRegister != nil {
@@ -1016,7 +1015,7 @@ func TestAPICallRefreshesExpiredXAIOAuthToken_RefreshFailure(t *testing.T) {
 	}
 	authIndex := xaiAuth.EnsureIndex()
 
-	h := &Handler{cfg: &config.Config{}, authManager: manager}
+	h := &Handler{cfg: &config.Config{}, authManager: manager, newXAIAuth: xaiTestAuth(tokenServer)}
 	router := gin.New()
 	router.POST("/", h.APICall)
 
@@ -1245,20 +1244,18 @@ func TestAPICallConcurrentXAITokenRefresh(t *testing.T) {
 			"base_url":  "https://api.x.ai/v1",
 		},
 		Metadata: map[string]any{
-			"type":           "xai",
-			"auth_kind":      "oauth",
-			"access_token":   "xai-stale-concurrent",
-			"refresh_token":  "xai-refresh-shared",
-			"token_endpoint": tokenServer.URL,
-			"expired":        time.Now().Add(-time.Hour).Format(time.RFC3339),
+			"type":          "xai",
+			"auth_kind":     "oauth",
+			"access_token":  "xai-stale-concurrent",
+			"refresh_token": "xai-refresh-shared",
+			"expired":       time.Now().Add(-time.Hour).Format(time.RFC3339),
 		},
 		Storage: &xaiauth.TokenStorage{
-			Type:          "xai",
-			AuthKind:      "oauth",
-			AccessToken:   "xai-stale-concurrent",
-			RefreshToken:  "xai-refresh-shared",
-			TokenEndpoint: tokenServer.URL,
-			Expire:        time.Now().Add(-time.Hour).Format(time.RFC3339),
+			Type:         "xai",
+			AuthKind:     "oauth",
+			AccessToken:  "xai-stale-concurrent",
+			RefreshToken: "xai-refresh-shared",
+			Expire:       time.Now().Add(-time.Hour).Format(time.RFC3339),
 		},
 	}
 	if _, errRegister := manager.Register(context.Background(), xaiAuth); errRegister != nil {
@@ -1266,7 +1263,7 @@ func TestAPICallConcurrentXAITokenRefresh(t *testing.T) {
 	}
 	authIndex := xaiAuth.EnsureIndex()
 
-	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store}
+	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store, newXAIAuth: xaiTestAuth(tokenServer)}
 	router := gin.New()
 	router.POST("/", h.APICall)
 
@@ -1401,12 +1398,11 @@ func TestAPICallRefreshesWhenOnlyIDTokenPresentWithRefreshToken(t *testing.T) {
 			"base_url":  "https://api.x.ai/v1",
 		},
 		Metadata: map[string]any{
-			"type":           "xai",
-			"auth_kind":      "oauth",
-			"id_token":       "xai-raw-id-token",
-			"refresh_token":  "xai-refresh-token",
-			"token_endpoint": tokenServer.URL,
-			"base_url":       "https://api.x.ai/v1",
+			"type":          "xai",
+			"auth_kind":     "oauth",
+			"id_token":      "xai-raw-id-token",
+			"refresh_token": "xai-refresh-token",
+			"base_url":      "https://api.x.ai/v1",
 		},
 	}
 	if _, errRegister := manager.Register(context.Background(), xaiAuth); errRegister != nil {
@@ -1414,7 +1410,7 @@ func TestAPICallRefreshesWhenOnlyIDTokenPresentWithRefreshToken(t *testing.T) {
 	}
 	authIndex := xaiAuth.EnsureIndex()
 
-	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store}
+	h := &Handler{cfg: &config.Config{}, authManager: manager, tokenStore: store, newXAIAuth: xaiTestAuth(tokenServer)}
 	router := gin.New()
 	router.POST("/", h.APICall)
 
@@ -1489,4 +1485,32 @@ func TestAPICallRejectsWhenOnlyIDTokenPresentWithoutRefreshToken(t *testing.T) {
 	if upstreamHit.Load() {
 		t.Fatal("upstream must not be hit when access token cannot be resolved")
 	}
+}
+
+// xaiTestAuth answers xAI's OIDC discovery itself and sends the discovered
+// token endpoint to tokenServer, so a refresh never leaves the test.
+func xaiTestAuth(tokenServer *httptest.Server) func(*config.Config, string) *xaiauth.XAIAuth {
+	return func(*config.Config, string) *xaiauth.XAIAuth {
+		return xaiauth.NewXAIAuthWithHTTPClient(&http.Client{Transport: xaiTestTransport{token: tokenServer.URL}})
+	}
+}
+
+type xaiTestTransport struct{ token string }
+
+func (t xaiTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	switch req.URL.String() {
+	case xaiauth.DiscoveryURL:
+		body := `{"issuer":"https://auth.x.ai","token_endpoint":"https://auth.x.ai/oauth2/token"}`
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+	case xaiauth.UserinfoURL:
+		// Userinfo is optional enrichment; the refresh keeps the stored identity.
+		return &http.Response{StatusCode: http.StatusNotFound, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+	}
+	target, err := url.Parse(t.token)
+	if err != nil {
+		return nil, err
+	}
+	clone := req.Clone(req.Context())
+	clone.URL.Scheme, clone.URL.Host, clone.Host = target.Scheme, target.Host, target.Host
+	return http.DefaultTransport.RoundTrip(clone)
 }

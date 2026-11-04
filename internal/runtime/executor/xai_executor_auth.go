@@ -25,9 +25,8 @@ func (e *XAIExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cl
 	if refreshToken == "" {
 		return auth, nil
 	}
-	tokenEndpoint := xaiMetadataString(auth.Metadata, "token_endpoint")
 	svc := xaiauth.NewXAIAuthWithProxyURL(e.cfg, auth.ProxyURL)
-	td, err := svc.RefreshTokens(ctx, refreshToken, tokenEndpoint)
+	td, err := svc.RefreshTokens(ctx, refreshToken)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +56,6 @@ func (e *XAIExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cl
 	}
 	if td.Subject != "" {
 		auth.Metadata["sub"] = td.Subject
-	}
-	if tokenEndpoint != "" {
-		auth.Metadata["token_endpoint"] = tokenEndpoint
 	}
 	if xaiMetadataString(auth.Metadata, "base_url") == "" {
 		auth.Metadata["base_url"] = xaiauth.DefaultAPIBaseURL

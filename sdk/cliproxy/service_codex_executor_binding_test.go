@@ -2,6 +2,7 @@ package cliproxy
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	internalconfig "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
+	internalregistry "github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/watcher"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v8/sdk/auth"
@@ -267,11 +269,12 @@ func TestApplyWatcherConfigUpdate_PreservesExistingWebsocketConnections(t *testi
 					closedConnections.Add(1)
 					_ = conn.Close()
 				}()
-				for {
+				for turn := 1; ; turn++ {
 					if _, _, errRead := conn.ReadMessage(); errRead != nil {
 						return
 					}
-					completed := []byte(`{"type":"response.completed","response":{"id":"resp-1","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`)
+					// Each turn completes a new response, as the real upstream does.
+					completed := []byte(fmt.Sprintf(`{"type":"response.completed","response":{"id":"resp-%d","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, turn))
 					if errWrite := conn.WriteMessage(websocket.TextMessage, completed); errWrite != nil {
 						return
 					}
@@ -279,7 +282,10 @@ func TestApplyWatcherConfigUpdate_PreservesExistingWebsocketConnections(t *testi
 			}))
 			defer server.Close()
 
+			// NeoPi's Codex transport keeps its installation identity in AuthDir.
+			authDir := t.TempDir()
 			initialCfg := &config.Config{
+				AuthDir: authDir,
 				SDKConfig: config.SDKConfig{
 					DisableImageGeneration: internalconfig.DisableImageGenerationAll,
 				},
@@ -311,7 +317,8 @@ func TestApplyWatcherConfigUpdate_PreservesExistingWebsocketConnections(t *testi
 			if _, errReg := manager.Register(context.Background(), auth); errReg != nil {
 				t.Fatalf("register auth: %v", errReg)
 			}
-			GlobalModelRegistry().RegisterClient(auth.ID, tt.provider, []*ModelInfo{{ID: tt.model}})
+			// Discovery registers NeoPi's Codex records, which carry the request metadata.
+			GlobalModelRegistry().RegisterClient(auth.ID, tt.provider, internalregistry.GetCodexModels())
 			t.Cleanup(func() { GlobalModelRegistry().UnregisterClient(auth.ID) })
 			service.ensureExecutorsForAuth(auth)
 
@@ -351,6 +358,7 @@ func TestApplyWatcherConfigUpdate_PreservesExistingWebsocketConnections(t *testi
 			}
 
 			reloadedCfg := &config.Config{
+				AuthDir: authDir,
 				SDKConfig: config.SDKConfig{
 					ProxyURL:               "http://127.0.0.1:1",
 					DisableImageGeneration: internalconfig.DisableImageGenerationAll,
