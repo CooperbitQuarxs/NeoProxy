@@ -108,7 +108,7 @@ function flowBoard(world, ctx) {
 		return el;
 	};
 
-	const provCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Pool", h("span", { class: "count" }, `${accounts.length} accounts`)));
+	const provCol = h("div", { class: "col col-pool" }, h("div", { class: "col-label" }, "Pool", h("span", { class: "count" }, `${accounts.length} accounts`)));
 	const feeds = (p) => vms.some((vm) => vm.stages.some((s) => s.model.startsWith(`${p.id}/`)));
 	const provUsage = (p) => {
 		const used = accounts.filter((a) => a.providerId === p.id).map((a) => preferredMeter(a)?.used).filter(Number.isFinite);
@@ -151,7 +151,7 @@ function flowBoard(world, ctx) {
 		provCol.append(toggleRow, fold);
 	}
 
-	const vmCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Virtual models", h("span", { class: "count" }, `${vms.length}`)));
+	const vmCol = h("div", { class: "col col-vms" }, h("div", { class: "col-label" }, "Virtual models", h("span", { class: "count" }, `${vms.length}`)));
 	for (const vm of vms) {
 		const granted = users.filter((u) => u.grants.some((g) => g.virtualModel === vm.id)).length;
 		vmCol.append(
@@ -164,7 +164,7 @@ function flowBoard(world, ctx) {
 		);
 	}
 
-	const userCol = h("div", { class: "col" }, h("div", { class: "col-label" }, "Users", h("span", { class: "count" }, `${users.length}`)));
+	const userCol = h("div", { class: "col col-users" }, h("div", { class: "col-label" }, "Users", h("span", { class: "count" }, `${users.length}`)));
 	for (const u of users) {
 		const recent = world.requests.filter((r) => r.userId === u.id);
 		userCol.append(
