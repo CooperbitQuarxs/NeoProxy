@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
@@ -301,6 +302,19 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		}
 		if compatProviderKey == "" {
 			compatProviderKey = "openai-compatibility"
+		}
+		if zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
+			// NeoPi serves Z.ai keys itself: Anthropic Messages for most of its
+			// catalog, Chat Completions for GLM-5.3-Flash.
+			if !forceReplace {
+				if existing, ok := s.coreManager.Executor(compatProviderKey); ok {
+					if zai, isZai := existing.(*executor.ZaiExecutor); isZai && zai.UsesConfig(cfg) {
+						return
+					}
+				}
+			}
+			s.coreManager.RegisterExecutor(executor.NewZaiExecutor(compatProviderKey, cfg))
+			return
 		}
 		s.registerOpenAICompatProviderExecutor(compatProviderKey, a, cfg, forceReplace, false)
 		return

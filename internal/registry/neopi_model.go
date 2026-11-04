@@ -21,12 +21,73 @@ type NeoPiModel struct {
 	MaxTokens     int            `json:"maxTokens"`
 	Thinking      *NeoPiThinking `json:"thinking,omitempty"`
 	Compat        *NeoPiCompat   `json:"compat,omitempty"`
+	// AnthropicCompat and CompletionsCompat carry the compat NeoPi resolves for
+	// an anthropic-messages or openai-completions row respectively.
+	AnthropicCompat   *NeoPiAnthropicCompat   `json:"anthropicCompat,omitempty"`
+	CompletionsCompat *NeoPiCompletionsCompat `json:"completionsCompat,omitempty"`
 }
 
-// NeoPiThinking is the model's effort ladder (ThinkingConfig efforts/effortMap).
+// NeoPiThinking is the model's effort ladder (ThinkingConfig efforts/effortMap)
+// and, for budget-based providers, how an effort reaches the wire.
 type NeoPiThinking struct {
 	Efforts   []string          `json:"efforts"`
 	EffortMap map[string]string `json:"effortMap,omitempty"`
+	// Mode is NeoPi's ThinkingConfig.mode ("budget", "anthropic-budget-effort", ...).
+	Mode string `json:"mode,omitempty"`
+	// RequiresEffort models always think: no effort or thinking-off sends the lowest effort.
+	RequiresEffort  bool  `json:"requiresEffort,omitempty"`
+	SupportsDisplay *bool `json:"supportsDisplay,omitempty"`
+}
+
+// NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
+// provider reads for a non-Anthropic model (ResolvedAnthropicCompat).
+type NeoPiAnthropicCompat struct {
+	OfficialEndpoint                   bool `json:"officialEndpoint"`
+	FirstPartyProvider                 bool `json:"firstPartyProvider"`
+	InjectClaudeCodeInstruction        bool `json:"injectClaudeCodeInstruction"`
+	ReplayUnsignedThinking             bool `json:"replayUnsignedThinking"`
+	RequiresToolResultID               bool `json:"requiresToolResultId"`
+	DisableStrictTools                 bool `json:"disableStrictTools"`
+	SupportsContextManagement          bool `json:"supportsContextManagement"`
+	SupportsOutputEffort               bool `json:"supportsOutputEffort"`
+	SupportsSamplingParams             bool `json:"supportsSamplingParams"`
+	SupportsForcedToolChoice           bool `json:"supportsForcedToolChoice"`
+	SupportsEagerToolInputStreaming    bool `json:"supportsEagerToolInputStreaming"`
+	SupportsLongCacheRetention         bool `json:"supportsLongCacheRetention"`
+	SupportsTurnScopedSystem           bool `json:"supportsTurnScopedSystem"`
+	SupportsMidConversationToolChanges bool `json:"supportsMidConversationToolChanges"`
+	SupportsPerMessageEffort           bool `json:"supportsPerMessageEffort"`
+	SupportsThinkingBindingControls    bool `json:"supportsThinkingBindingControls"`
+	SupportsBetweenToolsThinking       bool `json:"supportsBetweenToolsThinking"`
+}
+
+// NeoPiCompletionsCompat is the resolved compat NeoPi's OpenAI Completions
+// provider reads (ResolvedOpenAICompat), under NeoPi's names.
+type NeoPiCompletionsCompat struct {
+	ThinkingFormat                              string            `json:"thinkingFormat"`
+	MaxTokensField                              string            `json:"maxTokensField"`
+	ReasoningContentField                       string            `json:"reasoningContentField"`
+	ReasoningDisableMode                        string            `json:"reasoningDisableMode"`
+	ReasoningEffortMap                          map[string]string `json:"reasoningEffortMap,omitempty"`
+	StreamMarkupHealingPattern                  string            `json:"streamMarkupHealingPattern"`
+	ToolStrictMode                              string            `json:"toolStrictMode"`
+	WireModelIDMode                             string            `json:"wireModelIdMode"`
+	AlwaysSendMaxTokens                         bool              `json:"alwaysSendMaxTokens"`
+	ClampOutputToModelMax                       bool              `json:"clampOutputToModelMax"`
+	SupportsDeveloperRole                       bool              `json:"supportsDeveloperRole"`
+	SupportsStrictMode                          bool              `json:"supportsStrictMode"`
+	SupportsStore                               bool              `json:"supportsStore"`
+	SupportsUsageInStreaming                    bool              `json:"supportsUsageInStreaming"`
+	SupportsSamplingParams                      bool              `json:"supportsSamplingParams"`
+	SupportsPenaltyAndStopParams                bool              `json:"supportsPenaltyAndStopParams"`
+	SupportsReasoningEffort                     bool              `json:"supportsReasoningEffort"`
+	SupportsToolChoice                          bool              `json:"supportsToolChoice"`
+	SupportsForcedToolChoice                    bool              `json:"supportsForcedToolChoice"`
+	SupportsNamedToolChoice                     bool              `json:"supportsNamedToolChoice"`
+	ZaiReasoningEffortDialect                   bool              `json:"zaiReasoningEffortDialect"`
+	RequiresReasoningContentForToolCalls        bool              `json:"requiresReasoningContentForToolCalls"`
+	AllowsSyntheticReasoningContentForToolCalls bool              `json:"allowsSyntheticReasoningContentForToolCalls"`
+	ReplayReasoningContent                      bool              `json:"replayReasoningContent"`
 }
 
 // NeoPiCompat carries the resolved OpenAI compat fields NeoPi's Responses
@@ -79,12 +140,25 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 		thinking := *m.Thinking
 		thinking.Efforts = slices.Clone(m.Thinking.Efforts)
 		thinking.EffortMap = maps.Clone(m.Thinking.EffortMap)
+		if m.Thinking.SupportsDisplay != nil {
+			display := *m.Thinking.SupportsDisplay
+			thinking.SupportsDisplay = &display
+		}
 		out.Thinking = &thinking
 	}
 	if m.Compat != nil {
 		compat := *m.Compat
 		compat.ReasoningEffortMap = maps.Clone(m.Compat.ReasoningEffortMap)
 		out.Compat = &compat
+	}
+	if m.AnthropicCompat != nil {
+		compat := *m.AnthropicCompat
+		out.AnthropicCompat = &compat
+	}
+	if m.CompletionsCompat != nil {
+		compat := *m.CompletionsCompat
+		compat.ReasoningEffortMap = maps.Clone(m.CompletionsCompat.ReasoningEffortMap)
+		out.CompletionsCompat = &compat
 	}
 	return &out
 }

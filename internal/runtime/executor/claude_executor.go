@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -33,9 +34,12 @@ type ClaudeExecutor struct {
 	cfg      *config.Config
 	refresh  *singleflight.Group
 	provider string
-	wait     func(context.Context, time.Duration) error
-	now      func() time.Time
-	random   func() float64
+	// catalog resolves NeoPi's model record for a provider NeoPi serves over
+	// Anthropic Messages with an API key (Z.ai); nil for Claude itself.
+	catalog func(model string) *registry.NeoPiModel
+	wait    func(context.Context, time.Duration) error
+	now     func() time.Time
+	random  func() float64
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {
@@ -111,6 +115,9 @@ type neoPiPrepared struct {
 }
 
 func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, countOnly ...bool) (*neoPiPrepared, error) {
+	if e.catalog != nil {
+		return e.prepareThirdParty(ctx, auth, req, opts)
+	}
 	credential, err := neoPiCredential(auth)
 	if err != nil {
 		return nil, err

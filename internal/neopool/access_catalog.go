@@ -207,7 +207,7 @@ var providerCatalog = []ProviderInfo{
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
 	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
 	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: (&ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates a durable API key named \"neoproxy\" on the account; it never expires."}).at("Z.ai"),
+		Subscription: (&ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates or reuses the durable API key NeoPi uses, named \"oh-my-pi\"; it never expires."}).at("Z.ai"),
 		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
