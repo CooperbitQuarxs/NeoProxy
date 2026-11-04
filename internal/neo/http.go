@@ -16,7 +16,12 @@ const SessionCookie = "neoproxy_session"
 
 // HTTP exposes only cookie-authenticated dashboard operations. Operator authority
 // is injected exclusively for bootstrap and the existing maintenance routes.
-type HTTP struct{ Store *Store }
+type HTTP struct {
+	Store *Store
+	// ConfigFormat reports the format ("toml" or "yaml") of the running config
+	// file for GET /v8/neo/core. Nil omits the field.
+	ConfigFormat func() string
+}
 
 func NewHTTP(store *Store) *HTTP { return &HTTP{Store: store} }
 
@@ -359,5 +364,9 @@ func (h *HTTP) core(c *gin.Context) {
 	if c.Request.TLS != nil {
 		scheme = "https"
 	}
-	c.JSON(200, gin.H{"linked": true, "endpoint": scheme + "://" + c.Request.Host, "identity": "neoproxy@" + host, "version": buildinfo.Version, "host": host, "heartbeatAt": h.Store.now().UnixMilli(), "scopes": scopes})
+	body := gin.H{"linked": true, "endpoint": scheme + "://" + c.Request.Host, "identity": "neoproxy@" + host, "version": buildinfo.Version, "host": host, "heartbeatAt": h.Store.now().UnixMilli(), "scopes": scopes}
+	if h.ConfigFormat != nil {
+		body["configFormat"] = h.ConfigFormat()
+	}
+	c.JSON(200, body)
 }

@@ -23,6 +23,8 @@ func (s *Server) registerManagementV8Routes() {
 	v8.PATCH("/config", s.mgmt.ConfigV8)
 	v8.GET("/config.yaml", s.mgmt.ConfigV8)
 	v8.PUT("/config.yaml", s.mgmt.ConfigV8)
+	v8.GET("/config.toml", s.mgmt.ConfigV8)
+	v8.PUT("/config.toml", s.mgmt.ConfigV8)
 	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete} {
 		v8.Handle(method, "/config/*path", s.mgmt.ConfigV8)
 	}

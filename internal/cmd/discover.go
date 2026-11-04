@@ -7,12 +7,12 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/discovery"
 	"gopkg.in/yaml.v3"
 )
@@ -72,7 +72,7 @@ func defaultDiscoveryConfigPath() string {
 	if errGetwd != nil {
 		return "config.yaml"
 	}
-	return filepath.Join(wd, "config.yaml")
+	return config.DefaultConfigFile(wd)
 }
 
 func LoadDiscoveryScanFilters(configPath string) (include, exclude []string) {
@@ -80,7 +80,7 @@ func LoadDiscoveryScanFilters(configPath string) (include, exclude []string) {
 	if configPath == "" {
 		configPath = defaultDiscoveryConfigPath()
 	}
-	raw, errRead := os.ReadFile(configPath)
+	raw, _, _, errRead := config.ReadConfigFile(configPath)
 	if errRead != nil {
 		return nil, nil
 	}

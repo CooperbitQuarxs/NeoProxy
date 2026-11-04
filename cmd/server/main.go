@@ -76,6 +76,9 @@ func main() {
 	if handled, code := neoscript.WorkerMain(); handled {
 		os.Exit(code)
 	}
+	if len(os.Args) > 1 && os.Args[1] == "config" {
+		os.Exit(runConfigCommand(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "discover" {
 		discoverFlags := flag.NewFlagSet("discover", flag.ExitOnError)
 		timeoutSec := discoverFlags.Int("timeout", 3, "Discovery timeout in seconds")
@@ -156,7 +159,7 @@ func main() {
 	flag.StringVar(&discoverServiceType, "discover-service-type", "", "DNS-SD service type for LAN discovery (default _ai-gateway._tcp)")
 	flag.Func("discover-include", "Comma-separated interface names to scan during LAN discovery", appendCSV(&discoverInclude))
 	flag.Func("discover-exclude", "Comma-separated interface names to skip during LAN discovery", appendCSV(&discoverExclude))
-	flag.StringVar(&configPath, "config", DefaultConfigPath, "Configure File Path")
+	flag.StringVar(&configPath, "config", DefaultConfigPath, "Config file path, TOML (.toml) or YAML (.yaml); default config.toml, else config.yaml, in the working directory. Convert with: config convert --to toml")
 	flag.StringVar(&vertexImport, "vertex-import", "", "Import Vertex service account key JSON file")
 	flag.StringVar(&vertexImportPrefix, "vertex-import-prefix", "", "Prefix for Vertex model namespacing (use with -vertex-import)")
 	flag.StringVar(&siwcBind, "siwc-bind", "", "Bind Sign in with ChatGPT (SIWC) credentials to a Codex credential file")
@@ -440,7 +443,7 @@ func main() {
 		if strings.TrimSpace(configPath) != "" {
 			configFilePath = configPath
 		} else {
-			configFilePath = filepath.Join(wd, "config.yaml")
+			configFilePath = config.DefaultConfigFile(wd)
 		}
 
 		// Local stores are intentionally disabled when config is loaded from home.
@@ -597,7 +600,7 @@ func main() {
 			log.Errorf("failed to get working directory: %v", err)
 			return
 		}
-		configFilePath = filepath.Join(wd, "config.yaml")
+		configFilePath = config.DefaultConfigFile(wd)
 		cfg, err = config.LoadConfigOptional(configFilePath, isCloudDeploy)
 	}
 	if err != nil {
@@ -903,7 +906,7 @@ func defaultPluginBootstrapConfigPath(defaultPath string) string {
 	if errGetwd != nil {
 		return "config.yaml"
 	}
-	return filepath.Join(wd, "config.yaml")
+	return config.DefaultConfigFile(wd)
 }
 
 func loadPluginBootstrapConfig(path string) *config.Config {
@@ -921,7 +924,14 @@ func loadPluginBootstrapConfig(path string) *config.Config {
 		cfg.NormalizePluginsConfig()
 		return cfg
 	}
-	cfg, errParseConfig := config.ParseConfigBytes(raw)
+	data, errConvert := config.ConfigToYAML(raw, config.DetectConfigFormat(path, raw))
+	if errConvert != nil {
+		log.Warnf("failed to parse plugin bootstrap config: %v", errConvert)
+		cfg := &config.Config{}
+		cfg.NormalizePluginsConfig()
+		return cfg
+	}
+	cfg, errParseConfig := config.ParseConfigBytes(data)
 	if errParseConfig != nil {
 		log.Warnf("failed to parse plugin bootstrap config: %v", errParseConfig)
 		cfg = &config.Config{}

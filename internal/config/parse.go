@@ -22,24 +22,7 @@ func ParseConfigBytes(data []byte) (*Config, error) {
 
 	var cfg Config
 	// Keep defaults aligned with LoadConfigOptional.
-	cfg.Host = "" // Default empty: binds to all interfaces (IPv4 + IPv6)
-	cfg.LoggingToFile = false
-	cfg.LogsMaxTotalSizeMB = 0
-	cfg.ErrorLogsMaxFiles = 10
-	cfg.UsageStatisticsEnabled = false
-	cfg.RedisUsageQueueRetentionSeconds = 60
-	cfg.DisableCooling = false
-	cfg.SaveCooldownStatus = false
-	cfg.TransientErrorCooldownSeconds = 0
-	cfg.DisableImageGeneration = DisableImageGenerationOff
-	cfg.WebsocketAuth = true
-	cfg.Pprof.Enable = false
-	cfg.Pprof.Addr = DefaultPprofAddr
-	cfg.Discovery.Enabled = false
-	cfg.Discovery.ServiceType = DefaultDiscoveryServiceType
-	cfg.Discovery.Subtypes = []string{"_chat-completions", "_responses", "_messages", "_generate-content", "_interactions"}
-	cfg.RemoteManagement.PanelGitHubRepository = DefaultPanelGitHubRepository
-	cfg.CredentialInFlight = DefaultCredentialInFlightConfig()
+	applyLoadDefaults(&cfg)
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse config payload: %w", err)
