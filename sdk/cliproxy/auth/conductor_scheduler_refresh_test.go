@@ -50,12 +50,12 @@ func TestManager_RefreshAuthUnauthorizedFailureStopsAutoRefreshRetry(t *testing.
 	ctx := context.Background()
 	manager := NewManager(nil, &RoundRobinSelector{}, nil)
 	manager.RegisterExecutor(unauthorizedRefreshTestExecutor{
-		schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "codex"},
+		schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "gemini"},
 	})
 
 	auth := &Auth{
 		ID:       "unauthorized-refresh",
-		Provider: "codex",
+		Provider: "gemini",
 		Metadata: map[string]any{
 			"email": "x@example.com",
 		},
@@ -104,14 +104,14 @@ func TestManager_TerminalOAuthFailure_ReturnsTerminalAuthError(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			manager := NewManager(nil, tc.selector, nil)
 			manager.RegisterExecutor(unauthorizedRefreshTestExecutor{
-				schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "codex"},
+				schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "gemini"},
 			})
 
 			authID := "unauthorized-terminal-" + tc.name
 			healthyID := "healthy-" + tc.name
 			auth := &Auth{
 				ID:       authID,
-				Provider: "codex",
+				Provider: "gemini",
 				Metadata: map[string]any{
 					"email": "x@example.com",
 				},
@@ -119,7 +119,7 @@ func TestManager_TerminalOAuthFailure_ReturnsTerminalAuthError(t *testing.T) {
 			if _, errRegister := manager.Register(ctx, auth); errRegister != nil {
 				t.Fatalf("register auth: %v", errRegister)
 			}
-			registry.GetGlobalRegistry().RegisterClient(authID, "codex", []*registry.ModelInfo{{ID: "any-model"}})
+			registry.GetGlobalRegistry().RegisterClient(authID, "gemini", []*registry.ModelInfo{{ID: "any-model"}})
 			t.Cleanup(func() {
 				registry.GetGlobalRegistry().UnregisterClient(authID)
 				registry.GetGlobalRegistry().UnregisterClient(healthyID)
@@ -127,7 +127,7 @@ func TestManager_TerminalOAuthFailure_ReturnsTerminalAuthError(t *testing.T) {
 
 			manager.refreshAuth(ctx, auth.ID)
 
-			_, _, _, errPick := manager.pickNextMixed(ctx, []string{"codex"}, "any-model", cliproxyexecutor.Options{}, nil)
+			_, _, _, errPick := manager.pickNextMixed(ctx, []string{"gemini"}, "any-model", cliproxyexecutor.Options{}, nil)
 			if errPick == nil {
 				t.Fatal("expected pick error for terminal unauthorized auth")
 			}
@@ -146,12 +146,12 @@ func TestManager_TerminalOAuthFailure_ReturnsTerminalAuthError(t *testing.T) {
 			}
 
 			// Negative case: adding a healthy credential allows selection to succeed.
-			healthy := &Auth{ID: healthyID, Provider: "codex", Status: StatusActive}
+			healthy := &Auth{ID: healthyID, Provider: "gemini", Status: StatusActive}
 			if _, errRegisterHealthy := manager.Register(ctx, healthy); errRegisterHealthy != nil {
 				t.Fatalf("register healthy auth: %v", errRegisterHealthy)
 			}
-			registry.GetGlobalRegistry().RegisterClient(healthyID, "codex", []*registry.ModelInfo{{ID: "any-model"}})
-			picked, _, _, errPickHealthy := manager.pickNextMixed(ctx, []string{"codex"}, "any-model", cliproxyexecutor.Options{}, nil)
+			registry.GetGlobalRegistry().RegisterClient(healthyID, "gemini", []*registry.ModelInfo{{ID: "any-model"}})
+			picked, _, _, errPickHealthy := manager.pickNextMixed(ctx, []string{"gemini"}, "any-model", cliproxyexecutor.Options{}, nil)
 			if errPickHealthy != nil {
 				t.Fatalf("expected healthy pick to succeed, got: %v", errPickHealthy)
 			}
@@ -207,13 +207,13 @@ func TestManager_TerminalOAuthFailure_OverridesPreexistingModelStateError(t *tes
 		t.Run(tc.name, func(t *testing.T) {
 			manager := NewManager(nil, tc.selector, nil)
 			manager.RegisterExecutor(unauthorizedRefreshTestExecutor{
-				schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "codex"},
+				schedulerProviderTestExecutor: schedulerProviderTestExecutor{provider: "gemini"},
 			})
 
 			authID := "unauthorized-stale-model-" + tc.name
 			auth := &Auth{
 				ID:       authID,
-				Provider: "codex",
+				Provider: "gemini",
 				ModelStates: map[string]*ModelState{
 					"any-model": {
 						LastError: &Error{Code: "rate_limit_exceeded", Message: "historical rate limit", HTTPStatus: http.StatusTooManyRequests},
@@ -227,7 +227,7 @@ func TestManager_TerminalOAuthFailure_OverridesPreexistingModelStateError(t *tes
 			if _, errRegister := manager.Register(ctx, auth); errRegister != nil {
 				t.Fatalf("register auth: %v", errRegister)
 			}
-			registry.GetGlobalRegistry().RegisterClient(authID, "codex", []*registry.ModelInfo{{ID: "any-model"}})
+			registry.GetGlobalRegistry().RegisterClient(authID, "gemini", []*registry.ModelInfo{{ID: "any-model"}})
 			t.Cleanup(func() {
 				registry.GetGlobalRegistry().UnregisterClient(authID)
 			})
@@ -235,7 +235,7 @@ func TestManager_TerminalOAuthFailure_OverridesPreexistingModelStateError(t *tes
 			// Trigger unauthorized refresh failure.
 			manager.refreshAuth(ctx, auth.ID)
 
-			_, _, _, errPick := manager.pickNextMixed(ctx, []string{"codex"}, "any-model", cliproxyexecutor.Options{}, nil)
+			_, _, _, errPick := manager.pickNextMixed(ctx, []string{"gemini"}, "any-model", cliproxyexecutor.Options{}, nil)
 			if errPick == nil {
 				t.Fatal("expected pick error for terminal unauthorized auth")
 			}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -2485,10 +2486,12 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_WithSession(t *testing.T) {
 	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 	serverPongCh := make(chan string, 1)
 	inWriteHook := make(chan struct{})
+	var enteredWriteHook sync.Once
 	pongDeliveredDuringWrite := make(chan struct{})
 
 	testWebsocketWritePayloadHook = func(conn *websocket.Conn) {
-		close(inWriteHook)
+		// The hook sees every payload write; only the first signals the test.
+		enteredWriteHook.Do(func() { close(inWriteHook) })
 		// Wait until server confirms pong was received before allowing write to finish.
 		select {
 		case <-pongDeliveredDuringWrite:

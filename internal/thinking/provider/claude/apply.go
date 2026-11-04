@@ -6,6 +6,7 @@ package claude
 import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -16,7 +17,9 @@ func NewApplier() *Applier { return &Applier{} }
 func init() { thinking.RegisterProvider("claude", NewApplier()) }
 
 func (*Applier) Apply(body []byte, intent thinking.ThinkingConfig, model *registry.ModelInfo) ([]byte, error) {
-	adaptive := model != nil && model.Thinking != nil && len(model.Thinking.Levels) > 0
+	// User-defined and unknown models keep the client's adaptive dialect; the
+	// upstream validates whether the model accepts it.
+	adaptive := thinking.IsUserDefinedModel(model) || model.Thinking != nil && len(model.Thinking.Levels) > 0
 	switch intent.Mode {
 	case thinking.ModeNone:
 		out, err := sjson.SetRawBytes(body, "thinking", []byte(`{"type":"disabled"}`))
@@ -47,7 +50,17 @@ func (*Applier) Apply(body []byte, intent thinking.ThinkingConfig, model *regist
 		if err != nil {
 			return nil, err
 		}
-		return sjson.SetBytes(out, "thinking.budget_tokens", intent.Budget)
+		if out, err = sjson.SetBytes(out, "thinking.budget_tokens", intent.Budget); err != nil {
+			return nil, err
+		}
+		// A budget replaces any effort the client sent with an adaptive request.
+		if out, err = sjson.DeleteBytes(out, "output_config.effort"); err != nil {
+			return nil, err
+		}
+		if gjson.GetBytes(out, "output_config").Raw == "{}" {
+			return sjson.DeleteBytes(out, "output_config")
+		}
+		return out, nil
 	case thinking.ModeAuto:
 		if adaptive {
 			return sjson.SetRawBytes(body, "thinking", []byte(`{"type":"adaptive"}`))
