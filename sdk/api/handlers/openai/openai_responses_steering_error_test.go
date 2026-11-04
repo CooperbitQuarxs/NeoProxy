@@ -175,17 +175,14 @@ func TestResponsesSteeringErrorRecoveryIntegration(t *testing.T) {
 	}
 }
 
+// Codex OAuth turns run through the NeoPi provider port, whose upstream socket
+// is a per-session cache rather than a passthrough, so only API keys qualify.
 func TestResponsesWebsocketClosesOnIdleCodexDisconnect(t *testing.T) {
-	for _, tc := range []struct {
-		name, yaml string
-		oauth      bool
-	}{
-		{"legacy_disabled_api_key", "codex: {response-steering: false}\n", false},
-		{"legacy_enabled_api_key", "codex: {response-steering: true}\n", false},
-		{"v8_enabled_api_key", "oauth: {providers: {codex: {response-steering: true}}}\n", false},
-		{"v8_enabled_oauth", "oauth: {providers: {codex: {response-steering: true}}}\n", true},
-		{"upstream_enabled_api_key", "upstream: {codex: {response-steering: true}}\n", false},
-		{"upstream_enabled_oauth", "upstream: {codex: {response-steering: true}}\n", true},
+	for _, tc := range []struct{ name, yaml string }{
+		{"legacy_disabled_api_key", "codex: {response-steering: false}\n"},
+		{"legacy_enabled_api_key", "codex: {response-steering: true}\n"},
+		{"v8_enabled_api_key", "oauth: {providers: {codex: {response-steering: true}}}\n"},
+		{"upstream_enabled_api_key", "upstream: {codex: {response-steering: true}}\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			closeUpstream := make(chan struct{})
@@ -237,12 +234,7 @@ func TestResponsesWebsocketClosesOnIdleCodexDisconnect(t *testing.T) {
 			model := "idle-disconnect-model"
 			credential := &coreauth.Auth{
 				ID: authID, Provider: "codex", Status: coreauth.StatusActive,
-				Attributes: map[string]string{"base_url": upstream.URL, "websockets": "true"},
-			}
-			if tc.oauth {
-				credential.Metadata = map[string]any{"access_token": "test-token"}
-			} else {
-				credential.Attributes["api_key"] = "test-key"
+				Attributes: map[string]string{"base_url": upstream.URL, "websockets": "true", "api_key": "test-key"},
 			}
 			if _, err = manager.Register(context.Background(), credential); err != nil {
 				t.Fatal(err)

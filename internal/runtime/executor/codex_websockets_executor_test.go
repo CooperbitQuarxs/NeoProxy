@@ -1089,21 +1089,6 @@ func TestApplyCodexWebsocketHeadersDefaultsToCurrentResponsesBeta(t *testing.T) 
 	if got := headers.Get("OpenAI-Beta"); got != codexResponsesWebsocketBetaHeaderValue {
 		t.Fatalf("OpenAI-Beta = %s, want %s", got, codexResponsesWebsocketBetaHeaderValue)
 	}
-	if got := headers.Get("User-Agent"); got != codexUserAgent {
-		t.Fatalf("User-Agent = %s, want %s", got, codexUserAgent)
-	}
-	if !strings.HasPrefix(codexUserAgent, codexOriginator+"/") {
-		t.Fatalf("default Codex User-Agent = %s, want prefix %s/", codexUserAgent, codexOriginator)
-	}
-	if !strings.HasPrefix(codexUserAgent, "codex-tui/") {
-		t.Fatalf("default Codex User-Agent = %s, want codex-tui prefix", codexUserAgent)
-	}
-	if !strings.Contains(codexUserAgent, "(codex-tui;") {
-		t.Fatalf("default Codex User-Agent = %s, want codex-tui suffix", codexUserAgent)
-	}
-	if got := headers.Get("Originator"); got != codexOriginator {
-		t.Fatalf("Originator = %s, want %s", got, codexOriginator)
-	}
 	if got := headers.Get("Version"); got != "" {
 		t.Fatalf("Version = %q, want empty", got)
 	}
@@ -1327,44 +1312,9 @@ func TestApplyCodexWebsocketHeadersCanonicalizesLegacyUnderscoreSessionHeader(t 
 	}
 }
 
-func TestApplyCodexWebsocketHeadersUsesConfigDefaultsForOAuth(t *testing.T) {
-	cfg := &config.Config{
-		Codex: config.CodexConfig{DisableCodexCloaking: true},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "my-codex-client/1.0",
-			BetaFeatures: "feature-a,feature-b",
-		},
-	}
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"email": "user@example.com"},
-	}
-
-	headers := applyCodexWebsocketHeaders(context.Background(), http.Header{}, auth, "", cfg, false)
-
-	if got := headers.Get("User-Agent"); got != "my-codex-client/1.0" {
-		t.Fatalf("User-Agent = %s, want %s", got, "my-codex-client/1.0")
-	}
-	if got := headers.Get("x-codex-beta-features"); got != "feature-a,feature-b" {
-		t.Fatalf("x-codex-beta-features = %s, want %s", got, "feature-a,feature-b")
-	}
-	if got := headers.Get("OpenAI-Beta"); got != codexResponsesWebsocketBetaHeaderValue {
-		t.Fatalf("OpenAI-Beta = %s, want %s", got, codexResponsesWebsocketBetaHeaderValue)
-	}
-}
-
-func TestApplyCodexWebsocketHeadersPrefersExistingHeadersOverClientAndConfig(t *testing.T) {
-	cfg := &config.Config{
-		Codex: config.CodexConfig{DisableCodexCloaking: true},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "config-ua",
-			BetaFeatures: "config-beta",
-		},
-	}
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"email": "user@example.com"},
-	}
+func TestApplyCodexWebsocketHeadersPrefersExistingHeadersOverClient(t *testing.T) {
+	cfg := &config.Config{Codex: config.CodexConfig{DisableCodexCloaking: true}}
+	auth := &cliproxyauth.Auth{Provider: "codex", Attributes: map[string]string{"api_key": "test-key"}}
 	ctx := contextWithGinHeaders(map[string]string{
 		"User-Agent":            "client-ua",
 		"X-Codex-Beta-Features": "client-beta",
@@ -1380,33 +1330,6 @@ func TestApplyCodexWebsocketHeadersPrefersExistingHeadersOverClientAndConfig(t *
 	}
 	if gotVal := got.Get("x-codex-beta-features"); gotVal != "existing-beta" {
 		t.Fatalf("x-codex-beta-features = %s, want %s", gotVal, "existing-beta")
-	}
-}
-
-func TestApplyCodexWebsocketHeadersConfigUserAgentOverridesClientHeader(t *testing.T) {
-	cfg := &config.Config{
-		Codex: config.CodexConfig{DisableCodexCloaking: true},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "config-ua",
-			BetaFeatures: "config-beta",
-		},
-	}
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"email": "user@example.com"},
-	}
-	ctx := contextWithGinHeaders(map[string]string{
-		"User-Agent":            "client-ua",
-		"X-Codex-Beta-Features": "client-beta",
-	})
-
-	headers := applyCodexWebsocketHeaders(ctx, http.Header{}, auth, "", cfg, false)
-
-	if got := headers.Get("User-Agent"); got != "config-ua" {
-		t.Fatalf("User-Agent = %s, want %s", got, "config-ua")
-	}
-	if got := headers.Get("x-codex-beta-features"); got != "client-beta" {
-		t.Fatalf("x-codex-beta-features = %s, want %s", got, "client-beta")
 	}
 }
 
@@ -1447,23 +1370,6 @@ func TestApplyCodexWebsocketHeadersPreservesExplicitAPIKeyUserAgent(t *testing.T
 	}
 	if got := headers.Get("Originator"); got != "explicit-origin" {
 		t.Fatalf("Originator = %s, want explicit-origin", got)
-	}
-}
-
-func TestApplyCodexWebsocketHeadersUsesCanonicalAccountHeader(t *testing.T) {
-	auth := &cliproxyauth.Auth{Provider: "codex", Metadata: map[string]any{"account_id": "acct-1"}}
-
-	headers := applyCodexWebsocketHeaders(context.Background(), http.Header{}, auth, "", nil, false)
-
-	if got := headerValueCaseInsensitive(headers, "ChatGPT-Account-ID"); got != "acct-1" {
-		t.Fatalf("ChatGPT-Account-ID = %s, want acct-1", got)
-	}
-	values, ok := headers["ChatGPT-Account-ID"]
-	if !ok {
-		t.Fatalf("expected exact ChatGPT-Account-ID key, got %#v", headers)
-	}
-	if len(values) != 1 || values[0] != "acct-1" {
-		t.Fatalf("ChatGPT-Account-ID values = %#v, want [acct-1]", values)
 	}
 }
 
@@ -1664,36 +1570,6 @@ func TestParseCodexWebsocketErrorPreservesWrappedBodyAndHeaders(t *testing.T) {
 	}
 }
 
-func TestApplyCodexHeadersUsesConfigUserAgentForOAuth(t *testing.T) {
-	req, err := http.NewRequest(http.MethodPost, "https://example.com/responses", nil)
-	if err != nil {
-		t.Fatalf("NewRequest() error = %v", err)
-	}
-	cfg := &config.Config{
-		Codex: config.CodexConfig{DisableCodexCloaking: true},
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent:    "config-ua",
-			BetaFeatures: "config-beta",
-		},
-	}
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"email": "user@example.com"},
-	}
-	req = req.WithContext(contextWithGinHeaders(map[string]string{
-		"User-Agent": "client-ua",
-	}))
-
-	applyCodexHeaders(req, auth, "oauth-token", true, cfg)
-
-	if got := req.Header.Get("User-Agent"); got != "config-ua" {
-		t.Fatalf("User-Agent = %s, want %s", got, "config-ua")
-	}
-	if got := req.Header.Get("x-codex-beta-features"); got != "" {
-		t.Fatalf("x-codex-beta-features = %q, want empty", got)
-	}
-}
-
 func TestApplyCodexHeadersDefaultsToCodexCloaking(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "https://example.com/responses", nil)
 	if err != nil {
@@ -1803,38 +1679,6 @@ func TestApplyCodexWebsocketHeaders_EmptyAPIKey_OmitsAuthorizationAndOAuthHeader
 	}
 	if got := headers.Get("User-Agent"); got == "oauth-default-ua" {
 		t.Fatalf("User-Agent unexpectedly used OAuth default UA %q for API key auth_kind", got)
-	}
-}
-
-func TestApplyModelHeaderOverridesFromModelConfig(t *testing.T) {
-	const wantUA = "codex-tui/0.154.0 (Mac OS 26.5.2; arm64) iTerm.app/3.6.11 (codex-tui; 0.154.0)"
-	req, err := http.NewRequest(http.MethodPost, "https://example.com/responses", nil)
-	if err != nil {
-		t.Fatalf("NewRequest() error = %v", err)
-	}
-	cfg := &config.Config{
-		CodexHeaderDefaults: config.CodexHeaderDefaults{
-			UserAgent: "config-ua",
-		},
-	}
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"email": "user@example.com"},
-	}
-
-	applyCodexHeaders(req, auth, "oauth-token", true, cfg)
-	applyModelHeaderOverrides(req.Header, "gpt-5.6-luna")
-
-	if got := req.Header.Get("User-Agent"); got != wantUA {
-		t.Fatalf("User-Agent = %q, want %q", got, wantUA)
-	}
-	if got := codexSessionHeaderValue(req.Header); got == "" {
-		t.Fatal("expected Session_id to be set for Mac OS User-Agent override")
-	}
-
-	applyModelHeaderOverrides(req.Header, "gpt-5.4")
-	if got := req.Header.Get("User-Agent"); got != wantUA {
-		t.Fatalf("User-Agent after no-op override = %q, want %q", got, wantUA)
 	}
 }
 

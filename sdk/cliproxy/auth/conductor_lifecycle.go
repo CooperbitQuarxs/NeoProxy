@@ -322,8 +322,12 @@ func (m *Manager) updateInternalLocked(ctx context.Context, base, auth *Auth, mo
 		return nil, false, false, fmt.Errorf("update auth %s: stale registration epoch %d != %d", auth.ID, base.RegistrationEpoch, existing.RegistrationEpoch)
 	}
 	// Do not let an in-flight refresh overwrite credentials committed after its snapshot.
-	if mode == updateModeRefresh && base != nil && (existing.CredentialVersion != base.CredentialVersion || CredentialsChanged(base, existing)) {
-		if auth.CodexRefreshPatch == nil || !auth.CodexRefreshPatch.CanApplyTo(existing.Metadata) {
+	if mode == updateModeRefresh && base != nil {
+		stale := existing.CredentialVersion != base.CredentialVersion || CredentialsChanged(base, existing)
+		if auth.CodexRefreshPatch != nil {
+			stale = !auth.CodexRefreshPatch.CanApplyTo(existing.Metadata)
+		}
+		if stale {
 			current := existing.Clone()
 			m.mu.Unlock()
 			// Discarded stale refresh: committed=false so callers do not
@@ -352,6 +356,19 @@ func (m *Manager) updateInternalLocked(ctx context.Context, base, auth *Auth, mo
 		m.authEpochs[auth.ID] = auth.RegistrationEpoch
 	} else if auth.RegistrationEpoch == 0 {
 		auth.RegistrationEpoch = m.authEpochs[auth.ID]
+	}
+	existingBeforeSave := existing.Clone()
+	persistCodexRefresh := mode == updateModeRefresh && IsCodexAuthRecord(auth)
+	if persistCodexRefresh {
+		// Resolve the disk CAS before deriving lifecycle/version state from its winner.
+		wasDisabled := auth.Disabled || auth.Status == StatusDisabled
+		if errPersist := m.persistLocked(ctx, auth); errPersist != nil {
+			m.mu.Unlock()
+			return nil, false, false, fmt.Errorf("persist codex auth: %w", errPersist)
+		}
+		if wasDisabled && !auth.Disabled {
+			auth = MergeRefreshedAuth(base, existingBeforeSave, auth)
+		}
 	}
 	if !auth.indexAssigned && auth.Index == "" {
 		auth.Index = existing.Index
@@ -432,16 +449,16 @@ func (m *Manager) updateInternalLocked(ctx context.Context, base, auth *Auth, mo
 	auth.EnsureIndex()
 	// Save before publication, including the transactional Meta mint path.
 	// Runtime-only changes made during I/O are merged below, never overwritten.
-	existingBeforeSave := existing.Clone()
 	persistMetaMint := (mode == updateModePrepare || mode == updateModeRefresh) && strings.EqualFold(strings.TrimSpace(auth.Provider), "meta")
-	if errPersist := m.persistLocked(ctx, auth); errPersist != nil {
-		// A minted Meta key must reach the store before requests can use it.
-		if persistMetaMint {
-			m.mu.Unlock()
-			return nil, false, false, fmt.Errorf("persist meta auth: %w", errPersist)
+	if !persistCodexRefresh {
+		if errPersist := m.persistLocked(ctx, auth); errPersist != nil {
+			if persistMetaMint {
+				m.mu.Unlock()
+				return nil, false, false, fmt.Errorf("persist meta auth: %w", errPersist)
+			}
+			// Ordinary persistence failures remain non-fatal, but never silent.
+			log.WithFields(log.Fields{"auth_id": auth.ID, "credential": auth.ID, "provider": auth.Provider}).Warnf("failed to persist updated auth %s (%s): %v", auth.Provider, auth.ID, errPersist)
 		}
-		// Ordinary persistence failures remain non-fatal, but never silent.
-		log.WithFields(log.Fields{"auth_id": auth.ID, "credential": auth.ID, "provider": auth.Provider}).Warnf("failed to persist updated auth %s (%s): %v", auth.Provider, auth.ID, errPersist)
 	}
 	if m.authEpochs[auth.ID] != auth.RegistrationEpoch {
 		m.mu.Unlock()

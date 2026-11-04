@@ -1,0 +1,1087 @@
+{
+  "source": "NeoPi OWN OAuthRefresher and definitive-failure classifier",
+  "now": 1800000000000,
+  "original": {
+    "type": "oauth",
+    "access": "original-access-fake",
+    "refresh": "original-refresh-fake",
+    "expires": 1799999999999,
+    "accountId": "account-fake",
+    "email": "capture@example.invalid"
+  },
+  "minted": {
+    "access": "minted-access-fake",
+    "refresh": "minted-refresh-fake",
+    "expires": 1800003600000
+  },
+  "peer": {
+    "type": "oauth",
+    "access": "peer-access-fake",
+    "refresh": "peer-refresh-fake",
+    "expires": 1800007200000,
+    "accountId": "account-fake",
+    "email": "capture@example.invalid"
+  },
+  "normalizations": [],
+  "failureClassification": [
+    {
+      "message": "invalid_grant",
+      "definitive": true
+    },
+    {
+      "message": "invalid_token",
+      "definitive": true
+    },
+    {
+      "message": "unauthorized_client",
+      "definitive": true
+    },
+    {
+      "message": "grant revoked",
+      "definitive": true
+    },
+    {
+      "message": "unrevoked grant",
+      "definitive": false
+    },
+    {
+      "message": "refresh token expired",
+      "definitive": true
+    },
+    {
+      "message": "refresh_token has expired",
+      "definitive": true
+    },
+    {
+      "message": "HTTP 401 unauthorized",
+      "definitive": true
+    },
+    {
+      "message": "HTTP 401 forbidden",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 401 network error",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 503 invalid_grant",
+      "definitive": true
+    },
+    {
+      "message": "HTTP 401 gateway 502",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 403 forbidden",
+      "definitive": false
+    },
+    {
+      "message": "token refresh failed HTTP 400",
+      "definitive": false
+    },
+    {
+      "message": "revoked via cloudflare",
+      "definitive": true
+    },
+    {
+      "message": "HTTP 401 permission_denied",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 401 EAI_AGAIN",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 401 timeout",
+      "definitive": false
+    },
+    {
+      "message": "HTTP 401 rate limit 429",
+      "definitive": false
+    },
+    {
+      "message": "error 1401",
+      "definitive": false
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "fresh-outside-skew",
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800000060001,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800000060001,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800000060001,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "exact-sixty-second-boundary",
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800000060000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "inside-refresh-skew",
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800000059999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "expired",
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "stored-fresh-beats-expired-jwt",
+      "current": {
+        "type": "oauth",
+        "access": "eyJhbGciOiJub25lIn0.eyJleHAiOjE3OTk5OTk5OTl9.fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "eyJhbGciOiJub25lIn0.eyJleHAiOjE3OTk5OTk5OTl9.fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "eyJhbGciOiJub25lIn0.eyJleHAiOjE3OTk5OTk5OTl9.fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "stored-expired-beats-fresh-jwt",
+      "current": {
+        "type": "oauth",
+        "access": "eyJhbGciOiJub25lIn0.eyJleHAiOjE4MDAwMDM2MDB9.fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "missing-row",
+      "missing": true,
+      "refreshError": null,
+      "result": {
+        "credential": null,
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": null
+    },
+    {
+      "name": "force-fresh",
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "force": true,
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "adopt-peer",
+      "current": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "observed": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "peer-access-fake",
+          "refresh": "peer-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "adopt-peer-even-forced",
+      "current": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "observed": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "force": true,
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "peer-access-fake",
+          "refresh": "peer-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "refresh-stale-peer",
+      "current": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800000045000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "observed": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "adopt-peer-after-lease",
+      "observed": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "afterLease": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "force": true,
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "peer-access-fake",
+          "refresh": "peer-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "cas-lost-to-peer",
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "peer-access-fake",
+          "refresh": "peer-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "cas-lost-to-expiry-edit",
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "cas-lost-to-email-edit",
+      "force": true,
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "changed@example.invalid"
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "changed@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "changed@example.invalid"
+      }
+    },
+    {
+      "name": "cas-lost-to-removal",
+      "duringRefresh": "remove",
+      "refreshError": null,
+      "result": {
+        "credential": null,
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": null
+    },
+    {
+      "name": "definitive-failure",
+      "error": null,
+      "refreshError": "invalid_grant",
+      "result": {
+        "credential": null,
+        "refreshed": false,
+        "removed": true
+      },
+      "refreshCalls": 1,
+      "disabled": true,
+      "stored": null
+    },
+    {
+      "name": "definitive-failure-peer-wins",
+      "error": null,
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": "invalid_grant",
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "peer-access-fake",
+          "refresh": "peer-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "definitive-failure-expiry-edit-wins",
+      "error": null,
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": "invalid_grant",
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800007200000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "definitive-failure-email-edit-wins",
+      "error": null,
+      "force": true,
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "changed@example.invalid"
+      },
+      "refreshError": "invalid_grant",
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "changed@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "changed@example.invalid"
+      }
+    },
+    {
+      "name": "definitive-failure-removal-wins",
+      "error": null,
+      "duringRefresh": "remove",
+      "refreshError": "invalid_grant",
+      "result": {
+        "credential": null,
+        "refreshed": false,
+        "removed": false
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": null
+    },
+    {
+      "name": "transient-failure-peer-wins",
+      "error": "Error: temporarily_unavailable",
+      "duringRefresh": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshError": "temporarily_unavailable",
+      "result": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "peer-access-fake",
+        "refresh": "peer-refresh-fake",
+        "expires": 1800007200000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "transient-failure",
+      "error": "Error: temporarily_unavailable",
+      "refreshError": "temporarily_unavailable",
+      "result": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "keep-on-transient-failure",
+      "error": null,
+      "keep": true,
+      "refreshError": "temporarily_unavailable",
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1799999999999,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "not-refreshable",
+      "canRefresh": false,
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "original-access-fake",
+          "refresh": "original-refresh-fake",
+          "expires": 1799999999999,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        "refreshed": false,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "preserve-subtype-metadata",
+      "current": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid",
+        "apiEndpoint": "https://example.invalid/v1",
+        "authorizedAt": 1799913600000
+      },
+      "refreshError": null,
+      "result": {
+        "credential": {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid",
+          "apiEndpoint": "https://example.invalid/v1",
+          "authorizedAt": 1799913600000
+        },
+        "refreshed": true,
+        "removed": false
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid",
+        "apiEndpoint": "https://example.invalid/v1",
+        "authorizedAt": 1799913600000
+      }
+    },
+    {
+      "name": "minted-short-lived",
+      "minted": {
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800000030000
+      },
+      "api": "refresh",
+      "result": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800000030000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "error": null,
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800000030000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "minted-already-expired",
+      "minted": {
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800000000000
+      },
+      "api": "refresh",
+      "result": null,
+      "error": "OAuthError: OAuth refresh did not produce a usable credential for provider: openai-codex",
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800000000000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "credential-singleflight",
+      "api": "refresh",
+      "results": [
+        {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        },
+        {
+          "type": "oauth",
+          "access": "minted-access-fake",
+          "refresh": "minted-refresh-fake",
+          "expires": 1800003600000,
+          "accountId": "account-fake",
+          "email": "capture@example.invalid"
+        }
+      ],
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "auth-recovery-reuses-local-mint",
+      "api": "refresh",
+      "result": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      },
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "explicit-force-remints",
+      "api": "refreshById",
+      "refreshCalls": 2,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "explicit-recovery-reuses-mint",
+      "api": "refreshById",
+      "refreshCalls": 1,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "minted-access-fake",
+        "refresh": "minted-refresh-fake",
+        "expires": 1800003600000,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    },
+    {
+      "name": "cancel-before-ownership",
+      "error": "AbortError: OAuth refresh ownership aborted by caller",
+      "refreshCalls": 0,
+      "disabled": false,
+      "stored": {
+        "type": "oauth",
+        "access": "original-access-fake",
+        "refresh": "original-refresh-fake",
+        "expires": 1799999999999,
+        "accountId": "account-fake",
+        "email": "capture@example.invalid"
+      }
+    }
+  ]
+}

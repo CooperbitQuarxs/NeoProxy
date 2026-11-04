@@ -85,14 +85,12 @@ func (e *CodexExecutor) resolveGPTImage2BaseModel() string {
 }
 
 func (e *CodexExecutor) executeOpenAIImage(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
-	apiKey, baseURL := codexCreds(auth)
-	if errSIWC := ensureCodexSIWCCredentials(auth, apiKey); errSIWC != nil {
-		return resp, errSIWC
+	if !codexAuthUsesAPIKey(auth) {
+		return e.executeNeoPiImage(ctx, auth, req, opts)
 	}
-	if !codexUseSIWC(auth) {
-		if directEndpoint := codexDirectOpenAIImageEndpoint(req, opts); directEndpoint != "" {
-			return e.executeDirectOpenAIImage(ctx, auth, req, opts, directEndpoint)
-		}
+	apiKey, baseURL := codexCreds(auth)
+	if directEndpoint := codexDirectOpenAIImageEndpoint(req, opts); directEndpoint != "" {
+		return e.executeDirectOpenAIImage(ctx, auth, req, opts, directEndpoint)
 	}
 
 	prepared, errPrepare := codexPrepareOpenAIImageRequest(req, opts)
@@ -188,14 +186,12 @@ func (e *CodexExecutor) executeOpenAIImage(ctx context.Context, auth *cliproxyau
 }
 
 func (e *CodexExecutor) executeOpenAIImageStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
-	apiKey, baseURL := codexCreds(auth)
-	if errSIWC := ensureCodexSIWCCredentials(auth, apiKey); errSIWC != nil {
-		return nil, errSIWC
+	if !codexAuthUsesAPIKey(auth) {
+		return e.executeNeoPiImageStream(ctx, auth, req, opts)
 	}
-	if !codexUseSIWC(auth) {
-		if directEndpoint := codexDirectOpenAIImageEndpoint(req, opts); directEndpoint != "" {
-			return e.executeDirectOpenAIImageStream(ctx, auth, req, opts, directEndpoint)
-		}
+	apiKey, baseURL := codexCreds(auth)
+	if directEndpoint := codexDirectOpenAIImageEndpoint(req, opts); directEndpoint != "" {
+		return e.executeDirectOpenAIImageStream(ctx, auth, req, opts, directEndpoint)
 	}
 
 	prepared, errPrepare := codexPrepareOpenAIImageRequest(req, opts)
@@ -746,9 +742,6 @@ func (e *CodexExecutor) prepareCodexOpenAIImageBody(auth *cliproxyauth.Auth, bod
 	out, _ = sjson.DeleteBytes(out, "prompt_cache_retention")
 	out, _ = sjson.DeleteBytes(out, "safety_identifier")
 	out, _ = sjson.DeleteBytes(out, "stream_options")
-	if codexUseSIWC(auth) {
-		return applyCodexSIWCRequestBodyRules(out, false), nil
-	}
 	return normalizeCodexInstructions(out), nil
 }
 

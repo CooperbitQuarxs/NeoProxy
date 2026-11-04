@@ -98,8 +98,9 @@ func TestQuotaCodexUsageShape(t *testing.T) {
 			return
 		}
 		body, _ := json.Marshal(map[string]any{"plan_type": "plus", "rate_limit": map[string]any{
-			"primary_window":   map[string]any{"used_percent": 12.5, "limit_window_seconds": 18000, "reset_after_seconds": 600, "reset_at": 0},
-			"secondary_window": map[string]any{"used_percent": 80, "limit_window_seconds": 604800, "reset_after_seconds": 1, "reset_at": resetAt},
+			// NeoPi reads reset_at first (seconds or milliseconds), then reset_after_seconds.
+			"primary_window":   map[string]any{"used_percent": 12.5, "limit_window_seconds": 18000, "reset_after_seconds": 600},
+			"secondary_window": map[string]any{"used_percent": "80", "limit_window_seconds": 604800, "reset_after_seconds": 1, "reset_at": resetAt * 1000},
 		}})
 		_, _ = w.Write(body)
 	}))

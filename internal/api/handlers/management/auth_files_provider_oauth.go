@@ -135,62 +135,69 @@ func (h *Handler) RequestCodexToken(c *gin.Context) {
 			return
 		}
 
-		// Extract additional info for filename generation
-		claims, _ := codex.ParseJWTToken(bundle.TokenData.IDToken)
-		planType := ""
-		if bundle != nil && strings.TrimSpace(bundle.TokenData.PlanType) != "" {
-			planType = strings.TrimSpace(bundle.TokenData.PlanType)
-		}
-		hashAccountID := ""
-		if claims != nil {
-			if pt := strings.TrimSpace(claims.CodexAuthInfo.ChatgptPlanType); pt != "" {
-				planType = pt
-			}
-			if accountID := claims.GetAccountID(); accountID != "" {
-				digest := sha256.Sum256([]byte(accountID))
-				hashAccountID = hex.EncodeToString(digest[:])[:8]
-			}
-		}
-		if planType == "" {
-			planType = codex.DefaultPlanType
-		}
-
-		// Create token storage and persist
-		tokenStorage := openaiAuth.CreateTokenStorage(bundle)
-		tokenStorage.PlanType = planType
-		fileName := codex.CredentialFileName(tokenStorage.Email, planType, hashAccountID, true)
-		record := &coreauth.Auth{
-			ID:       fileName,
-			Provider: "codex",
-			FileName: fileName,
-			Storage:  tokenStorage,
-			Metadata: map[string]any{
-				"email":      tokenStorage.Email,
-				"account_id": tokenStorage.AccountID,
-				"plan_type":  planType,
-			},
-			Attributes: map[string]string{
-				"plan_type": planType,
-			},
-		}
-		if errGuard := guardOAuthSessionPendingForSave(state, "codex"); errGuard != nil {
-			return
-		}
-		savedPath, errSave := h.saveTokenRecord(ctx, record)
-		if errSave != nil {
-			SetOAuthSessionError(state, "Failed to save authentication tokens")
-			log.Errorf("Failed to save authentication tokens: %v", errSave)
-			return
-		}
-		fmt.Printf("Authentication successful! Token saved to %s\n", savedPath)
-		if bundle.APIKey != "" {
-			fmt.Println("API key obtained and saved")
-		}
-		fmt.Println("You can now use Codex services through this CLI")
-		CompleteOAuthSession(state)
+		h.completeCodexLogin(ctx, state, openaiAuth.CreateTokenStorage(bundle))
 	}()
 
-	c.JSON(200, gin.H{"status": "ok", "url": authURL, "state": state})
+	c.JSON(200, gin.H{"status": "ok", "url": authURL, "state": state, "flow": "browser"})
+}
+
+func (h *Handler) requestCodexDeviceToken(c *gin.Context) {
+	ctx := PopulateAuthContext(context.Background(), c)
+	state, errState := misc.GenerateRandomState()
+	if errState != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate state parameter"})
+		return
+	}
+	service := codex.NewCodexAuth(h.cfg)
+	session, errStart := service.StartDevice(c.Request.Context())
+	if errStart != nil {
+		log.WithError(errStart).Error("failed to start Codex device authorization")
+		c.JSON(http.StatusBadGateway, gin.H{"error": errStart.Error()})
+		return
+	}
+	RegisterOAuthSession(state, "codex")
+	go func() {
+		pollCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go watchOAuthSessionCancel(pollCtx, cancel, state, "codex")
+		bundle, errWait := service.WaitForDevice(pollCtx, session)
+		if errWait != nil {
+			if IsOAuthSessionPending(state, "codex") {
+				SetOAuthSessionError(state, oauthSessionErrorWithCause("Authentication failed", errWait))
+			}
+			return
+		}
+		h.completeCodexLogin(ctx, state, service.CreateTokenStorage(bundle))
+	}()
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "verification_uri": session.URL, "state": state, "flow": "device", "user_code": session.UserCode})
+}
+
+func (h *Handler) completeCodexLogin(ctx context.Context, state string, storage *codex.CodexTokenStorage) {
+	hashAccountID := ""
+	if storage.AccountID != "" {
+		digest := sha256.Sum256([]byte(storage.AccountID))
+		hashAccountID = hex.EncodeToString(digest[:])[:8]
+	}
+	fileName := codex.CredentialFileName(storage.Email, storage.PlanType, hashAccountID, true)
+	record := &coreauth.Auth{
+		ID:         fileName,
+		Provider:   "codex",
+		FileName:   fileName,
+		Storage:    storage,
+		Metadata:   map[string]any{"email": storage.Email, "account_id": storage.AccountID, "plan_type": storage.PlanType},
+		Attributes: map[string]string{"plan_type": storage.PlanType},
+	}
+	if errGuard := guardOAuthSessionPendingForSave(state, "codex"); errGuard != nil {
+		return
+	}
+	savedPath, errSave := h.saveTokenRecord(ctx, record)
+	if errSave != nil {
+		SetOAuthSessionError(state, "Failed to save authentication tokens")
+		log.Errorf("Failed to save authentication tokens: %v", errSave)
+		return
+	}
+	log.Infof("Codex authentication successful; credential saved to %s", savedPath)
+	CompleteOAuthSession(state)
 }
 
 func (h *Handler) RequestAntigravityToken(c *gin.Context) {

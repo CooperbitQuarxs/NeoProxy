@@ -27,6 +27,28 @@ func WebsocketInputFromContext(ctx context.Context) <-chan WebsocketInput {
 	return input
 }
 
+// WithWebsocketInputDefer lets an executor that reads the input channel hand
+// back frames it does not own; the connection loop reads them before the channel.
+type websocketInputDeferKey struct{}
+
+func WithWebsocketInputDefer(ctx context.Context, deferInput func(WebsocketInput)) context.Context {
+	return context.WithValue(ctx, websocketInputDeferKey{}, deferInput)
+}
+
+// DeferWebsocketInput returns a frame to the connection loop. It reports false
+// when no loop accepts deferred frames.
+func DeferWebsocketInput(ctx context.Context, message WebsocketInput) bool {
+	if ctx == nil {
+		return false
+	}
+	deferInput, _ := ctx.Value(websocketInputDeferKey{}).(func(WebsocketInput))
+	if deferInput == nil {
+		return false
+	}
+	deferInput(message)
+	return true
+}
+
 // WithWebsocketAuthCheck supplies the live account-state check for a bound
 // connection. It may reject further frames but never select another account.
 type websocketAuthCheckKey struct{}

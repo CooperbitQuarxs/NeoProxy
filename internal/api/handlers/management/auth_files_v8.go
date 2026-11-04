@@ -15,7 +15,11 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 	case "claude":
 		h.RequestAnthropicToken(c)
 	case "codex":
-		h.RequestCodexToken(c)
+		if c.Query("mode") == "device" {
+			h.requestCodexDeviceToken(c)
+		} else {
+			h.RequestCodexToken(c)
+		}
 	case "antigravity":
 		h.RequestAntigravityToken(c)
 	case "kimi":

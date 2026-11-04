@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
@@ -174,20 +173,6 @@ func TestCodexExecutorCacheHelper_ClaudeRejectsBareUserID(t *testing.T) {
 	}
 	if got := httpReq.Header.Get("Session_id"); got != "" {
 		t.Fatalf("bare metadata.user_id must not create Session_id, got %q", got)
-	}
-}
-
-func TestApplyCodexHeadersUsesAccountHeaderForOAuth(t *testing.T) {
-	httpReq := httptest.NewRequest("POST", "https://example.com/responses", nil)
-	auth := &cliproxyauth.Auth{
-		Provider: "codex",
-		Metadata: map[string]any{"account_id": "acct-1"},
-	}
-
-	applyCodexHeaders(httpReq, auth, "oauth-token", true, nil)
-
-	if got := httpReq.Header.Get("Chatgpt-Account-Id"); got != "acct-1" {
-		t.Fatalf("Chatgpt-Account-Id = %q, want acct-1", got)
 	}
 }
 

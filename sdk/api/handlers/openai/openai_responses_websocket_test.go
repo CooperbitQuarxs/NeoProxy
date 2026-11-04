@@ -3699,7 +3699,7 @@ func TestResponsesWebsocketDeltaRouteToBuiltInProviderRequiresFullReplay(t *test
 	manager := coreauth.NewManager(nil, nil, nil)
 	manager.RegisterExecutor(codexExecutor)
 	manager.RegisterExecutor(claudeExecutor)
-	codexAuth := &coreauth.Auth{ID: "auth-codex-provider-route-delta", Provider: "codex", Status: coreauth.StatusActive, Attributes: map[string]string{"websockets": "true"}}
+	codexAuth := &coreauth.Auth{ID: "auth-codex-provider-route-delta", Provider: "codex", Status: coreauth.StatusActive, Attributes: map[string]string{"websockets": "true", "api_key": "test-key"}}
 	claudeAuth := &coreauth.Auth{ID: "auth-claude-provider-route-delta", Provider: "claude", Status: coreauth.StatusActive}
 	for _, auth := range []*coreauth.Auth{codexAuth, claudeAuth} {
 		if _, err := manager.Register(context.Background(), auth); err != nil {

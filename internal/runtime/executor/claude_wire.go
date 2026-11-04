@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	xxHash64 "github.com/pierrec/xxHash/xxHash64"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -30,59 +31,8 @@ type neoPiWireIdentity struct {
 	OmitSessionHeader bool
 }
 
-type neoPiField struct {
-	name  string
-	value json.RawMessage
-}
-
-func neoPiJSON(value any) json.RawMessage {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	_ = enc.Encode(value)
-	data := bytes.TrimSuffix(buf.Bytes(), []byte{'\n'})
-	if !bytes.Contains(data, []byte(`\u202`)) {
-		return data
-	}
-	// JSON.stringify emits line separators literally, unlike Go's encoder.
-	// Preserve escaped backslashes so a literal "\\u2028" stays literal.
-	out := make([]byte, 0, len(data))
-	for index := 0; index < len(data); index++ {
-		if data[index] == '\\' && index+1 < len(data) {
-			if data[index+1] == '\\' {
-				out = append(out, '\\', '\\')
-				index++
-				continue
-			}
-			if index+5 < len(data) && bytes.Equal(data[index+1:index+5], []byte("u202")) && (data[index+5] == '8' || data[index+5] == '9') {
-				out = append(out, 0xe2, 0x80, 0xa8+data[index+5]-'8')
-				index += 5
-				continue
-			}
-		}
-		out = append(out, data[index])
-	}
-	return out
-}
-
-func neoPiObject(fields ...neoPiField) json.RawMessage {
-	out := []byte{'{'}
-	for _, field := range fields {
-		if len(field.value) == 0 {
-			continue
-		}
-		if len(out) > 1 {
-			out = append(out, ',')
-		}
-		out = append(out, neoPiJSON(field.name)...)
-		out = append(out, ':')
-		out = append(out, field.value...)
-	}
-	return append(out, '}')
-}
-
 func neoPiSet(body []byte, path string, value any) []byte {
-	out, _ := sjson.SetRawBytes(body, path, neoPiJSON(value))
+	out, _ := sjson.SetRawBytes(body, path, jsjson.Marshal(value))
 	return out
 }
 
@@ -125,14 +75,14 @@ func neoPiUserID(existing string, identity neoPiWireIdentity) string {
 		seed = "omp-claude-device-id-v2\x00" + identity.InstallID + "\x00" + identity.AccountID
 	}
 	device := sha256.Sum256([]byte(seed))
-	fields := []neoPiField{
-		{"device_id", neoPiJSON(hex.EncodeToString(device[:]))},
-		{"session_id", neoPiJSON(identity.SessionID)},
+	fields := []jsjson.Field{
+		{Name: "device_id", Value: jsjson.Marshal(hex.EncodeToString(device[:]))},
+		{Name: "session_id", Value: jsjson.Marshal(identity.SessionID)},
 	}
 	if identity.AccountID != "" {
-		fields = append(fields, neoPiField{"account_uuid", neoPiJSON(identity.AccountID)})
+		fields = append(fields, jsjson.Field{Name: "account_uuid", Value: jsjson.Marshal(identity.AccountID)})
 	}
-	return string(neoPiObject(fields...))
+	return string(jsjson.Object(fields...))
 }
 
 func neoPiLegacySession(existing string) string {
@@ -191,7 +141,7 @@ func neoPiSignBody(body []byte) []byte {
 }
 
 func neoPiTextBlock(text string) json.RawMessage {
-	return neoPiObject(neoPiField{"type", neoPiJSON("text")}, neoPiField{"text", neoPiJSON(text)})
+	return jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("text")}, jsjson.Field{Name: "text", Value: jsjson.Marshal(text)})
 }
 
 // projectNeoPiRequest takes the dialect-translated Messages body. Client-side
@@ -253,7 +203,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 				}
 			}
 		}
-		raw := neoPiObject(neoPiField{"role", neoPiJSON(role)}, neoPiField{"content", neoPiJSON(blocks)})
+		raw := jsjson.Object(jsjson.Field{Name: "role", Value: jsjson.Marshal(role)}, jsjson.Field{Name: "content", Value: jsjson.Marshal(blocks)})
 		for _, key := range []string{"clear_at", "output_config"} {
 			if value := message.Get(key); value.Exists() {
 				raw = neoPiSetRaw(raw, key, []byte(value.Raw))
@@ -350,7 +300,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		if !identity.APIKey {
 			wireName = neoPiToolName(name)
 		}
-		wire := neoPiObject(neoPiField{"name", neoPiJSON(wireName)}, neoPiField{"description", neoPiJSON(tool.Get("description").String())}, neoPiField{"input_schema", normalized})
+		wire := jsjson.Object(jsjson.Field{Name: "name", Value: jsjson.Marshal(wireName)}, jsjson.Field{Name: "description", Value: jsjson.Marshal(tool.Get("description").String())}, jsjson.Field{Name: "input_schema", Value: normalized})
 		if neoPiOfficialEndpoint(base) && profile.Compat.SupportsEagerToolInputStreaming {
 			wire = neoPiSet(wire, "eager_input_streaming", true)
 		}
@@ -421,7 +371,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		if budget <= 0 {
 			return nil, nil, fmt.Errorf("claude: thinking budget requires max_tokens greater than 4000; got %d", maxTokens)
 		}
-		wireThinking = neoPiObject(neoPiField{"type", neoPiJSON("enabled")}, neoPiField{"budget_tokens", neoPiJSON(budget)})
+		wireThinking = jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("enabled")}, jsjson.Field{Name: "budget_tokens", Value: jsjson.Marshal(budget)})
 		if profile.Thinking.SupportsDisplay == nil || *profile.Thinking.SupportsDisplay {
 			display := thinking.Get("display").String()
 			if display == "" {
@@ -465,27 +415,27 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 	}
 	var metadata json.RawMessage
 	if !identity.APIKey {
-		metadata = neoPiObject(neoPiField{"user_id", neoPiJSON(neoPiUserID(root.Get("metadata.user_id").String(), identity))})
+		metadata = jsjson.Object(jsjson.Field{Name: "user_id", Value: jsjson.Marshal(neoPiUserID(root.Get("metadata.user_id").String(), identity))})
 	} else if userID := root.Get("metadata.user_id"); userID.Type == gjson.String && userID.String() != "" {
-		metadata = neoPiObject(neoPiField{"user_id", neoPiJSON(userID.String())})
+		metadata = jsjson.Object(jsjson.Field{Name: "user_id", Value: jsjson.Marshal(userID.String())})
 	}
 	var wireSystem, wireTools json.RawMessage
 	if len(system) > 0 {
-		wireSystem = neoPiJSON(system)
+		wireSystem = jsjson.Marshal(system)
 	}
 	if len(tools) > 0 || !identity.APIKey || root.Get("tools").IsArray() {
-		wireTools = neoPiJSON(tools)
+		wireTools = jsjson.Marshal(tools)
 	}
-	fields := []neoPiField{{"model", neoPiJSON(model)}, {"messages", neoPiJSON(messages)}, {"system", wireSystem}, {"tools", wireTools}, {"metadata", metadata}, {"max_tokens", neoPiJSON(maxTokens)}, {"thinking", wireThinking}, {"context_management", contextManagement}, {"output_config", outputConfig}, {"stream", neoPiJSON(true)}}
+	fields := []jsjson.Field{{Name: "model", Value: jsjson.Marshal(model)}, {Name: "messages", Value: jsjson.Marshal(messages)}, {Name: "system", Value: wireSystem}, {Name: "tools", Value: wireTools}, {Name: "metadata", Value: metadata}, {Name: "max_tokens", Value: jsjson.Marshal(maxTokens)}, {Name: "thinking", Value: wireThinking}, {Name: "context_management", Value: contextManagement}, {Name: "output_config", Value: outputConfig}, {Name: "stream", Value: jsjson.Marshal(true)}}
 	for _, name := range []string{"stop_sequences", "service_tier", "speed", "fallbacks", "fallback_credit_token"} {
 		if value := root.Get(name); value.Exists() {
-			fields = append(fields, neoPiField{name, []byte(value.Raw)})
+			fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
 		}
 	}
 	if profile.Compat.SupportsSamplingParams && (len(wireThinking) == 0 || gjson.GetBytes(wireThinking, "type").String() == "disabled") {
 		for _, name := range []string{"temperature", "top_p", "top_k"} {
 			if value := root.Get(name); value.Exists() {
-				fields = append(fields, neoPiField{name, []byte(value.Raw)})
+				fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
 			}
 		}
 	}
@@ -497,9 +447,9 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		if !profile.Compat.SupportsForcedToolChoice && (choice.Get("type").String() == "tool" || choice.Get("type").String() == "any") {
 			raw = []byte(`{"type":"auto"}`)
 		}
-		fields = append(fields, neoPiField{"tool_choice", raw})
+		fields = append(fields, jsjson.Field{Name: "tool_choice", Value: raw})
 	}
-	body := neoPiJSON(neoPiObject(fields...))
+	body := jsjson.Marshal(jsjson.Object(fields...))
 	if choice := gjson.GetBytes(body, "tool_choice.type").String(); choice == "any" || choice == "tool" {
 		body = neoPiDelete(body, "thinking")
 		body = neoPiDelete(body, "context_management")

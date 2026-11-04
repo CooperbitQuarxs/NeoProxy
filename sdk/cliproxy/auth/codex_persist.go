@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 )
@@ -43,17 +44,9 @@ func PersistCodexAuthFile(ctx context.Context, path string, auth *Auth) (bool, e
 
 	switch {
 	case auth.CodexRefreshPatch != nil:
-		errRefresh := codex.WithFileLock(path, func() error {
+		errRefresh := codex.WithFileLockContext(ctx, path, func() error {
 			existing, errRead := os.ReadFile(path)
 			if errRead != nil {
-				if os.IsNotExist(errRead) {
-					if auth.Metadata == nil {
-						auth.Metadata = make(map[string]any)
-					}
-					auth.Metadata["disabled"] = auth.Disabled
-					NormalizeCredentialMetadata(auth.Metadata)
-					return codex.WriteJSONFileAtomic(path, auth.Metadata)
-				}
 				return fmt.Errorf("auth filestore: read refresh source failed: %w", errRead)
 			}
 			var diskMap map[string]any
@@ -73,8 +66,20 @@ func PersistCodexAuthFile(ctx context.Context, path string, auth *Auth) (bool, e
 		}
 		auth.CodexRefreshPatch = nil
 		auth.Storage = nil
-		if disabled, ok := auth.Metadata["disabled"].(bool); ok {
-			auth.Disabled = disabled
+		auth.Disabled, _ = auth.Metadata["disabled"].(bool)
+		if auth.Disabled {
+			auth.Status = StatusDisabled
+			auth.Unavailable = true
+		} else if auth.Status == StatusDisabled {
+			// A new login won the disk CAS; do not publish the failed grant's status.
+			auth.Status = StatusActive
+			auth.Unavailable = false
+			auth.LastError = nil
+			auth.StatusMessage = ""
+			auth.NextRefreshAfter = time.Time{}
+			auth.NextRetryAfter = time.Time{}
+			auth.RefreshFailures = 0
+			auth.RejectedAccessToken = ""
 		}
 		return true, nil
 
