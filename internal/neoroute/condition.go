@@ -417,28 +417,11 @@ func PromptText(body []byte) string {
 
 func lastUserText(messages []gjson.Result) string {
 	for i := len(messages) - 1; i >= 0; i-- {
-		message := messages[i]
-		if message.Get("role").String() != "user" {
+		if messages[i].Get("role").String() != "user" {
 			continue
 		}
-		content := message.Get("content")
-		if content.Type == gjson.String {
-			if text := content.String(); text != "" {
-				return text
-			}
-			continue
-		}
-		var parts []string
-		for _, part := range content.Array() {
-			switch part.Get("type").String() {
-			case "text", "input_text":
-				if text := part.Get("text"); text.Type == gjson.String && text.String() != "" {
-					parts = append(parts, text.String())
-				}
-			}
-		}
-		if len(parts) > 0 {
-			return strings.Join(parts, "\n")
+		if text := textOf(messages[i].Get("content")); text != "" {
+			return text
 		}
 	}
 	return ""
@@ -525,7 +508,7 @@ func (x *conditionScope) lookup(field string) (any, bool) {
 	case "request.prompt":
 		return f.lastPrompt(), true
 	case "request.tokens":
-		return float64((len(f.req.Body) + 3) / 4), true
+		return float64(f.tokens()), true
 	case "time.weekday":
 		return strings.ToLower(f.now.Weekday().String()), true
 	case "time.hour":

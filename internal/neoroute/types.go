@@ -73,11 +73,18 @@ type VirtualModel struct {
 //     (request fields) and which accounts may serve it (account fields).
 //   - Effort forces one reasoning effort. Otherwise Efforts is the allowed set:
 //     a caller effort in it passes through, anything else becomes its highest.
+//   - Draw picks one account among the candidates (see DrawModes). Candidates
+//     keep the stage's account order: the explicit list's order, or account
+//     ID order for "all". Weights feeds the "weighted" draw (keyed by account
+//     ID; a missing account weighs 1). FitContext skips the stage when the
+//     request's estimated tokens exceed the model's context window.
 type Stage struct {
 	ID            string             `json:"id"`
 	Model         string             `json:"model"`
 	Accounts      AccountScope       `json:"accounts"`
 	Draw          string             `json:"draw"`
+	Weights       map[string]float64 `json:"weights,omitempty"`
+	FitContext    bool               `json:"fitContext,omitempty"`
 	PerAccount    float64            `json:"perAccount"`
 	AccountLimits map[string]float64 `json:"accountLimits,omitempty"`
 	Cap           float64            `json:"cap"`
@@ -126,7 +133,8 @@ type Candidate struct {
 
 // TrailStep: for a stage, Total is the average used fraction across the Metered
 // accounts considered (0 when none are metered) and is compared against Cap;
-// Window is the stage's window kind those fractions are of.
+// Window is the stage's window kind those fractions are of. Draw is the
+// stage's canonical draw mode and DrawNote says why it picked Chosen.
 type TrailStep struct {
 	Kind          string              `json:"kind"`
 	Index         int                 `json:"index,omitempty"`
@@ -137,6 +145,8 @@ type TrailStep struct {
 	Metered       int                 `json:"metered,omitempty"`
 	Cap           float64             `json:"cap,omitempty"`
 	Candidates    []Candidate         `json:"candidates,omitempty"`
+	Draw          string              `json:"draw,omitempty"`
+	DrawNote      string              `json:"drawNote,omitempty"`
 	Chosen        string              `json:"chosen,omitempty"`
 	Skipped       string              `json:"skipped,omitempty"`
 	Terminal      *Terminal           `json:"terminal,omitempty"`
