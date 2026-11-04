@@ -352,3 +352,31 @@ func TestDefaultProfileHonorsEnvironment(t *testing.T) {
 		t.Fatalf("DefaultProfile = %q", got)
 	}
 }
+
+func TestMultiDialectKeysImportAsNativeProviders(t *testing.T) {
+	profile, _ := newProfile(t, []fixtureRow{
+		{"opencode-go", "api_key", map[string]any{"key": "oc_fixture-go-1111"}, ""},
+		{"opencode-zen", "api_key", map[string]any{"key": "oc_fixture-zen-2222"}, ""},
+		{"sakana", "api_key", map[string]any{"key": "fish_fixture-3333"}, ""},
+		{"abliteration", "api_key", map[string]any{"key": "ak_fixture-4444"}, ""},
+	})
+	creds, err := Read(context.Background(), profile)
+	if err != nil || len(creds) != 4 {
+		t.Fatalf("Read = %d, %v", len(creds), err)
+	}
+	now := time.Now()
+	for _, c := range creds {
+		got, err := BuildAPIKey(c, now)
+		if err != nil {
+			t.Fatalf("%s: %v", c.Provider, err)
+		}
+		// Each NeoPi provider maps onto the catalog entry of the same id, with
+		// the catalog's fixed base URL (no per-key override).
+		if got.Provider != c.Provider || got.BaseURL != "" || got.APIKey != apiKeyValue(c) {
+			t.Errorf("%s imports as %+v", c.Provider, got)
+		}
+		if d := Describe(c, now); !d.Importable || d.Kind != KindAPIKey {
+			t.Errorf("%s candidate = %+v", c.Provider, d)
+		}
+	}
+}

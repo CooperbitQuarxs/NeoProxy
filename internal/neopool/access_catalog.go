@@ -53,6 +53,20 @@ type ProviderInfo struct {
 	// skipModels are model-id prefixes the provider lists but chat clients
 	// cannot use (image, audio, video and embedding SKUs).
 	skipModels []string
+	// dialect is the upstream API of every model (chat-completions when empty);
+	// Responses-only gateways set "responses".
+	dialect string
+	// dialectRules route models whose model-list entry does not advertise its
+	// API, by id prefix; the first match wins and unmatched ids stay on dialect.
+	dialectRules []dialectRule
+	// sessionHeader is the request header that must carry a session id.
+	sessionHeader string
+}
+
+// dialectRule routes model ids starting with prefix to dialect.
+type dialectRule struct {
+	prefix  string
+	dialect string
 }
 
 const providerChroma = 0.13
@@ -76,6 +90,19 @@ const (
 	defaultSubscriptionUSD = 20
 	defaultAPIKeyUSD       = 20
 )
+
+// OpenCode's model lists name each model's API (chat-completions, responses,
+// messages, generate-content) and its base URL. These family rules only cover
+// ids listed without that metadata. Every OpenCode inference request must carry
+// x-opencode-session, or the gateway answers 400 MissingSessionID.
+var openCodeDialectRules = []dialectRule{
+	{"claude-", "messages"},
+	{"gpt-", "responses"},
+	{"grok-", "responses"},
+	{"muse-", "responses"},
+}
+
+const openCodeSessionHeader = "x-opencode-session"
 
 func openAIKey(base, hint, getKey string) *ProviderAPIKey {
 	return &ProviderAPIKey{Style: "openai", BaseURL: base, KeyHint: hint, GetKeyURL: getKey}
@@ -145,6 +172,20 @@ var providerCatalog = []ProviderInfo{
 		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
 		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
 		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader},
+	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/v1", "oc_... (OpenCode Zen key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader},
+	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.sakana.ai/v1", "fish_...", "https://console.sakana.ai/api-keys"), Plans: []ProviderPlan{},
+		dialect: "responses"},
+	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.abliteration.ai/v1", "ak_...", "https://abliteration.ai/console"), Plans: []ProviderPlan{},
+		dialect: "responses"},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

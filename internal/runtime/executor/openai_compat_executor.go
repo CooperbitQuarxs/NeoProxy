@@ -103,7 +103,14 @@ func (e *OpenAICompatExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	}
 	baseURL, apiKey := e.resolveCredentials(auth)
 	compat := e.resolveCompatConfig(auth, req)
-	return e.executeWithCredentials(ctx, auth, req, opts, baseURL, apiKey, compat)
+	route, err := resolveCompatDialect(compat, baseURL, req, opts)
+	if err != nil {
+		return resp, err
+	}
+	if route.dialect != config.DialectChatCompletions {
+		return e.executeDialect(ctx, auth, req, opts, route, apiKey, compat)
+	}
+	return e.executeWithCredentials(ctx, auth, req, opts, route.baseURL, apiKey, compat)
 }
 
 func (e *OpenAICompatExecutor) executeWithCredentials(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, baseURL, apiKey string, compat *config.OpenAICompatibility) (resp cliproxyexecutor.Response, err error) {
@@ -187,6 +194,7 @@ func (e *OpenAICompatExecutor) executeWithCredentials(ctx context.Context, auth 
 	}
 	util.ApplyCustomHeadersFromAttrs(httpReq, attrs, opts.Headers)
 	applyNeoPiCredentialPin(httpReq, attrs)
+	applyCompatSessionHeader(httpReq, compat, auth)
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
 		authID = auth.ID
@@ -351,7 +359,14 @@ func (e *OpenAICompatExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	}
 	baseURL, apiKey := e.resolveCredentials(auth)
 	compat := e.resolveCompatConfig(auth, req)
-	return e.executeStreamWithCredentials(ctx, auth, req, opts, baseURL, apiKey, compat)
+	route, err := resolveCompatDialect(compat, baseURL, req, opts)
+	if err != nil {
+		return nil, err
+	}
+	if route.dialect != config.DialectChatCompletions {
+		return e.executeDialectStream(ctx, auth, req, opts, route, apiKey, compat)
+	}
+	return e.executeStreamWithCredentials(ctx, auth, req, opts, route.baseURL, apiKey, compat)
 }
 
 func (e *OpenAICompatExecutor) executeStreamWithCredentials(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, baseURL, apiKey string, compat *config.OpenAICompatibility) (_ *cliproxyexecutor.StreamResult, err error) {
@@ -428,6 +443,7 @@ func (e *OpenAICompatExecutor) executeStreamWithCredentials(ctx context.Context,
 	}
 	util.ApplyCustomHeadersFromAttrs(httpReq, attrs, opts.Headers)
 	applyNeoPiCredentialPin(httpReq, attrs)
+	applyCompatSessionHeader(httpReq, compat, auth)
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("Cache-Control", "no-cache")
 	var authID, authLabel, authType, authValue string
@@ -1051,6 +1067,8 @@ func (e *OpenAICompatExecutor) resolveCompatConfig(auth *cliproxyauth.Auth, req 
 		// non-secret options belong to the credential selected for this attempt.
 		var options struct {
 			SupportPromptCacheKey bool                              `json:"support-prompt-cache-key"`
+			Dialect               string                            `json:"dialect"`
+			SessionHeader         string                            `json:"session-header"`
 			Models                []config.OpenAICompatibilityModel `json:"models"`
 		}
 		present := false
@@ -1073,6 +1091,8 @@ func (e *OpenAICompatExecutor) resolveCompatConfig(auth *cliproxyauth.Auth, req 
 			return &config.OpenAICompatibility{
 				Name:                  auth.Attributes["compat_name"],
 				SupportPromptCacheKey: options.SupportPromptCacheKey,
+				Dialect:               options.Dialect,
+				SessionHeader:         options.SessionHeader,
 				Models:                options.Models,
 			}
 		}

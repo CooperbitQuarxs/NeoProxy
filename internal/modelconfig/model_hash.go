@@ -20,10 +20,20 @@ func ComputeOpenAICompatModelsHash(models []config.OpenAICompatibilityModel) str
 			if name == "" && alias == "" {
 				continue
 			}
-			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("image=%t", model.Image) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + "|" + fmt.Sprintf("use-max-completion-tokens=%t", model.UseMaxCompletionTokens) + "|input=" + strings.Join(normalizeModalities(model.InputModalities), ",") + "|output=" + strings.Join(normalizeModalities(model.OutputModalities), ",") + thinkingHashSuffix(model.Thinking))
+			out(strings.ToLower(name) + "|" + strings.ToLower(alias) + "|" + strings.TrimSpace(model.DisplayName) + "|" + fmt.Sprintf("image=%t", model.Image) + "|" + fmt.Sprintf("force-mapping=%t", model.ForceMapping) + "|" + fmt.Sprintf("is-compat=%t", model.IsCompat) + "|" + fmt.Sprintf("use-max-completion-tokens=%t", model.UseMaxCompletionTokens) + "|input=" + strings.Join(normalizeModalities(model.InputModalities), ",") + "|output=" + strings.Join(normalizeModalities(model.OutputModalities), ",") + thinkingHashSuffix(model.Thinking) + compatDialectHashSuffix(model))
 		}
 	})
 	return hashJoined(keys)
+}
+
+// compatDialectHashSuffix keeps hashes of models without a dialect override
+// unchanged while making a dialect or base-URL change visible.
+func compatDialectHashSuffix(model config.OpenAICompatibilityModel) string {
+	dialect, base := strings.TrimSpace(model.Dialect), strings.TrimSpace(model.BaseURL)
+	if dialect == "" && base == "" {
+		return ""
+	}
+	return "|dialect=" + strings.ToLower(dialect) + "|base-url=" + base
 }
 
 // ComputeVertexCompatModelsHash returns a stable hash for Vertex-compatible models.

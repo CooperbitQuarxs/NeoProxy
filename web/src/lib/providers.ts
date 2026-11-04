@@ -102,6 +102,22 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 			{ id: "pro", name: "Token Plan Pro", monthlyUSD: 68 },
 		],
 	},
+	{
+		id: "opencode-go",
+		name: "OpenCode Go",
+		vendor: "OpenCode",
+		hue: 150,
+		methods: ["apiKey"],
+		apiKey: { style: "openai", baseUrl: "https://opencode.ai/zen/go/v1", keyHint: "oc_… (OpenCode Go key)", getKeyUrl: "https://opencode.ai/auth" },
+		plans: [
+			{ id: "go", name: "Go", monthlyUSD: 10 },
+			{ id: "go-plus", name: "Go Plus", monthlyUSD: 40 },
+			{ id: "go-teams", name: "Go Teams (per member)", monthlyUSD: 20 },
+		],
+	},
+	{ id: "opencode-zen", name: "OpenCode Zen", vendor: "OpenCode", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://opencode.ai/zen/v1", keyHint: "oc_… (OpenCode Zen key)", getKeyUrl: "https://opencode.ai/auth" } },
+	{ id: "sakana", name: "Sakana AI", vendor: "Sakana AI", hue: 15, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.sakana.ai/v1", keyHint: "fish_…", getKeyUrl: "https://console.sakana.ai/api-keys" } },
+	{ id: "abliteration", name: "Abliteration", vendor: "Abliteration", hue: 320, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.abliteration.ai/v1", keyHint: "ak_…", getKeyUrl: "https://abliteration.ai/console" } },
 	{ id: "custom", name: "Other OpenAI-compatible server", vendor: "Custom", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "", editableBaseUrl: true, keyHint: "Leave empty if the server needs none" } },
 ];
 

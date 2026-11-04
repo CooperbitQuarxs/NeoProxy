@@ -17,8 +17,10 @@ import mistral from "@lobehub/icons-static-svg/icons/mistral.svg";
 import moonshot from "@lobehub/icons-static-svg/icons/moonshot.svg";
 import ollama from "@lobehub/icons-static-svg/icons/ollama.svg";
 import openai from "@lobehub/icons-static-svg/icons/openai.svg";
+import opencode from "@lobehub/icons-static-svg/icons/opencode.svg";
 import openrouter from "@lobehub/icons-static-svg/icons/openrouter.svg";
 import qwen from "@lobehub/icons-static-svg/icons/qwen.svg";
+import sakana from "@lobehub/icons-static-svg/icons/sakana.svg";
 import together from "@lobehub/icons-static-svg/icons/together.svg";
 import zai from "@lobehub/icons-static-svg/icons/zai.svg";
 
@@ -54,6 +56,9 @@ const LOGOS: Record<string, string> = {
 	"alibaba-token-plan": qwen,
 	zhipu: zai,
 	ollama,
+	// OpenCode Go gets its own mark; only Zen uses the OpenCode logo.
+	"opencode-zen": opencode,
+	sakana,
 };
 
 export function providerLogo(id: string): string | undefined {
