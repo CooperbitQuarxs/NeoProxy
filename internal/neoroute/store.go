@@ -38,13 +38,20 @@ type Store struct {
 	hook        ScriptHook
 	changed     chan struct{}
 	now         func() time.Time
+	// memory and rng serve the stateful and random draws (see DrawModes);
+	// history caches the request summary the auto draw reads.
+	memory    *drawMemory
+	rng       drawRand
+	historyMu sync.Mutex
+	history   map[string]accountHistory
+	historyAt time.Time
 }
 
 func New(identity *neo.Store, pools Pool) (*Store, error) {
 	if identity == nil || pools == nil {
 		return nil, fmt.Errorf("routing requires shared identity store and pool ledger")
 	}
-	s := &Store{identity: identity, db: identity.DB(), pools: pools, changed: make(chan struct{}), now: time.Now}
+	s := &Store{identity: identity, db: identity.DB(), pools: pools, changed: make(chan struct{}), now: time.Now, memory: newDrawMemory(), rng: globalRand{}}
 	if err := s.migrate(context.Background()); err != nil {
 		return nil, fmt.Errorf("migrate routing: %w", err)
 	}
@@ -175,8 +182,8 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 	if !virtualName.MatchString(v.Name) {
 		return fmt.Errorf("invalid virtual model name")
 	}
-	if v.Name == "fields" {
-		return fmt.Errorf("virtual model name \"fields\" is reserved")
+	if v.Name == "fields" || v.Name == "draws" {
+		return fmt.Errorf("virtual model name %q is reserved", v.Name)
 	}
 	if inventory.providers[v.Name] {
 		return fmt.Errorf("virtual name collides with provider")
@@ -230,8 +237,13 @@ func validateIndexed(v VirtualModel, inventory validationInventory, p neo.Princi
 				return fmt.Errorf("stage %q Lua policy requires at least one function", st.ID)
 			}
 		}
-		if !slices.Contains([]string{"fill", "least-used", "alternate"}, st.Draw) {
+		if canonicalDraw(st.Draw) == "" {
 			return fmt.Errorf("invalid draw policy")
+		}
+		for _, weight := range st.Weights {
+			if math.IsNaN(weight) || math.IsInf(weight, 0) || weight < 0 {
+				return fmt.Errorf("stage %q weights must be finite numbers of at least 0", st.ID)
+			}
 		}
 		if !slices.Contains([]string{"5h", "day", "week", "month"}, st.Window) {
 			return fmt.Errorf("invalid window")
@@ -360,6 +372,7 @@ func (s *Store) SaveVirtualModel(ctx context.Context, v VirtualModel, create boo
 	if err = tx.Commit(); err != nil {
 		return VirtualModel{}, err
 	}
+	s.memory.forget(v.ID)
 	s.notifyLocked()
 	return v, nil
 }
@@ -389,6 +402,7 @@ func (s *Store) DeleteVirtualModel(ctx context.Context, id string) error {
 	if err = tx.Commit(); err != nil {
 		return err
 	}
+	s.memory.forget(id)
 	s.notifyLocked()
 	return nil
 }

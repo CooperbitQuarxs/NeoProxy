@@ -284,7 +284,7 @@ func (s *Store) reserve(ctx context.Context, req Request, run *runState, state r
 		}
 	}
 	var advance func(*sql.Tx) error
-	if d.StageIndex != nil && state.vm.Stages[*d.StageIndex].Draw == "alternate" {
+	if d.StageIndex != nil && canonicalDraw(state.vm.Stages[*d.StageIndex].Draw) == "round-robin" {
 		expected := state.cursors[d.StageID]
 		advance = func(tx *sql.Tx) error {
 			result, err := tx.ExecContext(ctx, `INSERT INTO neoroute_cursors(vm_id,stage_id,cursor) VALUES(?,?,?) ON CONFLICT(vm_id,stage_id) DO UPDATE SET cursor=excluded.cursor WHERE neoroute_cursors.cursor=?`, state.vm.ID, d.StageID, (expected+1)%2147483647, expected)
@@ -474,6 +474,7 @@ func (s *Store) run(ctx context.Context, req Request, execute ExecuteFunc, run *
 		if d.Outcome != "ok" {
 			continue
 		}
+		s.rememberDraw(fresh, req, d, drawReserved)
 		attemptCtx, capture := neopool.WithAttempt(ctx, selection.AttemptID)
 		attemptCtx, cancelAttempt := context.WithCancel(attemptCtx)
 		execution, errExecute := execute(attemptCtx, selection)
@@ -526,9 +527,11 @@ func (s *Store) run(ctx context.Context, req Request, execute ExecuteFunc, run *
 				status = upstreamStatus.StatusCode()
 			}
 			run.after = *d.StageIndex
-			run.failed = append(run.failed, TrailStep{Kind: "stage", Index: *d.StageIndex, StageID: d.StageID, Model: d.Model, Window: fresh.vm.Stages[*d.StageIndex].Window, Chosen: d.AccountID, Skipped: "upstream-error", FailureStatus: status})
+			run.failed = append(run.failed, TrailStep{Kind: "stage", Index: *d.StageIndex, StageID: d.StageID, Model: d.Model, Window: fresh.vm.Stages[*d.StageIndex].Window, Draw: canonicalDraw(fresh.vm.Stages[*d.StageIndex].Draw), Chosen: d.AccountID, Skipped: "upstream-error", FailureStatus: status})
+			s.rememberDraw(fresh, req, d, drawFailed)
 			continue
 		}
+		s.rememberDraw(fresh, req, d, drawServed)
 		d = mergeFailures(d, run.failed)
 		addRequestHeader(execution, run.record.ID)
 		if !req.Stream {

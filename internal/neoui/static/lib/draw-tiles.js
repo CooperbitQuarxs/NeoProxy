@@ -28,6 +28,11 @@ const ART = {
 	auto: { picked: [1], labels: ["72", "91", "84", "55"], caption: "a live score of room, success, speed" },
 };
 
+// OmniRoute's name(s) for a mode, minus any that equal our own id.
+function aliasText(m) {
+	return String(m.omniroute ?? "").split(",").map((x) => x.trim()).filter((x) => x && x !== m.id).join(", ");
+}
+
 function tileArt(id) {
 	const a = ART[id] ?? { picked: [0], caption: "" };
 	const W = 150, H = 76;
@@ -59,7 +64,7 @@ export function drawPicker({ modes, value, onPick, unavailable = {} }) {
 			const why = unavailable[m.id];
 			const on = m.id === value;
 			const tile = h("button", { type: "button", role: "radio", "aria-checked": String(on), class: `draw-tile ${on ? "on" : ""} ${why ? "off" : ""}`, title: why ? `${m.doc}\n\nNot usable here: ${why}` : m.doc, disabled: !!why, onClick: () => { value = m.id; onPick(m.id); paint(); } },
-				h("div", { class: "draw-name" }, h("code", null, m.id), m.omniroute && m.omniroute !== m.id ? h("span", { class: "draw-alias" }, m.omniroute) : null),
+				h("div", { class: "draw-name" }, h("code", null, m.id), aliasText(m) ? h("span", { class: "draw-alias" }, aliasText(m)) : null),
 				tileArt(m.id),
 				h("div", { class: "draw-caption" }, ART[m.id]?.caption ?? m.short),
 				why ? h("div", { class: "draw-why" }, why) : null,

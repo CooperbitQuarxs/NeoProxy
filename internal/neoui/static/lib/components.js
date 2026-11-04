@@ -539,15 +539,36 @@ export function modelPicker({ providers, models, accounts, value, onPick, onlyEx
 // ---------- chain rail (.neo-chain) ----------
 
 // How a stage picks among the accounts of its pool, in the words the editor uses.
-export const DRAW_MODES = [
-	{ value: "least-used", label: "Most room left", hint: "Each request goes to the account with the most room left." },
-	{ value: "alternate", label: "Take turns", hint: "Requests go to each account in turn." },
-	{ value: "fill", label: "First with room", hint: "Use the first account until it reaches its threshold, then the next." },
+// Draw modes: the server's catalogue (GET /virtual-models/draws) replaces
+// this on load; these are the labels until it arrives and for old ids.
+export let DRAW_MODES = [
+	{ value: "priority", label: "Priority", hint: "The first account in stage order, while it has room." },
+	{ value: "round-robin", label: "Round robin", hint: "Take turns in stage order." },
+	{ value: "least-used", label: "Least used", hint: "The account with the lowest usage right now." },
+	{ value: "headroom", label: "Most headroom", hint: "The account with the most room left before its threshold." },
+	{ value: "random", label: "Random", hint: "Any account, never the same twice in a row." },
+	{ value: "strict-random", label: "Strict random", hint: "Any account, repeats allowed." },
+	{ value: "weighted", label: "Weighted", hint: "A weighted coin per account." },
+	{ value: "quota-weighted", label: "Quota weighted", hint: "A coin weighted by room left." },
+	{ value: "p2c", label: "Power of two choices", hint: "Draw two, keep the less used." },
+	{ value: "reset-soonest", label: "Resets soonest", hint: "Spend quota that is about to reset." },
+	{ value: "reset-latest", label: "Resets latest", hint: "Keep soon-resetting accounts free." },
+	{ value: "sticky", label: "Sticky", hint: "Stay on the account that last worked." },
+	{ value: "cache-affinity", label: "Cache affinity", hint: "Same prompt prefix, same account." },
+	{ value: "cheapest", label: "Cheapest", hint: "Lowest plan price first." },
+	{ value: "fit-context", label: "Fits the context", hint: "Skip the stage when the prompt is too long." },
+	{ value: "auto", label: "Auto", hint: "Best headroom, success rate and latency." },
 ];
+const DRAW_ALIASES = { fill: "priority", alternate: "round-robin" };
+export function setDrawModes(catalogue) {
+	if (Array.isArray(catalogue) && catalogue.length) DRAW_MODES = catalogue.map((d) => ({ value: d.id, label: d.label, hint: d.short, doc: d.doc, omniroute: d.omniroute, needs: d.needs ?? [], aliases: d.aliases ?? [] }));
+}
+export const canonicalDraw = (id) => DRAW_ALIASES[id] ?? id;
 export const WINDOW_WORDS = { "5h": "5h", day: "daily", week: "weekly", month: "monthly" };
 
 export function drawLabel(draw) {
-	return (DRAW_MODES.find((mode) => mode.value === draw) ?? DRAW_MODES[0]).label;
+	const id = canonicalDraw(draw);
+	return (DRAW_MODES.find((mode) => mode.value === id) ?? DRAW_MODES[0]).label;
 }
 
 // The accounts a stage may draw from, and how full their meters are for the
