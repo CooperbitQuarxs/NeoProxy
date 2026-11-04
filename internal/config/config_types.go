@@ -936,6 +936,16 @@ type OpenAICompatibility struct {
 	// Models defines the model configurations including aliases for routing.
 	Models []OpenAICompatibilityModel `yaml:"models" json:"models"`
 
+	// Dialect is the upstream API every model of this entry speaks unless the
+	// model sets its own: chat-completions (default), responses, messages or
+	// generate-content. See ResolveModelDialect.
+	Dialect string `yaml:"dialect,omitempty" json:"dialect,omitempty"`
+
+	// SessionHeader names a request header that carries the conversation's
+	// session id upstream (for example x-opencode-session). Requests without a
+	// session send a stable id derived from the credential instead.
+	SessionHeader string `yaml:"session-header,omitempty" json:"session-header,omitempty"`
+
 	// Headers optionally adds extra HTTP headers for requests sent to this provider.
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 
@@ -1005,6 +1015,13 @@ type OpenAICompatibilityModel struct {
 	// UseMaxCompletionTokens emits max_completion_tokens instead of legacy max_tokens for this model.
 	// Default false preserves max_tokens for older compatible upstreams.
 	UseMaxCompletionTokens bool `yaml:"use-max-completion-tokens,omitempty" json:"use-max-completion-tokens,omitempty"`
+
+	// Dialect overrides the entry's upstream API for this model.
+	Dialect string `yaml:"dialect,omitempty" json:"dialect,omitempty"`
+
+	// BaseURL overrides the entry's base URL for this model, for gateways that
+	// serve each dialect under its own path. It must share the entry's host.
+	BaseURL string `yaml:"base-url,omitempty" json:"base-url,omitempty"`
 
 	// Thinking configures the thinking/reasoning capability for this model.
 	// If nil, the model defaults to level-based reasoning with levels ["low", "medium", "high"].

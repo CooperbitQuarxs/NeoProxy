@@ -24,10 +24,18 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 		h.RequestKimiAIToken(c)
 	case "xai":
 		h.RequestXAIToken(c)
+	case "grok-build":
+		h.RequestGrokBuildToken(c)
 	case "devin":
 		h.RequestDevinToken(c)
 	case "meta":
 		h.RequestMetaToken(c)
+	case "zai":
+		h.RequestZaiToken(c)
+	case "cursor":
+		h.RequestCursorToken(c)
+	case "nous-portal":
+		h.RequestNousToken(c)
 	default:
 		if !h.ServePluginAuthURL(c) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "provider_not_found"})

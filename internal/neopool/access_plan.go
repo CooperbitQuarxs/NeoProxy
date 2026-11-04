@@ -63,7 +63,7 @@ func detectPlan(provider string, a *coreauth.Auth) string {
 		case strings.Contains(sub, "pro"):
 			return "pro"
 		}
-	case "xai":
+	case "xai", "grok-build":
 		hint := strings.ToLower(planHint(a))
 		switch {
 		case strings.Contains(hint, "heavy"):

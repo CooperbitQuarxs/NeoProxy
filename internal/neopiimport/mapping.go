@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -24,15 +27,15 @@ type route struct {
 	kind string
 	// target is the dashboard catalog id for API keys, or the engine provider
 	// (auth-file "type") for subscriptions.
-	target  string
-	baseURL string
+	target string
 	// reason is set when NeoProxy cannot use the credential.
 	reason string
 }
 
 // apiKeyRoutes maps NeoPi API-key providers onto the dashboard catalog.
 // Catalog ids codex/claude/gemini are the engine's native OpenAI/Anthropic/Gemini
-// key paths; the rest are OpenAI-compatible entries with fixed base URLs.
+// key paths; the rest are OpenAI-compatible entries with fixed base URLs, except
+// the self-hosted Marineris gateway whose address comes from the profile.
 var apiKeyRoutes = map[string]route{
 	"openai":             {target: "codex"},
 	"anthropic":          {target: "claude"},
@@ -49,14 +52,16 @@ var apiKeyRoutes = map[string]route{
 	"moonshot":           {target: "moonshot"},
 	"zai":                {target: "zai"},
 	"nanogpt":            {target: "nanogpt"},
-	"huggingface":        {target: "custom", baseURL: "https://router.huggingface.co/v1"},
-	"nvidia":             {target: "custom", baseURL: "https://integrate.api.nvidia.com/v1"},
-	"vercel-ai-gateway":  {target: "custom", baseURL: "https://ai-gateway.vercel.sh/v1"},
-	"opencode-go":        {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
-	"opencode-zen":       {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
-	"alibaba-token-plan": {reason: "Alibaba Token Plan stores a session bundle, not a plain API key."},
-	"sakana":             {reason: "Sakana is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
-	"abliteration":       {reason: "Abliteration is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
+	"huggingface":        {target: "huggingface"},
+	"nvidia":             {target: "nvidia"},
+	"vercel-ai-gateway":  {target: "vercel-ai-gateway"},
+	"nous-portal":        {target: "nous-portal"},
+	"marineris":          {target: "marineris"},
+	"opencode-go":        {target: "opencode-go"},
+	"opencode-zen":       {target: "opencode-zen"},
+	"alibaba-token-plan": {target: "alibaba-token-plan"},
+	"sakana":             {target: "sakana"},
+	"abliteration":       {target: "abliteration"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -65,13 +70,20 @@ var oauthRoutes = map[string]route{
 	"anthropic":          {target: "claude"},
 	"google-antigravity": {target: "antigravity"},
 	"xai-oauth":          {target: "xai"},
-	"kimi-code":          {target: "kimi"},
-	"devin":              {target: "devin"},
+	// NeoPi's Grok Build extension mirrors the xai-oauth token (same account
+	// and client) and sends it to the Grok CLI chat-proxy, like the engine's
+	// grok-build provider. Its stored refresh value is a sentinel, never a token.
+	"grok-build": {target: "grok-build"},
+	"kimi-code":  {target: "kimi"},
+	"devin":      {target: "devin"},
+	// NeoPi's Nous Portal extension stores its device sign-in as an oauth
+	// credential (access, refresh, expires); imported refresh-locked as usual.
+	"nous-portal": {target: "nous-portal"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
 	"zai":               {kind: KindAPIKey, target: "zai"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
-	"cursor":            {reason: "Cursor uses its own agent protocol; NeoProxy has no Cursor engine."},
+	"cursor":            {target: "cursor"},
 	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
@@ -96,6 +108,38 @@ func routeFor(c Credential) route {
 		r.reason = "NeoProxy has no matching provider for NeoPi's \"" + c.Provider + "\"."
 	}
 	return r
+}
+
+// profileBaseURL returns the address NeoPi uses for a provider whose endpoint
+// lives in the profile rather than in the credential. NeoPi's Marineris
+// extension keeps the gateway URL in extensions/marineris/config.json and
+// normalizes it to an http(s) base ending in /v1; an absent file means the
+// gateway's default address, which is also the catalog's.
+func profileBaseURL(profile, provider string) string {
+	if provider != "marineris" {
+		return ""
+	}
+	raw, err := os.ReadFile(filepath.Join(profile, "extensions", "marineris", "config.json"))
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		BaseURL string `json:"baseUrl"`
+	}
+	if json.Unmarshal(raw, &cfg) != nil {
+		return ""
+	}
+	base := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
+	if base == "" {
+		return ""
+	}
+	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
+		base = "http://" + base
+	}
+	if !strings.HasSuffix(base, "/v1") {
+		base += "/v1"
+	}
+	return base
 }
 
 // Candidate describes one importable (or not) credential without any secret.
@@ -147,6 +191,9 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			return "This key is bound to a custom request origin in NeoPi, which NeoProxy cannot reproduce."
 		}
 		if apiKeyValue(c) == "" {
+			if c.Provider == "alibaba-token-plan" && str(c.data, "key") != "" {
+				return "NeoPi's QwenCloud Token Plan record holds no key NeoProxy recognizes."
+			}
 			return "NeoPi's record has no key."
 		}
 	case r.kind == KindSubscription:
@@ -154,6 +201,9 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			return "NeoPi's record has no access token."
 		}
 		if exp := expiresAt(c); !exp.IsZero() && !exp.After(now) {
+			if c.Provider == "grok-build" {
+				return "NeoPi's Grok Build copy of the xai-oauth sign-in has expired. Import xai-oauth (the same xAI account), or sign in to Grok Build in NeoProxy directly."
+			}
 			return "NeoPi's access token has expired. Use this account once in NeoPi so it refreshes, then import."
 		}
 		if r.target == "antigravity" && str(c.data, "projectId") == "" {
@@ -179,8 +229,10 @@ type APIKey struct {
 	// Provider is the dashboard catalog id.
 	Provider string
 	APIKey   string
-	BaseURL  string
-	Label    string
+	// BaseURL is set only for self-hosted providers whose address NeoPi keeps
+	// outside the credential; empty means the catalog's fixed address.
+	BaseURL string
+	Label   string
 }
 
 // BuildAPIKey returns the catalog entry for an importable API-key credential.
@@ -192,7 +244,13 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: r.baseURL, Label: label(c, r)}, nil
+	baseURL := c.baseURL
+	if c.Provider == "alibaba-token-plan" {
+		// The region the key belongs to; NeoProxy tries it first.
+		key, _ := parseTokenPlanKey(str(c.data, "key"))
+		baseURL = key.baseURL
+	}
+	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r)}, nil
 }
 
 // AuthFile is an imported subscription in the engine's native auth-file format.
@@ -249,11 +307,15 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 	case "antigravity":
 		meta["access_token"] = access
 		meta["project_id"] = str(c.data, "projectId")
-	case "xai":
+	case "xai", "grok-build":
 		meta["access_token"] = access
 		meta["auth_kind"] = "oauth"
-		setNonEmpty(meta, "sub", str(c.data, "accountId"))
-	case "kimi":
+		accountID := str(c.data, "accountId")
+		if accountID == "" {
+			accountID, _ = jwtClaims(access)["sub"].(string)
+		}
+		setNonEmpty(meta, "sub", accountID)
+	case "kimi", "nous-portal":
 		meta["access_token"] = access
 		meta["token_type"] = "Bearer"
 	case "devin":
@@ -265,6 +327,11 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["session_token"] = token
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "org_id", str(c.data, "orgId"))
+	case "cursor":
+		meta["access_token"] = access
+		meta["base_url"] = cursorauth.APIBaseURL
+		meta["auth_kind"] = "oauth"
+		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}
@@ -291,6 +358,13 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 func apiKeyValue(c Credential) string {
 	if c.Type == "oauth" {
 		return str(c.data, "access")
+	}
+	if c.Provider == "alibaba-token-plan" {
+		key, ok := parseTokenPlanKey(str(c.data, "key"))
+		if !ok {
+			return ""
+		}
+		return key.token
 	}
 	return str(c.data, "key")
 }

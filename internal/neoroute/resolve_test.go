@@ -175,7 +175,7 @@ func TestFixtureOracleParity(t *testing.T) {
 			}
 			input := map[string]any{"request": map[string]any{"asked": "neoproxy/route", "user": map[string]any{"id": state.principal.UserID, "grants": state.principal.Grants, "providerAccess": state.principal.ProviderAccess}, "at": 0}, "world": map[string]any{"providers": state.snapshot.Providers, "models": state.snapshot.Models, "accounts": state.snapshot.Accounts, "virtualModels": []VirtualModel{*state.vm}, "usage": usage}}
 			raw, _ := json.Marshal(input)
-			cmd := exec.CommandContext(context.Background(), node, "--input-type=module", "-e", `import {resolve} from '../neoui/static/lib/fixture.js'; let data='';for await(const c of process.stdin)data+=c;const x=JSON.parse(data);console.log(JSON.stringify(resolve(x.request,x.world)));`)
+			cmd := exec.CommandContext(context.Background(), node, "--input-type=module", "-e", `import {resolve} from './testdata/fixture.js'; let data='';for await(const c of process.stdin)data+=c;const x=JSON.parse(data);console.log(JSON.stringify(resolve(x.request,x.world)));`)
 			cmd.Stdin = strings.NewReader(string(raw))
 			output, err := cmd.CombinedOutput()
 			if err != nil {

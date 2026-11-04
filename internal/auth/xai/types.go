@@ -4,13 +4,16 @@ package xai
 import "time"
 
 const (
-	// DefaultAPIBaseURL is the default official xAI API base URL.
-	// Used for OAuth credential defaults, websocket,
-	// and HTTP chat/media when auth using_api is true or non-OAuth.
+	// DefaultAPIBaseURL is the default official xAI API base URL, used by the
+	// xai provider for both API keys and OAuth sign-ins.
 	DefaultAPIBaseURL = "https://api.x.ai/v1"
-	// CLIChatProxyBaseURL is the Grok CLI chat-proxy base URL for HTTP chat
-	// and media (image/video) when auth using_api is false, including the OAuth default.
+	// CLIChatProxyBaseURL is the Grok CLI chat-proxy (Grok Build) base URL. The
+	// grok-build provider sends the same OAuth token here; its speed, limits and
+	// model list differ from the official API.
 	CLIChatProxyBaseURL = "https://cli-chat-proxy.grok.com/v1"
+	// GrokBuildType is the auth-file type and engine provider for xAI OAuth
+	// credentials served through CLIChatProxyBaseURL.
+	GrokBuildType = "grok-build"
 	// Issuer is xAI's OAuth issuer.
 	Issuer = "https://auth.x.ai"
 	// DiscoveryURL is the OIDC discovery endpoint used to resolve OAuth endpoints.
