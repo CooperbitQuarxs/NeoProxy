@@ -140,9 +140,31 @@ function sidebar(current, s) {
 			h("div", null, h("kbd", null, "/"), " search on the page"),
 			h("div", null, h("kbd", null, "?"), " all shortcuts"),
 		),
+		h("button", { type: "button", class: "nav-row rail-toggle", onClick: toggleRail, "aria-pressed": String(railCollapsed()), title: railCollapsed() ? "Keep the sidebar open" : "Collapse the sidebar to icons" }, icon("sidebar", 16), h("span", { class: "label" }, railCollapsed() ? "Keep open" : "Collapse to icons")),
 	);
+	for (const a of el.querySelectorAll("a.nav-row")) a.title = a.querySelector(".label")?.textContent ?? "";
 	return el;
 }
+
+// The sidebar can live as a rail of icons; hovering it (or focusing into it)
+// lays the full sidebar over the page instead of pushing the page aside.
+const RAIL_KEY = "neo-rail";
+function railCollapsed() {
+	const v = localStorage.getItem(RAIL_KEY);
+	if (v === "1") return true;
+	if (v === "0") return false;
+	return matchMedia("(max-width: 1280px)").matches;
+}
+function applyRail() {
+	document.documentElement.classList.toggle("rail", railCollapsed());
+}
+function toggleRail() {
+	localStorage.setItem(RAIL_KEY, railCollapsed() ? "0" : "1");
+	applyRail();
+	render();
+}
+matchMedia("(max-width: 1280px)").addEventListener("change", () => { if (localStorage.getItem(RAIL_KEY) === null) { applyRail(); render(); } });
+applyRail();
 
 // ---------- gate ----------
 function gate(reason, bootstrap = false) {
