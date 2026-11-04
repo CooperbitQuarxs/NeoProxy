@@ -109,6 +109,24 @@ function stage_cap(ctx) return 0.2 end
 	}
 }
 
+func TestPoolPolicyContextSeesUserTimeAndRequestFacts(t *testing.T) {
+	input := poolPolicyInput(typedPolicySource + `
+function allow(ctx)
+  assert(ctx.user.handle == "client" and ctx.user.role == "member" and ctx.user.id == ctx.userId)
+  assert(ctx.time.weekday == "saturday" and ctx.time.hour == 23 and ctx.time.date == "2026-11-07")
+  assert(ctx.request.effort == "high" and ctx.request.input == "account-b")
+  return ctx.request.prompt == ctx.account.accountId
+end`)
+	input.User = neoroute.ScriptUser{ID: input.UserID, Handle: "client", Role: "member"}
+	input.Time = neoroute.ScriptTime{Weekday: "saturday", Hour: 23, Date: "2026-11-07"}
+	input.Effort = "high"
+	input.VirtualModel.Stages = []neoroute.Stage{{ID: "stage-second", AccountLimits: map[string]float64{"account-b": 0.5}, Condition: &neoroute.Condition{Not: &neoroute.Condition{Field: "user.role", Op: "in", Value: []any{"admin"}}}}}
+	proposal, err := New().Evaluate(context.Background(), input)
+	if err != nil || proposal.Policies[0].Accounts[0].Eligible || !proposal.Policies[0].Accounts[1].Eligible {
+		t.Fatalf("callback did not see user, time and request facts: %+v %v", proposal, err)
+	}
+}
+
 func TestPoolPolicyContextIsReadOnlyAndConfined(t *testing.T) {
 	for _, mutation := range []string{
 		`ctx.request.input="account-a"`,

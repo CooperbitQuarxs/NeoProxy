@@ -6,7 +6,7 @@
 import { h, svg, replace, icon, fmtAgo, fmtIn, fmtPct, fmtCompact, fmtDate, plural } from "../lib/dom.js";
 import { neo, engine, invalidate, onChange } from "../lib/client.js";
 import { accountHealth, canonicalProviderId, humanMessage } from "../lib/providers.js";
-import { pageHead, card, btn, iconBtn, badge, status, tag, toggle, search, seg, select, empty, spinner, errorState, inspector, section, kv, servedName, dialog, confirm, toast, field, input, ring, meterRing, healthStatus } from "../lib/components.js";
+import { pageHead, card, btn, iconBtn, badge, status, tag, toggle, search, seg, select, empty, spinner, errorState, inspector, section, kv, servedName, dialog, confirm, toast, field, input, ring, meterRing, healthStatus, sheet } from "../lib/components.js";
 import { openTestDialog } from "./pool-test.js";
 import { openAddAccess, KIND_COPY, hueVars } from "./pool-add.js";
 
@@ -356,10 +356,10 @@ export async function render(ctx) {
 				paint();
 			}, { "aria-label": "Contributor" })
 			: person(a.ownerId);
-		return inspector({
-			title: labelText(a),
+		return sheet({
+			title: h("span", { class: "row wrap", style: { gap: "10px" } }, labelText(a), healthStatus(a)),
 			sub: `${p?.name ?? "Provider"} · ${kindLine(a)}`,
-			onClose: () => { selectedId = null; if (ctx.params[0]) ctx.navigate("pool"); else paint(); },
+			onClose: () => { if (selectedId === a.id) { selectedId = null; if (ctx.params[0]) ctx.navigate("pool"); else paint(); } },
 			body: [
 				section("Health", h("div", { class: "pool-health" }, healthStatus(a), h("p", { class: "ink-2" }, hs.kind === "ok" ? trafficSentence(a) : hs.hint))),
 				section("Test",
@@ -393,16 +393,19 @@ export async function render(ctx) {
 					["Id", h("code", { class: "pool-id" }, a.id)],
 				])),
 			],
-			foot: remove ? [btn("Remove…", { icon: "trash", cls: "danger", disabled: !!pending, onClick: remove.run })] : null,
+			foot: [remove ? btn("Remove…", { icon: "trash", cls: "danger sm", disabled: !!pending, onClick: remove.run }) : null],
 		});
 	}
 
+	let currentSheet = null;
 	function paintInspector() {
 		const a = selectedId ? accounts().find((x) => x.id === selectedId) : null;
 		if (selectedId && !a) selectedId = null;
-		const scroll = document.querySelector(".inspector .ins-body")?.scrollTop ?? 0;
-		ctx.setInspector(a ? inspect(a) : null);
-		if (a) { const body = document.querySelector(".inspector .ins-body"); if (body) body.scrollTop = scroll; }
+		const scroll = currentSheet?.el.querySelector(".sheet-body")?.scrollTop ?? 0;
+		if (!a) { currentSheet?.close(); currentSheet = null; return; }
+		currentSheet = inspect(a);
+		const body = currentSheet.el.querySelector(".sheet-body");
+		if (body) body.scrollTop = scroll;
 	}
 
 	// ---------- page ----------
@@ -499,5 +502,5 @@ export async function render(ctx) {
 
 	const off = onChange((what) => { if (what === "vault") reload(); });
 	timer = setInterval(() => { if (!document.hidden) reload(); }, 60_000);
-	return () => { disposed = true; off(); clearInterval(timer); closeMenu(); };
+	return () => { disposed = true; off(); clearInterval(timer); closeMenu(); currentSheet?.close(); };
 }

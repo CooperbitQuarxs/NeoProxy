@@ -2909,8 +2909,9 @@ body:has(.inspector .ins-foot) .toasts {
 .vm-acct .main code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- models: bulk serve/hide ---- */
-.group-row .bulk { display: inline-flex; gap: 2px; margin-right: 6px; opacity: 0; transition: opacity var(--dur-1); }
+.group-row .bulk { margin-right: 8px; opacity: .55; transition: opacity var(--dur-1); }
 .group-row:hover .bulk, .group-row:focus-within .bulk { opacity: 1; }
+.group-row .bulk button { display: inline-flex; align-items: center; gap: 5px; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-3); }
 .btn.ghost:hover { color: var(--ink-1); background: var(--hover); }
 @media (hover: none) { .group-row .bulk { opacity: 1; } }
@@ -3067,3 +3068,23 @@ body:has(.inspector .ins-foot) .toasts {
 .lua-complete-item { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 4px 8px; border-radius: 5px; color: var(--ink-2); cursor: pointer; align-items: baseline; }
 .lua-complete-item.active { background: var(--hover); color: var(--ink-1); }
 .lua-complete-item code { color: var(--accent-a); font-size: 12.5px; }
+
+/* ---- bottom sheet ---- */
+.sheet { position: fixed; left: calc(var(--sidebar-w, 0px) + 24px); right: 24px; bottom: 0; transform: translateY(100%); max-width: 1280px; max-height: min(62vh, 640px); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-3); border-bottom: 0; border-radius: 14px 14px 0 0; box-shadow: var(--shadow-3); z-index: 35; transition: transform var(--dur-2) var(--ease); }
+.sheet.open { transform: translateY(0); }
+.sheet.leaving { transform: translateY(100%); }
+@media (max-width: 900px) { .sheet { left: 12px; right: 12px; } }
+.sheet-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line-4); margin: 8px auto 0; }
+.sheet-head { display: flex; align-items: flex-start; gap: 14px; padding: 8px 14px 10px 18px; border-bottom: 1px solid var(--line-1); }
+.sheet-head .titles { flex: 1; min-width: 0; }
+.sheet-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.sheet-head .sub { color: var(--ink-3); font-size: 12px; font-family: var(--font-mono); margin-top: 2px; }
+.sheet-actions { display: flex; gap: 8px; align-items: center; }
+.sheet-body { overflow: auto; padding: 6px 18px 18px; }
+.sheet.columns .sheet-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0 28px; align-items: start; }
+.sheet.columns .sheet-body > .section { min-width: 0; }
+.sheet.columns .sheet-body > .act-raw { grid-column: 1 / -1; }
+body.has-sheet .shell-main { padding-bottom: 72px; }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+.sheet .sheet-body > .section { margin-bottom: 16px; }
+.sheet .sheet-body > .section > .section-title, .sheet .sheet-body > .section > h3 { margin-top: 10px; }

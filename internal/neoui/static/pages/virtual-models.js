@@ -509,6 +509,7 @@ async function editor(ctx, id) {
 			if (t.skipped === "cap") return `${label(t)} is skipped: its pool averages ${fmtPct(t.total, null)} and the stage stops at ${fmtPct(t.cap, null)}`;
 			if (t.skipped === "per-account") return `${label(t)} is skipped: every account in it is at its threshold`;
 			if (t.skipped === "unhealthy") return `${label(t)} is skipped: no healthy account in its pool can serve`;
+			if (t.skipped === "condition") { const n = (t.candidates ?? []).filter((c) => c.reason === "condition").length; return `${label(t)} is skipped: ${n ? `its rules ruled out ${n === 1 ? "the only account" : `all ${n} accounts`}` : "its rules did not match this request"}`; }
 			if (t.skipped === "upstream-error") return `${label(t)} failed upstream, so the chain moved on`;
 			return `${label(t)} is skipped by the Lua policy`;
 		});

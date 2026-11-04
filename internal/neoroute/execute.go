@@ -526,7 +526,7 @@ func (s *Store) run(ctx context.Context, req Request, execute ExecuteFunc, run *
 				status = upstreamStatus.StatusCode()
 			}
 			run.after = *d.StageIndex
-			run.failed = append(run.failed, TrailStep{Kind: "stage", Index: *d.StageIndex, StageID: d.StageID, Model: d.Model, Chosen: d.AccountID, Skipped: "upstream-error", FailureStatus: status})
+			run.failed = append(run.failed, TrailStep{Kind: "stage", Index: *d.StageIndex, StageID: d.StageID, Model: d.Model, Window: fresh.vm.Stages[*d.StageIndex].Window, Chosen: d.AccountID, Skipped: "upstream-error", FailureStatus: status})
 			continue
 		}
 		d = mergeFailures(d, run.failed)
