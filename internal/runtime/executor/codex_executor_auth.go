@@ -135,6 +135,9 @@ func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 		cfg = e.cfg
 	}
 	homeEnabled := cfg != nil && cfg.Home.Enabled
+	if cliproxyauth.IsRefreshLocked(auth) {
+		return nil, cliproxyauth.ErrRefreshLocked
+	}
 	if auth == nil {
 		if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, cfg, auth); handled {
 			return refreshed, err

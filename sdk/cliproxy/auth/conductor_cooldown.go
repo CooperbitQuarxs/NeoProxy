@@ -1295,6 +1295,9 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
 			auth.Status = StatusError
 			auth.NextRefreshAfter = time.Time{}
 			auth.NextRetryAfter = time.Time{}
+		} else if !result.Success && IsRefreshLocked(auth) && (statusCodeFromResult(result.Error) == http.StatusUnauthorized || isUnauthorizedError(result.Error)) {
+			// NeoProxy may not refresh an imported credential; say why it stopped.
+			auth.StatusMessage = RefreshLockedMessage
 		} else if !result.Success && !shouldSkipCredentialCooldown(result.Error) && (statusCodeFromResult(result.Error) == http.StatusUnauthorized || isUnauthorizedError(result.Error)) && authHasRefreshCredential(auth) {
 			if currentToken := authAccessToken(auth); currentToken != "" {
 				auth.RejectedAccessToken = currentToken

@@ -90,7 +90,13 @@ var currentHomeRefreshClient = func() homeRefreshClient {
 // RefreshAuthViaHome replaces local refresh logic when home control plane integration is enabled.
 // It returns (updatedAuth, true, nil) when home refresh succeeds; (nil, true, err) when home is
 // enabled but refresh fails; and (nil, false, nil) when home is disabled.
+// Every executor refresh (and inline token renewal) enters here first, so it also
+// enforces the NeoPi import refresh lock: a locked credential is never refreshed,
+// locally or by home, and the caller receives cliproxyauth.ErrRefreshLocked.
 func RefreshAuthViaHome(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, bool, error) {
+	if cliproxyauth.IsRefreshLocked(auth) {
+		return nil, true, cliproxyauth.ErrRefreshLocked
+	}
 	if cfg == nil || !cfg.Home.Enabled {
 		return nil, false, nil
 	}
