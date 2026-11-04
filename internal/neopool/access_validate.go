@@ -51,6 +51,9 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 	}
 	req.Header = header
 	req.Header.Set("Accept", "application/json")
+	// Some providers sit behind bot protection that rejects Go's default
+	// User-Agent with a 403 page (Nous Portal does), which would read as a bad key.
+	req.Header.Set("User-Agent", "NeoProxy")
 	resp, err := accessHTTPClient.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "Client.Timeout") {
@@ -66,6 +69,8 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 		return nil, accessErr(http.StatusBadRequest, "%s has no model list at %s. Check the base URL; OpenAI-compatible servers usually end in /v1.", parsed.Host, parsed.Path+"/models")
 	case resp.StatusCode >= 300 && resp.StatusCode < 400:
 		return nil, accessErr(http.StatusBadRequest, "%s redirected the model list request (HTTP %d). Use the final address as the base URL.", parsed.Host, resp.StatusCode)
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return nil, accessErr(http.StatusServiceUnavailable, "%s is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.", parsed.Host)
 	case resp.StatusCode != http.StatusOK:
 		return nil, accessErr(http.StatusBadGateway, "The provider answered HTTP %d when listing models. Try again in a moment, or check the provider's status page.", resp.StatusCode)
 	}

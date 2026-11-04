@@ -11,14 +11,18 @@ import gemini from "@lobehub/icons-static-svg/icons/gemini.svg";
 import google from "@lobehub/icons-static-svg/icons/google.svg";
 import grok from "@lobehub/icons-static-svg/icons/grok.svg";
 import groq from "@lobehub/icons-static-svg/icons/groq.svg";
+import huggingface from "@lobehub/icons-static-svg/icons/huggingface.svg";
 import kimi from "@lobehub/icons-static-svg/icons/kimi.svg";
 import meta from "@lobehub/icons-static-svg/icons/meta.svg";
 import mistral from "@lobehub/icons-static-svg/icons/mistral.svg";
 import moonshot from "@lobehub/icons-static-svg/icons/moonshot.svg";
+import nousresearch from "@lobehub/icons-static-svg/icons/nousresearch.svg";
+import nvidia from "@lobehub/icons-static-svg/icons/nvidia.svg";
 import ollama from "@lobehub/icons-static-svg/icons/ollama.svg";
 import openai from "@lobehub/icons-static-svg/icons/openai.svg";
 import openrouter from "@lobehub/icons-static-svg/icons/openrouter.svg";
 import together from "@lobehub/icons-static-svg/icons/together.svg";
+import vercel from "@lobehub/icons-static-svg/icons/vercel.svg";
 import zai from "@lobehub/icons-static-svg/icons/zai.svg";
 
 const LOGOS: Record<string, string> = {
@@ -49,6 +53,11 @@ const LOGOS: Record<string, string> = {
 	cerebras,
 	zai,
 	zhipu: zai,
+	huggingface,
+	nvidia,
+	"vercel-ai-gateway": vercel,
+	vercel,
+	"nous-portal": nousresearch,
 	ollama,
 };
 

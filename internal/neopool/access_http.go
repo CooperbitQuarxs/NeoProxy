@@ -121,10 +121,7 @@ func (h *HTTP) accessPatch(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := AccountID(a.ID)
 	kind := accessKind(a)
-	provider := catalogProviderID(a.Provider, a.Attributes["compat_name"])
-	if kind == "neopi" {
-		provider = catalogProviderID(a.Attributes["neopi_provider"], "")
-	}
+	provider := accessProviderID(a, kind)
 	if _, err := h.pool.ensureAccessRow(ctx, id, a); err != nil {
 		respondError(c, err)
 		return
@@ -272,9 +269,10 @@ func (h *HTTP) accessDelete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// APIKeyRequest is POST /v8/neo/access/api-key. BaseURL is honoured only for the
-// "custom" provider and only for administrators: choosing an upstream that the
-// server will call with a key is an administrative decision.
+// APIKeyRequest is POST /v8/neo/access/api-key. BaseURL is honoured only for
+// providers with an editable address (custom servers, self-hosted gateways) and
+// only for administrators: choosing an upstream that the server will call with
+// a key is an administrative decision.
 type APIKeyRequest struct {
 	Provider   string   `json:"provider"`
 	APIKey     string   `json:"apiKey"`
@@ -413,7 +411,11 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		if p.Role != neo.RoleAdmin {
 			return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
 		}
-		base = strings.TrimSpace(req.BaseURL)
+		// A self-hosted gateway with a known default address falls back to it;
+		// a custom server has no meaningful default and must be named.
+		if base = strings.TrimSpace(req.BaseURL); base == "" && info.ID != "custom" {
+			base = catalogBaseURL(info.ID)
+		}
 		if base == "" {
 			return AccessItem{}, accessErr(http.StatusBadRequest, "Enter the server's base URL, for example http://localhost:11434/v1 for Ollama.")
 		}
@@ -425,7 +427,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	}
 	spec := coreauth.AccountKey{Provider: info.engine, APIKey: key}
 	if info.engine == "" {
-		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models}
+		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models, RequestScopedErrors: info.upstreamErrors}
 	}
 	record, err := h.management.CreateAccountAPIKey(coreauth.WithAccountLoginOwner(ctx, p.UserID), spec)
 	if err != nil {

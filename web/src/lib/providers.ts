@@ -88,6 +88,11 @@ export const FALLBACK_PROVIDERS: ProviderInfo[] = [
 	{ id: "moonshot", name: "Moonshot API", vendor: "Moonshot", hue: 340, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.moonshot.ai/v1", keyHint: "sk-…", getKeyUrl: "https://platform.moonshot.ai/console/api-keys" } },
 	{ id: "zai", name: "Z.ai", vendor: "Zhipu", hue: 190, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://api.z.ai/api/paas/v4", keyHint: "…", getKeyUrl: "https://z.ai/manage-apikey/apikey-list" } },
 	{ id: "nanogpt", name: "NanoGPT", vendor: "NanoGPT", hue: 150, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://nano-gpt.com/api/v1", keyHint: "…", getKeyUrl: "https://nano-gpt.com/api" } },
+	{ id: "huggingface", name: "Hugging Face", vendor: "Hugging Face", hue: 85, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://router.huggingface.co/v1", keyHint: "hf_…", getKeyUrl: "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained" } },
+	{ id: "nvidia", name: "NVIDIA NIM", vendor: "NVIDIA", hue: 135, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://integrate.api.nvidia.com/v1", keyHint: "nvapi-…", getKeyUrl: "https://build.nvidia.com/settings/api-keys" } },
+	{ id: "vercel-ai-gateway", name: "Vercel AI Gateway", vendor: "Vercel", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://ai-gateway.vercel.sh/v1", keyHint: "vck_…", getKeyUrl: "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys" } },
+	{ id: "nous-portal", name: "Nous Portal", vendor: "Nous Research", hue: 320, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "https://inference-api.nousresearch.com/v1", keyHint: "sk-…", getKeyUrl: "https://portal.nousresearch.com/" } },
+	{ id: "marineris", name: "Marineris", vendor: "Marineris gateway", hue: 35, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "http://192.168.50.50:8801/v1", editableBaseUrl: true, keyHint: "mrn_… (issued by the gateway's administrator)" } },
 	{ id: "custom", name: "Other OpenAI-compatible server", vendor: "Custom", hue: 0, neutral: true, methods: ["apiKey"], apiKey: { style: "openai", baseUrl: "", editableBaseUrl: true, keyHint: "Leave empty if the server needs none" } },
 ];
 

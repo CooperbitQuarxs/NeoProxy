@@ -327,8 +327,16 @@ function ApiKeyFlow({ session, people, legacy, onDone }: { session: Session; peo
 				<Select id="key-provider" value={provider} onValueChange={setProvider} options={providerOptions(providers)} />
 			</Field>
 			{editable && (
-				<Field label="Server address" hint="The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1" htmlFor="base-url">
-					<Input id="base-url" mono value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://example.com/v1" />
+				<Field
+					label="Server address"
+					hint={
+						info?.id === "custom"
+							? "The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1"
+							: `The gateway's base URL. Leave empty for the default, ${info?.apiKey?.baseUrl}`
+					}
+					htmlFor="base-url"
+				>
+					<Input id="base-url" mono value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder={info?.id === "custom" ? "https://example.com/v1" : info?.apiKey?.baseUrl} />
 				</Field>
 			)}
 			<Field

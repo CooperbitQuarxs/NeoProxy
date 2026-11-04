@@ -357,10 +357,7 @@ func accessActions(p neo.Principal, kind string, owned, fileBacked bool) []strin
 // credential has not reached the pool snapshot yet (immediately after creation).
 func (h *HTTP) buildAccessItem(p neo.Principal, a *coreauth.Auth, account *Account, row accessRow, ledger ledgerUsage, now time.Time) AccessItem {
 	kind := accessKind(a)
-	provider := catalogProviderID(a.Provider, a.Attributes["compat_name"])
-	if kind == "neopi" {
-		provider = catalogProviderID(a.Attributes["neopi_provider"], "")
-	}
+	provider := accessProviderID(a, kind)
 	item := AccessItem{ID: AccountID(a.ID), Provider: provider, Kind: kind, Models: []string{}, Windows: []Window{}, ProviderWindows: []Window{}, CreatedAt: row.CreatedAt}
 	state, cooldown := "", int64(0)
 	if account != nil {
