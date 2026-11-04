@@ -29,7 +29,7 @@ func TestAccessTestPinsOneCredentialAndShapesResult(t *testing.T) {
 	reply := `{"choices":[{"message":{"content":"` + strings.Repeat("O", 300) + `"}}]}`
 	var failure error
 	status := 0
-	f.http.SetAccessProbe(func(_ context.Context, authID, provider string, body []byte) ([]byte, int, error) {
+	f.http.SetAccessProbe(func(_ context.Context, authID, provider, protocol string, body []byte) ([]byte, int, error) {
 		gotAuth, gotProvider, gotBody = authID, provider, body
 		return []byte(reply), status, failure
 	})
@@ -83,7 +83,7 @@ func TestAccessTestRequiresOwnerRole(t *testing.T) {
 	f := newAccessFixture(t)
 	item := itemOf(t, f.json("owner-a", "POST", "/v8/neo/access/api-key", `{"provider":"openrouter","apiKey":"`+routerKey+`"}`, 201))
 	probed := false
-	f.http.SetAccessProbe(func(context.Context, string, string, []byte) ([]byte, int, error) {
+	f.http.SetAccessProbe(func(context.Context, string, string, string, []byte) ([]byte, int, error) {
 		probed = true
 		return []byte(`{"choices":[{"message":{"content":"OK"}}]}`), 200, nil
 	})

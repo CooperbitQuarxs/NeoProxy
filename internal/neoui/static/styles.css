@@ -2914,3 +2914,49 @@ body:has(.inspector .ins-foot) .toasts {
 .btn.ghost { background: transparent; border-color: transparent; color: var(--ink-3); }
 .btn.ghost:hover { color: var(--ink-1); background: var(--hover); }
 @media (hover: none) { .group-row .bulk { opacity: 1; } }
+
+/* ---- pool: long messages wrap instead of clipping ---- */
+.pool-acct .pl-test, .pool-acct .pl-health .status, .pool-health p, .pool-testbox { white-space: normal; overflow-wrap: anywhere; }
+.pool-acct .pl-health { min-width: 0; }
+.pool-acct .pl-health .status { align-items: flex-start; }
+
+/* ---- test payload dialog ---- */
+.dialog.test-dialog { width: min(1040px, calc(100vw - 40px)); }
+.test-grid { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr); gap: 22px; }
+@media (max-width: 860px) { .test-grid { grid-template-columns: 1fr; } }
+.test-recipe .field + .field { margin-top: 12px; }
+.pool-test-payload { font-size: 12px; line-height: 1.5; resize: vertical; min-height: 140px; }
+.pool-test-details { margin-top: 12px; border: 1px solid var(--line-1); border-radius: var(--r-control); padding: 8px 12px; }
+.pool-test-details > summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.pool-test-details[open] > summary { margin-bottom: 8px; }
+.test-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 6px; align-items: center; }
+.test-result { border-left: 1px solid var(--line-1); padding-left: 22px; min-height: 320px; }
+@media (max-width: 860px) { .test-result { border-left: 0; padding-left: 0; border-top: 1px solid var(--line-1); padding-top: 16px; } }
+.test-track { list-style: none; margin: 4px 0 18px; padding: 0; position: relative; }
+.test-step { position: relative; display: grid; grid-template-columns: 22px 1fr; gap: 12px; padding: 0 0 18px; }
+.test-step:not(:last-child)::before { content: ""; position: absolute; left: 10px; top: 20px; bottom: 0; width: 2px; background: var(--line-2); border-radius: 1px; }
+.test-step.ok:not(:last-child)::before { background: var(--ok); }
+.test-step.pending:not(:last-child)::before { background: linear-gradient(var(--line-2), var(--line-2)); }
+.test-step.pending.live:not(:last-child)::before { background: linear-gradient(to bottom, var(--accent-a), var(--line-2)); }
+.test-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line-3); background: var(--card); display: grid; place-items: center; color: #fff; position: relative; z-index: 1; transition: background var(--dur-2), border-color var(--dur-2), transform var(--dur-2); }
+.test-step.ok .test-dot { background: var(--ok); border-color: var(--ok); color: var(--ink-inverse); }
+.test-step.bad .test-dot { background: var(--bad); border-color: var(--bad); color: #fff; transform: scale(1.1); }
+.test-step.pending .test-dot { border-color: var(--accent-a); }
+.test-step.pending.live .test-dot { box-shadow: 0 0 0 4px var(--cyan-soft); }
+.test-step.skipped { opacity: 0.45; }
+.test-step-label { font-weight: 600; font-size: 13.5px; line-height: 22px; }
+.test-step-detail { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.test-step.bad .test-step-detail { color: var(--bad); }
+.test-step.pending .test-step-detail { color: var(--ink-3); font-style: italic; }
+@media (prefers-reduced-motion: no-preference) {
+	.test-step.pending.live .test-dot { animation: test-pulse 0.65s ease-out; }
+	@keyframes test-pulse { from { box-shadow: 0 0 0 0 var(--accent-a); } to { box-shadow: 0 0 0 8px transparent; } }
+}
+.test-chat { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.test-chat .bubble { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.test-chat .bubble.you { align-self: flex-end; background: var(--accent-soft); border: 1px solid var(--accent-line); border-bottom-right-radius: 4px; }
+.test-chat .bubble.them { align-self: flex-start; background: var(--raised); border: 1px solid var(--line-2); border-bottom-left-radius: 4px; }
+.test-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+.test-fail-title { font-weight: 600; margin-bottom: 4px; }
+.test-fail-provider { margin-bottom: 6px; color: var(--ink-1); }
+.test-fail-provider q { font-style: italic; }
