@@ -73,6 +73,7 @@ func (h *HTTP) Register(group *gin.RouterGroup) {
 	group.DELETE("/vault/sources/:id", h.sourceDelete)
 	h.registerAccess(group)
 	h.registerNeoPiImport(group)
+	h.registerNeoPiLocal(group)
 }
 
 func session(c *gin.Context) (neo.Principal, bool) {

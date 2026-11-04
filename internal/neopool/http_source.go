@@ -3,8 +3,10 @@ package neopool
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopigateway"
 )
 
 func sourceSession(c *gin.Context) bool {
@@ -34,16 +36,26 @@ func (h *HTTP) sourceSave(c *gin.Context) {
 	if !sourceSession(c) {
 		return
 	}
-	var in SourceInput
-	if c.ShouldBindJSON(&in) != nil {
-		poolError(c, http.StatusBadRequest, "source label, URL, owner and gateway bearer are required")
+	var body struct {
+		SourceInput
+		// A connection link is the "paste and go" path: enabled unless the
+		// request says otherwise. URL + bearer keeps its explicit default.
+		Enabled *bool `json:"enabled"`
+	}
+	if c.ShouldBindJSON(&body) != nil {
+		poolError(c, http.StatusBadRequest, "send a connection link, or a source label, URL, owner and gateway bearer")
 		return
 	}
+	in := body.SourceInput
+	in.Enabled = body.Enabled != nil && *body.Enabled || body.Enabled == nil && strings.TrimSpace(in.ConnectionLink) != ""
 	v, err := h.pool.SaveSource(c.Request.Context(), c.Param("id"), in)
 	if err != nil {
-		if errors.Is(err, ErrForbidden) {
+		switch {
+		case errors.Is(err, ErrForbidden):
 			respondError(c, err)
-		} else {
+		case errors.Is(err, neopigateway.ErrInvalidLink):
+			poolError(c, http.StatusBadRequest, err.Error())
+		default:
 			poolError(c, http.StatusBadRequest, "invalid source configuration; use a valid URL, active account owner and a bearer (required for a new or changed URL)")
 		}
 		return
