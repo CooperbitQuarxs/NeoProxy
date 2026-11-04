@@ -2889,3 +2889,8 @@ body:has(.inspector .ins-foot) .toasts {
 .snippet-wrap { border: 1px solid var(--line-1); border-radius: var(--r-control); overflow: hidden; margin-top: 10px; }
 .snippet-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 12px; font-size: 12px; color: var(--ink-3); background: var(--raised); border-bottom: 1px solid var(--line-1); }
 .code.snippet { border: 0; border-radius: 0; margin: 0; white-space: pre-wrap; word-break: break-all; color: var(--ink-1); font-size: 12.5px; }
+
+/* ---- chain rail: fade the clipped edge when stages overflow ---- */
+.neo-chain .stages.overflow-end { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.neo-chain .stages.overflow-start { mask-image: linear-gradient(to right, transparent, #000 36px); }
+.neo-chain .stages.overflow-start.overflow-end { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
