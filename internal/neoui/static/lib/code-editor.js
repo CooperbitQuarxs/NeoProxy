@@ -278,6 +278,9 @@ function findTomlLine(lines, path) {
 			const key = [...parent, segs.at(-1)].join("\u0000");
 			counters.set(key, (counters.get(key) ?? -1) + 1);
 			table = [...parent, segs.at(-1), counters.get(key)];
+			// The first [[x]] header also stands for the list x itself, so a jump to
+			// a nested list lands here rather than on its parent table.
+			consider(table.slice(0, -1), i);
 			consider(table, i);
 			continue;
 		}
