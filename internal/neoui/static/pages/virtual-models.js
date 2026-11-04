@@ -157,7 +157,8 @@ async function editor(ctx, id) {
 
 	const draft = structuredClone(vm);
 	let ruleFields = DEFAULT_FIELDS;
-	engine.get("/v8/neo/virtual-models/draws").then((r) => setDrawModes(r?.draws)).catch(() => {});
+	let onDrawCatalogue = () => {};
+	engine.get("/v8/neo/virtual-models/draws").then((r) => { setDrawModes(r?.draws); onDrawCatalogue(); }).catch(() => {});
 	engine.get("/v8/neo/virtual-models/fields").then((r) => { if (Array.isArray(r?.fields) && r.fields.length) ruleFields = r.fields.map((f) => ({ ...f, kind: f.kind === "number" && /usage|average/.test(f.name) ? "percent" : f.kind })); }).catch(() => {});
 	let dirty = isNew;
 	let selected = matchMedia("(max-width: 900px)").matches ? null : draft.stages[0]?.id ?? null;
@@ -798,6 +799,7 @@ async function editor(ctx, id) {
 			return out;
 		};
 		const drawHost = h("div");
+		onDrawCatalogue = () => { if (drawHost.isConnected) { renderDraw(); renderDrawHint(); } };
 		const renderDraw = () => {
 			drawHost.replaceChildren(drawPicker({
 				modes: DRAW_MODES.map((m) => ({ id: m.value, label: m.label, short: m.hint, doc: m.doc ?? m.hint, omniroute: m.omniroute })),
