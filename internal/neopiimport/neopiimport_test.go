@@ -80,13 +80,14 @@ func fixture(t *testing.T) (string, map[string]Credential) {
 		"https://api.openai.com/auth":    map[string]any{"chatgpt_plan_type": "pro", "chatgpt_account_id": "acct-fixture"},
 		"https://api.openai.com/profile": map[string]any{"email": "codex@example.test"},
 	})
+	cursorAccess := fakeJWT(t, map[string]any{"exp": time.Now().Add(time.Hour).Unix(), "sub": "auth0|user_fixture"})
 	rows := []fixtureRow{
 		{"openai-codex", "oauth", map[string]any{"access": codexAccess, "refresh": "fixture-refresh-codex", "expires": hour}, ""},
 		{"anthropic", "oauth", map[string]any{"access": "sk-ant-oat01-fixture", "refresh": "fixture-refresh-claude", "expires": hour, "email": "claude@example.test", "orgId": "org-fixture", "orgName": "Fixture Org"}, ""},
 		{"anthropic", "api_key", map[string]any{"key": "sk-ant-api03-fixturekey1234"}, ""},
 		{"openrouter", "api_key", map[string]any{"key": "sk-or-v1-fixture5678"}, ""},
 		{"huggingface", "api_key", map[string]any{"key": "hf_fixturekey90ab"}, ""},
-		{"cursor", "oauth", map[string]any{"access": "cursor-fixture", "refresh": "x", "expires": hour}, ""},
+		{"cursor", "oauth", map[string]any{"access": cursorAccess, "refresh": "fixture-refresh-cursor", "expires": hour, "email": "cursor@example.test"}, ""},
 		{"google-antigravity", "oauth", map[string]any{"access": "ya29.fixture", "refresh": "x", "expires": hour, "email": "ag@example.test"}, ""},
 		{"google-antigravity", "oauth", map[string]any{"access": "ya29.fixture2", "refresh": "x", "expires": hour, "email": "ag2@example.test", "projectId": "proj-fixture"}, ""},
 		{"zai", "oauth", map[string]any{"access": "zai-minted.fixturekeyzz99", "refresh": "", "expires": 0, "email": "zai@example.test"}, ""},
@@ -126,7 +127,7 @@ func TestDescribeMapsEveryProvider(t *testing.T) {
 		{"3", "anthropic", KindAPIKey, "claude", "…1234", "", true, ""},
 		{"4", "openrouter", KindAPIKey, "openrouter", "…5678", "", true, ""},
 		{"5", "huggingface", KindAPIKey, "custom", "…90ab", "", true, ""},
-		{"6", "cursor", KindSubscription, "", "NeoPi credential 6", "", false, "Cursor"},
+		{"6", "cursor", KindSubscription, "cursor", "cursor@example.test", "", true, ""},
 		{"7", "google-antigravity", KindSubscription, "antigravity", "ag@example.test", "", false, "project"},
 		{"8", "google-antigravity", KindSubscription, "antigravity", "ag2@example.test", "", true, ""},
 		{"9", "zai", KindAPIKey, "zai", "zai@example.test", "", true, ""},
@@ -199,6 +200,12 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 			}
 			return ""
 		}},
+		{"6", "cursor", func(m map[string]any) string {
+			if m["access_token"] == nil || m["user_id"] != "user_fixture" || m["base_url"] != "https://api2.cursor.sh" || m["email"] != "cursor@example.test" {
+				return "cursor token/user/base URL missing"
+			}
+			return ""
+		}},
 	} {
 		file, err := BuildAuthFile(creds[tc.id], profile, now, now)
 		if err != nil {
@@ -236,9 +243,6 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 		if exp, okExp := a.ExpirationTime(); !okExp || exp.Before(now) {
 			t.Fatalf("%s: engine expiry %v %v", tc.provider, exp, okExp)
 		}
-	}
-	if _, err := BuildAuthFile(creds["6"], profile, now, now); !errors.Is(err, ErrNotImportable) {
-		t.Fatalf("cursor: err = %v, want ErrNotImportable", err)
 	}
 	if _, err := BuildAuthFile(creds["3"], profile, now, now); !errors.Is(err, ErrNotImportable) {
 		t.Fatalf("api key as auth file: err = %v, want ErrNotImportable", err)
