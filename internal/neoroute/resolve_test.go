@@ -21,6 +21,19 @@ func policyState() routeState {
 func addUse(state *routeState, user, account string, tokens int64) {
 	state.usage = append(state.usage, neopool.Usage{UserID: user, VirtualModelID: state.vm.ID, StageID: "s0", AccountID: account, Window: "day", StartsAt: 1000, ResetsAt: 86401000, Tokens: tokens})
 }
+
+// addSharedUse also counts the tokens on the account's local meter, which is
+// what per=all stages read (account-wide use, whoever spent it).
+func addSharedUse(state *routeState, user, account string, tokens int64) {
+	addUse(state, user, account, tokens)
+	for i := range state.snapshot.Accounts {
+		if state.snapshot.Accounts[i].ID == account {
+			for j := range state.snapshot.Accounts[i].Windows {
+				state.snapshot.Accounts[i].Windows[j].UsedTokens += tokens
+			}
+		}
+	}
+}
 func TestPolicyAuthorityAndBudgets(t *testing.T) {
 	tests := []struct {
 		name                              string
@@ -34,11 +47,11 @@ func TestPolicyAuthorityAndBudgets(t *testing.T) {
 		{"ownership", func(s *routeState) { s.principal.Role = "owner"; s.principal.UserID = "owner2" }, "b", "", ""},
 		{"hidden provider", func(s *routeState) { s.snapshot.Providers[0].Exposed = false }, "", "limit", "unhealthy"},
 		{"hidden model", func(s *routeState) { s.snapshot.Models[0].Exposed = false }, "", "limit", "unhealthy"},
-		{"unavailable quota", func(s *routeState) {
+		{"unmetered always eligible", func(s *routeState) {
 			for i := range s.snapshot.Accounts {
 				s.snapshot.Accounts[i].Windows = nil
 			}
-		}, "", "limit", "unhealthy"},
+		}, "a", "", ""},
 		{"no auth model support", func(s *routeState) { s.snapshot.Accounts[0].ModelIDs = nil; s.snapshot.Accounts[1].ModelIDs = nil }, "", "limit", "unhealthy"},
 		{"least-used", func(s *routeState) {
 			s.vm.Stages[0].Draw = "least-used"
@@ -47,13 +60,15 @@ func TestPolicyAuthorityAndBudgets(t *testing.T) {
 		}, "b", "", ""},
 		{"alternate cursor", func(s *routeState) { s.vm.Stages[0].Draw = "alternate"; s.cursors["s0"] = 1 }, "b", "", ""},
 		{"allotment", func(s *routeState) { s.principal.Grants[0].Allotment = .5; addUse(s, "u", "a", 2500) }, "b", "", ""},
-		{"shared", func(s *routeState) { s.vm.Stages[0].Per = "all"; addUse(s, "other", "a", 5000) }, "b", "", ""},
+		{"shared", func(s *routeState) { s.vm.Stages[0].Per = "all"; addSharedUse(s, "other", "a", 5000) }, "b", "", ""},
 		{"per-user", func(s *routeState) { addUse(s, "other", "a", 5000) }, "a", "", ""},
-		{"cap", func(s *routeState) { addUse(s, "u", "a", 4000); addUse(s, "u", "b", 4000) }, "", "limit", "cap"},
+		{"cap is the average", func(s *routeState) { addUse(s, "u", "a", 8000); addUse(s, "u", "b", 8000) }, "", "limit", "cap"},
+		{"cap averages metered only", func(s *routeState) { s.snapshot.Accounts[1].Windows = nil; addUse(s, "u", "a", 8000) }, "", "limit", "cap"},
+		{"cap not reached by unmetered", func(s *routeState) { s.snapshot.Accounts[1].Windows = nil; addUse(s, "u", "a", 4000) }, "a", "", ""},
 		{"reservations count", func(s *routeState) { addUse(s, "u", "a", 0); s.usage[0].Reserved = 5000 }, "b", "", ""},
 		{"old epochs ignored", func(s *routeState) { addUse(s, "u", "a", 5000); s.usage[0].StartsAt = 0 }, "a", "", ""},
-		{"window expired not zero", func(s *routeState) { s.at = 86401000 }, "", "limit", "unhealthy"},
-		{"cap lower than sip", func(s *routeState) { s.vm.Stages[0].Cap = .01; addUse(s, "u", "a", 100) }, "", "limit", "cap"},
+		{"expired local meter is unmetered", func(s *routeState) { s.at = 86401000 }, "a", "", ""},
+		{"cap lower than sip", func(s *routeState) { s.vm.Stages[0].Cap = .01; addUse(s, "u", "a", 100); addUse(s, "u", "b", 100) }, "", "limit", "cap"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -152,7 +167,7 @@ func TestFixtureOracleParity(t *testing.T) {
 	cases := []struct {
 		name   string
 		change func(*routeState)
-	}{{"fill", func(*routeState) {}}, {"least-used", func(s *routeState) { s.vm.Stages[0].Draw = "least-used"; addUse(s, "u", "a", 3000) }}, {"allotment", func(s *routeState) { s.principal.Grants[0].Allotment = .5; addUse(s, "u", "a", 2500) }}, {"shared", func(s *routeState) { s.vm.Stages[0].Per = "all"; addUse(s, "other", "a", 5000) }}, {"exhausted", func(s *routeState) { s.vm.Stages[0].Cap = 0 }}, {"queue", func(s *routeState) { s.vm.Stages[0].Cap = 0; s.vm.Terminal.Kind = "queue" }}, {"passthrough", func(s *routeState) {
+	}{{"fill", func(*routeState) {}}, {"least-used", func(s *routeState) { s.vm.Stages[0].Draw = "least-used"; addUse(s, "u", "a", 3000) }}, {"allotment", func(s *routeState) { s.principal.Grants[0].Allotment = .5; addUse(s, "u", "a", 2500) }}, {"shared", func(s *routeState) { s.vm.Stages[0].Per = "all"; addSharedUse(s, "other", "a", 5000) }}, {"exhausted", func(s *routeState) { s.vm.Stages[0].Cap = 0 }}, {"queue", func(s *routeState) { s.vm.Stages[0].Cap = 0; s.vm.Terminal.Kind = "queue" }}, {"passthrough", func(s *routeState) {
 		s.vm.Stages[0].Cap = 0
 		s.vm.Terminal = Terminal{Kind: "passthrough", Model: "fallback/model"}
 	}}, {"not-granted", func(s *routeState) { s.principal.Grants = []neo.Grant{} }}}

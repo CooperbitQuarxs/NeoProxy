@@ -28,6 +28,7 @@ import (
 type accessFixture struct {
 	t        *testing.T
 	router   *gin.Engine
+	http     *neopool.HTTP
 	tokens   map[string]string
 	cfgPath  string
 	authDir  string
@@ -125,7 +126,8 @@ func newAccessFixture(t *testing.T) *accessFixture {
 	})
 	gin.SetMode(gin.TestMode)
 	f.router = gin.New()
-	neopool.NewHTTP(pool, &hookCapture{Handler: engine, f: f}).Register(f.router.Group("/v8/neo", neo.NewHTTP(identity).SessionMiddleware()))
+	f.http = neopool.NewHTTP(pool, &hookCapture{Handler: engine, f: f})
+	f.http.Register(f.router.Group("/v8/neo", neo.NewHTTP(identity).SessionMiddleware()))
 	return f
 }
 
