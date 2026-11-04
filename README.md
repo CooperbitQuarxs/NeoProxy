@@ -32,6 +32,29 @@ proxy-owned pooled accounts. Users receive grants, allotments and scoped inferen
 keys; provider credentials stay in the proxy. Engine administration remains
 available to organization-admin sessions, not ordinary member keys.
 
+### How budgets work
+
+Every provider account has, per usage window (`5h`, `day`, `week`, `month`), one
+**meter**: the usage the provider reports (Claude and ChatGPT/Codex sign-ins are
+polled every five minutes), or a local token meter an admin configured, or none.
+An account with no meter is always available. A stage in a virtual model says
+"draw from each account while its window is below N%" and "skip this stage once
+the pool averages M%"; a person's grant carries an **allotment** that multiplies
+every threshold in that chain for them (30% means a stage set to 50% stops at
+15% for that person). Virtual models decide routing for `neoproxy/<name>`
+requests; the engine's routing strategy only applies to direct provider models.
+The Pool page can send one real test request through any account.
+
+### Working on the dashboard
+
+The dashboard is plain ES modules in `internal/neoui/static/` (no build step),
+embedded into the binary and served at `/neo/`. To work on it against a running
+proxy, run `bun run hack/neoui-dev.ts --upstream http://127.0.0.1:8318` and open
+http://127.0.0.1:8411/neo/; it serves the working tree and forwards the API with
+the `Origin` header the cookie sign-in expects. Reload the page to see changes. `lib/client.js` is the API client,
+`lib/components.js` the shared widgets, `styles.css` the tokens, and each page
+is one file under `pages/`.
+
 ## Connect from a released NeoPi client
 
 Use the published native client

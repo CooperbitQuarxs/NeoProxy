@@ -1350,12 +1350,20 @@ kbd {
 }
 
 /* ---------- flow board ---------- */
+.flow-host { container-type: inline-size; container-name: flow; }
 .flow {
 	position: relative;
 	display: grid;
 	grid-template-columns: 1fr 110px 1fr 110px 1fr;
 	padding: 4px 16px 16px;
 	min-height: 120px;
+}
+/* Narrow (zoomed or small) screens: the three columns stack and the ribbons
+   give way to the lit/dim trace, which still works row to row. */
+@container flow (max-width: 760px) {
+	.flow { grid-template-columns: 1fr; gap: 10px; }
+	.flow .ribbons { display: none; }
+	.flow > div:empty { display: none; }
 }
 .flow .col {
 	display: flex;
@@ -2394,16 +2402,14 @@ body:has(.inspector .ins-foot) .toasts {
 }
 .scope-field .seg { justify-self: start; max-width: 100%; flex-wrap: wrap; }
 .mine-allot { margin-bottom: 12px; }
-.gate-words::before {
+.gate-hero::after {
 	content: "";
 	position: absolute;
 	inset: auto 0 0 0;
-	height: 70%;
-	background: linear-gradient(to top, var(--panel) 30%, transparent);
-	z-index: -1;
+	height: 58%;
+	background: linear-gradient(to top, var(--panel) 18%, transparent);
 	pointer-events: none;
 }
-.gate-words { isolation: isolate; }
 
 /* ---- engine pages: plugins, logs, configuration, models ---- */
 .plug-state { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -2894,3 +2900,10 @@ body:has(.inspector .ins-foot) .toasts {
 .neo-chain .stages.overflow-end { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
 .neo-chain .stages.overflow-start { mask-image: linear-gradient(to right, transparent, #000 36px); }
 .neo-chain .stages.overflow-start.overflow-end { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+.neo-ring.hidden-usage { border: 1.5px dotted var(--line-3); border-radius: 50%; display: inline-block; }
+.vm-acct .until { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.vm-acct .until.own { color: var(--ink-1); }
+.vm-acct .until.own .until-input { border-color: var(--accent-line); }
+.vm-acct .until-input { width: 52px; padding: 2px 6px; font-size: 12px; text-align: right; height: 24px; }
+.vm-acct .lt { min-width: 0; }
+.vm-acct .main code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

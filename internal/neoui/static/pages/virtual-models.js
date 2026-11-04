@@ -619,6 +619,22 @@ async function editor(ctx, id) {
 
 		// --- accounts ---
 		const accountsSection = h("div");
+		// "until N%" per account: the stage threshold by default, or this account's
+		// own override, so one person can be allowed 50% of X and 70% of Y.
+		const limitOf = (a) => s.accountLimits?.[a.id] ?? s.perAccount;
+		const setLimit = (a, v) => {
+			const next = { ...(s.accountLimits ?? {}) };
+			if (!Number.isFinite(v) || Math.abs(v - s.perAccount) < 0.0005) delete next[a.id];
+			else next[a.id] = Math.max(0, Math.min(1, v));
+			s.accountLimits = Object.keys(next).length ? next : undefined;
+			update();
+		};
+		const untilControl = (a) => {
+			const own = s.accountLimits?.[a.id] !== undefined;
+			const num = input({ type: "number", min: 0, max: 100, step: 1, value: Math.round(limitOf(a) * 100), class: "input sm until-input", "aria-label": `Threshold for ${a.label}`, onChange: (e) => setLimit(a, Number(e.target.value) / 100) });
+			return h("span", { class: `until ${own ? "own" : ""}`, title: own ? `This account has its own threshold; the stage default is ${fmtPct(s.perAccount, null)}. Set it back to ${Math.round(s.perAccount * 100)} to follow the stage.` : `Drawn from while its ${s.window} usage is below ${fmtPct(s.perAccount, null)}. Type a different number to give this account its own threshold.` },
+				"until ", num, "%");
+		};
 		const renderAccounts = () => {
 			clear(accountsSection);
 			const all = pool();
@@ -636,7 +652,7 @@ async function editor(ctx, id) {
 					},
 				),
 			);
-			if (!all.length) accountsSection.append(h("p", { class: "hint" }, "No accounts hold this provider yet. Add one under Credentials, then pick it here."));
+			if (!all.length) accountsSection.append(h("p", { class: "hint" }, "No accounts hold this provider yet. Add one in the Pool (Add provider access), then pick it here."));
 			const shown = showAllAccounts ? all : all.slice(0, 8);
 			for (const a of shown) {
 				const on = picked.includes(a);
@@ -666,7 +682,7 @@ async function editor(ctx, id) {
 							h("div", { class: "sub" }, [a.plan, health.text, m ? `${fmtPct(m.used)} of ${WINDOW_WORDS[s.window]} used` : null].filter(Boolean).join(" · ")),
 							m ? null : h("div", { class: "sub nometer" }, "No meter — always available; thresholds do not apply"),
 						),
-						m ? h("span", { class: "until", title: `Drawn from while its ${s.window} usage is below ${fmtPct(s.perAccount, null)}` }, `until ${fmtPct(s.perAccount, null)}`) : null,
+						m ? untilControl(a) : null,
 					),
 				);
 			}

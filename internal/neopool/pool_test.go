@@ -376,6 +376,85 @@ func TestResetsRetriesCancellationAndHistoricalOwner(t *testing.T) {
 	}
 }
 
+// The stage cap is the average used over metered accounts, not their sum.
+func TestReservationCapIsMeteredAverage(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.assign(t, 0, "owner-a")
+	f.assign(t, 1, "owner-b")
+	f.meter(t, 0, "day", 100)
+	f.meter(t, 1, "day", 100)
+	for i := 0; i < 2; i++ {
+		if err := f.pool.Reserve(ctx, f.reservation(fmt.Sprintf("fill-%d", i), i, 40)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r := f.reservation("average", 0, 10)
+	r.Cap = .44
+	if err := f.pool.Reserve(ctx, r); !errors.Is(err, ErrBudget) {
+		t.Fatalf("average 45%% admitted under a 44%% cap: %v", err)
+	}
+	r.Cap = .6
+	if err := f.pool.Reserve(ctx, r); err != nil {
+		t.Fatalf("two meters at 40%% refused under a 60%% cap: %v", err)
+	}
+}
+
+// A provider reading is the meter: a full local meter gates nothing, and the
+// attempt is still recorded against the local window for accounting.
+func TestReservationProviderMeterOverridesLocal(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.assign(t, 0, "owner-a")
+	f.meter(t, 0, "day", 100)
+	if err := f.pool.Reserve(ctx, f.reservation("fill", 0, 100)); err != nil {
+		t.Fatal(err)
+	}
+	r := f.reservation("provider", 0, 10)
+	r.PerAccount, r.Cap = .5, .5
+	if err := f.pool.Reserve(ctx, r); !errors.Is(err, ErrBudget) {
+		t.Fatalf("full local meter admitted without a provider reading: %v", err)
+	}
+	r.ProviderUsed = map[string]float64{f.accounts[0].ID: .1}
+	if err := f.pool.Reserve(ctx, r); err != nil {
+		t.Fatalf("provider meter at 10%% refused: %v", err)
+	}
+	var capacity int64
+	if err := f.identity.DB().QueryRow(`SELECT capacity FROM neo_pool_attempts WHERE id=?`, r.ID).Scan(&capacity); err != nil || capacity != 100 {
+		t.Fatalf("attempt not kept on the local window: %d %v", capacity, err)
+	}
+	r = f.reservation("provider-full", 0, 10)
+	r.PerAccount, r.Cap = .5, 1
+	r.ProviderUsed = map[string]float64{f.accounts[0].ID: .5}
+	if err := f.pool.Reserve(ctx, r); !errors.Is(err, ErrBudget) {
+		t.Fatalf("provider meter at the per-account budget admitted: %v", err)
+	}
+}
+
+// Per "all" reads the account-wide window (every stage and user); per "user"
+// reads only this user's rows of the stage.
+func TestReservationPerAllUsesAccountWideUse(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	f.assign(t, 0, "owner-a")
+	f.meter(t, 0, "day", 100)
+	other := f.reservation("other-stage", 0, 40)
+	other.UserID, other.StageID = "user-b", "another-stage"
+	if err := f.pool.Reserve(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+	shared := f.reservation("shared", 0, 20)
+	shared.Shared, shared.PerAccount = true, .5
+	if err := f.pool.Reserve(ctx, shared); !errors.Is(err, ErrBudget) {
+		t.Fatalf("per=all crossed 50%% with 40%% used elsewhere: %v", err)
+	}
+	own := f.reservation("own", 0, 20)
+	own.PerAccount = .5
+	if err := f.pool.Reserve(ctx, own); err != nil {
+		t.Fatalf("per=user charged another stage's use: %v", err)
+	}
+}
+
 func TestUnknownMeterAndCalendarBoundaries(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

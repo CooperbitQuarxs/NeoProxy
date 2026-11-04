@@ -31,6 +31,7 @@ const (
 	// after the provider stops answering; later the windows become unknown.
 	quotaKeepLastGood   = 30 * time.Minute
 	quotaRequestTimeout = 15 * time.Second
+	quotaIdleTimeout    = 90 * time.Second
 	quotaMaxBody        = 1 << 20
 
 	claudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
@@ -44,34 +45,54 @@ type quotaEntry struct {
 	windows []Window // last good reading
 	goodAt  time.Time
 	failing bool
+	gen     uint64 // request generation that produced this entry
 }
 
 // quotaProber caches provider-reported windows by engine auth ID.
 type quotaProber struct {
 	mu        sync.Mutex
 	entries   map[string]quotaEntry
+	gen       uint64
 	claudeURL string
 	codexURL  string
 	clientFor func(*coreauth.Auth) *http.Client
 }
 
 func newQuotaProber() *quotaProber {
-	return &quotaProber{entries: map[string]quotaEntry{}, claudeURL: claudeUsageURL, codexURL: codexUsageURL, clientFor: quotaHTTPClient}
+	clients := &quotaClients{clients: map[string]*http.Client{}}
+	return &quotaProber{entries: map[string]quotaEntry{}, claudeURL: claudeUsageURL, codexURL: codexUsageURL, clientFor: clients.client}
 }
 
-// quotaHTTPClient never follows redirects with a bearer. Only an explicit
-// http(s) proxy on the auth is honoured; otherwise the environment decides.
-func quotaHTTPClient(a *coreauth.Auth) *http.Client {
-	client := &http.Client{Timeout: quotaRequestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+// quotaClients keeps one client per proxy setting, so repeated polls reuse
+// their connections instead of leaving a new transport's idle ones behind.
+type quotaClients struct {
+	mu      sync.Mutex
+	clients map[string]*http.Client
+}
+
+// client never follows redirects with a bearer. Only an explicit http(s)
+// proxy on the auth is honoured; otherwise the environment decides.
+func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 	proxy := strings.TrimSpace(a.ProxyURL)
+	key, proxyFunc := "", http.ProxyFromEnvironment
 	switch {
 	case strings.EqualFold(proxy, "direct") || strings.EqualFold(proxy, "none"):
-		client.Transport = &http.Transport{}
+		key, proxyFunc = "direct", nil
 	case proxy != "":
 		if u, err := url.Parse(proxy); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
-			client.Transport = &http.Transport{Proxy: http.ProxyURL(u)}
+			key, proxyFunc = "proxy:"+u.String(), http.ProxyURL(u)
 		}
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if client, ok := c.clients[key]; ok {
+		return client
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = proxyFunc
+	transport.IdleConnTimeout = quotaIdleTimeout
+	client := &http.Client{Timeout: quotaRequestTimeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	c.clients[key] = client
 	return client
 }
 
@@ -281,15 +302,26 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 }
 
 // refresh fetches and caches one account. A failure keeps the last good reading.
+// A result older than the stored one (a slow poll overtaken by a manual refresh)
+// is dropped, so a newer reading is never overwritten.
 func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Time) error {
+	q.mu.Lock()
+	q.gen++
+	gen := q.gen
+	q.mu.Unlock()
 	windows, err := q.fetch(ctx, a, now)
 	q.mu.Lock()
 	entry := q.entries[a.ID]
+	if entry.gen > gen {
+		q.mu.Unlock()
+		return err
+	}
 	wasFailing := entry.failing
 	if err == nil {
-		entry = quotaEntry{windows: windows, goodAt: now}
+		entry = quotaEntry{windows: windows, goodAt: now, gen: gen}
 	} else {
 		entry.failing = true
+		entry.gen = gen
 	}
 	q.entries[a.ID] = entry
 	q.mu.Unlock()

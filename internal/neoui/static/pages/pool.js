@@ -415,9 +415,9 @@ export async function render(ctx) {
 		if (!admin) return card({ cls: "pool-link", body: h("div", { class: "pool-link-row" }, h("div", { class: "pool-link-main" }, h("div", { class: "pool-link-title" }, "Your contributions"), h("div", { class: "pool-link-meta" }, summary)), add) });
 		return card({ cls: "pool-link", body: h("div", { class: "pool-link-row" },
 			h("div", { class: "pool-link-main" },
-				h("div", { class: "pool-link-title" }, status(c ? (c.linked ? "live" : "warn") : "bad", c ? (c.linked ? "Linked to the NeoPi core" : "Core not linked") : "Core status unavailable"), c?.heartbeatAt ? h("span", { class: "pool-link-beat" }, `heartbeat ${fmtAgo(c.heartbeatAt)}`) : null),
+				h("div", { class: "pool-link-title" }, status(c ? (c.linked ? "live" : "warn") : "bad", c ? (c.linked ? `Engine online on ${c.host || "this machine"}` : "Engine not reachable") : "Engine status unavailable"), c?.heartbeatAt ? h("span", { class: "pool-link-beat" }, `heartbeat ${fmtAgo(c.heartbeatAt)}`) : null),
 				h("div", { class: "pool-link-meta" },
-					c ? [h("span", null, "as ", h("code", null, c.identity)), c.version ? h("span", null, "NeoProxy ", h("code", null, c.version)) : null, c.host ? h("span", null, "on ", h("code", null, c.host)) : null] : null,
+					c ? [c.version ? h("span", null, "NeoProxy ", h("code", null, c.version)) : null, c.endpoint ? h("span", null, "serving at ", h("code", null, c.endpoint)) : null] : null,
 					summary)),
 			add) });
 	}

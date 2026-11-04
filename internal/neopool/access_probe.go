@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/tidwall/gjson"
 )
 
@@ -195,8 +196,13 @@ func (h *HTTP) accessTest(c *gin.Context) {
 	if !ok {
 		return
 	}
-	a, _, ok := h.accessTarget(c, p)
+	a, owner, ok := h.accessTarget(c, p)
 	if !ok {
+		return
+	}
+	// A test lifts the credential's engine hold and spends a real request.
+	if p.Role != neo.RoleAdmin && !(owner == p.UserID && p.Role == neo.RoleOwner) {
+		poolError(c, http.StatusForbidden, "Only the contributor or an administrator can test this access.")
 		return
 	}
 	if h.probe == nil {

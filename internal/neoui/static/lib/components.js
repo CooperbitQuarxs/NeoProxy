@@ -564,7 +564,8 @@ export function poolUsage(pool, window) {
 
 // "until 50% · pool 70% · 5h": one line that says where a stage stops. `allot`
 // scales both thresholds for one person's grant.
-export function stageLine(stage, allot = 1, metered = true) {
+export function stageLine(stage, allot = 1, metered = true, redacted = false) {
+	if (redacted) return `until ${fmtPct(stage.perAccount * allot, null)} · pool ${fmtPct(stage.cap * allot, null)} · ${stage.window}`;
 	if (!metered) return "no meter · always available";
 	return `until ${fmtPct(stage.perAccount * allot, null)} · pool ${fmtPct(stage.cap * allot, null)} · ${stage.window}`;
 }
@@ -574,7 +575,9 @@ export function stageLine(stage, allot = 1, metered = true) {
 // would land on; `onSelect` makes nodes selectable; `onReorder` enables drag and
 // Alt+Arrow keys; `onAdd` adds a stage button after the last stage. `compact`
 // draws one-line chips for lists that only need the shape of the chain.
-export function chainRail(vm, { models, providers, accounts, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1 } = {}) {
+// `redacted` is for members: the vault hides account usage from them, so the
+// rail states the thresholds without claiming to know how full the pool is.
+export function chainRail(vm, { models, providers, accounts, lit = null, selected = null, onSelect, onAdd, onReorder, compact = false, editor = false, allot = 1, redacted = false } = {}) {
 	const rail = h("div", { class: `neo-chain ${compact ? "compact" : ""} ${editor ? "editor" : ""}` });
 	const stages = h("div", { class: "stages", role: "list", "aria-label": "Stages", tabindex: onSelect ? null : 0 });
 	const link = () => h("div", { class: "link", "aria-hidden": "true" }, icon("arrowRight", 14));
@@ -645,12 +648,14 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 			h(
 				"div",
 				{ class: "n-pool", title: detail },
-				usage.avg === null
-					? meterRing({}, { size: 22 })
-					: ring({ used: usage.avg, budget, size: 22, label: false, title: `The pool averages ${fmtPct(usage.avg)} of its ${s.window} meters; this stage stops at ${fmtPct(budget, null)}` }),
+				redacted
+					? h("span", { class: "neo-ring hidden-usage", title: "How full the pool is right now is shown to admins; Try it tells you where your request lands", role: "img", "aria-label": "Usage shown to admins", style: { width: "22px", height: "22px" } })
+					: usage.avg === null
+						? meterRing({}, { size: 22 })
+						: ring({ used: usage.avg, budget, size: 22, label: false, title: `The pool averages ${fmtPct(usage.avg)} of its ${s.window} meters; this stage stops at ${fmtPct(budget, null)}` }),
 				h("span", null, plural(pool.length, "account")),
 			),
-			h("div", { class: "n-line" }, stageLine(s, allot, usage.metered > 0)),
+			h("div", { class: "n-line" }, stageLine(s, allot, usage.metered > 0, redacted)),
 			onReorder ? h("span", { class: "grip", title: "Drag to reorder" }, icon("grip", 14)) : null,
 		);
 		if (onReorder) wireDrag(node, rail, vm, onReorder);
