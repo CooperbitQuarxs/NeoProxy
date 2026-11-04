@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/misc"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
@@ -22,8 +22,8 @@ import (
 
 type devinOAuthService interface {
 	BuildAuthorizationURL(redirectURI, codeChallenge, state string) string
-	ExchangeCodeForToken(ctx context.Context, code, codeVerifier string) (string, error)
-	CreateAuthRecord(ctx context.Context, token string) (*coreauth.Auth, error)
+	ExchangeCodeForToken(ctx context.Context, code, codeVerifier string) (devin.Credential, error)
+	CreateAuthRecord(ctx context.Context, credential devin.Credential) (*coreauth.Auth, error)
 }
 
 var newDevinOAuthService = func(cfg *config.Config) devinOAuthService {
@@ -53,11 +53,8 @@ func (h *Handler) RequestDevinToken(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate PKCE codes"})
 		return
 	}
-	state, errState := misc.GenerateRandomState()
-	if errState != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate state parameter"})
-		return
-	}
+	// NeoPi's Devin rule uses a uuid state.
+	state := uuid.NewString()
 
 	authSvc := newDevinOAuthService(h.cfg)
 	authURL := authSvc.BuildAuthorizationURL(redirectURI, pkceCodes.CodeChallenge, state)
@@ -103,8 +100,8 @@ func (h *Handler) completeDevinOAuth(ctx context.Context, authDir, state, codeVe
 		return
 	}
 
-	token, errExchange := authSvc.ExchangeCodeForToken(ctx, result.Code, codeVerifier)
-	if errExchange != nil || strings.TrimSpace(token) == "" {
+	credential, errExchange := authSvc.ExchangeCodeForToken(ctx, result.Code, codeVerifier)
+	if errExchange != nil {
 		// Upstream errors can contain tokens or authorization codes; never expose them.
 		if IsOAuthSessionPending(state, "devin") {
 			SetOAuthSessionError(state, "Failed to exchange authorization code for tokens")
@@ -114,7 +111,7 @@ func (h *Handler) completeDevinOAuth(ctx context.Context, authDir, state, codeVe
 	if !IsOAuthSessionPending(state, "devin") {
 		return
 	}
-	record, errRecord := authSvc.CreateAuthRecord(ctx, token)
+	record, errRecord := authSvc.CreateAuthRecord(ctx, credential)
 	if errRecord != nil {
 		if IsOAuthSessionPending(state, "devin") {
 			SetOAuthSessionError(state, "Failed to create Devin authentication record")

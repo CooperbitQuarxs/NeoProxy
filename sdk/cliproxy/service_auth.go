@@ -649,7 +649,7 @@ func (s *Service) applyCoreAuthRemoval(ctx context.Context, id string) {
 	GlobalModelRegistry().UnregisterClient(id)
 	s.cancelStaleAntigravityProbes(id)
 	forgetXAIModelDiscovery(provider, id)
-	forgetKimiModelDiscovery(id)
+	forgetNeoPiDiscovery(id)
 	s.forgetClaudeModelDiscovery(id)
 	s.forgetCodexModelDiscovery(id)
 	if strings.EqualFold(provider, "codex") {

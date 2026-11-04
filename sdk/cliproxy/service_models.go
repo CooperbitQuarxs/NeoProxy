@@ -173,12 +173,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		models = s.codexModelsForAuth(cfg, a, time.Now())
 		models = applyExcludedModels(models, excluded)
 	case "kimi":
-		var stale bool
-		models, stale = kimiDiscoveredModels(a, time.Now())
-		if stale {
-			s.queueKimiModelDiscovery(a)
-		}
-		models = applyExcludedModels(models, excluded)
+		models = applyExcludedModels(s.registerNeoPiDiscovered(kimiDiscovery, a), excluded)
 	case "xai", executor.GrokBuildProvider:
 		entry := resolveConfigXAIKeyForConfig(cfg, a)
 		if entry != nil && authKind == "apikey" {
@@ -195,8 +190,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "devin":
-		models = registry.GetDevinModels()
-		models = applyExcludedModels(models, excluded)
+		models = applyExcludedModels(s.registerNeoPiDiscovered(devinDiscovery, a), excluded)
 	case "nous-portal":
 		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":

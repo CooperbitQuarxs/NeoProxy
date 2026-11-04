@@ -4,222 +4,124 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestPKCEGeneration(t *testing.T) {
-	pkce, err := GeneratePKCECodes()
+// TestLoginMatchesNeoPi replays testdata/neopi_devin_auth_capture.json: NeoPi's
+// own devin oauth-code rule with PKCE bytes and the clock pinned. The same
+// verifier bytes must yield the same authorize URL, token request, credential
+// and error wording.
+func TestLoginMatchesNeoPi(t *testing.T) {
+	data, err := os.ReadFile("testdata/neopi_devin_auth_capture.json")
 	if err != nil {
-		t.Fatalf("GeneratePKCECodes failed: %v", err)
+		t.Fatal(err)
 	}
-	if len(pkce.CodeVerifier) < 43 {
-		t.Errorf("code_verifier too short: %d", len(pkce.CodeVerifier))
+	var capture struct {
+		Now         int64  `json:"now"`
+		RedirectURI string `json:"redirectUri"`
+		State       string `json:"state"`
+		Callback    struct {
+			Port     int    `json:"port"`
+			Path     string `json:"path"`
+			Hostname string `json:"hostname"`
+		} `json:"callback"`
+		Scenarios []struct {
+			Name     string `json:"name"`
+			Code     string `json:"code"`
+			Response struct {
+				Status int    `json:"status"`
+				Body   string `json:"body"`
+			} `json:"response"`
+			Authorize struct {
+				URL string `json:"url"`
+			} `json:"authorize"`
+			Requests []struct {
+				Method  string            `json:"method"`
+				URL     string            `json:"url"`
+				Headers map[string]string `json:"headers"`
+				Body    string            `json:"body"`
+			} `json:"requests"`
+			Credentials *struct {
+				Access  string `json:"access"`
+				Expires int64  `json:"expires"`
+			} `json:"credentials"`
+			Error *string `json:"error"`
+		} `json:"scenarios"`
 	}
-	if len(pkce.CodeChallenge) == 0 {
-		t.Errorf("code_challenge is empty")
+	if err = json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
 	}
-	// Re-generation produces unique values
-	pkce2, _ := GeneratePKCECodes()
-	if pkce.CodeVerifier == pkce2.CodeVerifier {
-		t.Error("expected randomly unique code verifiers")
+	if want := fmt.Sprintf("http://127.0.0.1:%d/callback", CallbackPort); capture.RedirectURI != want {
+		t.Fatalf("NeoPi callback %s, Go login uses %s", capture.RedirectURI, want)
 	}
-}
+	// NeoPi's capture pins crypto.getRandomValues to (i*7+3) & 0xff.
+	raw := make([]byte, 96)
+	for i := range raw {
+		raw[i] = byte(i*7 + 3)
+	}
+	pkce := pkceFromBytes(raw)
+	for _, scenario := range capture.Scenarios {
+		t.Run(scenario.Name, func(t *testing.T) {
+			var gotMethod, gotPath, gotBody string
+			var gotHeaders map[string]string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				gotMethod, gotPath, gotBody = r.Method, r.URL.Path, string(body)
+				gotHeaders = map[string]string{}
+				for name, values := range r.Header {
+					if name != "Content-Length" {
+						gotHeaders[strings.ToLower(name)] = strings.Join(values, ", ")
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(scenario.Response.Status)
+				_, _ = io.WriteString(w, scenario.Response.Body)
+			}))
+			defer server.Close()
+			svc := NewDevinAuthService(server.Client())
+			svc.SetAPIBaseURL(server.URL)
+			svc.now = func() time.Time { return time.UnixMilli(capture.Now) }
 
-func TestFormatSessionToken(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{
-			input: "devin-session-token$eyJ123",
-			want:  "devin-session-token$eyJ123",
-		},
-		{
-			input: "eyJ123.456.789",
-			want:  "devin-session-token$eyJ123.456.789",
-		},
-		{
-			input: "custom-token-xyz",
-			want:  "custom-token-xyz",
-		},
-	}
-
-	for _, tt := range tests {
-		got := FormatSessionToken(tt.input)
-		if got != tt.want {
-			t.Errorf("FormatSessionToken(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestBuildAuthorizationURL(t *testing.T) {
-	svc := NewDevinAuthService(nil)
-	u := svc.BuildAuthorizationURL("http://127.0.0.1:1234/callback", "test-challenge", "state-abc")
-
-	if !strings.HasPrefix(u, "https://app.devin.ai/auth/cli/continue?") {
-		t.Fatalf("unexpected url prefix: %s", u)
-	}
-
-	parsed, err := url.Parse(u)
-	if err != nil {
-		t.Fatalf("failed to parse auth url: %v", err)
-	}
-	q := parsed.Query()
-	if q.Get("redirect_uri") != "http://127.0.0.1:1234/callback" {
-		t.Errorf("redirect_uri = %q", q.Get("redirect_uri"))
-	}
-	if q.Get("cli_pkce_marker") != "" {
-		t.Errorf("cli_pkce_marker should be empty when redirect_uri is provided, got %q", q.Get("cli_pkce_marker"))
-	}
-	if q.Get("code_challenge") != "test-challenge" {
-		t.Errorf("code_challenge = %q", q.Get("code_challenge"))
-	}
-	if q.Get("code_challenge_method") != "S256" {
-		t.Errorf("code_challenge_method = %q", q.Get("code_challenge_method"))
-	}
-	if q.Get("state") != "state-abc" {
-		t.Errorf("state = %q", q.Get("state"))
-	}
-
-	expectedQuery := "redirect_uri=http%3A%2F%2F127.0.0.1%3A1234%2Fcallback&state=state-abc&prompt=select_account&code_challenge=test-challenge&code_challenge_method=S256"
-	if parsed.RawQuery != expectedQuery {
-		t.Errorf("raw query = %q, want %q", parsed.RawQuery, expectedQuery)
-	}
-}
-
-func TestBuildAuthorizationURLHeadlessCodeFlow(t *testing.T) {
-	svc := NewDevinAuthService(nil)
-	u := svc.BuildAuthorizationURL("", "test-challenge-headless", "state-xyz")
-
-	if !strings.HasPrefix(u, "https://app.devin.ai/auth/cli/continue?") {
-		t.Fatalf("unexpected url prefix: %s", u)
-	}
-
-	parsed, err := url.Parse(u)
-	if err != nil {
-		t.Fatalf("failed to parse auth url: %v", err)
-	}
-	q := parsed.Query()
-	if q.Get("redirect_uri") != "" {
-		t.Errorf("redirect_uri should be omitted in headless flow, got %q", q.Get("redirect_uri"))
-	}
-	if q.Get("cli_pkce_marker") != "1" {
-		t.Errorf("cli_pkce_marker = %q, want '1'", q.Get("cli_pkce_marker"))
-	}
-	if q.Get("code_challenge") != "test-challenge-headless" {
-		t.Errorf("code_challenge = %q", q.Get("code_challenge"))
-	}
-	if q.Get("code_challenge_method") != "S256" {
-		t.Errorf("code_challenge_method = %q", q.Get("code_challenge_method"))
-	}
-	if q.Get("prompt") != "select_account" {
-		t.Errorf("prompt = %q", q.Get("prompt"))
-	}
-	if q.Get("state") != "state-xyz" {
-		t.Errorf("state = %q", q.Get("state"))
-	}
-
-	expectedQuery := "state=state-xyz&prompt=select_account&code_challenge=test-challenge-headless&code_challenge_method=S256&cli_pkce_marker=1"
-	if parsed.RawQuery != expectedQuery {
-		t.Errorf("raw query = %q, want %q", parsed.RawQuery, expectedQuery)
-	}
-}
-
-func TestBuildAuthorizationURLWhitespaceRedirectIsHeadless(t *testing.T) {
-	svc := NewDevinAuthService(nil)
-	u := svc.BuildAuthorizationURL("  \t", "challenge", "state-ws")
-	parsed, err := url.Parse(u)
-	if err != nil {
-		t.Fatalf("failed to parse auth url: %v", err)
-	}
-	if parsed.Query().Get("redirect_uri") != "" {
-		t.Errorf("redirect_uri = %q, want empty", parsed.Query().Get("redirect_uri"))
-	}
-	if parsed.Query().Get("cli_pkce_marker") != "1" {
-		t.Errorf("cli_pkce_marker = %q, want 1", parsed.Query().Get("cli_pkce_marker"))
-	}
-	want := "state=state-ws&prompt=select_account&code_challenge=challenge&code_challenge_method=S256&cli_pkce_marker=1"
-	if parsed.RawQuery != want {
-		t.Errorf("raw query = %q, want %q", parsed.RawQuery, want)
-	}
-}
-
-func TestExchangeCodeForTokenAndFetchSelf(t *testing.T) {
-	// Mock devin API backend
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/auth/cli/token":
-			if r.Method != http.MethodPost {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+			if got := svc.BuildAuthorizationURL(capture.RedirectURI, pkce.CodeChallenge, capture.State); got != scenario.Authorize.URL {
+				t.Errorf("authorize URL:\n got %s\nwant %s", got, scenario.Authorize.URL)
+			}
+			credential, errExchange := svc.ExchangeCodeForToken(context.Background(), scenario.Code, pkce.CodeVerifier)
+			request := scenario.Requests[0]
+			if wantPath := strings.TrimPrefix(request.URL, DefaultAPIBaseURL); gotMethod != request.Method || gotPath != wantPath {
+				t.Errorf("token request = %s %s, want %s %s", gotMethod, gotPath, request.Method, wantPath)
+			}
+			wantHeaders := map[string]string{}
+			for name, value := range request.Headers {
+				if name != "content-length" {
+					wantHeaders[name] = value
+				}
+			}
+			if !reflect.DeepEqual(gotHeaders, wantHeaders) {
+				t.Errorf("token headers:\n got %v\nwant %v", gotHeaders, wantHeaders)
+			}
+			if gotBody != request.Body {
+				t.Errorf("token body:\n got %s\nwant %s", gotBody, request.Body)
+			}
+			if scenario.Error != nil {
+				if errExchange == nil || errExchange.Error() != *scenario.Error {
+					t.Fatalf("error = %v, want %q", errExchange, *scenario.Error)
+				}
 				return
 			}
-			var body map[string]string
-			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				return
+			if errExchange != nil {
+				t.Fatal(errExchange)
 			}
-			if body["code"] != "valid-code" || body["code_verifier"] != "valid-verifier" {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(`{"error":"invalid_grant"}`))
-				return
+			if credential.Access != scenario.Credentials.Access || credential.Expires.UnixMilli() != scenario.Credentials.Expires {
+				t.Errorf("credential = %s @%d, want %s @%d", credential.Access, credential.Expires.UnixMilli(), scenario.Credentials.Access, scenario.Credentials.Expires)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"token":"eyJtest-jwt-token"}`))
-
-		case "/v3/self":
-			auth := r.Header.Get("Authorization")
-			if !strings.HasPrefix(auth, "Bearer ") {
-				w.WriteHeader(http.StatusUnauthorized)
-				return
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{
-				"principal_type": "windsurf_session",
-				"user_id": "user-test-123",
-				"user_name": "devin-user-abc",
-				"org_id": "org-test-456"
-			}`))
-
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
-	defer mockServer.Close()
-
-	svc := NewDevinAuthService(mockServer.Client())
-	svc.apiBaseURL = mockServer.URL
-
-	ctx := context.Background()
-
-	// 1. Exchange code
-	token, err := svc.ExchangeCodeForToken(ctx, "valid-code", "valid-verifier")
-	if err != nil {
-		t.Fatalf("ExchangeCodeForToken failed: %v", err)
-	}
-	if token != "eyJtest-jwt-token" {
-		t.Errorf("token = %q, want eyJtest-jwt-token", token)
-	}
-
-	// 2. Fetch self profile
-	userName, userID, orgID, errSelf := svc.FetchSelfProfile(ctx, "devin-session-token$"+token)
-	if errSelf != nil {
-		t.Fatalf("FetchSelfProfile failed: %v", errSelf)
-	}
-	if userName != "devin-user-abc" {
-		t.Errorf("userName = %q, want devin-user-abc", userName)
-	}
-	if userID != "user-test-123" {
-		t.Errorf("userID = %q, want user-test-123", userID)
-	}
-	if orgID != "org-test-456" {
-		t.Errorf("orgID = %q, want org-test-456", orgID)
+		})
 	}
 }
 
@@ -233,28 +135,19 @@ func TestOAuthServerCallback(t *testing.T) {
 		_ = server.Stop(context.Background())
 	}()
 
-	// Simulate browser redirect to /callback?code=mock-code&state=mock-state
-	client := &http.Client{}
-	callbackURL := fmt.Sprintf("http://127.0.0.1:%d/callback?code=mock-code&state=mock-state", port)
-
-	resp, errGet := client.Get(callbackURL)
+	resp, errGet := http.Get(fmt.Sprintf("http://127.0.0.1:%d/callback?code=mock-code&state=mock-state", port))
 	if errGet != nil {
 		t.Fatalf("GET /callback failed: %v", errGet)
 	}
-	defer resp.Body.Close()
-
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want 200", resp.StatusCode)
 	}
-
 	res, errWait := server.WaitForCallback(2 * time.Second)
 	if errWait != nil {
 		t.Fatalf("WaitForCallback failed: %v", errWait)
 	}
-	if res.Code != "mock-code" {
-		t.Errorf("res.Code = %q, want mock-code", res.Code)
-	}
-	if res.State != "mock-state" {
-		t.Errorf("res.State = %q, want mock-state", res.State)
+	if res.Code != "mock-code" || res.State != "mock-state" {
+		t.Errorf("callback = %+v, want mock-code/mock-state", res)
 	}
 }

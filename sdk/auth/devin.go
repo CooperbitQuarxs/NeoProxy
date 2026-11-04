@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/browser"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -17,17 +18,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// DevinAuthenticator implements OAuth and headless authentication for Devin / Cognition.
+// DevinAuthenticator runs NeoPi's Devin login: an authorization-code grant
+// with PKCE and a uuid state through a loopback callback, with the callback
+// URL or code accepted by paste as well.
 type DevinAuthenticator struct {
+	// CallbackPort is the preferred loopback port; another free port serves
+	// when it is taken, unless the login requested a port explicitly.
 	CallbackPort int
 	AuthService  *devinauth.DevinAuthService
 }
 
 // NewDevinAuthenticator constructs a new Devin authenticator instance.
 func NewDevinAuthenticator() *DevinAuthenticator {
-	return &DevinAuthenticator{
-		CallbackPort: 0, // Bind to any available ephemeral port by default
-	}
+	return &DevinAuthenticator{CallbackPort: devinauth.CallbackPort}
 }
 
 // Provider returns the unique provider identifier for Devin.
@@ -35,12 +38,13 @@ func (a *DevinAuthenticator) Provider() string {
 	return "devin"
 }
 
-// RefreshLead returns nil since Devin OAuth tokens are permanent session tokens.
+// RefreshLead returns nil: NeoPi's Devin credential has no refresh grant.
 func (a *DevinAuthenticator) RefreshLead() *time.Duration {
 	return nil
 }
 
-// Login executes the interactive browser-based or headless manual authentication flow for Devin.
+// Login executes the browser callback login, or the paste-only login when no
+// browser is used.
 func (a *DevinAuthenticator) Login(ctx context.Context, cfg *config.Config, opts *LoginOptions) (*coreauth.Auth, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cliproxy auth: configuration is required")
@@ -56,69 +60,53 @@ func (a *DevinAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 	if errPKCE != nil {
 		return nil, fmt.Errorf("devin pkce generation failed: %w", errPKCE)
 	}
-
-	state, errState := misc.GenerateRandomState()
-	if errState != nil {
-		return nil, fmt.Errorf("devin state generation failed: %w", errState)
-	}
+	state := uuid.NewString()
 
 	authSvc := a.AuthService
 	if authSvc == nil {
 		authSvc = devinauth.NewDevinAuthService(util.SetProxy(&cfg.SDKConfig, &http.Client{Timeout: 30 * time.Second}))
+	}
+	port := a.CallbackPort
+	if port <= 0 {
+		port = devinauth.CallbackPort
+	}
+	if opts.CallbackPort > 0 {
+		port = opts.CallbackPort
 	}
 
 	if opts.NoBrowser {
 		if opts.Prompt == nil {
 			return nil, fmt.Errorf("devin authentication in no-browser mode requires an interactive prompt")
 		}
-
-		authURL := authSvc.BuildAuthorizationURL("", pkceCodes.CodeChallenge, state)
-		fmt.Printf("Visit the following URL to continue Devin authentication:\n%s\n\n", authURL)
-
-		promptMsg := "Paste the Devin authorization code or session token directly: "
+		redirectURI := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
+		fmt.Printf("Visit the following URL to continue Devin authentication:\n%s\n\n", authSvc.BuildAuthorizationURL(redirectURI, pkceCodes.CodeChallenge, state))
+		manualInputCh, manualInputErrCh := misc.AsyncPrompt(opts.Prompt, "Paste the Devin callback URL or authorization code: ")
 		var authCode string
-		var rawPastedToken string
-
-		manualInputCh, manualInputErrCh := misc.AsyncPrompt(opts.Prompt, promptMsg)
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case errInput := <-manualInputErrCh:
 			return nil, fmt.Errorf("failed to read devin input: %w", errInput)
 		case input := <-manualInputCh:
-			var errPaste error
-			authCode, rawPastedToken, errPaste = parseDevinManualPaste(input, state)
+			code, errPaste := parseDevinManualPaste(input, state)
 			if errPaste != nil {
 				return nil, errPaste
 			}
-			if authCode == "" && rawPastedToken == "" {
+			if code == "" {
 				return nil, fmt.Errorf("devin authentication canceled: empty input received")
 			}
+			authCode = code
 		}
-
-		var sessionToken string
-		if rawPastedToken != "" {
-			sessionToken = devinauth.FormatSessionToken(rawPastedToken)
-		} else if authCode != "" {
-			token, errExchange := authSvc.ExchangeCodeForToken(ctx, authCode, pkceCodes.CodeVerifier)
-			if errExchange != nil {
-				return nil, fmt.Errorf("failed to exchange devin authorization code: %w", errExchange)
-			}
-			sessionToken = devinauth.FormatSessionToken(token)
-		} else {
-			return nil, fmt.Errorf("no authorization code or token received")
-		}
-
-		return authSvc.CreateAuthRecord(ctx, sessionToken)
+		return a.complete(ctx, authSvc, authCode, pkceCodes.CodeVerifier)
 	}
 
-	callbackPort := a.CallbackPort
-	if opts.CallbackPort > 0 {
-		callbackPort = opts.CallbackPort
-	}
-
-	oauthServer := devinauth.NewOAuthServer(callbackPort)
+	oauthServer := devinauth.NewOAuthServer(port)
 	actualPort, errStart := oauthServer.Start()
+	if errStart != nil && opts.CallbackPort <= 0 {
+		// The rule allows another free port when the preferred one is taken.
+		oauthServer = devinauth.NewOAuthServer(0)
+		actualPort, errStart = oauthServer.Start()
+	}
 	if errStart != nil {
 		return nil, fmt.Errorf("failed to start devin oauth callback server: %w", errStart)
 	}
@@ -146,7 +134,6 @@ func (a *DevinAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 
 	callbackCh := make(chan *devinauth.OAuthResult, 1)
 	callbackErrCh := make(chan error, 1)
-
 	go func() {
 		result, errWait := oauthServer.WaitForCallbackWithContext(ctx, 5*time.Minute)
 		if errWait != nil {
@@ -162,143 +149,113 @@ func (a *DevinAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 		}
 	}()
 
-	var manualPromptTimer *time.Timer
 	var manualPromptC <-chan time.Time
 	if opts.Prompt != nil {
-		manualPromptTimer = time.NewTimer(5 * time.Second)
+		manualPromptTimer := time.NewTimer(5 * time.Second)
 		manualPromptC = manualPromptTimer.C
 		defer manualPromptTimer.Stop()
 	}
-
 	var manualInputCh <-chan string
 	var manualInputErrCh <-chan error
-	var authCode string
-	var rawPastedToken string
+	callbackCode := func(res *devinauth.OAuthResult) (string, error) {
+		if res.Error != "" {
+			return "", fmt.Errorf("devin oauth error: %s", res.Error)
+		}
+		if res.State != state {
+			return "", fmt.Errorf("devin oauth state mismatch (possible CSRF)")
+		}
+		return res.Code, nil
+	}
 
-waitForResult:
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 
 		case res := <-callbackCh:
-			if res.Error != "" {
-				return nil, fmt.Errorf("devin oauth error: %s", res.Error)
+			code, errCallback := callbackCode(res)
+			if errCallback != nil {
+				return nil, errCallback
 			}
-			if state != "" && res.State != state {
-				return nil, fmt.Errorf("devin oauth state mismatch (possible CSRF)")
-			}
-			authCode = res.Code
-			break waitForResult
+			return a.complete(ctx, authSvc, code, pkceCodes.CodeVerifier)
 
 		case errWait := <-callbackErrCh:
-			if authCode != "" || rawPastedToken != "" {
-				break waitForResult
-			}
 			return nil, fmt.Errorf("devin oauth callback failed: %w", errWait)
 
 		case <-manualPromptC:
 			manualPromptC = nil
-			if manualPromptTimer != nil {
-				manualPromptTimer.Stop()
-			}
 			select {
 			case res := <-callbackCh:
-				if res.Error != "" {
-					return nil, fmt.Errorf("devin oauth error: %s", res.Error)
+				code, errCallback := callbackCode(res)
+				if errCallback != nil {
+					return nil, errCallback
 				}
-				if state != "" && res.State != state {
-					return nil, fmt.Errorf("devin oauth state mismatch (possible CSRF)")
-				}
-				authCode = res.Code
-				break waitForResult
+				return a.complete(ctx, authSvc, code, pkceCodes.CodeVerifier)
 			default:
 			}
 			manualInputCh, manualInputErrCh = misc.AsyncPrompt(
 				opts.Prompt,
-				"Paste the Devin callback URL, authorization code, or session token directly (or press Enter to keep waiting): ",
+				"Paste the Devin callback URL or authorization code (or press Enter to keep waiting): ",
 			)
 
 		case input := <-manualInputCh:
-			manualInputCh = nil
-			manualInputErrCh = nil
-			pastedCode, pastedToken, errPaste := parseDevinManualPaste(input, state)
+			manualInputCh, manualInputErrCh = nil, nil
+			code, errPaste := parseDevinManualPaste(input, state)
 			if errPaste != nil {
 				if errors.Is(errPaste, errDevinUnrecognizedPaste) {
 					continue
 				}
 				return nil, errPaste
 			}
-			if pastedToken != "" {
-				rawPastedToken = pastedToken
-				break waitForResult
-			}
-			if pastedCode != "" {
-				authCode = pastedCode
-				break waitForResult
+			if code != "" {
+				return a.complete(ctx, authSvc, code, pkceCodes.CodeVerifier)
 			}
 
 		case errInput := <-manualInputErrCh:
-			manualInputCh = nil
-			manualInputErrCh = nil
+			manualInputCh, manualInputErrCh = nil, nil
 			if errInput != nil {
 				log.Debugf("manual input prompt error: %v", errInput)
 			}
 		}
 	}
-
-	var sessionToken string
-	if rawPastedToken != "" {
-		sessionToken = devinauth.FormatSessionToken(rawPastedToken)
-	} else if authCode != "" {
-		token, errExchange := authSvc.ExchangeCodeForToken(ctx, authCode, pkceCodes.CodeVerifier)
-		if errExchange != nil {
-			return nil, fmt.Errorf("failed to exchange devin authorization code: %w", errExchange)
-		}
-		sessionToken = devinauth.FormatSessionToken(token)
-	} else {
-		return nil, fmt.Errorf("no authorization code or token received")
-	}
-
-	return authSvc.CreateAuthRecord(ctx, sessionToken)
 }
 
-var errDevinUnrecognizedPaste = errors.New("unrecognized devin authorization code or token format")
+// complete exchanges the code and stores the credential.
+func (a *DevinAuthenticator) complete(ctx context.Context, authSvc *devinauth.DevinAuthService, code, verifier string) (*coreauth.Auth, error) {
+	credential, errExchange := authSvc.ExchangeCodeForToken(ctx, code, verifier)
+	if errExchange != nil {
+		return nil, fmt.Errorf("failed to exchange devin authorization code: %w", errExchange)
+	}
+	return authSvc.CreateAuthRecord(ctx, credential)
+}
 
-// parseDevinManualPaste classifies a pasted authorization code, callback URL, or session token.
-// Empty input returns empty values with a nil error; callers decide whether to abort or keep waiting.
-func parseDevinManualPaste(input, expectedState string) (authCode, rawToken string, err error) {
-	trimmed := strings.TrimSpace(input)
-	trimmed = strings.Trim(trimmed, "\"'")
-	trimmed = strings.TrimSpace(trimmed)
+var errDevinUnrecognizedPaste = errors.New("unrecognized devin callback URL or authorization code")
+
+// parseDevinManualPaste reads a pasted callback URL or bare authorization
+// code. Empty input returns an empty code with a nil error; callers decide
+// whether to abort or keep waiting.
+func parseDevinManualPaste(input, expectedState string) (string, error) {
+	trimmed := strings.TrimSpace(strings.Trim(strings.TrimSpace(input), "\"'"))
 	if trimmed == "" {
-		return "", "", nil
+		return "", nil
 	}
-
-	// Direct manual session token paste (supports Devin --force-manual-token-flow).
-	if strings.HasPrefix(trimmed, "devin-session-token$") || strings.HasPrefix(trimmed, "eyJ") {
-		return "", trimmed, nil
-	}
-
 	if parsed, errParse := misc.ParseOAuthCallback(trimmed); errParse == nil && parsed != nil {
 		if errMsg := strings.TrimSpace(parsed.Error); errMsg != "" {
 			if desc := strings.TrimSpace(parsed.ErrorDescription); desc != "" {
 				errMsg = fmt.Sprintf("%s: %s", errMsg, desc)
 			}
-			return "", "", fmt.Errorf("devin oauth error: %s", errMsg)
+			return "", fmt.Errorf("devin oauth error: %s", errMsg)
 		}
 		if parsed.Code != "" {
-			// If state is present in the pasted URL, it must match. PKCE still protects
-			// a code pasted without state.
-			if expectedState != "" && parsed.State != "" && parsed.State != expectedState {
-				return "", "", fmt.Errorf("devin oauth state mismatch (possible CSRF)")
+			// A pasted URL's state must match; PKCE still protects a bare code.
+			if parsed.State != "" && parsed.State != expectedState {
+				return "", fmt.Errorf("devin oauth state mismatch (possible CSRF)")
 			}
-			return parsed.Code, "", nil
+			return parsed.Code, nil
 		}
 	}
-
-	if !strings.ContainsAny(trimmed, " \t\r\n/?#=") {
-		return trimmed, "", nil
+	if !strings.ContainsAny(trimmed, " \t\r\n/?=") {
+		return trimmed, nil
 	}
-	return "", "", errDevinUnrecognizedPaste
+	return "", errDevinUnrecognizedPaste
 }

@@ -9,7 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// DoDevinLogin triggers the OAuth PKCE or headless token flow for Devin / Cognition and saves credentials.
+// DoDevinLogin runs NeoPi's Devin PKCE login (browser callback, or a pasted
+// callback URL or code) and saves the credential.
 func DoDevinLogin(cfg *config.Config, options *LoginOptions) {
 	if options == nil {
 		options = &LoginOptions{}

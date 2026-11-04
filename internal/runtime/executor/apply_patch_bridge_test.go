@@ -25,7 +25,6 @@ import (
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 const applyPatchTestInput = "*** Begin Patch\n*** Add File: a.txt\n+hello\n*** End Patch\n"
@@ -70,8 +69,6 @@ func applyPatchTestFrames(protocol, name string) (string, string) {
 		first := fmt.Sprintf("data: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\"}}\n\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"a1\",\"call_id\":\"c1\",\"name\":%q,\"arguments\":\"\"}}\n\ndata: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"item_id\":\"a1\",\"delta\":%q}\n\n", name, applyPatchTestPartial)
 		last := fmt.Sprintf("data: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"item_id\":\"a1\",\"delta\":%q}\n\ndata: {\"type\":\"response.function_call_arguments.done\",\"output_index\":0,\"item_id\":\"a1\",\"arguments\":%q}\n\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":%s}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"r1\",\"status\":\"completed\",\"output\":[%s]}}\n\n", applyPatchTestRemainder, args, item, item)
 		return first, last
-	case "devin":
-		return string(task6DevinFrames(applyPatchTestPartial, false, "", name)), string(task6DevinFrames(applyPatchTestRemainder, false, `{}`, name))
 	case "gemini", "antigravity":
 		first := `{"responseId":"r1","candidates":[{"content":{"parts":[{"text":"preparing"}]}}]}`
 		last := fmt.Sprintf(`{"responseId":"r1","candidates":[{"content":{"parts":[{"functionCall":{"name":%q,"args":%s}}]},"finishReason":"STOP"}]}`, name, args)
@@ -102,12 +99,6 @@ func applyPatchTestDeclaration(t *testing.T, protocol string, body []byte) {
 	case "antigravity":
 		tool = gjson.GetBytes(body, "request.tools.0.functionDeclarations.0")
 		parameters = "parameters"
-	case "devin":
-		if len(body) < 5 {
-			t.Fatal("missing Connect envelope")
-		}
-		wire := applyPatchTestWireField(body[5:], 10)
-		tool = gjson.Parse(fmt.Sprintf(`{"name":%q,"description":%q,"parameters":%s}`, applyPatchTestWireField(wire, 1), applyPatchTestWireField(wire, 2), applyPatchTestWireField(wire, 3)))
 	default:
 		tool = gjson.GetBytes(body, "tools.0")
 		if protocol == "claude" {
@@ -131,33 +122,6 @@ func applyPatchTestDeclaration(t *testing.T, protocol string, body []byte) {
 	} else if !tool.Get(parameters+".additionalProperties").Exists() || tool.Get(parameters+".additionalProperties").Bool() {
 		t.Fatalf("schema permits extra properties: %s", tool.Raw)
 	}
-}
-
-func applyPatchTestWireField(data []byte, target protowire.Number) []byte {
-	for len(data) > 0 {
-		number, kind, n := protowire.ConsumeTag(data)
-		if n < 0 {
-			return nil
-		}
-		data = data[n:]
-		if kind == protowire.BytesType {
-			value, m := protowire.ConsumeBytes(data)
-			if m < 0 {
-				return nil
-			}
-			if number == target {
-				return value
-			}
-			data = data[m:]
-		} else {
-			m := protowire.ConsumeFieldValue(number, kind, data)
-			if m < 0 {
-				return nil
-			}
-			data = data[m:]
-		}
-	}
-	return nil
 }
 
 // Use a real downstream socket, not ResponseRecorder, to prove flush reaches a client.
@@ -193,7 +157,7 @@ func TestApplyPatchBridgeLiveHTTPPreviewMatrix(t *testing.T) {
 		snapshot           bool
 	}{
 		{"custom-compat", "chat", false}, {"claude", "claude", false}, {"claude-oauth", "claude", false},
-		{"gemini-interactions", "interactions", false}, {"devin", "devin", false},
+		{"gemini-interactions", "interactions", false},
 		{"xai", "responses", false}, {"meta", "responses", false},
 		{"gemini", "gemini", true}, {"vertex", "gemini", true}, {"antigravity", "antigravity", true},
 	} {
@@ -231,8 +195,6 @@ func TestApplyPatchBridgeLiveHTTPPreviewMatrix(t *testing.T) {
 			exec := task6Executor(tc.provider)
 			if tc.protocol == "responses" {
 				exec = task6RepairExecutor(tc.provider)
-			} else if tc.provider == "devin" {
-				exec = NewDevinExecutor(&config.Config{})
 			}
 			auth := &cliproxyauth.Auth{ID: t.Name(), Provider: exec.Identifier(), Attributes: map[string]string{"api_key": "test", "base_url": upstream.URL}}
 			if tc.provider == "claude-oauth" {

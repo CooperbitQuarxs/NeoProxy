@@ -64,6 +64,7 @@ func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...boo
 		removeRemovedIntegrationKeys(original.Content[0])
 		removeLegacyGenerativeLanguageKeys(original.Content[0])
 		removeRetiredCodexHeaderDefaults(original.Content[0])
+		removeRetiredDevinKeys(original.Content[0])
 	}
 	removeLegacyOpenAICompatAPIKeys(original.Content[0])
 
@@ -949,6 +950,20 @@ func removeRetiredCodexHeaderDefaults(root *yaml.Node) {
 		return
 	}
 	removeMapKey(root, "codex-header-defaults")
+}
+
+// removeRetiredDevinKeys drops the Devin settings the NeoPi port retired:
+// models.devin-catalog (an account's roster now comes from its own discovery)
+// and the devin block's sensitive-words (requests are sent as NeoPi sends
+// them). v8 migration comments them out instead (unknown-field handling).
+func removeRetiredDevinKeys(root *yaml.Node) {
+	if root == nil || root.Kind != yaml.MappingNode {
+		return
+	}
+	removeMapKey(root, "devin")
+	if index := findMapKeyIndex(root, "models"); index >= 0 {
+		removeMapKey(root.Content[index+1], "devin-catalog")
+	}
 }
 
 func removeLegacyAuthBlock(root *yaml.Node) {

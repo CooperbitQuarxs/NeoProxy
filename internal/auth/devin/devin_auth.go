@@ -3,10 +3,12 @@ package devin
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,30 +16,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/devinwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/oauthpage"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
 
+// NeoPi's `auth "devin"` rule: an oauth-code login with PKCE and a uuid state
+// against app.devin.ai, a JSON code exchange at api.devin.ai, and no refresh
+// grant.
 const (
-	// DefaultAppBaseURL is the user-facing web app for Devin OAuth.
+	// DefaultAppBaseURL hosts the authorize page.
 	DefaultAppBaseURL = "https://app.devin.ai"
-	// DefaultAPIBaseURL is the API backend for token exchange and user status.
+	// DefaultAPIBaseURL hosts the token exchange.
 	DefaultAPIBaseURL = "https://api.devin.ai"
-	// DefaultServerURL is the upstream Codeium/Devin reasoning backend.
-	DefaultServerURL = "https://server.codeium.com"
-
-	devinTokenPrefix = "devin-session-token$"
+	// DefaultServerURL is the Cascade backend serving seat management.
+	DefaultServerURL = devinwire.DefaultBaseURL
+	// CallbackPort is the loopback port the rule prefers; another free port
+	// serves when it is taken.
+	CallbackPort = 59653
+	// expirySkew and expiryFallback are the rule's `expires "jwt"` projection.
+	expirySkew     = 5 * time.Minute
+	expiryFallback = 365 * 24 * time.Hour
 )
 
-// DevinTokenBundle holds the completed authentication result.
-type DevinTokenBundle struct {
-	SessionToken string `json:"session_token"`
-	RawToken     string `json:"raw_token"`
-	UserName     string `json:"user_name,omitempty"`
-	UserID       string `json:"user_id,omitempty"`
-	OrgID        string `json:"org_id,omitempty"`
-	BaseURL      string `json:"base_url,omitempty"`
+// Credential is NeoPi's projected Devin credential: the session token and
+// when it expires.
+type Credential struct {
+	Access  string
+	Expires time.Time
 }
 
 // DevinAuthService coordinates Devin PKCE authorization and token exchange.
@@ -46,6 +54,7 @@ type DevinAuthService struct {
 	appBaseURL    string
 	apiBaseURL    string
 	serverBaseURL string
+	now           func() time.Time
 }
 
 // NewDevinAuthService creates a new Devin authentication service instance.
@@ -58,17 +67,18 @@ func NewDevinAuthService(client *http.Client) *DevinAuthService {
 		appBaseURL:    DefaultAppBaseURL,
 		apiBaseURL:    DefaultAPIBaseURL,
 		serverBaseURL: DefaultServerURL,
+		now:           time.Now,
 	}
 }
 
-// SetServerBaseURL overrides the upstream reasoning/seat management base URL (used in tests).
+// SetServerBaseURL overrides the seat management base URL (used in tests).
 func (s *DevinAuthService) SetServerBaseURL(url string) {
 	if s != nil && strings.TrimSpace(url) != "" {
 		s.serverBaseURL = strings.TrimRight(strings.TrimSpace(url), "/")
 	}
 }
 
-// SetAPIBaseURL overrides the token exchange and profile API base URL (used in tests).
+// SetAPIBaseURL overrides the token exchange base URL (used in tests).
 func (s *DevinAuthService) SetAPIBaseURL(url string) {
 	if s != nil && strings.TrimSpace(url) != "" {
 		s.apiBaseURL = strings.TrimRight(strings.TrimSpace(url), "/")
@@ -82,116 +92,101 @@ func (s *DevinAuthService) SetAppBaseURL(url string) {
 	}
 }
 
-// BuildAuthorizationURL constructs the PKCE login URL. When redirectURI is empty,
-// it generates a headless manual code URL (with cli_pkce_marker=1) matching the exact
-// query parameter ordering of the official Devin CLI binary.
+// BuildAuthorizationURL is the rule's authorize URL: the standard PKCE
+// parameters in NeoPi's order, then prompt=select_account.
 func (s *DevinAuthService) BuildAuthorizationURL(redirectURI, codeChallenge, state string) string {
-	trimmedRedirect := strings.TrimSpace(redirectURI)
-	var queryParts []string
-	if trimmedRedirect != "" {
-		queryParts = append(queryParts, "redirect_uri="+url.QueryEscape(trimmedRedirect))
+	parts := []string{
+		"response_type=code",
+		"redirect_uri=" + url.QueryEscape(redirectURI),
+		"code_challenge=" + url.QueryEscape(codeChallenge),
+		"code_challenge_method=S256",
 	}
 	if state != "" {
-		queryParts = append(queryParts, "state="+url.QueryEscape(state))
+		parts = append(parts, "state="+url.QueryEscape(state))
 	}
-	queryParts = append(queryParts,
-		"prompt=select_account",
-		"code_challenge="+url.QueryEscape(codeChallenge),
-		"code_challenge_method=S256",
-	)
-	if trimmedRedirect == "" {
-		queryParts = append(queryParts, "cli_pkce_marker=1")
-	}
-	return fmt.Sprintf("%s/auth/cli/continue?%s", strings.TrimRight(s.appBaseURL, "/"), strings.Join(queryParts, "&"))
+	parts = append(parts, "prompt=select_account")
+	return s.appBaseURL + "/auth/cli/continue?" + strings.Join(parts, "&")
 }
 
-// ExchangeCodeForToken exchanges the authorization code for a session token.
-func (s *DevinAuthService) ExchangeCodeForToken(ctx context.Context, code, codeVerifier string) (string, error) {
-	reqBody := map[string]string{
-		"code":          strings.TrimSpace(code),
-		"code_verifier": strings.TrimSpace(codeVerifier),
+// ExchangeCodeForToken posts the code and verifier as JSON and projects the
+// response's token into a credential. A code echoed as `code#state` is
+// exchanged without its fragment.
+func (s *DevinAuthService) ExchangeCodeForToken(ctx context.Context, code, codeVerifier string) (Credential, error) {
+	if cut := strings.IndexByte(code, '#'); cut >= 0 {
+		code = code[:cut]
 	}
-	jsonBody, errMarshal := json.Marshal(reqBody)
+	body, errMarshal := json.Marshal(struct {
+		Code         string `json:"code"`
+		CodeVerifier string `json:"code_verifier"`
+	}{code, codeVerifier})
 	if errMarshal != nil {
-		return "", errMarshal
+		return Credential{}, errMarshal
 	}
-
-	endpoint := fmt.Sprintf("%s/auth/cli/token", strings.TrimRight(s.apiBaseURL, "/"))
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	req, errReq := http.NewRequestWithContext(ctx, http.MethodPost, s.apiBaseURL+"/auth/cli/token", bytes.NewReader(body))
 	if errReq != nil {
-		return "", errReq
+		return Credential{}, errReq
 	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
+	req.Header.Set("User-Agent", devinwire.BunUserAgent)
 	resp, errDo := s.client.Do(req)
 	if errDo != nil {
-		return "", fmt.Errorf("devin token exchange failed: %w", errDo)
+		return Credential{}, fmt.Errorf("devin request to %s failed: %w", req.URL, errDo)
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	respBytes, errRead := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	defer func() { _ = resp.Body.Close() }()
+	decoded, errDecode := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
+	if errDecode != nil {
+		return Credential{}, fmt.Errorf("devin token exchange: %w", errDecode)
+	}
+	defer func() { _ = decoded.Close() }()
+	text, errRead := io.ReadAll(io.LimitReader(decoded, 1<<20))
 	if errRead != nil {
-		return "", fmt.Errorf("read token exchange response: %w", errRead)
+		return Credential{}, fmt.Errorf("devin token exchange: %w", errRead)
 	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("token exchange failed with status %d: %s", resp.StatusCode, string(respBytes))
+		return Credential{}, fmt.Errorf("devin token exchange failed: %d %s", resp.StatusCode, excerpt(string(text)))
 	}
-
-	token := strings.TrimSpace(gjson.GetBytes(respBytes, "token").String())
-	if token == "" {
-		return "", fmt.Errorf("response did not contain a valid token: %s", string(respBytes))
+	access := ""
+	if token := gjson.GetBytes(text, "token"); gjson.ValidBytes(text) {
+		switch token.Type {
+		case gjson.String:
+			access = token.Str
+		case gjson.Number:
+			if !math.IsInf(token.Num, 0) && !math.IsNaN(token.Num) {
+				access = token.Raw
+			}
+		}
 	}
-
-	return token, nil
+	if access == "" {
+		shown := string(text)
+		var compact bytes.Buffer
+		if json.Compact(&compact, text) == nil {
+			shown = compact.String()
+		}
+		return Credential{}, fmt.Errorf("devin token response missing access token: %s", excerpt(shown))
+	}
+	return Credential{Access: access, Expires: s.credentialExpiry(access)}, nil
 }
 
-// FetchSelfProfile retrieves the authenticated user's profile from api.devin.ai/v3/self.
-func (s *DevinAuthService) FetchSelfProfile(ctx context.Context, sessionToken string) (userName, userID, orgID string, err error) {
-	endpoint := fmt.Sprintf("%s/v3/self", strings.TrimRight(s.apiBaseURL, "/"))
-	req, errReq := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if errReq != nil {
-		return "", "", "", errReq
+// credentialExpiry is the JWT's exp less the skew, else a year from now.
+func (s *DevinAuthService) credentialExpiry(access string) time.Time {
+	if parts := strings.Split(access, "."); len(parts) == 3 && parts[1] != "" {
+		if payload, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[1], "=")); err == nil {
+			if exp := gjson.GetBytes(payload, "exp"); gjson.ValidBytes(payload) && exp.Type == gjson.Number {
+				return time.UnixMilli(int64(exp.Num * 1000)).Add(-expirySkew)
+			}
+		}
 	}
-	req.Header.Set("Authorization", "Bearer "+sessionToken)
-	req.Header.Set("Accept", "application/json")
-
-	resp, errDo := s.client.Do(req)
-	if errDo != nil {
-		return "", "", "", errDo
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	respBytes, errRead := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if errRead != nil {
-		return "", "", "", errRead
-	}
-
-	if resp.StatusCode == http.StatusOK {
-		root := gjson.ParseBytes(respBytes)
-		userName = root.Get("user_name").String()
-		userID = root.Get("user_id").String()
-		orgID = root.Get("org_id").String()
-	}
-
-	return userName, userID, orgID, nil
+	return s.now().Add(expiryFallback)
 }
 
-// FormatSessionToken ensures the token carries the mandatory devin-session-token$ prefix.
-func FormatSessionToken(rawToken string) string {
-	t := strings.TrimSpace(rawToken)
-	if strings.HasPrefix(t, devinTokenPrefix) {
-		return t
+func excerpt(text string) string {
+	if len(text) > 500 {
+		return text[:500]
 	}
-	if strings.HasPrefix(t, "eyJ") {
-		return devinTokenPrefix + t
-	}
-	return t
+	return text
 }
 
 // OAuthServer handles local loopback HTTP callbacks for Devin authentication.
