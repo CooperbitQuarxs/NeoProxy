@@ -25,6 +25,20 @@ type AccountKey struct {
 	CompatName          string
 	Models              []string
 	RequestScopedErrors []internalconfig.RequestScopedErrorRule
+	// Dialect, SessionHeader and ModelRoutes configure an openai-compatibility
+	// entry whose models speak different upstream APIs (see
+	// config.OpenAICompatibility). ModelRoutes is keyed by upstream model name.
+	Dialect       string
+	SessionHeader string
+	ModelRoutes   map[string]AccountModelRoute
+	// Headers are static request headers for a new openai-compatibility entry.
+	Headers map[string]string
+}
+
+// AccountModelRoute is one model's upstream API and optional base URL.
+type AccountModelRoute struct {
+	Dialect string
+	BaseURL string
 }
 
 type accountLoginOwnerKey struct{}

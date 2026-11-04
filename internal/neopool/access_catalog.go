@@ -65,6 +65,22 @@ type ProviderInfo struct {
 	// upstreamErrors seeds that openai-compatibility entry's error
 	// classification with provider quirks.
 	upstreamErrors []config.RequestScopedErrorRule
+	// dialect is the upstream API of every model (chat-completions when empty);
+	// Responses-only gateways set "responses".
+	dialect string
+	// dialectRules route models whose model-list entry does not advertise its
+	// API, by id prefix; the first match wins and unmatched ids stay on dialect.
+	dialectRules []dialectRule
+	// sessionHeader is the request header that must carry a session id.
+	sessionHeader string
+	// headers are static request headers for the provider's entry.
+	headers map[string]string
+}
+
+// dialectRule routes model ids starting with prefix to dialect.
+type dialectRule struct {
+	prefix  string
+	dialect string
 }
 
 const providerChroma = 0.13
@@ -94,6 +110,23 @@ const (
 	defaultSubscriptionUSD = 20
 	defaultAPIKeyUSD       = 20
 )
+
+// OpenCode's model lists name each model's API (chat-completions, responses,
+// messages, generate-content) and its base URL. These family rules only cover
+// ids listed without that metadata. Every OpenCode inference request must carry
+// x-opencode-session, or the gateway answers 400 MissingSessionID.
+var openCodeDialectRules = []dialectRule{
+	{"claude-", "messages"},
+	{"gpt-", "responses"},
+	{"grok-", "responses"},
+	{"muse-", "responses"},
+}
+
+const openCodeSessionHeader = "x-opencode-session"
+
+// openCodeHeaders replace the engine's default OpenAI-compatible User-Agent,
+// which opencode.ai's Cloudflare front rejects (error 1010, HTTP 403).
+var openCodeHeaders = map[string]string{"User-Agent": "NeoProxy"}
 
 func openAIKey(base, hint, getKey string) *ProviderAPIKey {
 	return &ProviderAPIKey{Style: "openai", BaseURL: base, KeyHint: hint, GetKeyURL: getKey}
@@ -178,6 +211,20 @@ var providerCatalog = []ProviderInfo{
 		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
 		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
 		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
+	{ID: "opencode-zen", Name: "OpenCode Zen", Vendor: "OpenCode", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
+		APIKey:       openAIKey("https://opencode.ai/zen/v1", "oc_... (OpenCode Zen key)", "https://opencode.ai/auth"),
+		Plans:        []ProviderPlan{},
+		dialectRules: openCodeDialectRules, sessionHeader: openCodeSessionHeader, headers: openCodeHeaders},
+	{ID: "sakana", Name: "Sakana AI", Vendor: "Sakana AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.sakana.ai/v1", "fish_...", "https://console.sakana.ai/api-keys"), Plans: []ProviderPlan{},
+		dialect: "responses"},
+	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.abliteration.ai/v1", "ak_...", "https://abliteration.ai/console"), Plans: []ProviderPlan{},
+		dialect: "responses"},
 	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://router.huggingface.co/v1", "hf_...", "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained"), Plans: []ProviderPlan{}},
 	// NVIDIA's free catalogue keeps listing models an account cannot call

@@ -57,11 +57,11 @@ var apiKeyRoutes = map[string]route{
 	"vercel-ai-gateway":  {target: "vercel-ai-gateway"},
 	"nous-portal":        {target: "nous-portal"},
 	"marineris":          {target: "marineris"},
-	"opencode-go":        {reason: "OpenCode Go routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
-	"opencode-zen":       {reason: "OpenCode Zen routes some models through Anthropic or Gemini dialects, which a single OpenAI-compatible entry cannot reproduce."},
+	"opencode-go":        {target: "opencode-go"},
+	"opencode-zen":       {target: "opencode-zen"},
 	"alibaba-token-plan": {target: "alibaba-token-plan"},
-	"sakana":             {reason: "Sakana is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
-	"abliteration":       {reason: "Abliteration is served through the OpenAI Responses API only; NeoProxy's OpenAI-compatible entries use chat completions."},
+	"sakana":             {target: "sakana"},
+	"abliteration":       {target: "abliteration"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.

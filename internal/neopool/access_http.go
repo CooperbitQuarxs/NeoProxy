@@ -424,13 +424,15 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	} else {
 		preferred = req.BaseURL
 	}
-	base, models, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)
+	base, models, routes, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)
 	if err != nil {
 		return AccessItem{}, err
 	}
 	spec := coreauth.AccountKey{Provider: info.engine, APIKey: key}
 	if info.engine == "" {
-		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models, RequestScopedErrors: info.upstreamErrors}
+		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models,
+			Dialect: info.dialect, SessionHeader: info.sessionHeader, ModelRoutes: accountModelRoutes(routes),
+			RequestScopedErrors: info.upstreamErrors, Headers: info.headers}
 	}
 	record, err := h.management.CreateAccountAPIKey(coreauth.WithAccountLoginOwner(ctx, p.UserID), spec)
 	if err != nil {

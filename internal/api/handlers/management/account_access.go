@@ -65,11 +65,11 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 		name := strings.TrimSpace(k.CompatName)
 		base := strings.TrimRight(strings.TrimSpace(k.BaseURL), "/")
 		parsed, errURL := url.Parse(base)
-		if !compatNamePattern.MatchString(name) || errURL != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil {
+		if !compatNamePattern.MatchString(name) || errURL != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || !validCompatRoutes(parsed, k) {
 			h.mu.Unlock()
 			return nil, coreauth.ErrAccountKeyInvalid
 		}
-		if err = appendCompatKey(next, name, base, key, k.Models, k.RequestScopedErrors); err != nil {
+		if err = appendCompatKey(next, name, base, key, k); err != nil {
 			h.mu.Unlock()
 			return nil, err
 		}
@@ -113,41 +113,82 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 
 // appendCompatKey adds key to the openai-compatibility entry named name, creating
 // it when absent. An existing entry with a different base URL is a conflict: one
-// name maps to exactly one upstream. Models are merged by upstream name; rules
-// seed an entry's error classification unless an operator already set some.
-func appendCompatKey(cfg *config.Config, name, base, key string, models []string, rules []config.RequestScopedErrorRule) error {
+// name maps to exactly one upstream. Models are merged by upstream name, and the
+// newest model list's dialect routes replace older ones. Request-scoped error
+// rules seed an entry's error classification unless an operator already set some.
+func appendCompatKey(cfg *config.Config, name, base, key string, k coreauth.AccountKey) error {
+	var entry *config.OpenAICompatibility
 	for i := range cfg.OpenAICompatibility {
-		entry := &cfg.OpenAICompatibility[i]
-		if !strings.EqualFold(strings.TrimSpace(entry.Name), name) {
+		if !strings.EqualFold(strings.TrimSpace(cfg.OpenAICompatibility[i].Name), name) {
 			continue
 		}
+		entry = &cfg.OpenAICompatibility[i]
 		if strings.TrimRight(strings.TrimSpace(entry.BaseURL), "/") != base || key == "" || len(entry.APIKeyEntries) == 0 {
 			return fmt.Errorf("%w: openai-compatibility entry %q already exists", coreauth.ErrAccountKeyConflict, name)
 		}
 		entry.APIKeyEntries = append(entry.APIKeyEntries, config.OpenAICompatibilityAPIKey{APIKey: key})
-		if len(entry.RequestScopedErrors) == 0 && len(rules) > 0 {
-			entry.RequestScopedErrors = slices.Clone(rules)
+		break
+	}
+	if entry == nil {
+		cfg.OpenAICompatibility = append(cfg.OpenAICompatibility, config.OpenAICompatibility{Name: name, BaseURL: base, Models: []config.OpenAICompatibilityModel{}})
+		entry = &cfg.OpenAICompatibility[len(cfg.OpenAICompatibility)-1]
+		if key != "" {
+			entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key}}
 		}
-		for _, model := range models {
-			model = strings.TrimSpace(model)
-			if model == "" || slices.ContainsFunc(entry.Models, func(m config.OpenAICompatibilityModel) bool { return m.Name == model }) {
-				continue
+	}
+	if len(entry.RequestScopedErrors) == 0 && len(k.RequestScopedErrors) > 0 {
+		entry.RequestScopedErrors = slices.Clone(k.RequestScopedErrors)
+	}
+	if dialect := strings.TrimSpace(k.Dialect); dialect != "" {
+		entry.Dialect = config.NormalizeDialect(dialect)
+	}
+	for name, value := range k.Headers {
+		if _, set := entry.Headers[name]; !set {
+			if entry.Headers == nil {
+				entry.Headers = map[string]string{}
 			}
-			entry.Models = append(entry.Models, config.OpenAICompatibilityModel{Name: model})
-		}
-		return nil
-	}
-	entry := config.OpenAICompatibility{Name: name, BaseURL: base, Models: []config.OpenAICompatibilityModel{}, RequestScopedErrors: slices.Clone(rules)}
-	if key != "" {
-		entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key}}
-	}
-	for _, model := range models {
-		if model = strings.TrimSpace(model); model != "" {
-			entry.Models = append(entry.Models, config.OpenAICompatibilityModel{Name: model})
+			entry.Headers[name] = value
 		}
 	}
-	cfg.OpenAICompatibility = append(cfg.OpenAICompatibility, entry)
+	if header := strings.TrimSpace(k.SessionHeader); header != "" {
+		entry.SessionHeader = header
+	}
+	for _, model := range k.Models {
+		if model = strings.TrimSpace(model); model == "" {
+			continue
+		}
+		at := slices.IndexFunc(entry.Models, func(m config.OpenAICompatibilityModel) bool { return m.Name == model })
+		if at < 0 {
+			entry.Models = append(entry.Models, config.OpenAICompatibilityModel{Name: model})
+			at = len(entry.Models) - 1
+		}
+		if route, ok := k.ModelRoutes[model]; ok {
+			entry.Models[at].Dialect = config.NormalizeDialect(route.Dialect)
+			entry.Models[at].BaseURL = strings.TrimRight(strings.TrimSpace(route.BaseURL), "/")
+		}
+	}
 	return nil
+}
+
+// validCompatRoutes accepts only known dialects and model base URLs on the
+// entry's own scheme and host, so a model list cannot redirect the key.
+func validCompatRoutes(base *url.URL, k coreauth.AccountKey) bool {
+	if strings.TrimSpace(k.Dialect) != "" && config.NormalizeDialect(k.Dialect) == "" {
+		return false
+	}
+	for _, route := range k.ModelRoutes {
+		if config.NormalizeDialect(route.Dialect) == "" {
+			return false
+		}
+		if strings.TrimSpace(route.BaseURL) == "" {
+			continue
+		}
+		parsed, err := url.Parse(strings.TrimSpace(route.BaseURL))
+		if err != nil || !strings.EqualFold(parsed.Scheme, base.Scheme) || !strings.EqualFold(parsed.Host, base.Host) || parsed.User != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // configCredential locates the configuration entry that synthesized authID in
