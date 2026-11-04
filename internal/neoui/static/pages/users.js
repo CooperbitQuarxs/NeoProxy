@@ -27,9 +27,9 @@ const pct = (x) => `${+(x * 100).toFixed(1)}%`;
 export function allotmentSentence({ who, them = "them", allotment, vm }) {
 	const stage = vm?.stages?.find((s) => s.cap > 0);
 	const example = stage?.cap ?? 0.5;
-	if (allotment >= 1) return h("span", null, who, " may use every stage until ", h("b", null, "100%"), " of its thresholds.");
-	if (allotment <= 0) return h("span", null, who, " may use every stage until ", h("b", null, "0%"), " of each threshold: nothing is available to ", them, ".");
-	return h("span", null, who, " may use every stage until ", h("b", null, pct(allotment)), " of each threshold: a stage set to ", pct(example), " stops at ", pct(example * allotment), " for ", them, ".");
+	if (allotment >= 1) return h("span", null, who, " may use each model up to ", h("b", null, "100%"), " of its usage limits.");
+	if (allotment <= 0) return h("span", null, who, " may use ", h("b", null, "0%"), " of each usage limit: nothing is available to ", them, ".");
+	return h("span", null, who, " may use each model up to ", h("b", null, pct(allotment)), " of its usage limits: a limit of ", pct(example), " stops at ", pct(example * allotment), " for ", them, ".");
 }
 
 // What a key's expiry looks like: quiet when never, plain when future, red once past.
@@ -75,7 +75,7 @@ export function drawableAccounts(user, accounts) {
 
 // Mint a key: label, optional expiry, optional account scope, optional direct
 // models (`models`: the provider models the person may call directly). Calls
-// `onMinted(key)` once minted, then shows the secret once.
+// `onMinted(key, secret)` once minted, then shows the secret once.
 export function mintKeyDialog({ user, accounts = [], providers = [], models = [], onMinted }) {
 	const ownerRole = user.role === "owner";
 	let label = "", expiry = "never", date = "", limited = ownerRole;
@@ -137,7 +137,7 @@ export function mintKeyDialog({ user, accounts = [], providers = [], models = []
 		mList.replaceChildren(
 			...shown.map((m) => h("div", { class: "dm-row", role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id },
 				h("button", { type: "button", class: "dm-check", role: "checkbox", "aria-checked": String(keyModels.has(m.id)), "aria-label": `Allow ${m.display}`, tabindex: "-1", "data-act": "check" }, icon("check", 12)),
-				servedName(m.served))),
+				h("span", { class: "dm-name" }, m.display), servedName(m.served))),
 			list.length > shown.length ? h("div", { class: "dm-more" }, `${shown.length} of ${list.length.toLocaleString()} shown; search to find the rest`) : "",
 			list.length ? "" : h("div", { class: "dm-more" }, "No models match."),
 		);
@@ -190,7 +190,7 @@ export function mintKeyDialog({ user, accounts = [], providers = [], models = []
 				try {
 					const { key, secret } = await neo.createKey(user.id, label.trim() || "unnamed", limited ? [...scope] : undefined, at, narrowModels ? [...keyModels] : undefined);
 					close();
-					onMinted?.(key);
+					onMinted?.(key, secret);
 					revealSecret(key, secret);
 				} catch (e) { err.textContent = e.message; button.disabled = false; }
 			} }),
@@ -407,7 +407,7 @@ async function detail(ctx, id) {
 			grantsHost.append(h("div", { class: "grant" },
 				h("div", { class: "grant-who" },
 					h("div", { class: "cell-main" }, servedName(vm.served, { virtual: true })),
-					h("div", { class: "cell-sub" }, vm.description || plural(vm.stages.length, "stage"), drawn ? ` · drawn so far: ${pct(drawn)} of its busiest meter` : "")),
+					h("div", { class: "cell-sub" }, vm.description || (vm.stages.length > 1 ? `one model + ${plural(vm.stages.length - 1, "fallback")}` : "one model"), drawn ? ` · drawn so far: ${pct(drawn)} of its busiest meter` : "")),
 				h("div", { class: "allot-ctl" }, slider, number, h("span", { class: "ink-3" }, "%")),
 				btn(null, { icon: "x", cls: "icon sm", title: `Remove ${vm.name} from ${user.handle}`, onClick: () => { draft.grants = draft.grants.filter((x) => x !== g); setDirty(); renderGrants(); } }),
 				sentence,
@@ -430,7 +430,7 @@ async function detail(ctx, id) {
 	renderGrants();
 	root.append(card({
 		title: "Virtual models this person may use",
-		sub: "Each virtual model has stages with thresholds: how full an account may get, and when to skip a stage. The allotment scales every threshold in that chain for this person; it is a share of those thresholds, not of the provider's quota.",
+		sub: "The share scales each model's usage limits for this person: at 50%, a model that stops at 60% of an account's quota stops at 30% for them. It is a share of the limits, not of the provider's quota.",
 		flush: true,
 		body: [grantsHost, addHost],
 	}));
@@ -484,6 +484,7 @@ async function detail(ctx, id) {
 	function dmRow(m) {
 		return h("div", { class: `dm-row ${m.exposed ? "" : "off"}`, role: "option", "aria-selected": "false", tabindex: "-1", "data-key": m.id, "aria-label": `${m.display}, ${allowed(m) ? "allowed" : "not allowed"}` },
 			h("button", { type: "button", class: "dm-check", role: "checkbox", "aria-checked": String(allowed(m)), "aria-label": `Allow ${m.display}`, tabindex: "-1", "data-act": "check" }, icon("check", 12)),
+			h("span", { class: "dm-name" }, m.display),
 			servedName(m.served),
 			m.exposed ? null : h("span", { class: "tag warn", title: "Hidden on the Models page: nobody can call it until it is served" }, "hidden"));
 	}
@@ -512,7 +513,9 @@ async function detail(ctx, id) {
 	function renderDirect() {
 		clear(directHost);
 		blocks.clear();
-		for (const p of providers) {
+		// Providers hidden on the Models page cannot be granted; they fold into one line at the end.
+		const hidden = providers.filter((p) => !p.exposed && !draft.providerAccess.includes(p.id));
+		for (const p of providers.filter((x) => !hidden.includes(x))) {
 			const on = draft.providerAccess.includes(p.id);
 			const lab = providerLabel(p).main;
 			const sw = toggle(on, (v) => {
@@ -550,6 +553,13 @@ async function detail(ctx, id) {
 			}
 			directHost.append(row);
 			paintProvider(p.id);
+		}
+		if (hidden.length) {
+			directHost.append(h("details", { class: "direct-hidden" },
+				h("summary", null, `${plural(hidden.length, "provider")} hidden on the Models page`),
+				h("div", { class: "direct-hidden-list" },
+					hidden.map((p) => h("span", { class: "chip" }, providerDot(p, 8), providerLabel(p).main)),
+					h("a", { class: "link-text", href: "#/models" }, "Serve one on the Models page to grant it here"))));
 		}
 		if (!providers.length) directHost.append(h("div", { class: "ink-3" }, "No providers are connected yet."));
 		dms.refresh();

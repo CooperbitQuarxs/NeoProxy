@@ -374,6 +374,13 @@ export async function render() {
 	lastId = page.id;
 }
 
+// A wheel over a focused number field steps its value in Chromium instead of
+// scrolling the page. Blurring it first lets the wheel scroll as everywhere else.
+document.addEventListener("wheel", (e) => {
+	const t = e.target;
+	if (t instanceof HTMLInputElement && t.type === "number" && t === document.activeElement) t.blur();
+}, { passive: true, capture: true });
+
 // ---------- keyboard ----------
 let chord = null;
 let chordTimer = 0;

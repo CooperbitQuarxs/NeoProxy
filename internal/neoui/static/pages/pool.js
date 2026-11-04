@@ -17,7 +17,11 @@ const MORE = '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circ
 const accountPath = (id) => `/v8/neo/vault/accounts/${encodeURIComponent(id)}`;
 
 // Survives re-renders so a repaint after any change keeps the person's place.
-const ui = { query: "", filter: "all", collapsed: new Set(), tests: new Map(), pending: new Set() };
+// `collapsed` is the unfiltered layout. A search or the attention filter opens
+// every matching group; groups collapsed while it is active go in `shutFiltered`,
+// which empties whenever the query or filter changes.
+const ui = { query: "", filter: "all", collapsed: new Set(), shutFiltered: new Set(), tests: new Map(), pending: new Set() };
+const shutGroups = () => (ui.query.trim() || ui.filter === "attention" ? ui.shutFiltered : ui.collapsed);
 
 const notYet = (e) => e?.status === 404 && typeof e.body === "string";
 const explain = (e) => (notYet(e) ? "This server doesn't support that yet." : e?.message || String(e));
@@ -87,7 +91,9 @@ export async function render(ctx) {
 	function closeMenu() { closeMenuFn?.(); closeMenuFn = null; }
 	function openMenu(anchor, items) {
 		closeMenu();
-		const menu = h("div", { class: "pool-menu", role: "menu" }, items.map((it) => (it === "-" ? h("div", { class: "pool-menu-sep", role: "separator" }) : h("button", { type: "button", role: "menuitem", class: `pool-menu-item ${it.danger ? "danger" : ""}`, disabled: it.disabled, onClick: () => { closeMenu(); it.onClick(); } }, icon(it.icon, 14), h("span", null, it.label)))));
+		// Focus goes back to the anchor before the item runs, so a dialog it opens
+		// returns focus there on close instead of to the page.
+		const menu = h("div", { class: "pool-menu", role: "menu" }, items.map((it) => (it === "-" ? h("div", { class: "pool-menu-sep", role: "separator" }) : h("button", { type: "button", role: "menuitem", class: `pool-menu-item ${it.danger ? "danger" : ""}`, disabled: it.disabled, onClick: () => { closeMenu(); anchor.focus?.({ preventScroll: true }); it.onClick(); } }, icon(it.icon, 14), h("span", null, it.label)))));
 		document.body.append(menu);
 		const r = anchor.getBoundingClientRect(), w = menu.offsetWidth, ht = menu.offsetHeight;
 		menu.style.left = `${Math.max(8, Math.min(r.right - w, innerWidth - w - 8))}px`;
@@ -209,11 +215,18 @@ export async function render(ctx) {
 		if (!a.meters.length) {
 			return h("span", { class: "pl-meter none", title: "No meter: this account is always available to the stages that use it" }, meterRing(a, { size: 28 }), h("span", { class: "pl-meter-text" }, h("span", { class: "pl-meter-v" }, "No meter"), h("span", { class: "pl-meter-r" }, "always available")));
 		}
-		return h("span", { class: "pl-meters" }, a.meters.map((m) => h("span", { class: "pl-meter", title: `${fmtPct(m.used)} of the ${m.kind} window used (${m.source === "provider" ? "reported by the provider" : "local token meter"})` },
-			meterRing(a, { size: 28, kind: m.kind }),
-			h("span", { class: "pl-meter-text" },
-				h("span", { class: "pl-meter-v" }, h("span", { class: "pl-meter-k" }, KIND_WORD[m.kind]), fmtPct(m.used)),
-				h("span", { class: "pl-meter-r" }, [m.source === "local" ? "local" : null, m.resetsAt ? `resets in ${fmtIn(m.resetsAt)}` : null].filter(Boolean).join(" · "))))));
+		// Each meter is a Tab stop whose attribution (provider-reported or local)
+		// shows on hover and on keyboard focus, not only in a native title.
+		return h("span", { class: "pl-meters" }, a.meters.map((m) => {
+			const ringEl = meterRing(a, { size: 28, kind: m.kind });
+			ringEl.removeAttribute("title");
+			return h("span", { class: "pl-meter", tabindex: "0" },
+				ringEl,
+				h("span", { class: "pl-meter-text" },
+					h("span", { class: "pl-meter-v" }, h("span", { class: "pl-meter-k" }, KIND_WORD[m.kind]), fmtPct(m.used)),
+					h("span", { class: "pl-meter-r" }, [m.source === "local" ? "local" : null, m.resetsAt ? `resets in ${fmtIn(m.resetsAt)}` : null].filter(Boolean).join(" · "))),
+				h("span", { class: "pl-meter-tip" }, `${fmtPct(m.used)} of the ${m.kind} window used, ${m.source === "provider" ? "reported by the provider" : "counted by the local token meter"}`));
+		}));
 	}
 
 	function trafficCell(a) {
@@ -272,12 +285,17 @@ export async function render(ctx) {
 	}
 
 	function providerBlock({ p, accs }) {
-		const forced = ui.query.trim() || ui.filter === "attention";
-		const open = forced || !ui.collapsed.has(p.id);
+		const shut = shutGroups();
+		const open = !shut.has(p.id);
 		const kind = p.kind === "oauth" ? "sign-in" : p.kind === "neopi-gateway" ? "via NeoPi" : "API key";
 		const bad = accs.filter(attention).length;
 		const head = h("div", { class: "pool-prov-head" },
-			h("button", { type: "button", class: "pool-prov-toggle", "aria-expanded": String(open), "aria-label": `${open ? "Collapse" : "Expand"} ${p.name}`, onClick: () => { ui.collapsed.has(p.id) ? ui.collapsed.delete(p.id) : ui.collapsed.add(p.id); paint(); } },
+			h("button", { type: "button", class: "pool-prov-toggle", "data-prov": p.id, "aria-expanded": String(open), "aria-label": `${open ? "Collapse" : "Expand"} ${p.name}`, onClick: () => {
+				shut.has(p.id) ? shut.delete(p.id) : shut.add(p.id);
+				paint();
+				// The repaint replaces this button; keep keyboard focus on its successor.
+				document.querySelector(`.pool-prov-toggle[data-prov="${CSS.escape(p.id)}"]`)?.focus({ preventScroll: true });
+			} },
 				h("span", { class: "pool-chev" }, icon("chevronDown", 14)),
 				(() => { const dot = h("span", { class: "prov-dot" }); hueVars(dot, p); dot.style.width = dot.style.height = "10px"; return dot; })(),
 				h("span", { class: "pool-prov-name" }, p.name),
@@ -432,15 +450,16 @@ export async function render(ctx) {
 
 	const collapseHost = h("span");
 	function buildToolbar() {
-		searchBox = search("Find a provider, email or key", (v) => { ui.query = v; paint(); }, { value: ui.query, "aria-label": "Find in the pool" });
+		searchBox = search("Find a provider, email or key", (v) => { ui.query = v; ui.shutFiltered.clear(); paint(); }, { value: ui.query, "aria-label": "Find in the pool" });
 		segHost = h("span");
 		return h("div", { class: "pool-toolbar" }, searchBox, segHost, h("span", { class: "spacer" }), collapseHost);
 	}
 	function updateToolbar() {
 		const n = accounts().filter(attention).length;
-		replace(segHost, seg([{ value: "all", label: "All" }, { value: "attention", label: n ? `Needs attention (${n})` : "Needs attention" }], ui.filter, (v) => { ui.filter = v; paint(); }));
-		const anyOpen = providers().some((p) => !ui.collapsed.has(p.id));
-		replace(collapseHost, btn(anyOpen ? "Collapse all" : "Expand all", { cls: "outline sm", onClick: () => { if (anyOpen) for (const p of providers()) ui.collapsed.add(p.id); else ui.collapsed.clear(); paint(); } }));
+		replace(segHost, seg([{ value: "all", label: "All" }, { value: "attention", label: n ? `Needs attention (${n})` : "Needs attention" }], ui.filter, (v) => { ui.filter = v; ui.shutFiltered.clear(); paint(); }));
+		const shut = shutGroups();
+		const anyOpen = providers().some((p) => !shut.has(p.id));
+		replace(collapseHost, btn(anyOpen ? "Collapse all" : "Expand all", { cls: "outline sm", onClick: () => { if (anyOpen) for (const p of providers()) shut.add(p.id); else shut.clear(); paint(); } }));
 	}
 
 	function emptyState() {
