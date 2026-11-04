@@ -1,0 +1,664 @@
+{
+  "source": "NeoPi streamAnthropic: client maxRetries=0, provider max retries=10",
+  "now": 1793750400000,
+  "random": 0.5,
+  "cases": [
+    {
+      "name": "http-400",
+      "status": 400,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-401",
+      "status": 401,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-403",
+      "status": 403,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-408",
+      "status": 408,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-409",
+      "status": 409,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-429",
+      "status": 429,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-500",
+      "status": 500,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-529",
+      "status": 529,
+      "headers": {},
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-400-retry-true",
+      "status": 400,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-400-retry-false",
+      "status": 400,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-409-retry-true",
+      "status": 409,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-409-retry-false",
+      "status": 409,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-429-retry-true",
+      "status": 429,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-429-retry-false",
+      "status": 429,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-529-retry-true",
+      "status": 529,
+      "headers": {
+        "x-should-retry": "true"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-529-retry-false",
+      "status": 529,
+      "headers": {
+        "x-should-retry": "false"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-429-seconds",
+      "status": 429,
+      "headers": {
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "http-429-short-hint",
+      "status": 429,
+      "headers": {
+        "retry-after": "0.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-429-over-cap",
+      "status": 429,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "http-529-seconds",
+      "status": 529,
+      "headers": {
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "http-529-short-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "0.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "http-529-over-cap",
+      "status": 529,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "both-hints-use-maximum",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "500",
+        "retry-after": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "fractional-ms-ceiling",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "2000.1"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2001
+      ],
+      "success": true
+    },
+    {
+      "name": "reset-seconds",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset": "2"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "reset-ms",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset-ms": "2000"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "reset-epoch",
+      "status": 529,
+      "headers": {
+        "x-ratelimit-reset": "1793750402"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "date-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "Wed, 04 Nov 2026 00:00:02 GMT"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        2000
+      ],
+      "success": true
+    },
+    {
+      "name": "past-date-hint",
+      "status": 529,
+      "headers": {
+        "retry-after": "Tue, 03 Nov 2026 23:59:58 GMT"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "invalid-numeric-hint",
+      "status": 529,
+      "headers": {
+        "retry-after-ms": "2000ms"
+      },
+      "body": "Transient failure",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "retry-budget",
+      "status": 529,
+      "headers": {},
+      "body": "Overloaded",
+      "failures": 100,
+      "attempts": 11,
+      "waits": [
+        437.5,
+        875,
+        1750,
+        3500,
+        7000,
+        7000,
+        7000,
+        7000,
+        7000,
+        7000
+      ],
+      "success": false
+    },
+    {
+      "name": "account-rate-limit",
+      "status": 429,
+      "headers": {},
+      "body": "This request would exceed your account's rate limit. Please try again later.",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "monthly-spend-limit",
+      "status": 429,
+      "headers": {},
+      "body": "This request would exceed your account's monthly spend limit. Please try again later.",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "usage-limit-code",
+      "status": 429,
+      "headers": {},
+      "body": "{\"type\":\"error\",\"error\":{\"type\":\"usage_limit_reached\",\"message\":\"Limit reached\"}}",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "quota-code",
+      "status": 429,
+      "headers": {},
+      "body": "{\"type\":\"error\",\"error\":{\"type\":\"insufficient_quota\",\"message\":\"Quota exhausted\"}}",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-error-before-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-error-after-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-error-ignores-http-hint",
+      "status": 200,
+      "headers": {
+        "retry-after": "61"
+      },
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-error-after-text-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-error-after-tool-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-error-after-thinking-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-error-after-server-tool-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"server_tool_use\",\"id\":\"tool_1\",\"name\":\"web_search\",\"input\":{}}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-error-after-text",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Partial.\"}}\n\nevent: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-empty-transport",
+      "status": 200,
+      "headers": {},
+      "body": "",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-truncated-after-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-truncated-after-text-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": false
+    },
+    {
+      "name": "sse-block-before-start",
+      "status": 200,
+      "headers": {},
+      "body": "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        437.5
+      ],
+      "success": true
+    },
+    {
+      "name": "sse-malformed-frame-then-valid",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\n\nevent: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Captured.\"}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "empty-completion",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        500
+      ],
+      "success": true
+    },
+    {
+      "name": "empty-completion-budget",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 100,
+      "attempts": 3,
+      "waits": [
+        500,
+        1000
+      ],
+      "success": true
+    },
+    {
+      "name": "empty-completion-with-output",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "empty-max-tokens",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"max_tokens\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    },
+    {
+      "name": "empty-pause-turn",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"pause_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 2,
+      "waits": [
+        500
+      ],
+      "success": true
+    },
+    {
+      "name": "zero-argument-tool",
+      "status": 200,
+      "headers": {},
+      "body": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_retry\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-opus-5-5\",\"content\":[],\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool_1\",\"name\":\"_lookup\",\"input\":{}}}\n\nevent: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+      "failures": 1,
+      "attempts": 1,
+      "waits": [],
+      "success": true
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -34,10 +35,12 @@ type ClaudeNeoPiExecutor struct {
 	cfg     *config.Config
 	refresh singleflight.Group
 	wait    func(context.Context, time.Duration) error
+	now     func() time.Time
+	random  func() float64
 }
 
 func NewClaudeNeoPiExecutor(cfg *config.Config) *ClaudeNeoPiExecutor {
-	return &ClaudeNeoPiExecutor{cfg: cfg, wait: neoPiWait}
+	return &ClaudeNeoPiExecutor{cfg: cfg, wait: neoPiWait, now: time.Now, random: rand.Float64}
 }
 
 func (*ClaudeNeoPiExecutor) Identifier() string { return claudeneopi.Provider }
@@ -213,27 +216,62 @@ func (e *neoPiUpstreamError) RetryAfter() *time.Duration {
 	return nil
 }
 
+// The public stream provider disables the client's retry loop. Its shared
+// Retry-After helper takes the maximum of all hints, rounds up milliseconds,
+// and accepts both relative and epoch reset headers.
 func neoPiRetryAfter(headers http.Header, now time.Time) (time.Duration, bool) {
-	if raw := headers.Get("retry-after-ms"); raw != "" {
-		if value, err := strconv.ParseFloat(raw, 64); err == nil && value >= 0 && !math.IsNaN(value) && !math.IsInf(value, 0) {
-			return time.Duration(value * float64(time.Millisecond)), true
+	var delayMs float64
+	add := func(value float64) {
+		if !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 {
+			delayMs = math.Max(delayMs, math.Ceil(value))
 		}
 	}
-	if raw := headers.Get("retry-after"); raw != "" {
-		if value, err := strconv.ParseFloat(raw, 64); err == nil && value >= 0 && !math.IsNaN(value) && !math.IsInf(value, 0) {
-			return time.Duration(value * float64(time.Second)), true
+	number := func(name string) (float64, bool) {
+		value, err := strconv.ParseFloat(strings.TrimSpace(headers.Get(name)), 64)
+		return value, err == nil && !math.IsNaN(value) && !math.IsInf(value, 0)
+	}
+	if value, ok := number("retry-after-ms"); ok {
+		add(value)
+	}
+	if value, ok := number("retry-after"); ok {
+		add(value * 1000)
+	} else if date, err := http.ParseTime(headers.Get("retry-after")); err == nil {
+		add(float64(date.UnixMilli() - now.UnixMilli()))
+	}
+	for _, name := range []string{"x-ratelimit-reset-ms", "x-ratelimit-reset"} {
+		value, ok := number(name)
+		if !ok || value <= 0 {
+			continue
 		}
-		if date, err := http.ParseTime(raw); err == nil {
-			return max(time.Duration(0), date.Sub(now)), true
+		switch {
+		case value > 1e12:
+			add(value - float64(now.UnixMilli()))
+		case value > 1e9:
+			add(value*1000 - float64(now.UnixMilli()))
+		case name == "x-ratelimit-reset":
+			add(value * 1000)
+		default:
+			add(value)
 		}
 	}
-	return 0, false
+	if delayMs == 0 {
+		return 0, false
+	}
+	if delayMs >= float64(math.MaxInt64)/float64(time.Millisecond) {
+		return time.Duration(math.MaxInt64), true
+	}
+	return time.Duration(delayMs) * time.Millisecond, true
 }
+
+var neoPiAccountLimitPattern = regexp.MustCompile(`(?i)\baccount(?:'s)?\b[^\n]{0,80}\brate.?limit\b|\brate.?limit\b[^\n]{0,80}\baccount\b|spend(?:ing)?[\s_-]?(?:limit|cap)\b`)
 
 func neoPiRetryable(err error) bool {
 	var upstream *neoPiUpstreamError
 	if !errors.As(err, &upstream) {
 		return !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded)
+	}
+	if neoPiAccountLimitPattern.MatchString(upstream.body) {
+		return false
 	}
 	message := strings.ToLower(upstream.body)
 	for _, limit := range []string{"usage_limit_reached", "insufficient_quota", "weekly usage limit", "usage credits are required", "you have reached your", "credit balance is too low"} {
@@ -245,13 +283,15 @@ func neoPiRetryable(err error) bool {
 }
 
 func (e *ClaudeNeoPiExecutor) retry(ctx context.Context, err error, attempt int) error {
-	if attempt >= 10 || !neoPiRetryable(err) {
+	// streamAnthropic passes maxRetries:0 to its client and owns ten retries.
+	// Consequently 409 and x-should-retry do not use the client's dormant policy.
+	if attempt >= 10 || ctx.Err() != nil || !neoPiRetryable(err) {
 		return err
 	}
-	delay := time.Duration(math.Min(.5*math.Pow(2, float64(attempt)), 8) * (1 - rand.Float64()*.25) * float64(time.Second))
+	delay := time.Duration(math.Min(.5*math.Pow(2, float64(attempt)), 8) * (1 - e.random()*.25) * float64(time.Second))
 	var upstream *neoPiUpstreamError
 	if errors.As(err, &upstream) {
-		if hint, ok := neoPiRetryAfter(upstream.headers, time.Now()); ok {
+		if hint, ok := neoPiRetryAfter(upstream.headers, e.now()); ok {
 			if hint > time.Minute {
 				return err
 			}
@@ -261,9 +301,9 @@ func (e *ClaudeNeoPiExecutor) retry(ctx context.Context, err error, attempt int)
 	return e.wait(ctx, delay)
 }
 
-// neoPiStream owns the response and buffers only replay-safe pre-content frames.
-// Once any text/thinking/tool-input delta has arrived the attempt is committed;
-// a later transport error is never silently replayed.
+// neoPiStream buffers pre-output frames for the separate empty-completion
+// policy. Provider-error replay stops at a content-block start, even before
+// its first delta, exactly as NeoPi's inner stream loop does.
 type neoPiStream struct {
 	response *http.Response
 	body     io.ReadCloser
@@ -293,7 +333,7 @@ func neoPiMeaningful(data []byte) bool {
 	return false
 }
 
-func neoPiSSEError(data []byte, headers http.Header) error {
+func neoPiSSEError(data []byte) error {
 	if gjson.GetBytes(data, "type").String() != "error" {
 		return nil
 	}
@@ -307,7 +347,8 @@ func neoPiSSEError(data []byte, headers http.Header) error {
 	case "api_error", "server_error":
 		status = 500
 	}
-	return &neoPiUpstreamError{code: status, body: string(data), headers: headers}
+	// NeoPi's SSE ProviderResponseError does not carry HTTP response headers.
+	return &neoPiUpstreamError{code: status, body: string(data)}
 }
 
 func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, prepared *neoPiPrepared) (*neoPiStream, error) {
@@ -370,25 +411,43 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 		scanner.Buffer(make([]byte, 64<<10), 32<<20)
 		stream := &neoPiStream{response: response, body: body, scanner: scanner}
 		visibleTool := false
+		replayUnsafe := false
+		outputTokens := int64(0)
+		stopReason := ""
 		for scanner.Scan() {
 			data := neoPiSSEData(scanner.Bytes())
 			if len(data) == 0 {
 				continue
 			}
 			if !gjson.ValidBytes(data) {
-				err = errors.New("claude-neopi: malformed SSE JSON before content")
-				break
+				// NeoPi reports and skips malformed frames; an incomplete envelope
+				// is classified after the stream ends rather than replayed here.
+				continue
 			}
-			if eventErr := neoPiSSEError(data, response.Header); eventErr != nil {
+			if eventErr := neoPiSSEError(data); eventErr != nil {
 				err = eventErr
 				break
 			}
 			kind := gjson.GetBytes(data, "type").String()
 			if kind == "message_start" {
 				stream.started = true
+				outputTokens = gjson.GetBytes(data, "message.usage.output_tokens").Int()
+			} else if !stream.started && kind != "ping" {
+				err = errors.New("claude-neopi: content before message_start")
+				break
 			}
-			if kind == "content_block_start" && gjson.GetBytes(data, "content_block.type").String() == "tool_use" {
-				visibleTool = true
+			if kind == "content_block_start" {
+				blockKind := gjson.GetBytes(data, "content_block.type").String()
+				replayUnsafe = replayUnsafe || blockKind != ""
+				visibleTool = visibleTool || blockKind == "tool_use"
+			}
+			if kind == "message_delta" {
+				if value := gjson.GetBytes(data, "delta.stop_reason").String(); value != "" {
+					stopReason = value
+				}
+				if value := gjson.GetBytes(data, "usage.output_tokens"); value.Exists() {
+					outputTokens = value.Int()
+				}
 			}
 			stream.pending = append(stream.pending, bytes.Clone(data))
 			if neoPiMeaningful(data) {
@@ -404,7 +463,7 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 					err = errors.New("claude-neopi: message_stop without message_start")
 					break
 				}
-				if visibleTool || emptyRetries >= 2 {
+				if visibleTool || outputTokens > 1 || (stopReason != "" && stopReason != "end_turn" && stopReason != "stop_sequence" && stopReason != "pause_turn" && stopReason != "compaction") || emptyRetries >= 2 {
 					return stream, nil
 				}
 				break
@@ -424,6 +483,9 @@ func (e *ClaudeNeoPiExecutor) open(ctx context.Context, client *http.Client, pre
 		}
 		if err == nil {
 			err = errors.New("claude-neopi: stream ended before message_stop")
+		}
+		if replayUnsafe {
+			return nil, err
 		}
 		if retryErr := e.retry(ctx, err, attempt); retryErr != nil {
 			return nil, retryErr
@@ -454,9 +516,9 @@ func (s *neoPiStream) consume(emit func([]byte) error) error {
 			continue
 		}
 		if !gjson.ValidBytes(data) {
-			return errors.New("claude-neopi: malformed SSE JSON")
+			continue
 		}
-		if err := neoPiSSEError(data, s.response.Header); err != nil {
+		if err := neoPiSSEError(data); err != nil {
 			return err
 		}
 		if err := emit(data); err != nil {
