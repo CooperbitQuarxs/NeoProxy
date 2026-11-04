@@ -391,6 +391,8 @@ func NormalizeOAuthProvider(provider string) (string, error) {
 		return "antigravity", nil
 	case "xai", "x-ai", "x.ai", "grok":
 		return "xai", nil
+	case "grok-build":
+		return "grok-build", nil
 	case "devin", "cognition":
 		return "devin", nil
 	case "meta", "muse":

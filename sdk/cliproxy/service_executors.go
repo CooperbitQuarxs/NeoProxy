@@ -220,6 +220,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"kimi-ai",
 		"kimi.ai",
 		"xai",
+		"grok-build",
 		"devin",
 		"meta",
 		"openai-compatibility",
@@ -331,6 +332,15 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			}
 		}
 		s.coreManager.RegisterExecutor(executor.NewXAIAutoExecutor(cfg))
+	case executor.GrokBuildProvider:
+		if !forceReplace {
+			if existing, ok := s.coreManager.Executor(executor.GrokBuildProvider); ok {
+				if grokBuild, isXAI := existing.(*executor.XAIExecutor); isXAI && grokBuild.UsesConfig(cfg) {
+					return
+				}
+			}
+		}
+		s.coreManager.RegisterExecutor(executor.NewGrokBuildExecutor(cfg))
 	case "devin":
 		s.coreManager.RegisterExecutor(executor.NewDevinExecutor(cfg))
 	case "meta":

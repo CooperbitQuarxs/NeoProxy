@@ -267,9 +267,10 @@ func TestBuildAPIKey(t *testing.T) {
 }
 
 // Grok Build is NeoPi's mirror of the xai-oauth sign-in: no email, no account
-// id and a sentinel refresh value. It imports as the engine's xai sign-in with
-// the account taken from the token's subject.
-func TestGrokBuildImportsAsXAISignIn(t *testing.T) {
+// id and a sentinel refresh value. It imports as the engine's grok-build
+// provider (same token, Grok CLI chat-proxy) with the account taken from the
+// token's subject.
+func TestGrokBuildImportsAsGrokBuildSignIn(t *testing.T) {
 	access := fakeJWT(t, map[string]any{"sub": "sub-grok-fixture", "exp": time.Now().Add(time.Hour).Unix()})
 	profile, _ := newProfile(t, []fixtureRow{
 		{"grok-build", "oauth", map[string]any{"access": access, "refresh": "__grok-build-shadows-xai-oauth__", "expires": float64(time.Now().Add(time.Hour).UnixMilli())}, ""},
@@ -281,10 +282,10 @@ func TestGrokBuildImportsAsXAISignIn(t *testing.T) {
 	}
 	now := time.Now()
 	live := Describe(creds[0], now)
-	if !live.Importable || live.Kind != KindSubscription || live.NeoProxyProvider == nil || *live.NeoProxyProvider != "xai" {
+	if !live.Importable || live.Kind != KindSubscription || live.NeoProxyProvider == nil || *live.NeoProxyProvider != "grok-build" {
 		t.Fatalf("live grok-build = %+v", live)
 	}
-	if expired := Describe(creds[1], now); expired.Importable || !strings.Contains(expired.Reason, "Import xai-oauth instead") {
+	if expired := Describe(creds[1], now); expired.Importable || !strings.Contains(expired.Reason, "Import xai-oauth") || !strings.Contains(expired.Reason, "sign in to Grok Build") {
 		t.Fatalf("expired grok-build = %+v", expired)
 	}
 	file, err := BuildAuthFile(creds[0], profile, now, now)
@@ -298,11 +299,16 @@ func TestGrokBuildImportsAsXAISignIn(t *testing.T) {
 	if err = json.Unmarshal(file.Data, &meta); err != nil {
 		t.Fatal(err)
 	}
-	if file.Provider != "xai" || meta["type"] != "xai" || meta["auth_kind"] != "oauth" || meta["access_token"] != access || meta["sub"] != "sub-grok-fixture" {
+	if file.Provider != "grok-build" || meta["type"] != "grok-build" || meta["auth_kind"] != "oauth" || meta["access_token"] != access || meta["sub"] != "sub-grok-fixture" {
 		t.Fatalf("grok-build auth file = %s", file.Data)
 	}
 	if meta[coreauth.MetadataRefreshLocked] != true {
 		t.Fatal("grok-build import is not refresh-locked")
+	}
+	cfg := &config.Config{AuthDir: t.TempDir()}
+	auths, err := synthesizer.SynthesizeAuthFile(&synthesizer.SynthesisContext{Config: cfg, AuthDir: cfg.AuthDir, Now: now, IDGenerator: synthesizer.NewStableIDGenerator()}, filepath.Join(cfg.AuthDir, file.FileName), file.Data)
+	if err != nil || len(auths) == 0 || auths[0].Provider != "grok-build" || !coreauth.IsRefreshLocked(auths[0]) {
+		t.Fatalf("engine synthesis = %+v, %v", auths, err)
 	}
 }
 
