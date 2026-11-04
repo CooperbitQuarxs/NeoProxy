@@ -340,3 +340,73 @@ func TestManagerExecute_ModelAliasRequestBlockedWhenTargetModelInQuotaCooldown(t
 		t.Fatalf("cooldown model = %q, want %q", cooldownErr.model, requestModel)
 	}
 }
+
+func TestManagerClearModelCooldown_AliasClearsResolvedTargetOnly(t *testing.T) {
+	const (
+		provider       = "antigravity"
+		aliasModel     = "quota-route"
+		targetModel    = "quota-target"
+		unrelatedModel = "quota-unrelated"
+	)
+
+	manager := NewManager(nil, &RoundRobinSelector{}, nil)
+	manager.SetOAuthModelAlias(map[string][]internalconfig.OAuthModelAlias{
+		provider: {{
+			Name:  targetModel,
+			Alias: aliasModel,
+		}},
+	})
+
+	now := time.Now()
+	next := now.Add(1 * time.Hour)
+	coolingState := func() *ModelState {
+		return &ModelState{
+			Status:         StatusError,
+			Unavailable:    true,
+			NextRetryAfter: next,
+			Quota: QuotaState{
+				Exceeded:      true,
+				Reason:        "quota",
+				NextRecoverAt: next,
+			},
+		}
+	}
+	auth := &Auth{
+		ID:       "antigravity-auth-clear-alias",
+		Provider: provider,
+		Status:   StatusActive,
+		ModelStates: map[string]*ModelState{
+			targetModel:    coolingState(),
+			unrelatedModel: coolingState(),
+		},
+	}
+	updateAggregatedAvailability(auth, now)
+	if _, errRegister := manager.Register(context.Background(), auth); errRegister != nil {
+		t.Fatalf("register auth: %v", errRegister)
+	}
+	t.Cleanup(func() {
+		registry.GetGlobalRegistry().UnregisterClient(auth.ID)
+	})
+
+	if errClear := manager.ClearModelCooldown(context.Background(), auth.ID, aliasModel); errClear != nil {
+		t.Fatalf("ClearModelCooldown(%q) error = %v", aliasModel, errClear)
+	}
+
+	got, ok := manager.GetByID(auth.ID)
+	if !ok || got == nil {
+		t.Fatalf("GetByID(%q) missing", auth.ID)
+	}
+	checkNow := time.Now()
+	if blocked, reason, _ := isAuthBlockedForModel(got, targetModel, checkNow); blocked {
+		t.Fatalf("target %q still blocked (reason %v) after clearing alias %q", targetModel, reason, aliasModel)
+	}
+	if state := got.ModelStates[targetModel]; state == nil || !modelStateIsClean(state) {
+		t.Fatalf("target %q state = %+v, want clean", targetModel, state)
+	}
+	if blocked, _, _ := isAuthBlockedForModel(got, unrelatedModel, checkNow); !blocked {
+		t.Fatalf("unrelated %q no longer blocked after clearing alias %q", unrelatedModel, aliasModel)
+	}
+	if state := got.ModelStates[unrelatedModel]; state == nil || !state.Quota.Exceeded || !state.NextRetryAfter.Equal(next) {
+		t.Fatalf("unrelated %q state = %+v, want quota hold intact", unrelatedModel, state)
+	}
+}
