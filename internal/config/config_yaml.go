@@ -3,22 +3,22 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// SaveConfigPreserveComments writes the config back to YAML while preserving existing comments
+// SaveConfigPreserveComments writes the config back to its file while preserving existing comments
 // and key ordering by loading the original file into a yaml.Node tree and updating values in-place.
+// A TOML file is edited through its YAML view and written back as TOML.
 // Existing v8 documents are saved in the latest layout. Successful migration
 // also synchronizes cfg's OAuth scope for runtime snapshots.
 func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...bool) error {
 	persistCfg := cfg
 	migrating := len(migrateV8) > 0 && migrateV8[0]
 	// Load original YAML as a node tree to preserve comments and ordering.
-	data, err := os.ReadFile(configFile)
+	data, _, format, err := ReadConfigFile(configFile)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,11 @@ func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...boo
 	if err = enc.Close(); err != nil {
 		return err
 	}
-	data = NormalizeCommentIndentation(buf.Bytes())
+	data = buf.Bytes()
+	if format == ConfigFormatYAML {
+		// TOML rendering needs the indentation to attribute comments to keys.
+		data = NormalizeCommentIndentation(data)
+	}
 	var migrated *Config
 	if migrating {
 		data, _, err = NormalizeConfigLayout(data, true)
@@ -114,7 +118,7 @@ func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...boo
 			return fmt.Errorf("decode migrated config: %w", err)
 		}
 	}
-	if err = os.WriteFile(configFile, data, 0600); err != nil {
+	if err = WriteConfigFile(configFile, data, 0600); err != nil {
 		return err
 	}
 	if migrated != nil {
@@ -125,9 +129,9 @@ func SaveConfigPreserveComments(configFile string, cfg *Config, migrateV8 ...boo
 }
 
 // SaveConfigPreserveCommentsUpdateNestedScalar updates a nested scalar key path like ["a","b"]
-// while preserving comments and positions.
+// while preserving comments and positions, in the file's own format.
 func SaveConfigPreserveCommentsUpdateNestedScalar(configFile string, path []string, value string) error {
-	data, err := os.ReadFile(configFile)
+	data, _, _, err := ReadConfigFile(configFile)
 	if err != nil {
 		return err
 	}
@@ -135,7 +139,7 @@ func SaveConfigPreserveCommentsUpdateNestedScalar(configFile string, path []stri
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFile, data, 0600)
+	return WriteConfigFile(configFile, data, 0600)
 }
 
 // updateNestedScalarYAML returns data with the nested scalar key path like ["a","b"] set to

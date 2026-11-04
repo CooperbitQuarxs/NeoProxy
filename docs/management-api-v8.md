@@ -20,12 +20,27 @@ All paths below are relative to `/v8/management`.
 | --- | --- | --- |
 | `/config` | GET, PUT, PATCH | Read, replace, or merge the complete configuration as JSON. |
 | `/config.yaml` | GET, PUT | Read or replace the complete configuration as YAML. |
+| `/config.toml` | GET, PUT | Read or replace the complete configuration as TOML. |
 | `/config/<section>/<field>` | GET, PUT, PATCH, DELETE | Read or modify a section or field using its path in the v8 tree. |
 
 GET renders the persisted configuration in the v8 layout without migrating the
 file or adding omitted runtime defaults. Successful v8 configuration writes save
 the latest layout; reads and rejected writes leave the file unchanged.
 Historical v8 paths and request bodies remain accepted as aliases.
+
+The configuration file is TOML or YAML; `X-Config-Format: toml|yaml` on every
+configuration response names the format of the running file. `/config.yaml` and
+`/config.toml` work with either: GET converts the file to the requested syntax,
+and PUT decodes the body exactly as the loader decodes a file in that syntax, then
+saves it in the running file's format. Both share the same ETag/If-Match
+handling and error bodies: an unparsable body is `400 {"error": "invalid_body",
+"message": ...}` and a parsable but rejected configuration is
+`{"error": "invalid_config", "message": ...}` (422 when it fails to decode as a
+configuration or cannot be written in the file's format, 400 when it breaks a v8
+layout rule). TOML has no null: a YAML `null` is left out of TOML (absence means
+the default), so saving to a TOML file fails with `422 invalid_config` when that
+would change a setting (a `null` that clears a list or map with a default, a
+`null` plugin setting, or a `null` array element).
 
 JSON writes accept the value directly, without a `{ "value": ... }` envelope.
 PUT replaces its target. PATCH merges objects and replaces lists and scalars.
