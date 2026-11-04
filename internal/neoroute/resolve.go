@@ -123,6 +123,12 @@ type routeState struct {
 	blocked   map[string]map[string]bool
 	at        int64
 	now       time.Time
+	// Draw inputs: memory and rng for the stateful and random draws, history
+	// (auto) and prices (cheapest) loaded only when a stage draws with them.
+	memory  *drawMemory
+	rng     drawRand
+	history map[string]accountHistory
+	prices  map[string]neopool.PlanPrice
 }
 
 func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
@@ -140,7 +146,7 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 		return routeState{}, err
 	}
 	now := s.now()
-	state := routeState{principal: p, snapshot: snap, at: now.UnixMilli(), now: now, cursors: make(map[string]int64)}
+	state := routeState{principal: p, snapshot: snap, at: now.UnixMilli(), now: now, cursors: make(map[string]int64), memory: s.memory, rng: s.rng}
 	selector := strings.TrimPrefix(asked, "neoproxy/")
 	if strings.HasPrefix(asked, "neoproxy/") && !strings.Contains(selector, "/") {
 		vm, errVM := s.VirtualModel(ctx, selector)
@@ -162,6 +168,16 @@ func (s *Store) state(ctx context.Context, asked string) (routeState, error) {
 		state.usage, err = s.pools.Usage(ctx, "")
 		if err != nil {
 			return state, err
+		}
+		if stagesUse(state.vm, "auto") {
+			if state.history, err = s.drawHistory(ctx); err != nil {
+				return state, err
+			}
+		}
+		if stagesUse(state.vm, "cheapest") {
+			if state.prices, err = s.planPrices(ctx); err != nil {
+				return state, err
+			}
 		}
 		// Conditions and scripts may read the handle; resolve it only for them.
 		if state.vm.Script != "" || slices.ContainsFunc(state.vm.Stages, func(st Stage) bool { return st.Condition != nil }) {
@@ -233,14 +249,33 @@ func stageUsage(state routeState, vm string, st Stage, a neopool.Account, w neop
 func inStageScope(state routeState, st Stage, m neopool.Model, a neopool.Account) bool {
 	return a.ProviderID == m.ProviderID && accountAllowed(state.principal, a) && (st.Accounts.All || slices.Contains(st.Accounts.IDs, a.ID))
 }
+
+// stageAccounts lists the accounts a stage considers in its order: the
+// explicit list's order, or the snapshot's (account ID) order for "all".
+func stageAccounts(snap neopool.Snapshot, st Stage) []neopool.Account {
+	if st.Accounts.All {
+		return snap.Accounts
+	}
+	out := make([]neopool.Account, 0, len(st.Accounts.IDs))
+	for _, id := range st.Accounts.IDs {
+		if a, ok := accountByID(snap, id); ok {
+			out = append(out, a)
+		}
+	}
+	return out
+}
 func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot float64, facts *requestFacts) (TrailStep, []neopool.Account, int64) {
-	trail := TrailStep{Kind: "stage", Index: index, StageID: st.ID, Model: st.Model, Window: st.Window, Cap: st.Cap * allot, Candidates: []Candidate{}}
+	trail := TrailStep{Kind: "stage", Index: index, StageID: st.ID, Model: st.Model, Window: st.Window, Cap: st.Cap * allot, Draw: canonicalDraw(st.Draw), Candidates: []Candidate{}}
 	m, visible := exposedModel(state.snapshot, st.Model)
+	if visible && !fitsContext(st, m, facts) {
+		trail.Skipped = "context"
+		return trail, nil, 0
+	}
 	var candidates []neopool.Account
 	unhealthy := !visible
 	var reset int64
 	var sum float64
-	for _, a := range state.snapshot.Accounts {
+	for _, a := range stageAccounts(state.snapshot, st) {
 		if !inStageScope(state, st, m, a) {
 			continue
 		}
@@ -375,17 +410,7 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 			trail = append(trail, explained(tr))
 			continue
 		}
-		chosen := 0
-		switch st.Draw {
-		case "least-used":
-			for i := range candidates {
-				if tr.Candidates[i].Used < tr.Candidates[chosen].Used {
-					chosen = i
-				}
-			}
-		case "alternate":
-			chosen = int(state.cursors[st.ID] % int64(len(candidates)))
-		}
+		var chosen int
 		if proposal != nil && proposal.StageID != "" {
 			if proposal.StageID != st.ID {
 				tr.Skipped = "script"
@@ -402,6 +427,9 @@ func decide(req Request, state routeState, after int, proposal *ScriptProposal) 
 			if chosen < 0 {
 				return Decision{Outcome: "error", VirtualModel: vm.ID, Reason: "invalid-script-proposal", Trail: trail}
 			}
+			tr.DrawNote = "chosen by the routing script"
+		} else {
+			chosen, tr.DrawNote = drawCandidate(state, vm.ID, st, candidates, tr.Candidates, facts)
 		}
 		tr.Chosen = candidates[chosen].ID
 		trail = append(trail, explained(tr))
