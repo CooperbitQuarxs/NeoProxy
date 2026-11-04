@@ -5,8 +5,9 @@
 
 import { h, svg, replace, icon, fmtAgo, fmtIn, fmtPct, fmtCompact, fmtDate, plural } from "../lib/dom.js";
 import { neo, engine, invalidate, onChange } from "../lib/client.js";
-import { accountHealth, canonicalProviderId } from "../lib/providers.js";
+import { accountHealth, canonicalProviderId, humanMessage } from "../lib/providers.js";
 import { pageHead, card, btn, iconBtn, badge, status, tag, toggle, search, seg, select, empty, spinner, errorState, inspector, section, kv, servedName, dialog, confirm, toast, field, input, ring, meterRing, healthStatus } from "../lib/components.js";
+import { openTestDialog } from "./pool-test.js";
 import { openAddAccess, KIND_COPY, hueVars } from "./pool-add.js";
 
 const KINDS = ["5h", "day", "week", "month"];
@@ -111,6 +112,7 @@ export async function render(ctx) {
 		const reportsUsage = ["subscription", "imported"].includes(a.kind) && (a.providerWindows?.length || ["claude", "codex"].includes(p?.canonicalId));
 		return [
 			{ id: "test", label: "Test this account", icon: "play", run: () => runTest(a) },
+			{ id: "payload", label: "Test payload…", icon: "terminal", run: () => openTestDialog(a, { provider: p, onChange: () => reload() }) },
 			a.state === "expired" || a.face?.health === "expired" ? { id: "signin", label: "Sign in again", icon: "arrowRight", run: () => openAdd({ provider: p?.canonicalId, method: "subscription" }) } : null,
 			acts.includes("refresh") ? { id: "refresh", label: "Refresh sign-in", icon: "refresh", run: () => act(a, () => neo.refreshAccess(a.id), "Sign-in refreshed") } : null,
 			reportsUsage ? { id: "usage", label: "Refresh usage", icon: "activity", run: () => act(a, () => neo.refreshQuota(a.id), "Usage refreshed") } : null,
@@ -191,7 +193,7 @@ export async function render(ctx) {
 		if (t?.unavailable) return { kind: "warn", text: "Test not available on this server yet" };
 		if (t) return t.ok
 			? { kind: "ok", text: `Test passed · ${t.latencyMs} ms${t.reply ? ` · “${t.reply}”` : ""}${full && t.model ? ` · ${t.model}` : ""}` }
-			: { kind: "bad", text: `Test failed: ${t.error || "no reply from the provider"}` };
+			: { kind: "bad", text: `Test failed: ${t.error || "no reply from the provider"}${t.providerMessage ? ` · ${humanMessage(t.providerMessage, 120)}` : ""}` };
 		const p = a.face?.lastProbe;
 		if (full && p) return p.ok ? { kind: "ok", text: `Passed ${fmtAgo(p.checkedAt)} · ${p.latencyMs} ms` } : { kind: "bad", text: `Failed ${fmtAgo(p.checkedAt)}: ${p.error || "no reply"}` };
 		return null;
@@ -362,7 +364,10 @@ export async function render(ctx) {
 				section("Health", h("div", { class: "pool-health" }, healthStatus(a), h("p", { class: "ink-2" }, hs.kind === "ok" ? trafficSentence(a) : hs.hint))),
 				section("Test",
 					t ? h("div", { class: `pool-testbox ${t.kind}` }, t.text) : h("p", { class: "ink-3" }, "Never tested. A test sends one short request through this account to check that its key or sign-in works."),
-					btn(ui.tests.get(a.id)?.running ? "Testing…" : "Test this account", { icon: "play", cls: "outline", disabled: !!pending, onClick: () => runTest(a) })),
+					a.face?.probeConfig ? h("p", { class: "ink-3" }, "Test sends ", h("code", null, a.face.probeConfig.model), " on ", a.face.probeConfig.endpoint, ".") : null,
+					h("div", { class: "row", style: { gap: "8px", flexWrap: "wrap" } },
+						btn(ui.tests.get(a.id)?.running ? "Testing…" : "Test this account", { icon: "play", cls: "outline", disabled: !!pending, onClick: () => runTest(a) }),
+						btn("Test payload…", { icon: "terminal", cls: "outline", onClick: () => openTestDialog(a, { provider: p, onChange: () => reload() }) }))),
 				section("Provider-reported usage", provW.length
 					? provW.map((w) => windowRow(w, { local: false }))
 					: h("p", { class: "ink-3" }, a.kind === "apiKey" ? "API keys don't report how much is left." : "This provider hasn't reported usage for this account.")),

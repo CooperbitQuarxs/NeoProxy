@@ -72,13 +72,31 @@ export function meters(account) {
 	return out;
 }
 
+// Providers answer with JSON blobs; people read sentences. Pull the message
+// out of an error body and keep it short; the full text stays in the title.
+export function humanMessage(msg = "", max = 160) {
+	let text = String(msg ?? "").trim();
+	const i = text.indexOf("{");
+	if (i >= 0) {
+		try {
+			const obj = JSON.parse(text.slice(i, text.lastIndexOf("}") + 1));
+			text = obj?.error?.message ?? obj?.message ?? (typeof obj?.error === "string" ? obj.error : null) ?? obj?.detail ?? text;
+		} catch { /* not JSON after all */ }
+	}
+	text = String(text).replace(/\s+/g, " ");
+	return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
 // Health in words a teammate understands, with the worst signal first.
 export function accountHealth(account) {
 	const face = account.face;
 	if (account.state === "expired" || face?.health === "expired") return { kind: "bad", text: "Sign-in expired", hint: face?.healthMessage || "Sign in again or refresh the credential." };
 	if (account.state === "cooldown") return { kind: "warn", text: "Cooling down", hint: "The provider asked us to back off. Routing resumes automatically." };
 	if (face?.health === "disabled") return { kind: "muted", text: "Disabled", hint: "Turned off by an admin. No stage draws from it." };
-	if (face?.health && face.health !== "healthy") return { kind: "warn", text: face.healthMessage || titleCase(face.health), hint: face.healthMessage };
+	if (face?.health && face.health !== "healthy") {
+		const words = { cooling: "Cooling down", "rate-limited": "Rate limited", unauthorized: "Sign-in rejected", exhausted: "Quota used up", unknown: "Unknown" }[face.health] ?? titleCase(face.health);
+		return { kind: "warn", text: words, hint: humanMessage(face.healthMessage) };
+	}
 	if (face?.lastProbe && face.lastProbe.ok === false) return { kind: "warn", text: "Last test failed", hint: face.lastProbe.error };
 	const hot = meters(account).find((m) => m.used >= 1);
 	if (hot) return { kind: "warn", text: `${hot.kind} window spent`, hint: `Resets ${new Date(hot.resetsAt).toLocaleTimeString()}.` };
