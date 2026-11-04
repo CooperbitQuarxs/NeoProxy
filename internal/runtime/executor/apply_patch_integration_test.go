@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
@@ -593,70 +592,6 @@ func TestApplyPatchFailureStopsConsumptionAndNextAttemptIsFresh(t *testing.T) {
 	response, errExecute := exec.Execute(t.Context(), auth, req, opts)
 	if errExecute != nil || gjson.GetBytes(response.Payload, "output.0.input").String() != "valid patch" {
 		t.Fatalf("next attempt reused failed state: %s %v", response.Payload, errExecute)
-	}
-}
-
-func TestApplyPatchXAIWebsocketFailureMatrix(t *testing.T) {
-	for _, mode := range []string{"invalid", "eof"} {
-		for _, raw := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/raw=%v", mode, raw), func(t *testing.T) {
-				upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
-				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					conn, errUpgrade := upgrader.Upgrade(w, r, nil)
-					if errUpgrade != nil {
-						return
-					}
-					defer func() {
-						if errClose := conn.Close(); errClose != nil {
-							t.Log(errClose)
-						}
-					}()
-					if _, _, errReadMessage := conn.ReadMessage(); errReadMessage != nil {
-						return
-					}
-					_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.created","response":{"id":"r"}}`))
-					if mode == "eof" {
-						_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"c","name":"apply_patch","arguments":""}}`))
-					} else {
-						_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"response.completed","response":{"output":[{"type":"function_call","name":"apply_patch","arguments":"{\"input\":7,\"secret\":\"RAW_SECRET\"}"}],"usage":{"input_tokens":5,"output_tokens":3}}}`))
-					}
-				}))
-				defer server.Close()
-				exec := NewXAIWebsocketsExecutor(&config.Config{})
-				exec.store = &codexWebsocketSessionStore{sessions: make(map[string]*codexWebsocketSession)}
-				auth := &cliproxyauth.Auth{ID: "task6-ws-" + t.Name(), Provider: "xai", Attributes: map[string]string{"api_key": "test", "base_url": server.URL, "websockets": "true"}}
-				checkUsage := task6CaptureFailureUsage(t, auth.ID)
-				defer checkUsage()
-				if !raw {
-					response := task6Gateway(t, exec, auth, true)
-					body := response.Body.String()
-					if response.Code != http.StatusOK || strings.Count(body, "event: response.failed") != 1 || strings.Contains(body, "event: response.completed") || strings.Contains(body, "RAW_SECRET") || strings.Contains(body, "data: [DONE]") {
-						t.Fatalf("WS to HTTP failure contract: %d %s", response.Code, body)
-					}
-					return
-				}
-				result, errExecuteStream := exec.ExecuteStream(cliproxyexecutor.WithDownstreamWebsocket(t.Context()), auth, cliproxyexecutor.Request{Model: "grok-4", Payload: []byte(task6PatchRequest)}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse})
-				if errExecuteStream != nil {
-					t.Fatal(errExecuteStream)
-				}
-				failed, errors := 0, 0
-				for chunk := range result.Chunks {
-					if chunk.Err != nil {
-						errors++
-						assertTask6PatchError(t, chunk.Err)
-					}
-					if gjson.GetBytes(chunk.Payload, "type").String() == "response.failed" {
-						failed++
-					}
-					if bytes.Contains(chunk.Payload, []byte("RAW_SECRET")) || gjson.GetBytes(chunk.Payload, "type").String() == "response.completed" {
-						t.Fatal("raw WS failure leaked or completed")
-					}
-				}
-				if failed != 1 || errors != 1 {
-					t.Fatalf("raw WS failures=%d errors=%d", failed, errors)
-				}
-			})
-		}
 	}
 }
 

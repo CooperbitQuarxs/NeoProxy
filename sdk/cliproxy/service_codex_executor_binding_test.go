@@ -161,8 +161,8 @@ func TestEnsureExecutorsForAuth_XAIDoesNotReplaceInNormalMode(t *testing.T) {
 	if !okFirst || firstExecutor == nil {
 		t.Fatal("expected xai executor after first bind")
 	}
-	if _, isXAIAutoExecutor := firstExecutor.(*executor.XAIAutoExecutor); !isXAIAutoExecutor {
-		t.Fatalf("xai executor type = %T, want *executor.XAIAutoExecutor", firstExecutor)
+	if _, isXAIExecutor := firstExecutor.(*executor.XAIExecutor); !isXAIExecutor {
+		t.Fatalf("xai executor type = %T, want *executor.XAIExecutor", firstExecutor)
 	}
 
 	service.ensureExecutorsForAuth(auth)
@@ -200,8 +200,8 @@ func TestEnsureExecutorsForAuthWithMode_XAIForceReplace(t *testing.T) {
 	if firstExecutor == secondExecutor {
 		t.Fatal("expected xai executor replacement in force mode")
 	}
-	if _, isXAIAutoExecutor := secondExecutor.(*executor.XAIAutoExecutor); !isXAIAutoExecutor {
-		t.Fatalf("xai executor type = %T, want *executor.XAIAutoExecutor", secondExecutor)
+	if _, isXAIExecutor := secondExecutor.(*executor.XAIExecutor); !isXAIExecutor {
+		t.Fatalf("xai executor type = %T, want *executor.XAIExecutor", secondExecutor)
 	}
 }
 
@@ -237,8 +237,8 @@ func TestEnsureExecutorsForAuth_XAIReplacesExecutorAfterConfigUpdate(t *testing.
 	if firstExecutor == secondExecutor {
 		t.Fatal("expected stale xai executor replacement after config update")
 	}
-	if _, isXAIAutoExecutor := secondExecutor.(*executor.XAIAutoExecutor); !isXAIAutoExecutor {
-		t.Fatalf("xai executor type = %T, want *executor.XAIAutoExecutor", secondExecutor)
+	if _, isXAIExecutor := secondExecutor.(*executor.XAIExecutor); !isXAIExecutor {
+		t.Fatalf("xai executor type = %T, want *executor.XAIExecutor", secondExecutor)
 	}
 }
 
@@ -249,7 +249,6 @@ func TestApplyWatcherConfigUpdate_PreservesExistingWebsocketConnections(t *testi
 		model    string
 	}{
 		{name: "codex", provider: "codex", model: "gpt-6-astra"},
-		{name: "xai", provider: "xai", model: "grok-4.6"},
 	}
 
 	for _, tt := range testCases {

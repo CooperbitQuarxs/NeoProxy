@@ -568,7 +568,8 @@ func applyPatchTestPreviewChunks(t *testing.T, chunks <-chan cliproxyexecutor.St
 }
 
 func TestApplyPatchBridgeLiveWebsocketPreview(t *testing.T) {
-	for _, native := range []bool{false, true} {
+	// Only Codex keeps an upstream websocket; xAI is HTTP SSE as in NeoPi.
+	for _, native := range []bool{true} {
 		t.Run(fmt.Sprintf("native-codex=%v", native), func(t *testing.T) {
 			release := make(chan struct{})
 			var releaseOnce sync.Once
@@ -616,16 +617,9 @@ func TestApplyPatchBridgeLiveWebsocketPreview(t *testing.T) {
 			}))
 			defer server.Close()
 			defer unblock()
-			var exec cliproxyauth.ProviderExecutor
-			if native {
-				codex := NewCodexWebsocketsExecutor(&config.Config{Codex: config.CodexConfig{DisableCodexCloaking: true}})
-				codex.store = &codexWebsocketSessionStore{sessions: make(map[string]*codexWebsocketSession)}
-				exec = codex
-			} else {
-				xai := NewXAIWebsocketsExecutor(&config.Config{})
-				xai.store = &codexWebsocketSessionStore{sessions: make(map[string]*codexWebsocketSession)}
-				exec = xai
-			}
+			codex := NewCodexWebsocketsExecutor(&config.Config{Codex: config.CodexConfig{DisableCodexCloaking: true}})
+			codex.store = &codexWebsocketSessionStore{sessions: make(map[string]*codexWebsocketSession)}
+			var exec cliproxyauth.ProviderExecutor = codex
 			ctx, cancel := context.WithCancel(cliproxyexecutor.WithDownstreamWebsocket(t.Context()))
 			defer cancel()
 			payload := applyPatchTestRequest()

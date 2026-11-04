@@ -1,0 +1,826 @@
+{
+  "source": "NeoPi OWN streamOpenAIResponses (xai-oauth)",
+  "userAgent": "npi/18.14.0",
+  "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+  "sessionId": "capture-session-0001",
+  "response": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_capture\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]}}\n\nevent: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]}}\n\nevent: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"delta\":\"Captured.\"}\n\nevent: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"text\":\"Captured.\"}\n\nevent: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_capture\",\"status\":\"completed\",\"output\":[{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":1,\"total_tokens\":4}}}\n\n",
+  "fixtures": [
+    {
+      "name": "plain-high",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "plain-high",
+        "model": "grok-4.6",
+        "options": {
+          "reasoning": "high",
+          "temperature": 0.2,
+          "maxTokens": 99
+        },
+        "systemPrompt": [
+          "You are terse."
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "instructions": "You are terse.",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "stream": true,
+          "temperature": 0.2,
+          "max_output_tokens": 99,
+          "store": true
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "315",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"instructions\":\"You are terse.\",\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"max_output_tokens\":99,\"temperature\":0.2,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "no-effort",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "no-effort",
+        "model": "grok-4.6",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "212",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "xhigh-unmapped",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "xhigh-unmapped",
+        "model": "grok-4.7",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Think."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.7",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Think."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "239",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.7\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Think.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\"}}"
+        }
+      ]
+    },
+    {
+      "name": "minimal-mapped",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "minimal-mapped",
+        "model": "grok-4.5",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Quick."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Quick."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "237",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Quick.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\"}}"
+        }
+      ]
+    },
+    {
+      "name": "effort-omitted",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "effort-omitted",
+        "model": "grok-build-0.1",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Build."
+          }
+        ],
+        "downstream": {
+          "model": "grok-build-0.1",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Build."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "214",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-build-0.1\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Build.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "non-reasoning",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "non-reasoning",
+        "model": "grok-4.20-0309-non-reasoning",
+        "options": {
+          "reasoning": "high",
+          "topP": 0.9
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Plain."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.20-0309-non-reasoning",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Plain."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "top_p": 0.9
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "198",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.20-0309-non-reasoning\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Plain.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"top_p\":0.9}"
+        }
+      ]
+    },
+    {
+      "name": "tools",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "tools",
+        "model": "grok-4.6",
+        "options": {
+          "reasoning": "high",
+          "toolChoice": "auto"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          },
+          {
+            "name": "pick",
+            "description": "Pick one.",
+            "parameters": {
+              "type": "object",
+              "anyOf": [
+                {
+                  "properties": {
+                    "a": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "a"
+                  ]
+                },
+                {
+                  "properties": {
+                    "b": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "b"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            },
+            {
+              "type": "function",
+              "name": "pick",
+              "description": "Pick one.",
+              "parameters": {
+                "type": "object",
+                "anyOf": [
+                  {
+                    "properties": {
+                      "a": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "a"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "b": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "b"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "433",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"tool_choice\":\"auto\",\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "tool-history-replay",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "tool-history-replay",
+        "model": "grok-4.6",
+        "options": {
+          "reasoning": "high"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "toolCall",
+                "id": "call_1|fc_capture",
+                "name": "lookup",
+                "arguments": {
+                  "term": "a"
+                }
+              }
+            ],
+            "api": "openai-responses",
+            "provider": "xai-oauth",
+            "model": "grok-4.6",
+            "usage": {
+              "input": 1,
+              "output": 1,
+              "totalTokens": 2,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "total": 0
+              }
+            },
+            "stopReason": "toolUse",
+            "timestamp": 1,
+            "providerPayload": {
+              "type": "openaiResponsesHistory",
+              "provider": "xai-oauth",
+              "dt": true,
+              "items": [
+                {
+                  "type": "reasoning",
+                  "id": "rs_capture",
+                  "summary": [],
+                  "encrypted_content": "enc-capture"
+                },
+                {
+                  "type": "function_call",
+                  "id": "fc_capture",
+                  "call_id": "call_1",
+                  "name": "lookup",
+                  "arguments": "{\"term\":\"a\"}"
+                }
+              ]
+            }
+          },
+          {
+            "role": "toolResult",
+            "toolCallId": "call_1|fc_capture",
+            "toolName": "lookup",
+            "content": [
+              {
+                "type": "text",
+                "text": "Found."
+              }
+            ],
+            "isError": false,
+            "timestamp": 2
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            },
+            {
+              "type": "reasoning",
+              "id": "rs_capture",
+              "summary": [],
+              "encrypted_content": "enc-capture"
+            },
+            {
+              "type": "function_call",
+              "id": "fc_capture",
+              "call_id": "call_1",
+              "name": "lookup",
+              "arguments": "{\"term\":\"a\"}"
+            },
+            {
+              "type": "function_call_output",
+              "call_id": "call_1",
+              "output": "Found."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "640",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]},{\"type\":\"reasoning\",\"summary\":[],\"encrypted_content\":\"enc-capture\"},{\"type\":\"function_call\",\"call_id\":\"call_1\",\"name\":\"lookup\",\"arguments\":\"{\\\"term\\\":\\\"a\\\"}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_1\",\"output\":\"Found.\"}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "max-output-clamp",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "max-output-clamp",
+        "model": "grok-4.6",
+        "options": {
+          "maxTokens": 900000
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Long."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Long."
+                }
+              ]
+            }
+          ],
+          "max_output_tokens": 900000
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "233",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Long.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"max_output_tokens\":64000,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "api-key-plain-high",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "api-key-plain-high",
+        "provider": "xai",
+        "model": "grok-4.6",
+        "options": {
+          "reasoning": "high"
+        },
+        "systemPrompt": [
+          "You are terse."
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "grok-4.6",
+          "instructions": "You are terse.",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "274",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-4.6\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"instructions\":\"You are terse.\",\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "api-key-code-fast",
+      "baseUrl": "https://api.x.ai/v1",
+      "requestedURL": "https://api.x.ai/v1/responses",
+      "scenario": {
+        "name": "api-key-code-fast",
+        "provider": "xai",
+        "model": "grok-code-fast-1",
+        "options": {
+          "reasoning": "high",
+          "temperature": 0.3
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Code."
+          }
+        ],
+        "downstream": {
+          "model": "grok-code-fast-1",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Code."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "temperature": 0.3
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktY2FwdHVyZS1zdWJqZWN0IiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "content-length": "233",
+            "content-type": "application/json",
+            "host": "api.x.ai",
+            "user-agent": "npi/18.14.0",
+            "x-grok-conv-id": "capture-session-0001",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"grok-code-fast-1\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Code.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"temperature\":0.3,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    }
+  ]
+}

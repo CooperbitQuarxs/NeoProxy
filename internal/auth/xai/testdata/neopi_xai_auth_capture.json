@@ -1,0 +1,726 @@
+{
+  "source": "NeoPi OWN createDeviceCodeLogin/createRefresh (xai-oauth)",
+  "normalizations": [
+    "synthetic credentials only",
+    "Bun.sleep records requested waits without sleeping",
+    "expiry is compared relative to request time"
+  ],
+  "scenarios": [
+    {
+      "kind": "login",
+      "name": "pending-slow-down-then-authorized",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "authorization_pending"
+          }
+        },
+        {
+          "status": 400,
+          "body": {
+            "error": "slow_down"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "xai-refresh-fake",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "xai-refresh-fake",
+        "expires": 1793822801190,
+        "accountId": "xai-userinfo-subject",
+        "email": "Grok@Example.Invalid"
+      },
+      "before": 1793819501167,
+      "after": 1793819501192,
+      "waits": [
+        5000,
+        10000
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/oauth2/userinfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "userinfo-unavailable",
+      "userinfoStatus": 500,
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "xai-refresh-fake",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "xai-refresh-fake",
+        "expires": 1793822801193,
+        "accountId": "xai-subject-fake"
+      },
+      "before": 1793819501192,
+      "after": 1793819501193,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/oauth2/userinfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "access-denied",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "access_denied"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "xai-oauth device authorization was denied",
+      "before": 1793819501193,
+      "after": 1793819501194,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "expired-token",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "expired_token"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "xai-oauth device code expired; restart the login",
+      "before": 1793819501194,
+      "after": 1793819501195,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "unknown-error",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "invalid_client",
+            "error_description": "Client is not allowed"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "xai-oauth device token request failed: 400 Client is not allowed",
+      "before": 1793819501195,
+      "after": 1793819501196,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "device-rejected",
+      "deviceStatus": 400,
+      "device": {
+        "error": "invalid_scope"
+      },
+      "polls": [],
+      "error": "xai-oauth device authorization failed: 400 {\"error\":\"invalid_scope\"}",
+      "before": 1793819501196,
+      "after": 1793819501196,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "missing-expires-in",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "r"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "xai-oauth token response missing expires_in",
+      "before": 1793819501196,
+      "after": 1793819501197,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "141",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=b1a00492-073a-47ea-816f-4c329264a828&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "discovery-off-origin",
+      "discovery": {
+        "token_endpoint": "https://evil.example/token"
+      },
+      "polls": [],
+      "auth": {
+        "url": "https://accounts.x.ai/device?code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "Invalid xAI token_endpoint: https://evil.example/token",
+      "before": 1793819501197,
+      "after": 1793819501197,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/device/code",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "119",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=b1a00492-073a-47ea-816f-4c329264a828&scope=openid+profile+email+offline_access+grok-cli%3Aaccess+api%3Aaccess"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-rotates",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "refresh_token": "xai-refresh-rotated",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "xai-refresh-rotated",
+        "expires": 1793822801199,
+        "accountId": "xai-userinfo-subject",
+        "email": "Grok@Example.Invalid"
+      },
+      "before": 1793819501197,
+      "after": 1793819501200,
+      "waits": [],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "104",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=b1a00492-073a-47ea-816f-4c329264a828&refresh_token=xai-refresh-stored"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/oauth2/userinfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-keeps-unrotated",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "expires_in": 1800
+          }
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+        "refresh": "xai-refresh-stored",
+        "expires": 1793821001200,
+        "accountId": "xai-userinfo-subject",
+        "email": "Grok@Example.Invalid"
+      },
+      "before": 1793819501200,
+      "after": 1793819501200,
+      "waits": [],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "104",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=b1a00492-073a-47ea-816f-4c329264a828&refresh_token=xai-refresh-stored"
+        },
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/oauth2/userinfo",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-rejected",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "invalid_grant",
+            "error_description": "Refresh token revoked"
+          }
+        }
+      ],
+      "error": "xai-oauth token refresh failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"Refresh token revoked\"}",
+      "before": 1793819501200,
+      "after": 1793819501201,
+      "waits": [],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://auth.x.ai/.well-known/openid-configuration",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://auth.x.ai/oauth2/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "104",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "auth.x.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=b1a00492-073a-47ea-816f-4c329264a828&refresh_token=xai-refresh-stored"
+        }
+      ]
+    }
+  ]
+}

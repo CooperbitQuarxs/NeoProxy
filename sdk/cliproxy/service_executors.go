@@ -324,16 +324,15 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
 		s.coreManager.RegisterExecutor(executor.NewKimiExecutor(cfg))
 	case "xai":
+		// NeoPi serves xAI over HTTP SSE only; there is no upstream websocket.
 		if !forceReplace {
-			existingExecutor, hasExecutor := s.coreManager.Executor("xai")
-			if hasExecutor {
-				existingXAIAutoExecutor, isXAIAutoExecutor := existingExecutor.(*executor.XAIAutoExecutor)
-				if isXAIAutoExecutor && existingXAIAutoExecutor.UsesConfig(cfg) {
+			if existing, ok := s.coreManager.Executor("xai"); ok {
+				if xai, isXAI := existing.(*executor.XAIExecutor); isXAI && xai.UsesConfig(cfg) {
 					return
 				}
 			}
 		}
-		s.coreManager.RegisterExecutor(executor.NewXAIAutoExecutor(cfg))
+		s.coreManager.RegisterExecutor(executor.NewXAIExecutor(cfg))
 	case executor.GrokBuildProvider:
 		if !forceReplace {
 			if existing, ok := s.coreManager.Executor(executor.GrokBuildProvider); ok {

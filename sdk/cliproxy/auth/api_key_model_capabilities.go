@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	resolvedAPIKeyModelInfoMetadataKey     = "cliproxy.resolved_api_key_model_info"
-	resolvedCodexOAuthModelInfoMetadataKey = "cliproxy.resolved_codex_oauth_model_info"
-	resolvedHomeModelInfoMetadataKey       = "cliproxy.resolved_home_model_info"
-	resolvedHomeModelOptionsMetadataKey    = "cliproxy.resolved_home_model_options"
+	resolvedAPIKeyModelInfoMetadataKey  = "cliproxy.resolved_api_key_model_info"
+	resolvedOAuthModelInfoMetadataKey   = "cliproxy.resolved_oauth_model_info"
+	resolvedHomeModelInfoMetadataKey    = "cliproxy.resolved_home_model_info"
+	resolvedHomeModelOptionsMetadataKey = "cliproxy.resolved_home_model_options"
 )
 
 type apiKeyModelCapabilityRoute struct {
@@ -68,7 +68,7 @@ func ResolvedModelInfo(req cliproxyexecutor.Request) (*registry.ModelInfo, bool)
 	if modelInfo, ok := req.Metadata[resolvedHomeModelInfoMetadataKey].(*registry.ModelInfo); ok && modelInfo != nil {
 		return modelInfo, true
 	}
-	if modelInfo, ok := req.Metadata[resolvedCodexOAuthModelInfoMetadataKey].(*registry.ModelInfo); ok && modelInfo != nil {
+	if modelInfo, ok := req.Metadata[resolvedOAuthModelInfoMetadataKey].(*registry.ModelInfo); ok && modelInfo != nil {
 		return modelInfo, true
 	}
 	return ResolvedAPIKeyModelInfo(req)
@@ -211,12 +211,12 @@ func attachResolvedAPIKeyModelInfo(routing *apiKeyModelRoutingSnapshot, req clip
 	}
 	metadataKey := resolvedAPIKeyModelInfoMetadataKey
 	if !ok {
-		modelInfo, ok = lookupCodexOAuthModelCapability(auth, upstreamModel)
-		metadataKey = resolvedCodexOAuthModelInfoMetadataKey
+		modelInfo, ok = lookupOAuthModelCapability(auth, upstreamModel)
+		metadataKey = resolvedOAuthModelInfoMetadataKey
 	}
 	if !ok {
 		_, hadAPIKey := req.Metadata[resolvedAPIKeyModelInfoMetadataKey]
-		_, hadOAuth := req.Metadata[resolvedCodexOAuthModelInfoMetadataKey]
+		_, hadOAuth := req.Metadata[resolvedOAuthModelInfoMetadataKey]
 		if !hadAPIKey && !hadOAuth {
 			return req
 		}
@@ -224,7 +224,7 @@ func attachResolvedAPIKeyModelInfo(routing *apiKeyModelRoutingSnapshot, req clip
 	metadata := make(map[string]any, len(req.Metadata)+1)
 	maps.Copy(metadata, req.Metadata)
 	delete(metadata, resolvedAPIKeyModelInfoMetadataKey)
-	delete(metadata, resolvedCodexOAuthModelInfoMetadataKey)
+	delete(metadata, resolvedOAuthModelInfoMetadataKey)
 	if ok {
 		metadata[metadataKey] = modelInfo
 	}
@@ -259,8 +259,16 @@ func lookupUnlistedCodexAPIKeyModelCapability(routing *apiKeyModelRoutingSnapsho
 	return info, true
 }
 
-func lookupCodexOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.ModelInfo, bool) {
-	if auth == nil || auth.AuthKind() != AuthKindOAuth || !strings.EqualFold(strings.TrimSpace(auth.Provider), "codex") {
+// lookupOAuthModelCapability resolves the account-scoped model an OAuth
+// sign-in registered: Codex and xAI shape requests from that discovered
+// NeoPi record.
+func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.ModelInfo, bool) {
+	if auth == nil || auth.AuthKind() != AuthKindOAuth {
+		return nil, false
+	}
+	switch strings.ToLower(strings.TrimSpace(auth.Provider)) {
+	case "codex", "xai":
+	default:
 		return nil, false
 	}
 	models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
@@ -301,7 +309,7 @@ func attachResolvedHomeModelInfo(req cliproxyexecutor.Request, auth *Auth, route
 
 	local, ok := ResolvedAPIKeyModelInfo(req)
 	if !ok {
-		local, ok = req.Metadata[resolvedCodexOAuthModelInfoMetadataKey].(*registry.ModelInfo)
+		local, ok = req.Metadata[resolvedOAuthModelInfoMetadataKey].(*registry.ModelInfo)
 	}
 	sameModel := ok && local != nil && strings.EqualFold(strings.TrimSpace(thinking.ParseSuffix(local.ID).ModelName), strings.TrimSpace(thinking.ParseSuffix(selected.ID).ModelName))
 	if support != nil {

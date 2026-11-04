@@ -14,7 +14,7 @@ func TestApplyPatchActualExecutors(t *testing.T) {
 		NewGeminiExecutor(cfg), NewGeminiInteractionsExecutor(cfg), NewGeminiVertexExecutor(cfg),
 		NewAntigravityExecutor(cfg), NewAIStudioExecutor(cfg, "aistudio", nil), NewDevinExecutor(cfg),
 		NewKimiExecutor(cfg), NewCodexExecutor(cfg), NewCodexWebsocketsExecutor(cfg), NewCodexAutoExecutor(cfg),
-		NewXAIExecutor(cfg), NewXAIWebsocketsExecutor(cfg), NewXAIAutoExecutor(cfg), NewMetaExecutor(cfg),
+		NewXAIExecutor(cfg), NewMetaExecutor(cfg),
 	} {
 		support, okSupport := exec.(coreauth.ApplyPatchSupport)
 		if !okSupport || !support.SupportsApplyPatch() {
@@ -27,7 +27,7 @@ func TestApplyPatchActualExecutors(t *testing.T) {
 			}
 		}
 	}
-	for _, exec := range []coreauth.ApplyPatchSupport{&CodexAutoExecutor{}, &XAIAutoExecutor{}} {
+	for _, exec := range []coreauth.ApplyPatchSupport{&CodexAutoExecutor{}} {
 		if exec.SupportsApplyPatch() {
 			t.Errorf("unconfigured %T advertises support", exec)
 		}

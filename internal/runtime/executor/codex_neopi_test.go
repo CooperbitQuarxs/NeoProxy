@@ -147,7 +147,7 @@ func TestCodexExecutorSendsNeoPiSSERequests(t *testing.T) {
 			request := cliproxyexecutor.Request{
 				Model:    "gpt-6.1-terra",
 				Payload:  downstream,
-				Metadata: map[string]any{"cliproxy.resolved_codex_oauth_model_info": info},
+				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": info},
 			}
 			rewrite := &neoPiCaptureTransport{target: target, base: http.DefaultTransport}
 			ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", rewrite)
@@ -271,7 +271,7 @@ func TestCodexExecutorPayloadRulesFinalizeEachWebsocketFrame(t *testing.T) {
 		request := cliproxyexecutor.Request{
 			Model:    model.ID,
 			Payload:  downstream,
-			Metadata: map[string]any{"cliproxy.resolved_codex_oauth_model_info": info},
+			Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": info},
 		}
 		if _, errExecute := executor.Execute(context.Background(), auth, request, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse}); errExecute != nil {
 			t.Fatal(errExecute)
