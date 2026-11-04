@@ -26,10 +26,6 @@ var nativeProviderAppliers = map[string]ProviderApplier{
 	"openai":      nil,
 	"codex":       nil,
 	"antigravity": nil,
-	"kimi":        nil,
-	"kimi-ai":     nil,
-	"kimi.ai":     nil,
-	"kimi.com":    nil,
 	"xai":         nil,
 }
 
@@ -622,8 +618,6 @@ func extractThinkingConfig(body []byte, provider string) ThinkingConfig {
 		return extractOpenAIConfig(body)
 	case "codex", "xai":
 		return extractCodexConfig(body)
-	case "kimi", "kimi-ai", "kimi.ai", "kimi.com":
-		return extractKimiConfig(body)
 	default:
 		return ThinkingConfig{}
 	}
@@ -915,50 +909,6 @@ func extractOpenAIConfig(body []byte) ThinkingConfig {
 	}
 
 	return ThinkingConfig{}
-}
-
-// extractKimiConfig extracts Kimi's native thinking object while retaining
-// reasoning_effort as a legacy input fallback.
-//
-// Native fields take precedence over reasoning_effort. In particular,
-// thinking.type="enabled" without an explicit effort means "use the upstream
-// default" and therefore returns an empty config so ApplyThinking preserves the
-// request unchanged instead of interpreting it as CPA's ModeAuto.
-func extractKimiConfig(body []byte) ThinkingConfig {
-	thinkingType := gjson.GetBytes(body, "thinking.type")
-	if thinkingType.Exists() {
-		switch strings.ToLower(strings.TrimSpace(thinkingType.String())) {
-		case "disabled":
-			return ThinkingConfig{Mode: ModeNone, Budget: 0}
-		case "enabled":
-			if !gjson.GetBytes(body, "thinking.effort").Exists() {
-				return ThinkingConfig{}
-			}
-		}
-	}
-
-	if effort := gjson.GetBytes(body, "thinking.effort"); effort.Exists() {
-		value := strings.ToLower(strings.TrimSpace(effort.String()))
-		switch value {
-		case "":
-			return ThinkingConfig{}
-		case "none":
-			return ThinkingConfig{Mode: ModeNone, Budget: 0}
-		case "auto":
-			return ThinkingConfig{Mode: ModeAuto, Budget: -1}
-		default:
-			return ThinkingConfig{Mode: ModeLevel, Level: ThinkingLevel(value)}
-		}
-	}
-
-	// An explicit native thinking object without an effort should be left for
-	// the Kimi upstream to interpret and must not be overridden by the legacy
-	// field.
-	if thinkingType.Exists() {
-		return ThinkingConfig{}
-	}
-
-	return extractOpenAIConfig(body)
 }
 
 // extractCodexConfig extracts thinking configuration from Codex format request body.

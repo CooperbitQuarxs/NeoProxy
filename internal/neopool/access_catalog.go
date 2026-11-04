@@ -342,7 +342,7 @@ func catalogProviderID(engineProvider, compatName string) string {
 		return "antigravity"
 	case "xai", "grok":
 		return "xai"
-	case "kimi", "kimi-ai", "kimi-code", "kimi-coding":
+	case "kimi", "kimi-code", "kimi-coding":
 		return "kimi"
 	case "meta", "meta-ai":
 		return "meta"

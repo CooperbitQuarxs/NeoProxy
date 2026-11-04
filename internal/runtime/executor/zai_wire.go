@@ -35,9 +35,11 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Thinking.Mode = thinking.Mode
 		profile.Thinking.SupportsDisplay = thinking.SupportsDisplay
 		party.efforts = append([]string(nil), thinking.Efforts...)
-		party.budgetEffort = thinking.Mode == "anthropic-budget-effort"
 		party.requiresEffort = thinking.RequiresEffort
 	}
+	// NeoPi keys this on the provider: Kimi shares its affinity identity
+	// across its two transports.
+	party.promptCacheUserID = model.Provider == "kimi-code"
 	if compat := model.AnthropicCompat; compat != nil {
 		profile.Compat.SupportsContextManagement = compat.SupportsContextManagement
 		profile.Compat.SupportsEagerToolInputStreaming = compat.SupportsEagerToolInputStreaming
@@ -88,6 +90,9 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 	h.Set("x-app", "cli")
 	if session != "" {
 		h.Set("X-Claude-Code-Session-Id", session)
+	}
+	for name, values := range profile.thirdParty.headers {
+		h[name] = append([]string(nil), values...)
 	}
 	return h
 }

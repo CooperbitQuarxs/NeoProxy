@@ -15,8 +15,6 @@ func TestProviderRefreshLeads(t *testing.T) {
 		{name: "claude", authenticator: NewClaudeAuthenticator(), want: time.Minute},
 		{name: "antigravity", authenticator: NewAntigravityAuthenticator(), want: 30 * time.Minute},
 		{name: "kimi", authenticator: NewKimiAuthenticator(), want: 5 * time.Minute},
-		{name: "kimi-ai", authenticator: NewKimiAIAuthenticator(), want: 5 * time.Minute},
-		{name: "kimi.ai", authenticator: NewKimiAIDotAuthenticator(), want: 5 * time.Minute},
 		{name: "xai", authenticator: NewXAIAuthenticator(), want: 5 * time.Minute},
 		{name: "devin", authenticator: NewDevinAuthenticator(), wantNil: true},
 		{name: "meta", authenticator: NewMetaAuthenticator(), wantNil: true},
