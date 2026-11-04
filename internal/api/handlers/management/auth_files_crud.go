@@ -167,8 +167,6 @@ func (h *Handler) DeleteAuthFile(c *gin.Context) {
 				}
 			}
 			errDelete := func() error {
-				release := h.beginSIWCFileMutation(ctx, full)
-				defer release()
 				if errRemove := os.Remove(full); errRemove != nil {
 					return nil
 				}
@@ -288,8 +286,6 @@ func (h *Handler) writeAuthFile(ctx context.Context, name string, data []byte) e
 	if err != nil {
 		return err
 	}
-	release := h.beginSIWCFileMutation(ctx, dst)
-	defer release()
 	if errWrite := h.writeAuthFileBytes(dst, data, auth); errWrite != nil {
 		return fmt.Errorf("failed to write file: %w", errWrite)
 	}
@@ -412,8 +408,6 @@ func (h *Handler) deleteAuthFileByName(ctx context.Context, name string) (string
 			targetPath = abs
 		}
 	}
-	release := h.beginSIWCFileMutation(ctx, targetPath)
-	defer release()
 	if errRemove := os.Remove(targetPath); errRemove != nil {
 		if os.IsNotExist(errRemove) {
 			return filepath.Base(name), http.StatusNotFound, errAuthFileNotFound

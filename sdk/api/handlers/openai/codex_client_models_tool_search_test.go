@@ -12,15 +12,16 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
-// countingToolSearchExecutor records native tool search capability checks.
+// countingToolSearchExecutor is a Claude executor that reports native tool
+// search support and records each capability check.
 type countingToolSearchExecutor struct {
 	*executor.ClaudeExecutor
 	calls int
 }
 
-func (e *countingToolSearchExecutor) SupportsNativeToolSearch(a *auth.Auth, upstreamModel string) bool {
+func (e *countingToolSearchExecutor) SupportsNativeToolSearch(*auth.Auth, string) bool {
 	e.calls++
-	return e.ClaudeExecutor.SupportsNativeToolSearch(a, upstreamModel)
+	return true
 }
 
 func TestCodexClientModelsClaudeToolSearchFollowsSwitch(t *testing.T) {

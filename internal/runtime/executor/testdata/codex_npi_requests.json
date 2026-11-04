@@ -1,0 +1,1116 @@
+{
+  "source": "NeoPi OWN streamOpenAICodexResponses",
+  "userAgent": "npi/18.10.3",
+  "installId": "2f81e90d-864e-432b-980e-fa7fdeb503ac",
+  "accountId": "account-capture-fake",
+  "token": "eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+  "sessionId": "capture-session-0001",
+  "response": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_capture\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]}}\n\nevent: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]}}\n\nevent: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"delta\":\"Captured.\"}\n\nevent: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"text\":\"Captured.\"}\n\nevent: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_capture\",\"status\":\"completed\",\"output\":[{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":1,\"total_tokens\":4}}}\n\n",
+  "discovery": {
+    "models": [
+      {
+        "slug": "gpt-6.1-terra",
+        "display_name": "GPT-6.1 Terra",
+        "context_window": 500000,
+        "max_context_window": 922000,
+        "supported_reasoning_levels": [
+          {
+            "effort": "low"
+          },
+          {
+            "effort": "medium"
+          },
+          {
+            "effort": "high"
+          },
+          {
+            "effort": "xhigh"
+          }
+        ],
+        "prefer_websockets": true,
+        "priority": 1,
+        "service_tiers": [
+          {
+            "id": "priority"
+          }
+        ]
+      }
+    ]
+  },
+  "model": {
+    "id": "gpt-6.1-terra",
+    "name": "GPT-6.1 Terra",
+    "api": "openai-codex-responses",
+    "provider": "openai-codex",
+    "baseUrl": "https://chatgpt.com/backend-api",
+    "accountAccess": {
+      "account-capture-fake": {}
+    },
+    "reasoning": true,
+    "input": [
+      "text",
+      "image"
+    ],
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "remoteCompaction": {
+      "enabled": true,
+      "api": "openai-codex-responses",
+      "v2StreamingEnabled": true
+    },
+    "contextWindow": 500000,
+    "maxContextWindow": 922000,
+    "maxTokens": 128000,
+    "preferWebsockets": true,
+    "serviceTiers": [
+      "priority"
+    ],
+    "priority": 1
+  },
+  "fixtures": [
+    {
+      "name": "local/plain-high",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "plain-high",
+        "reasoning": "high",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "systemPrompt": [
+          "You are terse."
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "instructions": "You are terse.",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "stream": true,
+          "temperature": 0.2,
+          "max_output_tokens": 99,
+          "store": true
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "936",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "fa9efa83-44f2-4cd3-9756-b7ebacca9e47",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"fa9efa83-44f2-4cd3-9756-b7ebacca9e47\",\"turn_id\":\"6ac87f0e-81b7-4927-9639-84f3ec86f52a\",\"window_id\":\"343475f9-bcb5-48fa-af80-5504b215031e\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606239}",
+            "x-codex-window-id": "343475f9-bcb5-48fa-af80-5504b215031e"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"fa9efa83-44f2-4cd3-9756-b7ebacca9e47\",\"x-codex-window-id\":\"343475f9-bcb5-48fa-af80-5504b215031e\",\"turn_id\":\"6ac87f0e-81b7-4927-9639-84f3ec86f52a\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"fa9efa83-44f2-4cd3-9756-b7ebacca9e47\\\",\\\"turn_id\\\":\\\"6ac87f0e-81b7-4927-9639-84f3ec86f52a\\\",\\\"window_id\\\":\\\"343475f9-bcb5-48fa-af80-5504b215031e\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606239}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "local/no-effort",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "no-effort",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "857",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "afa0c362-cb99-464b-98ed-01fbfe239254",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"afa0c362-cb99-464b-98ed-01fbfe239254\",\"turn_id\":\"7f9f3a96-7da8-44ab-95b1-75205e98b3b3\",\"window_id\":\"f48e2e7b-7781-4ba0-b380-446b9a47d02a\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606267}",
+            "x-codex-window-id": "f48e2e7b-7781-4ba0-b380-446b9a47d02a"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"afa0c362-cb99-464b-98ed-01fbfe239254\",\"x-codex-window-id\":\"f48e2e7b-7781-4ba0-b380-446b9a47d02a\",\"turn_id\":\"7f9f3a96-7da8-44ab-95b1-75205e98b3b3\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"afa0c362-cb99-464b-98ed-01fbfe239254\\\",\\\"turn_id\\\":\\\"7f9f3a96-7da8-44ab-95b1-75205e98b3b3\\\",\\\"window_id\\\":\\\"f48e2e7b-7781-4ba0-b380-446b9a47d02a\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606267}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "local/custom-tool",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "custom-tool",
+        "reasoning": "high",
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "1074",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "dad1bf76-be76-4186-80ba-4a51f3637cc6",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"dad1bf76-be76-4186-80ba-4a51f3637cc6\",\"turn_id\":\"d8b2d28e-cb74-427f-b5b8-60ed15a9b022\",\"window_id\":\"48203bfc-b747-44bf-b315-eea230036bbb\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606275}",
+            "x-codex-window-id": "48203bfc-b747-44bf-b315-eea230036bbb"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"dad1bf76-be76-4186-80ba-4a51f3637cc6\",\"x-codex-window-id\":\"48203bfc-b747-44bf-b315-eea230036bbb\",\"turn_id\":\"d8b2d28e-cb74-427f-b5b8-60ed15a9b022\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"dad1bf76-be76-4186-80ba-4a51f3637cc6\\\",\\\"turn_id\\\":\\\"d8b2d28e-cb74-427f-b5b8-60ed15a9b022\\\",\\\"window_id\\\":\\\"48203bfc-b747-44bf-b315-eea230036bbb\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606275}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "local/tool-history",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "tool-history",
+        "reasoning": "high",
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "toolCall",
+                "id": "call:1#🦊",
+                "name": "lookup",
+                "arguments": {
+                  "term": "a"
+                }
+              }
+            ],
+            "api": "openai-codex-responses",
+            "provider": "openai-codex",
+            "model": "gpt-6.1-terra",
+            "usage": {
+              "input": 1,
+              "output": 1,
+              "totalTokens": 2,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "total": 0
+              }
+            },
+            "stopReason": "toolUse",
+            "timestamp": 1
+          },
+          {
+            "role": "toolResult",
+            "toolCallId": "call:1#🦊",
+            "toolName": "lookup",
+            "content": [
+              {
+                "type": "text",
+                "text": "Found."
+              }
+            ],
+            "isError": false,
+            "timestamp": 2
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            },
+            {
+              "type": "function_call",
+              "call_id": "call:1#🦊",
+              "name": "lookup",
+              "arguments": "{\"term\":\"a\"}"
+            },
+            {
+              "type": "function_call_output",
+              "call_id": "call:1#🦊",
+              "output": "Found."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "1260",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "d6f35ca7-6388-4def-b170-7bb5044e6f85",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"d6f35ca7-6388-4def-b170-7bb5044e6f85\",\"turn_id\":\"96d7194d-8780-4a08-89da-72d87de748cd\",\"window_id\":\"8e3253c6-6d24-4411-b5e3-9999b718a8e6\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606278}",
+            "x-codex-window-id": "8e3253c6-6d24-4411-b5e3-9999b718a8e6"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_1_3reemsusm81v\",\"name\":\"lookup\",\"arguments\":\"{\\\"term\\\":\\\"a\\\"}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_1_3reemsusm81v\",\"output\":\"Found.\"}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"d6f35ca7-6388-4def-b170-7bb5044e6f85\",\"x-codex-window-id\":\"8e3253c6-6d24-4411-b5e3-9999b718a8e6\",\"turn_id\":\"96d7194d-8780-4a08-89da-72d87de748cd\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"d6f35ca7-6388-4def-b170-7bb5044e6f85\\\",\\\"turn_id\\\":\\\"96d7194d-8780-4a08-89da-72d87de748cd\\\",\\\"window_id\\\":\\\"8e3253c6-6d24-4411-b5e3-9999b718a8e6\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606278}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "local/developer-prompts",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "developer-prompts",
+        "reasoning": "medium",
+        "systemPrompt": [
+          "First.",
+          "Second."
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hi."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "instructions": "First.",
+          "input": [
+            {
+              "type": "message",
+              "role": "developer",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Second."
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Hi."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "1012",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "ce0977df-d92f-4cee-a8d9-e6d6e3a4bda6",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"ce0977df-d92f-4cee-a8d9-e6d6e3a4bda6\",\"turn_id\":\"0339625d-92f0-41cd-8c1b-101a7b2084aa\",\"window_id\":\"87f7d57e-e59a-407d-b3a5-5791d0941bed\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606280}",
+            "x-codex-window-id": "87f7d57e-e59a-407d-b3a5-5791d0941bed"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"type\":\"message\",\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"Second.\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Hi.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"instructions\":\"First.\",\"store\":false,\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"ce0977df-d92f-4cee-a8d9-e6d6e3a4bda6\",\"x-codex-window-id\":\"87f7d57e-e59a-407d-b3a5-5791d0941bed\",\"turn_id\":\"0339625d-92f0-41cd-8c1b-101a7b2084aa\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"ce0977df-d92f-4cee-a8d9-e6d6e3a4bda6\\\",\\\"turn_id\\\":\\\"0339625d-92f0-41cd-8c1b-101a7b2084aa\\\",\\\"window_id\\\":\\\"87f7d57e-e59a-407d-b3a5-5791d0941bed\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606280}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "local/clamped-max-and-text",
+      "transport": "sse",
+      "baseUrl": "http://127.0.0.1:45299",
+      "requestedURL": "http://127.0.0.1:45299/codex/responses",
+      "scenario": {
+        "name": "clamped-max-and-text",
+        "reasoning": "max",
+        "textVerbosity": "low",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hi."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Hi."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          },
+          "text": {
+            "verbosity": "low"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-length": "923",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "127.0.0.1:45299",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "b04aea1f-34b4-4a23-96e5-b47cb05359e1",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"b04aea1f-34b4-4a23-96e5-b47cb05359e1\",\"turn_id\":\"1a1a776c-63cf-4acf-b59a-529d60a6533c\",\"window_id\":\"0f131d0e-f1fe-48c7-8364-cb8b570cf119\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606282}",
+            "x-codex-window-id": "0f131d0e-f1fe-48c7-8364-cb8b570cf119"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Hi.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"},\"text\":{\"verbosity\":\"low\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"b04aea1f-34b4-4a23-96e5-b47cb05359e1\",\"x-codex-window-id\":\"0f131d0e-f1fe-48c7-8364-cb8b570cf119\",\"turn_id\":\"1a1a776c-63cf-4acf-b59a-529d60a6533c\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"b04aea1f-34b4-4a23-96e5-b47cb05359e1\\\",\\\"turn_id\\\":\\\"1a1a776c-63cf-4acf-b59a-529d60a6533c\\\",\\\"window_id\\\":\\\"0f131d0e-f1fe-48c7-8364-cb8b570cf119\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606282}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/plain-high",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "plain-high",
+        "reasoning": "high",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "systemPrompt": [
+          "You are terse."
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "instructions": "You are terse.",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "stream": true,
+          "temperature": 0.2,
+          "max_output_tokens": 99,
+          "store": true
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "491",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "00141e54-4168-4d8e-bbff-00fcd3a85dcc",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"00141e54-4168-4d8e-bbff-00fcd3a85dcc\",\"turn_id\":\"831c5172-a38d-4b15-a12b-c0afaa97a31c\",\"window_id\":\"1d05321b-87c3-4f88-b432-b3a543e5caff\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606284}",
+            "x-codex-window-id": "1d05321b-87c3-4f88-b432-b3a543e5caff"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"instructions\":\"You are terse.\",\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"00141e54-4168-4d8e-bbff-00fcd3a85dcc\",\"x-codex-window-id\":\"1d05321b-87c3-4f88-b432-b3a543e5caff\",\"turn_id\":\"831c5172-a38d-4b15-a12b-c0afaa97a31c\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"00141e54-4168-4d8e-bbff-00fcd3a85dcc\\\",\\\"turn_id\\\":\\\"831c5172-a38d-4b15-a12b-c0afaa97a31c\\\",\\\"window_id\\\":\\\"1d05321b-87c3-4f88-b432-b3a543e5caff\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606284}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/no-effort",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "no-effort",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "446",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "fb38efd1-09e8-4580-903f-a656885a8eca",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"fb38efd1-09e8-4580-903f-a656885a8eca\",\"turn_id\":\"3e58938c-3fd0-4987-a82c-d9b1cdc4300f\",\"window_id\":\"81be3009-6eec-4fcc-8d10-217bde8cc5b6\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606287}",
+            "x-codex-window-id": "81be3009-6eec-4fcc-8d10-217bde8cc5b6"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"fb38efd1-09e8-4580-903f-a656885a8eca\",\"x-codex-window-id\":\"81be3009-6eec-4fcc-8d10-217bde8cc5b6\",\"turn_id\":\"3e58938c-3fd0-4987-a82c-d9b1cdc4300f\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"fb38efd1-09e8-4580-903f-a656885a8eca\\\",\\\"turn_id\\\":\\\"3e58938c-3fd0-4987-a82c-d9b1cdc4300f\\\",\\\"window_id\\\":\\\"81be3009-6eec-4fcc-8d10-217bde8cc5b6\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606287}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/custom-tool",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "custom-tool",
+        "reasoning": "high",
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "561",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "f19b9c52-0308-450d-8394-f4842671c290",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"f19b9c52-0308-450d-8394-f4842671c290\",\"turn_id\":\"d7c257a6-a430-4cff-88a7-2f46f75c7fa0\",\"window_id\":\"cf61eed5-c2d6-4c91-9f18-c3784e221ad0\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606288}",
+            "x-codex-window-id": "cf61eed5-c2d6-4c91-9f18-c3784e221ad0"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"f19b9c52-0308-450d-8394-f4842671c290\",\"x-codex-window-id\":\"cf61eed5-c2d6-4c91-9f18-c3784e221ad0\",\"turn_id\":\"d7c257a6-a430-4cff-88a7-2f46f75c7fa0\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"f19b9c52-0308-450d-8394-f4842671c290\\\",\\\"turn_id\\\":\\\"d7c257a6-a430-4cff-88a7-2f46f75c7fa0\\\",\\\"window_id\\\":\\\"cf61eed5-c2d6-4c91-9f18-c3784e221ad0\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606288}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/tool-history",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "tool-history",
+        "reasoning": "high",
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "toolCall",
+                "id": "call:1#🦊",
+                "name": "lookup",
+                "arguments": {
+                  "term": "a"
+                }
+              }
+            ],
+            "api": "openai-codex-responses",
+            "provider": "openai-codex",
+            "model": "gpt-6.1-terra",
+            "usage": {
+              "input": 1,
+              "output": 1,
+              "totalTokens": 2,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "total": 0
+              }
+            },
+            "stopReason": "toolUse",
+            "timestamp": 1
+          },
+          {
+            "role": "toolResult",
+            "toolCallId": "call:1#🦊",
+            "toolName": "lookup",
+            "content": [
+              {
+                "type": "text",
+                "text": "Found."
+              }
+            ],
+            "isError": false,
+            "timestamp": 2
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            },
+            {
+              "type": "function_call",
+              "call_id": "call:1#🦊",
+              "name": "lookup",
+              "arguments": "{\"term\":\"a\"}"
+            },
+            {
+              "type": "function_call_output",
+              "call_id": "call:1#🦊",
+              "output": "Found."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "631",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "789c1d46-4a78-4242-809c-37d929a19cf1",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"789c1d46-4a78-4242-809c-37d929a19cf1\",\"turn_id\":\"13294428-935e-44d2-a4f3-d51766052836\",\"window_id\":\"41fcc41a-1872-45c9-8dde-006a1473ad92\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606289}",
+            "x-codex-window-id": "41fcc41a-1872-45c9-8dde-006a1473ad92"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]},{\"type\":\"function_call\",\"call_id\":\"call_1_3reemsusm81v\",\"name\":\"lookup\",\"arguments\":\"{\\\"term\\\":\\\"a\\\"}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_1_3reemsusm81v\",\"output\":\"Found.\"}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"store\":false,\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"789c1d46-4a78-4242-809c-37d929a19cf1\",\"x-codex-window-id\":\"41fcc41a-1872-45c9-8dde-006a1473ad92\",\"turn_id\":\"13294428-935e-44d2-a4f3-d51766052836\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"789c1d46-4a78-4242-809c-37d929a19cf1\\\",\\\"turn_id\\\":\\\"13294428-935e-44d2-a4f3-d51766052836\\\",\\\"window_id\\\":\\\"41fcc41a-1872-45c9-8dde-006a1473ad92\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606289}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/developer-prompts",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "developer-prompts",
+        "reasoning": "medium",
+        "systemPrompt": [
+          "First.",
+          "Second."
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hi."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "instructions": "First.",
+          "input": [
+            {
+              "type": "message",
+              "role": "developer",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Second."
+                }
+              ]
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Hi."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "507",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "4ae10d6b-5c1c-4eeb-9f4f-d54b5dc80b70",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"4ae10d6b-5c1c-4eeb-9f4f-d54b5dc80b70\",\"turn_id\":\"f9d6acbd-0b2c-4add-b605-5bd7d61b6667\",\"window_id\":\"57ee6d1f-39ce-46bc-b13e-715a870fe925\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606290}",
+            "x-codex-window-id": "57ee6d1f-39ce-46bc-b13e-715a870fe925"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"type\":\"message\",\"role\":\"developer\",\"content\":[{\"type\":\"input_text\",\"text\":\"Second.\"}]},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Hi.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"instructions\":\"First.\",\"store\":false,\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"4ae10d6b-5c1c-4eeb-9f4f-d54b5dc80b70\",\"x-codex-window-id\":\"57ee6d1f-39ce-46bc-b13e-715a870fe925\",\"turn_id\":\"f9d6acbd-0b2c-4add-b605-5bd7d61b6667\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"4ae10d6b-5c1c-4eeb-9f4f-d54b5dc80b70\\\",\\\"turn_id\\\":\\\"f9d6acbd-0b2c-4add-b605-5bd7d61b6667\\\",\\\"window_id\\\":\\\"57ee6d1f-39ce-46bc-b13e-715a870fe925\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606290}\"}}"
+        }
+      ]
+    },
+    {
+      "name": "official/clamped-max-and-text",
+      "transport": "sse",
+      "baseUrl": "https://chatgpt.com/backend-api",
+      "requestedURL": "https://chatgpt.com/backend-api/codex/responses",
+      "scenario": {
+        "name": "clamped-max-and-text",
+        "reasoning": "max",
+        "textVerbosity": "low",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Hi."
+          }
+        ],
+        "downstream": {
+          "model": "gpt-6.1-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Hi."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          },
+          "text": {
+            "verbosity": "low"
+          }
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/backend-api/codex/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjb3VudC1jYXB0dXJlLWZha2UifX0.fake",
+            "chatgpt-account-id": "account-capture-fake",
+            "connection": "keep-alive",
+            "content-encoding": "zstd",
+            "content-length": "479",
+            "content-type": "application/json",
+            "conversation_id": "capture-session-0001",
+            "host": "chatgpt.com",
+            "openai-beta": "responses=experimental",
+            "originator": "omp",
+            "session-id": "capture-session-0001",
+            "session_id": "capture-session-0001",
+            "thread-id": "aac72c31-2c9a-4880-a9a4-4395d299c60d",
+            "user-agent": "npi/18.10.3",
+            "version": "0.159.0",
+            "x-client-request-id": "capture-session-0001",
+            "x-codex-routing-hint": "model=gpt-6.1-terra",
+            "x-codex-turn-metadata": "{\"installation_id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"aac72c31-2c9a-4880-a9a4-4395d299c60d\",\"turn_id\":\"33697925-87b8-4276-9c04-a3c4bb98f721\",\"window_id\":\"1dcbe152-6d56-42be-9a34-d5ca6538ac5d\",\"request_kind\":\"turn\",\"turn_started_at_unix_ms\":1793809606291}",
+            "x-codex-window-id": "1dcbe152-6d56-42be-9a34-d5ca6538ac5d"
+          },
+          "rawBody": "{\"model\":\"gpt-6.1-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Hi.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"},\"text\":{\"verbosity\":\"low\"},\"include\":[\"reasoning.encrypted_content\"],\"client_metadata\":{\"x-codex-installation-id\":\"2f81e90d-864e-432b-980e-fa7fdeb503ac\",\"session_id\":\"capture-session-0001\",\"thread_id\":\"aac72c31-2c9a-4880-a9a4-4395d299c60d\",\"x-codex-window-id\":\"1dcbe152-6d56-42be-9a34-d5ca6538ac5d\",\"turn_id\":\"33697925-87b8-4276-9c04-a3c4bb98f721\",\"x-codex-turn-metadata\":\"{\\\"installation_id\\\":\\\"2f81e90d-864e-432b-980e-fa7fdeb503ac\\\",\\\"session_id\\\":\\\"capture-session-0001\\\",\\\"thread_id\\\":\\\"aac72c31-2c9a-4880-a9a4-4395d299c60d\\\",\\\"turn_id\\\":\\\"33697925-87b8-4276-9c04-a3c4bb98f721\\\",\\\"window_id\\\":\\\"1dcbe152-6d56-42be-9a34-d5ca6538ac5d\\\",\\\"request_kind\\\":\\\"turn\\\",\\\"turn_started_at_unix_ms\\\":1793809606291}\"}}"
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/tidwall/gjson"
 )
 
@@ -43,13 +44,13 @@ func neoPiNormalizeSchema(schema gjson.Result, root bool) json.RawMessage {
 		for _, value := range schema.Array() {
 			out = append(out, neoPiNormalizeSchema(value, false))
 		}
-		return neoPiJSON(out)
+		return jsjson.Marshal(out)
 	}
 	if !schema.IsObject() {
 		return []byte(schema.Raw)
 	}
 	typeName := neoPiSchemaType(schema)
-	var fields []neoPiField
+	var fields []jsjson.Field
 	var spill []string
 	schema.ForEach(func(key, value gjson.Result) bool {
 		name := key.String()
@@ -83,12 +84,12 @@ func neoPiNormalizeSchema(schema gjson.Result, root bool) json.RawMessage {
 		switch name {
 		case "properties", "$defs", "definitions":
 			if value.IsObject() {
-				var children []neoPiField
+				var children []jsjson.Field
 				value.ForEach(func(k, v gjson.Result) bool {
-					children = append(children, neoPiField{k.String(), neoPiNormalizeSchema(v, false)})
+					children = append(children, jsjson.Field{Name: k.String(), Value: neoPiNormalizeSchema(v, false)})
 					return true
 				})
-				raw = neoPiObject(children...)
+				raw = jsjson.Object(children...)
 			}
 		case "items", "prefixItems", "anyOf", "allOf", "oneOf":
 			raw = neoPiNormalizeSchema(value, false)
@@ -100,13 +101,13 @@ func neoPiNormalizeSchema(schema gjson.Result, root bool) json.RawMessage {
 				}
 			}
 		}
-		fields = append(fields, neoPiField{name, raw})
+		fields = append(fields, jsjson.Field{Name: name, Value: raw})
 		return true
 	})
 	if typeName == "object" && !schema.Get("additionalProperties").Exists() {
-		fields = append(fields, neoPiField{"additionalProperties", []byte("false")})
+		fields = append(fields, jsjson.Field{Name: "additionalProperties", Value: []byte("false")})
 	}
-	out := neoPiObject(fields...)
+	out := jsjson.Object(fields...)
 	if len(spill) > 0 {
 		description := schema.Get("description").String()
 		suffix := "{" + strings.Join(spill, ", ") + "}"
@@ -145,7 +146,7 @@ func neoPiStrictSchema(schema gjson.Result, budget *neoPiStrictBudget) (json.Raw
 			}
 			out = append(out, normalized)
 		}
-		return neoPiJSON(out), true
+		return jsjson.Marshal(out), true
 	}
 	if !schema.IsObject() {
 		return []byte(schema.Raw), true
@@ -177,7 +178,7 @@ func neoPiStrictSchema(schema gjson.Result, budget *neoPiStrictBudget) (json.Raw
 				required[key.String()] = true
 			}
 		}
-		var fields []neoPiField
+		var fields []jsjson.Field
 		nextRequired := []string{}
 		ok := true
 		properties.ForEach(func(key, child gjson.Result) bool {
@@ -198,13 +199,13 @@ func neoPiStrictSchema(schema gjson.Result, budget *neoPiStrictBudget) (json.Raw
 				}
 				nextRequired = append(nextRequired, key.String())
 			}
-			fields = append(fields, neoPiField{key.String(), normalized})
+			fields = append(fields, jsjson.Field{Name: key.String(), Value: normalized})
 			return true
 		})
 		if !ok {
 			return nil, false
 		}
-		out = neoPiSetRaw(out, "properties", neoPiObject(fields...))
+		out = neoPiSetRaw(out, "properties", jsjson.Object(fields...))
 		out = neoPiSet(out, "required", nextRequired)
 	}
 	for _, name := range []string{"items", "prefixItems", "anyOf", "allOf", "oneOf"} {
@@ -219,7 +220,7 @@ func neoPiStrictSchema(schema gjson.Result, budget *neoPiStrictBudget) (json.Raw
 	}
 	for _, name := range []string{"$defs", "definitions"} {
 		if value := schema.Get(name); value.IsObject() {
-			var fields []neoPiField
+			var fields []jsjson.Field
 			ok := true
 			value.ForEach(func(key, child gjson.Result) bool {
 				normalized, valid := neoPiStrictSchema(child, budget)
@@ -227,13 +228,13 @@ func neoPiStrictSchema(schema gjson.Result, budget *neoPiStrictBudget) (json.Raw
 					ok = false
 					return false
 				}
-				fields = append(fields, neoPiField{key.String(), normalized})
+				fields = append(fields, jsjson.Field{Name: key.String(), Value: normalized})
 				return true
 			})
 			if !ok {
 				return nil, false
 			}
-			out = neoPiSetRaw(out, name, neoPiObject(fields...))
+			out = neoPiSetRaw(out, name, jsjson.Object(fields...))
 		}
 	}
 	return out, true
@@ -261,5 +262,5 @@ func neoPiNullableSchema(schema []byte, budget *neoPiStrictBudget) (json.RawMess
 		return nil, false
 	}
 	budget.unions--
-	return neoPiObject(neoPiField{"anyOf", neoPiJSON([]json.RawMessage{schema, []byte(`{"type":"null"}`)})}), true
+	return jsjson.Object(jsjson.Field{Name: "anyOf", Value: jsjson.Marshal([]json.RawMessage{schema, []byte(`{"type":"null"}`)})}), true
 }

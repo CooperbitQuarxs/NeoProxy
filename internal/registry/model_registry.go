@@ -71,9 +71,11 @@ type ModelInfo struct {
 	SupportedGenerationMethods []string `json:"supportedGenerationMethods,omitempty"`
 	// ContextLength is the context window size
 	ContextLength int `json:"context_length,omitempty"`
-	// MaxContextLength is an explicit per-model context window override from configuration.
-	// It is carried internally for Codex client model catalog generation.
+	// MaxContextLength is the largest context window the model accepts; for
+	// Codex it is the discovered max_context_window.
 	MaxContextLength int `json:"-"`
+	// ServiceTiers lists the discovered service tier ids (e.g. "priority", "ultrafast").
+	ServiceTiers []string `json:"-"`
 	// MaxCompletionTokens is the maximum completion tokens
 	MaxCompletionTokens int `json:"max_completion_tokens,omitempty"`
 	// SupportedParameters lists supported parameters
@@ -92,6 +94,9 @@ type ModelInfo struct {
 	// NativeCapabilities contains internal, static per-model capability metadata.
 	// It is intentionally separate from Antigravity's dynamically probed capability.
 	NativeCapabilities *NativeCapabilities `json:"-"`
+
+	// Codex carries account-scoped discovery metadata and NeoPi wire policies.
+	Codex *CodexModel `json:"-"`
 
 	// Thinking holds provider-specific reasoning/thinking budget capabilities.
 	// This is optional and currently used for Gemini thinking budget normalization.
@@ -818,6 +823,7 @@ func cloneModelInfo(model *ModelInfo) *ModelInfo {
 		return nil
 	}
 	copyModel := *model
+	copyModel.Codex = model.Codex.Clone()
 	if model.NativeCapabilities != nil {
 		copyCapabilities := *model.NativeCapabilities
 		if model.NativeCapabilities.WebSearch != nil {
@@ -831,6 +837,9 @@ func cloneModelInfo(model *ModelInfo) *ModelInfo {
 	}
 	if len(model.SupportedParameters) > 0 {
 		copyModel.SupportedParameters = append([]string(nil), model.SupportedParameters...)
+	}
+	if len(model.ServiceTiers) > 0 {
+		copyModel.ServiceTiers = append([]string(nil), model.ServiceTiers...)
 	}
 	if len(model.SupportedInputModalities) > 0 {
 		copyModel.SupportedInputModalities = append([]string(nil), model.SupportedInputModalities...)

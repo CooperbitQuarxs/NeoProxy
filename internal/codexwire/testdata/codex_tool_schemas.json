@@ -1,0 +1,533 @@
+{
+  "source": "NeoPi OWN convertOpenAICodexResponsesTools",
+  "fixtures": [
+    {
+      "name": "strict-optional",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "term": {
+              "type": "string",
+              "description": "Search term"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 5,
+              "description": "Max hits"
+            }
+          },
+          "required": [
+            "term"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "properties": {
+            "term": {
+              "description": "Search term",
+              "type": "string"
+            },
+            "limit": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Max hits (default: 5)"
+            }
+          },
+          "required": [
+            "term",
+            "limit"
+          ],
+          "type": "object",
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    },
+    {
+      "name": "strict-nullable-union",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": [
+                "a",
+                "b",
+                null
+              ]
+            },
+            "tag": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "properties": {
+            "mode": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "a",
+                    "b"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "enum": [
+                    null
+                  ],
+                  "type": "null"
+                }
+              ]
+            },
+            "tag": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "mode",
+            "tag"
+          ],
+          "type": "object",
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    },
+    {
+      "name": "strict-draft07",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "definitions": {
+            "point": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ]
+            }
+          },
+          "properties": {
+            "at": {
+              "$ref": "#/definitions/point",
+              "description": "Where"
+            },
+            "pair": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "maybe": {
+              "type": "string",
+              "nullable": true
+            }
+          },
+          "required": [
+            "at"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "$defs": {
+            "point": {
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "type": "object",
+              "additionalProperties": false
+            }
+          },
+          "properties": {
+            "at": {
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "description": "Where",
+              "type": "object",
+              "additionalProperties": false
+            },
+            "pair": {
+              "anyOf": [
+                {
+                  "prefixItems": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "maybe": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "at",
+            "pair",
+            "maybe"
+          ],
+          "type": "object",
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    },
+    {
+      "name": "strict-const-enum",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fixed"
+            },
+            "level": {
+              "enum": [
+                "low",
+                "high"
+              ]
+            },
+            "choice": {
+              "anyOf": [
+                {
+                  "const": "x",
+                  "description": "Pick"
+                },
+                {
+                  "const": "y",
+                  "description": "Pick"
+                }
+              ],
+              "description": "Pick"
+            }
+          },
+          "required": [
+            "kind",
+            "level",
+            "choice"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "fixed"
+              ],
+              "type": "string"
+            },
+            "level": {
+              "enum": [
+                "low",
+                "high"
+              ],
+              "type": "string"
+            },
+            "choice": {
+              "description": "Pick",
+              "enum": [
+                "x",
+                "y"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "level",
+            "choice"
+          ],
+          "type": "object",
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    },
+    {
+      "name": "strict-unrepresentable",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "meta"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {}
+            }
+          },
+          "required": [
+            "meta"
+          ]
+        }
+      }
+    },
+    {
+      "name": "strict-empty-branch",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {}
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ]
+        },
+        "strict": true
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                true
+              ]
+            }
+          },
+          "required": [
+            "value"
+          ]
+        }
+      }
+    },
+    {
+      "name": "non-strict-draft07",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "list": {
+              "type": "array",
+              "items": [
+                {
+                  "type": "string"
+                }
+              ],
+              "additionalItems": false
+            },
+            "any": {}
+          },
+          "dependencies": {
+            "list": [
+              "any"
+            ]
+          }
+        },
+        "strict": false
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "list": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string"
+                }
+              ],
+              "items": false
+            },
+            "any": true
+          },
+          "dependentRequired": {
+            "list": [
+              "any"
+            ]
+          }
+        },
+        "strict": false
+      }
+    },
+    {
+      "name": "undeclared-strict",
+      "downstream": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "pattern": "^(?!x)"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      },
+      "wire": {
+        "type": "function",
+        "name": "lookup",
+        "description": "Find things.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      }
+    }
+  ]
+}

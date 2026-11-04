@@ -2,9 +2,7 @@ package neopool
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -33,7 +31,6 @@ const (
 	quotaKeepLastGood   = 30 * time.Minute
 	quotaRequestTimeout = 15 * time.Second
 	quotaIdleTimeout    = 90 * time.Second
-	quotaMaxBody        = 1 << 20
 
 	claudeUsageURL = "https://api.anthropic.com/api/oauth/usage"
 	codexUsageURL  = "https://chatgpt.com/backend-api/wham/usage"
@@ -143,38 +140,16 @@ func quotaAccessToken(a *coreauth.Auth) string {
 	return strings.TrimSpace(token)
 }
 
-// codexChatGPTAccountID is the chatgpt_account_id claim of the access token,
-// falling back to the account_id the sign-in stored.
+// codexChatGPTAccountID is the account the sign-in stored, falling back to the
+// access token's chatgpt_account_id claim (credential.accountId ?? JWT).
 func codexChatGPTAccountID(a *coreauth.Auth, token string) string {
-	if claims, err := codex.ParseJWTToken(token); err == nil && claims.GetAccountID() != "" {
+	if id, _ := a.Metadata["account_id"].(string); strings.TrimSpace(id) != "" {
+		return strings.TrimSpace(id)
+	}
+	if claims, err := codex.ParseJWTToken(token); err == nil {
 		return claims.GetAccountID()
 	}
-	id, _ := a.Metadata["account_id"].(string)
-	return strings.TrimSpace(id)
-}
-
-func (q *quotaProber) get(ctx context.Context, client *http.Client, endpoint string, headers map[string]string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("invalid usage request")
-	}
-	req.Header.Set("Accept", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("usage endpoint unreachable")
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("usage endpoint returned HTTP %d", resp.StatusCode)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, quotaMaxBody+1))
-	if err != nil || len(data) > quotaMaxBody {
-		return nil, fmt.Errorf("usage response unreadable or too large")
-	}
-	return data, nil
+	return ""
 }
 
 func percentWindow(kind string, percent float64, startsAt, resetsAt time.Time) Window {
@@ -211,35 +186,24 @@ func claudeUsageWindows(usage *anthropicnpi.Usage) ([]Window, error) {
 	return out, nil
 }
 
-type codexUsageWindow struct {
-	UsedPercent        *float64 `json:"used_percent"`
-	LimitWindowSeconds int64    `json:"limit_window_seconds"`
-	ResetAfterSeconds  *int64   `json:"reset_after_seconds"`
-	ResetAt            int64    `json:"reset_at"`
-}
-
-// parseCodexUsage reads GET /wham/usage: rate_limit.primary_window and
-// secondary_window. A window of at most five hours is the 5h window, a longer
-// one the weekly window; without a length the primary is 5h, the secondary week.
-func parseCodexUsage(data []byte, now time.Time) ([]Window, error) {
-	var body struct {
-		RateLimit struct {
-			Primary   *codexUsageWindow `json:"primary_window"`
-			Secondary *codexUsageWindow `json:"secondary_window"`
-		} `json:"rate_limit"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		return nil, fmt.Errorf("invalid usage response")
+// codexUsageWindows adapts NeoPi's plan windows to the 5h/week projection. A
+// window of at most five hours is the 5h window, a longer one the weekly
+// window; without a length the primary is 5h, the secondary week. A window
+// without a percentage is unknown and is not shown as zero use. Separately
+// metered allowances (Spark) do not gate other models and are not projected.
+func codexUsageWindows(usage *codex.Usage, now time.Time) ([]Window, error) {
+	if usage == nil {
+		return nil, fmt.Errorf("usage response has no windows")
 	}
 	out := []Window{}
 	seen := map[string]bool{}
-	for i, v := range []*codexUsageWindow{body.RateLimit.Primary, body.RateLimit.Secondary} {
+	for i, v := range []*codex.UsageWindow{usage.Primary, usage.Secondary} {
 		if v == nil || v.UsedPercent == nil {
 			continue
 		}
 		kind, length := "5h", 5*time.Hour
-		if v.LimitWindowSeconds > 0 {
-			length = time.Duration(v.LimitWindowSeconds) * time.Second
+		if v.LimitWindowSeconds != nil && *v.LimitWindowSeconds > 0 {
+			length = time.Duration(*v.LimitWindowSeconds * float64(time.Second))
 			if length > 5*time.Hour {
 				kind = "week"
 			}
@@ -250,13 +214,7 @@ func parseCodexUsage(data []byte, now time.Time) ([]Window, error) {
 			continue
 		}
 		seen[kind] = true
-		var resets time.Time
-		switch {
-		case v.ResetAt > 0:
-			resets = time.Unix(v.ResetAt, 0)
-		case v.ResetAfterSeconds != nil && *v.ResetAfterSeconds >= 0:
-			resets = now.Add(time.Duration(*v.ResetAfterSeconds) * time.Second)
-		}
+		resets, _ := v.ResetTime(now)
 		out = append(out, percentWindow(kind, *v.UsedPercent, resets.Add(-length), resets))
 	}
 	if len(out) == 0 {
@@ -271,7 +229,6 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 	if token == "" {
 		return nil, fmt.Errorf("sign-in has no access token")
 	}
-	headers := map[string]string{"Authorization": "Bearer " + token}
 	client := q.clientFor(a)
 	switch quotaProvider(a) {
 	case "claude":
@@ -288,14 +245,19 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 		}
 		return claudeUsageWindows(usage)
 	case "codex":
-		if id := codexChatGPTAccountID(a, token); id != "" {
-			headers["chatgpt-account-id"] = id
+		endpoint := q.codexURL
+		if endpoint == codexUsageURL {
+			baseURL := a.Attributes["base_url"]
+			if baseURL == "" {
+				baseURL, _ = a.Metadata["base_url"].(string)
+			}
+			endpoint = codex.UsageURL(baseURL)
 		}
-		data, err := q.get(ctx, client, q.codexURL, headers)
+		usage, err := codex.FetchUsage(ctx, client, endpoint, token, codexChatGPTAccountID(a, token))
 		if err != nil {
 			return nil, err
 		}
-		return parseCodexUsage(data, now)
+		return codexUsageWindows(usage, now)
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }

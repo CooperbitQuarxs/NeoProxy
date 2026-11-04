@@ -29,6 +29,7 @@ import (
 const (
 	wsRequestTypeCreate                   = "response.create"
 	wsRequestTypeAppend                   = "response.append"
+	wsRequestTypeSteer                    = "response.steer"
 	wsEventTypeError                      = "error"
 	wsEventTypeCompleted                  = "response.completed"
 	wsEventTypeDone                       = "response.done"
@@ -43,6 +44,10 @@ const (
 
 	codexLocalCompactionSummaryPrefix = "Another language model started to solve this problem and produced a summary of its thinking process. You also have access to the state of the tools that were used by that language model. Use this to build on the work that has already been done and avoid duplicating work. Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:"
 )
+
+// responsesWebsocketSteerUnavailable answers steering no running response
+// took, so the client can send it as its next turn instead.
+var responsesWebsocketSteerUnavailable = []byte(`{"type":"response.steer.failed","error":{"code":"no_active_response","message":"steering applies only to a running response; send it as the next turn"}}`)
 
 var responsesWebsocketUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
@@ -391,7 +396,7 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 		return auth, ok
 	}
 	upstreamModeForAuth := func(auth *coreauth.Auth) string {
-		if auth != nil && websocketUpstreamSupportsIncrementalInput(auth.Attributes, auth.Metadata) {
+		if responsesWebsocketAuthSupportsIncrementalInput(auth) {
 			provider := strings.ToLower(strings.TrimSpace(auth.Provider))
 			if provider == "codex" || provider == "xai" {
 				return responsesWebsocketUpstreamModeWS
@@ -421,19 +426,39 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 		pinnedAuthID = ""
 	}
 
+	// deferredInput holds frames an executor read while serving a turn but did
+	// not own; they are this loop's next requests, in arrival order.
+	var deferredMu sync.Mutex
+	var deferredInput []cliproxyexecutor.WebsocketInput
+	deferInput := func(message cliproxyexecutor.WebsocketInput) {
+		deferredMu.Lock()
+		deferredInput = append(deferredInput, message)
+		deferredMu.Unlock()
+	}
 	for {
 		var msgType int
 		var payload []byte
 		var errReadMessage error
-		select {
-		case message, ok := <-input:
-			if !ok {
+		deferredMu.Lock()
+		var deferred *cliproxyexecutor.WebsocketInput
+		if len(deferredInput) > 0 {
+			deferred = &deferredInput[0]
+			deferredInput = deferredInput[1:]
+		}
+		deferredMu.Unlock()
+		if deferred != nil {
+			msgType, payload, errReadMessage = websocket.TextMessage, deferred.Payload, deferred.Err
+		} else {
+			select {
+			case message, ok := <-input:
+				if !ok {
+					errReadMessage = context.Cause(socketCtx)
+				} else {
+					msgType, payload, errReadMessage = websocket.TextMessage, message.Payload, message.Err
+				}
+			case <-socketCtx.Done():
 				errReadMessage = context.Cause(socketCtx)
-			} else {
-				msgType, payload, errReadMessage = websocket.TextMessage, message.Payload, message.Err
 			}
-		case <-socketCtx.Done():
-			errReadMessage = context.Cause(socketCtx)
 		}
 		if errReadMessage != nil && errors.Is(errReadMessage, context.Canceled) {
 			return
@@ -448,6 +473,13 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 			return
 		}
 		if msgType != websocket.TextMessage && msgType != websocket.BinaryMessage {
+			continue
+		}
+		if gjson.GetBytes(payload, "type").String() == wsRequestTypeSteer {
+			if errWrite := writeResponsesWebsocketPayload(writer, wsTimelineLog, responsesWebsocketSteerUnavailable, time.Now()); errWrite != nil {
+				wsTerminateErr = errWrite
+				return
+			}
 			continue
 		}
 		// log.Infof(
@@ -713,6 +745,7 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 		cliCtx = cliproxyexecutor.WithDownstreamWebsocket(cliCtx)
 		if duplexInput != nil {
 			cliCtx = cliproxyexecutor.WithWebsocketInput(cliCtx, duplexInput)
+			cliCtx = cliproxyexecutor.WithWebsocketInputDefer(cliCtx, deferInput)
 			cliCtx = cliproxyexecutor.WithWebsocketAuthCheck(cliCtx, func(authID string) bool {
 				current, ok := sessionAuthByID(authID)
 				return ok && current != nil && !current.Disabled && current.Status != coreauth.StatusDisabled
@@ -833,6 +866,11 @@ func (h *OpenAIResponsesAPIHandler) ResponsesWebsocket(c *gin.Context) {
 			lastResponsePendingToolCallIDs = nil
 		} else {
 			upstreamWebsocketAuthID = ""
+			if !neoScoped && lastAttemptedAuthID != "" {
+				if auth, ok := sessionAuthByID(lastAttemptedAuthID); ok && responsesWebsocketAuthUsesNeoPiCodex(auth) {
+					rememberPinnedAuth(lastAttemptedAuthID, modelName)
+				}
+			}
 			lastRequest = nextLastRequest
 			lastResponseOutput = completedOutput
 			if inputContainsFullTranscript(gjson.ParseBytes(completedOutput)) {

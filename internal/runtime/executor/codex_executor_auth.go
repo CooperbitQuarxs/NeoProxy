@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -13,82 +14,10 @@ import (
 	codexauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
-	log "github.com/sirupsen/logrus"
 )
-
-const defaultOpenAISIWCBaseURL = "https://api.openai.com/v1"
-
-func codexUseSIWC(auth *cliproxyauth.Auth) bool {
-	if auth == nil {
-		return false
-	}
-	enabled := false
-	if len(auth.Attributes) > 0 {
-		if raw := strings.TrimSpace(auth.Attributes["use_siwc"]); raw != "" {
-			if parsed, errParse := strconv.ParseBool(raw); errParse == nil {
-				enabled = parsed
-			}
-		}
-	}
-	if !enabled && auth.Metadata != nil {
-		switch v := auth.Metadata["use_siwc"].(type) {
-		case bool:
-			enabled = v
-		case string:
-			if parsed, errParse := strconv.ParseBool(strings.TrimSpace(v)); errParse == nil {
-				enabled = parsed
-			}
-		}
-	}
-	return enabled
-}
-
-func ensureCodexSIWCCredentials(auth *cliproxyauth.Auth, apiKey string) error {
-	if codexUseSIWC(auth) && strings.TrimSpace(apiKey) == "" {
-		return statusErr{code: 401, msg: "codex executor: use_siwc is enabled but siwc access_token is missing"}
-	}
-	return nil
-}
-
-func codexSIWCAccessToken(auth *cliproxyauth.Auth) string {
-	if auth == nil || auth.Metadata == nil {
-		return ""
-	}
-	siwcMap, ok := auth.Metadata["siwc"].(map[string]any)
-	if !ok || len(siwcMap) == 0 {
-		return ""
-	}
-	for _, key := range []string{"access_token", "access"} {
-		if tok, okTok := siwcMap[key].(string); okTok && strings.TrimSpace(tok) != "" {
-			return strings.TrimSpace(tok)
-		}
-	}
-	return ""
-}
-
-func cloneSIWCMap(src map[string]any) map[string]any {
-	if src == nil {
-		return nil
-	}
-	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		switch typed := v.(type) {
-		case []string:
-			s := make([]string, len(typed))
-			copy(s, typed)
-			dst[k] = s
-		case []any:
-			s := make([]any, len(typed))
-			copy(s, typed)
-			dst[k] = s
-		default:
-			dst[k] = v
-		}
-	}
-	return dst
-}
 
 func resolveCodexAuthDiskPath(cfg *config.Config, auth *cliproxyauth.Auth) (string, error) {
 	if auth == nil {
@@ -97,7 +26,7 @@ func resolveCodexAuthDiskPath(cfg *config.Config, auth *cliproxyauth.Auth) (stri
 	var candidates []string
 	if len(auth.Attributes) > 0 {
 		if p := strings.TrimSpace(auth.Attributes[cliproxyauth.AttributePath]); p != "" {
-			candidates = append(candidates, p)
+			return p, nil
 		}
 		if s := strings.TrimSpace(auth.Attributes[cliproxyauth.AttributeSource]); s != "" && !strings.Contains(s, ":") {
 			candidates = append(candidates, s)
@@ -125,25 +54,46 @@ func resolveCodexAuthDiskPath(cfg *config.Config, auth *cliproxyauth.Auth) (stri
 			return candidate, nil
 		}
 	}
+	if len(candidates) > 0 {
+		// A removed persisted row is not an in-memory credential to refresh.
+		return candidates[0], nil
+	}
 	return "", nil
 }
 
 func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
-	log.Debugf("codex executor: refresh called")
-	var cfg *config.Config
-	if e != nil {
-		cfg = e.cfg
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	homeEnabled := cfg != nil && cfg.Home.Enabled
+	if auth == nil {
+		return nil, statusErr{code: 500, msg: "codex executor: auth is nil"}
+	}
 	if cliproxyauth.IsRefreshLocked(auth) {
 		return nil, cliproxyauth.ErrRefreshLocked
 	}
-	if auth == nil {
-		if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, cfg, auth); handled {
-			return refreshed, err
-		}
-		return nil, statusErr{code: 500, msg: "codex executor: auth is nil"}
+	if e == nil {
+		e = NewCodexExecutor(nil)
 	}
+	if auth.ID == "" {
+		return e.refreshCredential(ctx, auth)
+	}
+	result := e.refresh.flight.DoChan(auth.ID, func() (any, error) {
+		return e.refreshCredential(ctx, auth)
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case completed := <-result:
+		if refreshed, ok := completed.Val.(*cliproxyauth.Auth); ok && refreshed != nil {
+			return refreshed.Clone(), completed.Err
+		}
+		return nil, completed.Err
+	}
+}
+
+func (e *CodexExecutor) refreshCredential(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+	cfg := e.cfg
+	homeEnabled := cfg != nil && cfg.Home.Enabled
 
 	diskPath, errPath := resolveCodexAuthDiskPath(cfg, auth)
 	if errPath != nil {
@@ -151,7 +101,7 @@ func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 	}
 	if diskPath != "" {
 		var outAuth *cliproxyauth.Auth
-		errLock := codexauth.WithFileLock(diskPath, func() error {
+		errLock := codexauth.WithFileLockContext(ctx, diskPath, func() error {
 			var errInner error
 			outAuth, errInner = e.refreshLocked(ctx, auth, diskPath, homeEnabled)
 			return errInner
@@ -161,304 +111,210 @@ func (e *CodexExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*
 	return e.refreshLocked(ctx, auth, "", homeEnabled)
 }
 
-func (e *CodexExecutor) refreshLocked(ctx context.Context, auth *cliproxyauth.Auth, diskPath string, homeEnabled bool) (*cliproxyauth.Auth, error) {
+func (e *CodexExecutor) refreshLocked(ctx context.Context, observed *cliproxyauth.Auth, diskPath string, homeEnabled bool) (*cliproxyauth.Auth, error) {
 	var cfg *config.Config
 	if e != nil {
 		cfg = e.cfg
 	}
-	beforeRefresh := auth.Clone()
+	auth := observed.Clone()
 	auth.CodexRefreshPatch = nil
 	if auth.Metadata == nil {
 		auth.Metadata = make(map[string]any)
 	}
-
-	now := time.Now()
-	_, _, initNeedOuter := cliproxyauth.CodexOuterNeedsRefresh(auth, now)
-	_, _, initNeedSIWC := cliproxyauth.CodexSIWCNeedsRefresh(auth, now)
-	explicitUnscheduled := !initNeedOuter && !initNeedSIWC
-
-	diskRotatedOuter := false
-	diskRotatedSIWC := false
 	var diskBaseline map[string]any
 	if diskPath != "" {
-		existingBytes, errRead := os.ReadFile(diskPath)
+		raw, errRead := os.ReadFile(diskPath)
 		if errRead != nil {
-			return nil, fmt.Errorf("codex executor: read credential file %s: %w", diskPath, errRead)
+			return nil, fmt.Errorf("codex executor: read credential file: %w", errRead)
 		}
-		var diskMap map[string]any
-		if errUnmarshal := json.Unmarshal(existingBytes, &diskMap); errUnmarshal != nil || len(diskMap) == 0 {
-			return nil, fmt.Errorf("codex executor: invalid credential JSON in %s: %w", diskPath, errUnmarshal)
+		if errJSON := json.Unmarshal(raw, &diskBaseline); errJSON != nil {
+			return nil, fmt.Errorf("codex executor: invalid credential JSON: %w", errJSON)
 		}
-		diskBaseline = cloneSIWCMap(diskMap)
-		if siwcSub, okSub := diskMap["siwc"].(map[string]any); okSub {
-			diskBaseline["siwc"] = cloneSIWCMap(siwcSub)
+		if diskBaseline == nil {
+			return nil, fmt.Errorf("codex executor: empty credential JSON")
 		}
-		inOuterRef, _ := auth.Metadata["refresh_token"].(string)
-		inOuterAcc, _ := auth.Metadata["access_token"].(string)
-		diskOuterRef, _ := diskMap["refresh_token"].(string)
-		diskOuterAcc, _ := diskMap["access_token"].(string)
-		if (strings.TrimSpace(diskOuterRef) != "" && strings.TrimSpace(diskOuterRef) != strings.TrimSpace(inOuterRef)) ||
-			(strings.TrimSpace(diskOuterAcc) != "" && strings.TrimSpace(diskOuterAcc) != strings.TrimSpace(inOuterAcc)) {
-			diskRotatedOuter = true
-			for _, key := range []string{"id_token", "access_token", "refresh_token", "account_id", "last_refresh", "email", "expired", "plan_type", "type"} {
-				if val, exists := diskMap[key]; exists {
-					auth.Metadata[key] = val
-				}
-			}
-		}
-		diskSIWC, _ := diskMap["siwc"].(map[string]any)
-		inSIWC, _ := auth.Metadata["siwc"].(map[string]any)
-		if len(diskSIWC) > 0 {
-			inSIWCRef, _ := inSIWC["refresh_token"].(string)
-			inSIWCAcc, _ := inSIWC["access_token"].(string)
-			diskSIWCRef, _ := diskSIWC["refresh_token"].(string)
-			diskSIWCAcc, _ := diskSIWC["access_token"].(string)
-			if (strings.TrimSpace(diskSIWCRef) != "" && strings.TrimSpace(diskSIWCRef) != strings.TrimSpace(inSIWCRef)) ||
-				(strings.TrimSpace(diskSIWCAcc) != "" && strings.TrimSpace(diskSIWCAcc) != strings.TrimSpace(inSIWCAcc)) {
-				diskRotatedSIWC = true
-				auth.Metadata["siwc"] = cloneSIWCMap(diskSIWC)
-			}
-		}
-		if diskUse, hasDiskUse := diskMap["use_siwc"]; hasDiskUse {
-			auth.Metadata["use_siwc"] = diskUse
+		// The persisted row is authoritative, including a login or rotation by a peer.
+		auth.Metadata = diskBaseline
+		if cliproxyauth.IsRefreshLocked(auth) {
+			return nil, cliproxyauth.ErrRefreshLocked
 		}
 	}
-
-	var outerRefreshToken string
-	var existingSIWC map[string]any
-	var siwcRefreshToken, siwcClientID, siwcDeviceID string
-	var preservedUseSIWC any
-	hasPreservedUseSIWC := false
-
-	if v, ok := auth.Metadata["refresh_token"].(string); ok && strings.TrimSpace(v) != "" {
-		outerRefreshToken = strings.TrimSpace(v)
+	if disabled, _ := auth.Metadata["disabled"].(bool); auth.Disabled || disabled {
+		return nil, fmt.Errorf("codex executor: credential is disabled")
 	}
-	if v, exists := auth.Metadata["use_siwc"]; exists {
-		preservedUseSIWC = v
-		hasPreservedUseSIWC = true
-	}
-	if siwcRaw, ok := auth.Metadata["siwc"].(map[string]any); ok && len(siwcRaw) > 0 {
-		existingSIWC = cloneSIWCMap(siwcRaw)
-		if v, okStr := existingSIWC["refresh_token"].(string); okStr {
-			siwcRefreshToken = strings.TrimSpace(v)
-		}
-		if v, okStr := existingSIWC["client_id"].(string); okStr {
-			siwcClientID = strings.TrimSpace(v)
-		}
-		if v, okStr := existingSIWC["device_id"].(string); okStr {
-			siwcDeviceID = strings.TrimSpace(v)
+	rotated := false
+	for _, key := range []string{"access_token", "refresh_token", "expired", "account_id", "email"} {
+		if !reflect.DeepEqual(auth.Metadata[key], observed.Metadata[key]) {
+			rotated = true
+			break
 		}
 	}
-
-	_, hasOuter, needOuter := cliproxyauth.CodexOuterNeedsRefresh(auth, now)
-	if outerRefreshToken == "" && !homeEnabled {
-		hasOuter = false
-		needOuter = false
-	} else if homeEnabled && !hasOuter {
-		hasOuter = true
-		if outerExp, okExp := auth.OuterExpirationTime(); okExp && !outerExp.IsZero() && !outerExp.After(now.Add(cliproxyauth.CodexOuterRefreshLead)) {
-			needOuter = true
+	if rotated {
+		auth.RejectedAccessToken = ""
+	}
+	clock := time.Now
+	if e.refreshClock != nil {
+		clock = e.refreshClock
+	}
+	now := clock()
+	if !cliproxyauth.IsForceRefreshContext(ctx) && auth.RejectedAccessToken != "" {
+		access, _ := auth.Metadata["access_token"].(string)
+		e.refresh.mu.Lock()
+		mint, present := e.refresh.mints[auth.ID]
+		e.refresh.mu.Unlock()
+		usable := auth.Clone()
+		usable.RejectedAccessToken = ""
+		expiry, known := usable.ExpirationTime()
+		if present && mint.access == access && now.Sub(mint.at) < 5*time.Minute && known && expiry.After(now.Add(time.Minute)) {
+			return usable, nil
 		}
 	}
-	_, hasSIWC, needSIWC := cliproxyauth.CodexSIWCNeedsRefresh(auth, now)
-	if siwcRefreshToken == "" || siwcClientID == "" {
-		hasSIWC = false
-		needSIWC = false
-	}
-
-	if cliproxyauth.IsForceRefreshContext(ctx) {
-		needOuter = hasOuter
-		needSIWC = hasSIWC
-	} else if explicitUnscheduled {
-		if !diskRotatedOuter {
-			needOuter = hasOuter
-		}
-		if !diskRotatedSIWC {
-			needSIWC = hasSIWC
-		}
-	}
-
-	if !needOuter && !needSIWC {
-		if diskRotatedOuter || diskRotatedSIWC {
-			patch := codexauth.NewCredentialRefreshPatchWithDiskBaseline(beforeRefresh.Metadata, diskBaseline, auth.Metadata, diskRotatedOuter, diskRotatedSIWC)
-			auth.CodexRefreshPatch = patch
-			if storage, ok := auth.Storage.(*codexauth.CodexTokenStorage); ok && storage != nil {
-				clonedStorage := *storage
-				clonedStorage.RefreshPatch = patch
-				auth.Storage = &clonedStorage
-			}
+	_, hasRefresh, needsRefresh := cliproxyauth.CodexNeedsRefresh(auth, now)
+	force := cliproxyauth.IsForceRefreshContext(ctx)
+	if (!force || rotated) && !needsRefresh || !hasRefresh && !homeEnabled {
+		if rotated {
+			auth.CodexRefreshPatch = codexauth.NewCredentialRefreshPatch(observed.Metadata, diskBaseline, auth.Metadata)
 		}
 		return auth, nil
 	}
 
-	svc := codexauth.NewCodexAuthWithProxyURL(cfg, auth.ProxyURL)
-
-	outerRefreshed := false
-	var outerErr error
-	siwcRefreshed := false
-	var siwcErr error
-
-	// Execute refreshes sequentially so outer and SIWC never race on the same credential state.
-	if needOuter {
-		if homeEnabled {
-			if refreshed, handled, errHome := helps.RefreshAuthViaHome(ctx, cfg, auth); handled {
-				if errHome != nil {
-					outerErr = errHome
-				} else if refreshed != nil {
-					outerRefreshed = true
-					if refreshed.ID != "" {
-						auth.ID = refreshed.ID
-					}
-					if refreshed.Provider != "" {
-						auth.Provider = refreshed.Provider
-					}
-					auth.Index = refreshed.Index
-					if refreshed.Metadata != nil {
-						for k, val := range refreshed.Metadata {
-							if k == "siwc" || k == "use_siwc" {
-								continue
-							}
-							auth.Metadata[k] = val
-						}
-						if homeSIWC, okSIWC := refreshed.Metadata["siwc"].(map[string]any); okSIWC && len(homeSIWC) > 0 {
-							if codexSIWCAccessToken(refreshed) != "" && codexSIWCAccessToken(refreshed) != codexSIWCAccessToken(beforeRefresh) {
-								existingSIWC = cloneSIWCMap(homeSIWC)
-								siwcRefreshed = true
-								needSIWC = false
-							}
-						}
-					}
-					if len(refreshed.Attributes) > 0 {
-						clonedAttributes := make(map[string]string, len(auth.Attributes)+len(refreshed.Attributes))
-						for k, v := range auth.Attributes {
-							clonedAttributes[k] = v
-						}
-						for k, v := range refreshed.Attributes {
-							clonedAttributes[k] = v
-						}
-						auth.Attributes = clonedAttributes
-					}
-				}
+	// NeoPi bounds credential acquisition, not the subsequent inference stream.
+	refreshCtx, cancelRefresh := context.WithTimeout(ctx, 10*time.Second)
+	defer cancelRefresh()
+	var errRefresh error
+	if homeEnabled {
+		var refreshed *cliproxyauth.Auth
+		var handled bool
+		refreshed, handled, errRefresh = helps.RefreshAuthViaHome(refreshCtx, cfg, auth)
+		if errRefresh == nil {
+			if !handled || refreshed == nil {
+				return nil, fmt.Errorf("codex executor: credential broker returned no refresh")
 			}
+			auth = refreshed
+		}
+	} else {
+		refreshToken, _ := auth.Metadata["refresh_token"].(string)
+		svc := codexauth.NewCodexAuthWithProxyURL(cfg, auth.ProxyURL)
+		var token *codexauth.CodexTokenData
+		if e.refreshToken != nil {
+			token, errRefresh = e.refreshToken(refreshCtx, auth)
 		} else {
-			td, errOuter := svc.RefreshTokensWithRetry(ctx, outerRefreshToken, 3)
-			if errOuter != nil {
-				outerErr = errOuter
-			} else if td != nil {
-				outerRefreshed = true
-				auth.Metadata["id_token"] = td.IDToken
-				auth.Metadata["access_token"] = td.AccessToken
-				if td.RefreshToken != "" {
-					auth.Metadata["refresh_token"] = td.RefreshToken
-				}
-				if td.AccountID != "" {
-					auth.Metadata["account_id"] = td.AccountID
-				}
-				auth.Metadata["email"] = td.Email
-				auth.Metadata["expired"] = td.Expire
-				auth.Metadata["type"] = "codex"
-				auth.Metadata["last_refresh"] = time.Now().Format(time.RFC3339)
-
-				planType := strings.TrimSpace(td.PlanType)
-				if planType == "" && td.IDToken != "" {
-					if claims, errParse := codexauth.ParseJWTToken(td.IDToken); errParse == nil && claims != nil {
-						planType = claims.GetPlanType()
-					}
-				}
-				if planType == "" {
-					planType = codexauth.DefaultPlanType
-				}
-				auth.Metadata["plan_type"] = planType
-				clonedAttributes := make(map[string]string, len(auth.Attributes)+1)
-				for k, v := range auth.Attributes {
-					clonedAttributes[k] = v
-				}
-				clonedAttributes["plan_type"] = planType
-				auth.Attributes = clonedAttributes
-				if storage, ok := auth.Storage.(*codexauth.CodexTokenStorage); ok && storage != nil {
-					clonedStorage := *storage
-					svc.UpdateTokenStorage(&clonedStorage, td)
-					clonedStorage.PlanType = planType
-					auth.Storage = &clonedStorage
-				}
+			token, errRefresh = svc.RefreshTokens(refreshCtx, refreshToken)
+		}
+		if errRefresh == nil {
+			// Clone before mutation: diskBaseline remains the compare-and-set version.
+			auth = auth.Clone()
+			auth.Metadata["access_token"] = token.AccessToken
+			auth.Metadata["refresh_token"] = token.RefreshToken
+			auth.Metadata["expired"] = token.Expire
+			auth.Metadata["last_refresh"] = now.Format(time.RFC3339Nano)
+			auth.Metadata["type"] = "codex"
+			if token.IDToken != "" {
+				auth.Metadata["id_token"] = token.IDToken
+			}
+			if token.AccountID != "" {
+				auth.Metadata["account_id"] = token.AccountID
+			}
+			if token.Email != "" {
+				auth.Metadata["email"] = token.Email
+			}
+			if storage, ok := auth.Storage.(*codexauth.CodexTokenStorage); ok && storage != nil {
+				clonedStorage := *storage
+				svc.UpdateTokenStorage(&clonedStorage, token)
+				auth.Storage = &clonedStorage
 			}
 		}
 	}
-
-	if needSIWC {
-		siwcTD, errSIWC := svc.RefreshSIWCTokensWithRetry(ctx, siwcRefreshToken, siwcClientID, siwcDeviceID, 3)
-		if errSIWC != nil {
-			siwcErr = errSIWC
-		} else if siwcTD != nil {
-			siwcRefreshed = true
-			mergedSIWC := cloneSIWCMap(existingSIWC)
-			if mergedSIWC == nil {
-				mergedSIWC = make(map[string]any)
-			}
-			for k, v := range siwcTD.ToMap() {
-				mergedSIWC[k] = v
-			}
-			existingSIWC = mergedSIWC
+	if errRefresh != nil {
+		if !util.IsDefinitiveOAuthRefreshFailure(errRefresh.Error()) {
+			return nil, errRefresh
 		}
-	}
-
-	// Always preserve use_siwc and siwc fields on both Metadata and Storage.
-	if hasPreservedUseSIWC {
-		auth.Metadata["use_siwc"] = preservedUseSIWC
-	}
-	if len(existingSIWC) > 0 {
-		auth.Metadata["siwc"] = cloneSIWCMap(existingSIWC)
-	}
-	if storage, ok := auth.Storage.(*codexauth.CodexTokenStorage); ok && storage != nil {
-		clonedStorage := *storage
-		if hasPreservedUseSIWC {
-			if b, okBool := preservedUseSIWC.(bool); okBool {
-				clonedStorage.UseSIWC = &b
+		patch := codexauth.NewCredentialDisablePatch(observed.Metadata, auth.Metadata)
+		latest := auth.Metadata
+		if diskPath != "" {
+			raw, errRead := os.ReadFile(diskPath)
+			if errRead != nil {
+				return nil, fmt.Errorf("codex executor: re-read failed credential: %w", errRead)
+			}
+			latest = nil
+			if errJSON := json.Unmarshal(raw, &latest); errJSON != nil || latest == nil {
+				return nil, fmt.Errorf("codex executor: invalid failed credential JSON")
 			}
 		}
-		if len(existingSIWC) > 0 {
-			clonedStorage.SIWC = cloneSIWCMap(existingSIWC)
+		failed := auth.Clone()
+		failed.Metadata = patch.Apply(latest)
+		failed.Disabled, _ = failed.Metadata["disabled"].(bool)
+		if !failed.Disabled {
+			// A peer's complete credential version won the disable CAS.
+			failed.RejectedAccessToken = ""
+			if expiry, known := failed.ExpirationTime(); known && expiry.After(clock().Add(time.Minute)) {
+				failed.CodexRefreshPatch = codexauth.NewCredentialRefreshPatch(observed.Metadata, latest, latest)
+				return failed, nil
+			}
+			return nil, errRefresh
 		}
-		auth.Storage = &clonedStorage
-	}
-
-	if !outerRefreshed && !siwcRefreshed && !diskRotatedOuter && !diskRotatedSIWC {
-		if outerErr != nil {
-			return nil, outerErr
+		if diskPath != "" {
+			if errWrite := codexauth.WriteJSONFileAtomic(diskPath, failed.Metadata); errWrite != nil {
+				return nil, fmt.Errorf("codex executor: persist disabled credential: %w", errWrite)
+			}
 		}
-		if siwcErr != nil {
-			return nil, siwcErr
-		}
-		return nil, fmt.Errorf("codex executor: refresh failed")
+		failed.CodexRefreshPatch = patch
+		failed.Storage = nil
+		failed.Status = cliproxyauth.StatusDisabled
+		failed.Unavailable = true
+		return failed, errRefresh
 	}
-	if outerErr != nil {
-		log.Warnf("codex executor: SIWC token refreshed but outer token refresh failed for %s: %v", auth.ID, outerErr)
-	}
-	if siwcErr != nil {
-		log.Warnf("codex executor: outer token refreshed but SIWC token refresh failed for %s: %v", auth.ID, siwcErr)
-	}
-
-	patch := codexauth.NewCredentialRefreshPatchWithDiskBaseline(beforeRefresh.Metadata, diskBaseline, auth.Metadata, outerRefreshed || diskRotatedOuter, siwcRefreshed || diskRotatedSIWC)
+	auth.RejectedAccessToken = ""
+	patch := codexauth.NewCredentialRefreshPatch(observed.Metadata, diskBaseline, auth.Metadata)
 	auth.CodexRefreshPatch = patch
 	if storage, ok := auth.Storage.(*codexauth.CodexTokenStorage); ok && storage != nil {
 		clonedStorage := *storage
 		clonedStorage.RefreshPatch = patch
 		auth.Storage = &clonedStorage
 	}
+	minted := true
 	if diskPath != "" {
-		latestBytes, errReadLatest := os.ReadFile(diskPath)
-		if errReadLatest != nil {
-			return auth, fmt.Errorf("codex executor: re-read credential file %s before write: %w", diskPath, errReadLatest)
+		raw, errRead := os.ReadFile(diskPath)
+		if errRead != nil {
+			return nil, fmt.Errorf("codex executor: re-read credential before persistence: %w", errRead)
 		}
-		var latestDisk map[string]any
-		if errUnmarshal := json.Unmarshal(latestBytes, &latestDisk); errUnmarshal != nil || len(latestDisk) == 0 {
-			return auth, fmt.Errorf("codex executor: invalid credential JSON in %s before write: %w", diskPath, errUnmarshal)
+		var latest map[string]any
+		if errJSON := json.Unmarshal(raw, &latest); errJSON != nil {
+			return nil, fmt.Errorf("codex executor: invalid credential JSON before persistence: %w", errJSON)
 		}
-		mergedDisk := patch.Apply(latestDisk)
-		if errWrite := codexauth.WriteJSONFileAtomic(diskPath, mergedDisk); errWrite != nil {
-			return auth, fmt.Errorf("codex executor: persist refreshed credentials to %s: %w", diskPath, errWrite)
+		if latest == nil {
+			return nil, fmt.Errorf("codex executor: credential disappeared before persistence")
 		}
-		auth.Metadata = mergedDisk
+		minted = patch.CanApplyTo(latest)
+		if minted {
+			latest = patch.Apply(latest)
+			if errWrite := codexauth.WriteJSONFileAtomic(diskPath, latest); errWrite != nil {
+				return nil, fmt.Errorf("codex executor: persist refreshed credential: %w", errWrite)
+			}
+		}
+		auth.Metadata = latest
+	}
+	expiry, known := auth.ExpirationTime()
+	minimum := clock()
+	if !minted {
+		minimum = minimum.Add(cliproxyauth.CodexRefreshLead)
+	}
+	if !known || !expiry.After(minimum) {
+		return nil, fmt.Errorf("codex executor: refresh did not produce a usable credential")
+	}
+	if minted && !homeEnabled && auth.ID != "" {
+		access, _ := auth.Metadata["access_token"].(string)
+		e.refresh.mu.Lock()
+		if e.refresh.mints == nil {
+			e.refresh.mints = make(map[string]codexMint)
+		}
+		for id, mint := range e.refresh.mints {
+			if minimum.Sub(mint.at) >= 5*time.Minute {
+				delete(e.refresh.mints, id)
+			}
+		}
+		e.refresh.mints[auth.ID] = codexMint{access: access, at: minimum}
+		e.refresh.mu.Unlock()
 	}
 	return auth, nil
 }
@@ -470,13 +326,7 @@ func codexCreds(a *cliproxyauth.Auth) (apiKey, baseURL string) {
 	if a.Attributes != nil {
 		baseURL = a.Attributes["base_url"]
 	}
-	if codexUseSIWC(a) {
-		apiKey = codexSIWCAccessToken(a)
-		if strings.TrimSpace(baseURL) == "" {
-			baseURL = defaultOpenAISIWCBaseURL
-		}
-		return
-	}
+	// NeoPi authenticates every Codex subscription request with the outer ChatGPT grant.
 	if a.Attributes != nil {
 		apiKey = a.Attributes["api_key"]
 	}

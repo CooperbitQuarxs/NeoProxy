@@ -22,8 +22,9 @@ type ProviderPlan struct {
 // page in a new tab; the provider cannot redirect back, so the person pastes
 // the final address or code into NeoProxy).
 type ProviderSubscription struct {
-	Flow string `json:"flow"`
-	Note string `json:"note"`
+	Flow  string   `json:"flow"`
+	Note  string   `json:"note"`
+	Modes []string `json:"modes,omitempty"`
 	// Site names where the person signs in when that isn't the vendor
 	// (Cursor, not Anysphere); the dashboard falls back to Vendor.
 	Site string `json:"site,omitempty"`
@@ -155,7 +156,7 @@ func (s *ProviderSubscription) at(site string) *ProviderSubscription {
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: browser("Opens OpenAI's sign-in in a new tab. NeoProxy keeps the sign-in refreshed."),
+		Subscription: &ProviderSubscription{Flow: "browser", Modes: []string{"browser", "device"}, Note: "Use OpenAI's browser sign-in, or enter a device code on OpenAI's verification page. NeoProxy keeps the sign-in refreshed."},
 		APIKey:       &ProviderAPIKey{Style: "openai", BaseURL: "https://api.openai.com/v1", KeyHint: "sk-...", GetKeyURL: "https://platform.openai.com/api-keys"},
 		Plans:        chatGPTPlans, engine: "codex"},
 	{ID: "claude", Name: "Claude", Vendor: "Anthropic", Hue: 45, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
