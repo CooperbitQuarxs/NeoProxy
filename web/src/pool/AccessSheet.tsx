@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useRemoveAccess, useReimport, useUpdateAccess } from "../api/queries";
+import { useRefreshAccess, useRemoveAccess, useReimport, useUpdateAccess } from "../api/queries";
 import type { AccessItem, Person, ProviderInfo } from "../api/types";
 import { ago, perMonth, plural } from "../lib/format";
 import { providerColor, providerInfo } from "../lib/providers";
 import { Button, Chip, Dialog, Field, Input, Notice, Select, StatusDot } from "../ui/components";
+import { Icon } from "../ui/icons";
 import { useToast } from "../ui/toast";
 import { Spark } from "./AccessList";
 import { BudgetSection } from "./Budget";
@@ -77,6 +78,7 @@ function SheetBody({
 	const update = useUpdateAccess();
 	const remove = useRemoveAccess();
 	const reimport = useReimport();
+	const refresh = useRefreshAccess();
 	const [confirmRemove, setConfirmRemove] = useState(false);
 	const [customValue, setCustomValue] = useState("");
 	const info = providerInfo(item.provider, providers);
@@ -101,11 +103,29 @@ function SheetBody({
 		<>
 			<div className="sheet-status">
 				<StatusDot tone={health.tone} />
-				<div>
+				<div className="grow">
 					<strong>{health.label}</strong>
 					<p className="muted">{health.explain}</p>
 				</div>
 			</div>
+			{(item.actions.includes("refresh") || item.actions.includes("download")) && (
+				<div className="row wrap sheet-actions">
+					{item.actions.includes("refresh") && (
+						<Button size="sm" icon="refresh" busy={refresh.isPending} onClick={() => run(refresh.mutateAsync(item), "Sign-in renewed")}>
+							Refresh sign-in now
+						</Button>
+					)}
+					{item.actions.includes("download") && (
+						<a className="btn btn-secondary btn-sm" href={`/v8/neo/access/${encodeURIComponent(item.id)}/file`} download>
+							<Icon name="file" size={15} />
+							<span>Download credential file</span>
+						</a>
+					)}
+					<span className="faint sheet-actions-note">
+						{item.actions.includes("download") ? "The file holds the sign-in itself. Use it to move this account to another proxy; keep it private." : "NeoProxy also refreshes on its own before the sign-in expires."}
+					</span>
+				</div>
+			)}
 
 			{item.refresh === "locked" && (
 				<Notice

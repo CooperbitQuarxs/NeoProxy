@@ -203,6 +203,11 @@ export function useReimport() {
 	return useMutation({ mutationFn: (item: AccessItem) => post(`access/${encodeURIComponent(item.id)}/reimport`), onSuccess: () => invalidateAccess(qc) });
 }
 
+export function useRefreshAccess() {
+	const qc = useQueryClient();
+	return useMutation({ mutationFn: (item: AccessItem) => post(`access/${encodeURIComponent(item.id)}/refresh`), onSuccess: () => invalidateAccess(qc) });
+}
+
 export function useAddApiKey() {
 	const qc = useQueryClient();
 	return useMutation({
@@ -254,6 +259,46 @@ export function useSaveSource() {
 	return useMutation({
 		mutationFn: (v: { id?: string; label: string; url: string; bearer: string; ownerId: string; enabled?: boolean }) =>
 			v.id ? put(`vault/sources/${encodeURIComponent(v.id)}`, v) : post("vault/sources", { ...v, enabled: v.enabled ?? true }),
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["sources"] });
+			invalidateAccess(qc);
+		},
+	});
+}
+
+// ---------- One-click NeoPi sharing ----------
+export type LocalNeoPi = { found: boolean; running?: boolean; url?: string; name?: string; accountCount?: number; alreadyConnected?: string | null; reason?: string; startCommand?: string };
+export function useLocalNeoPi(enabled: boolean) {
+	return useQuery({
+		queryKey: ["neopi-local"],
+		queryFn: async (): Promise<LocalNeoPi | null> => {
+			try {
+				return await get<LocalNeoPi>("access/neopi/local");
+			} catch (e) {
+				// Older servers, or a non-admin session: no detection, manual paths remain.
+				if (e instanceof ApiError && [403, 404, 405].includes(e.status)) return null;
+				throw e;
+			}
+		},
+		enabled,
+		retry: false,
+	});
+}
+export function useConnectLocalNeoPi() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: (v: { ownerId?: string }) => post<{ label?: string; accountCount?: number }>("access/neopi/local/connect", v),
+		onSuccess: () => {
+			qc.invalidateQueries({ queryKey: ["neopi-local"] });
+			qc.invalidateQueries({ queryKey: ["sources"] });
+			invalidateAccess(qc);
+		},
+	});
+}
+export function useConnectLink() {
+	const qc = useQueryClient();
+	return useMutation({
+		mutationFn: (v: { connectionLink: string; ownerId: string; label?: string }) => post<{ label?: string; accountCount?: number }>("vault/sources", v),
 		onSuccess: () => {
 			qc.invalidateQueries({ queryKey: ["sources"] });
 			invalidateAccess(qc);

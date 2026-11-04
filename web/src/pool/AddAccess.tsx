@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiError } from "../api/client";
-import { signIn, useAddApiKey, useImport, useImportCandidates, useProviders, useSaveSource, useUploadFile } from "../api/queries";
+import { signIn, useAddApiKey, useConnectLink, useConnectLocalNeoPi, useImport, useImportCandidates, useLocalNeoPi, useProviders, useSaveSource, useUploadFile } from "../api/queries";
 import type { AccessKind, Person, ProviderInfo, Session } from "../api/types";
 import { providerColor, providerInfo } from "../lib/providers";
 import { Button, CodeLine, Dialog, Field, Input, Notice, ProviderMark, Select, cx } from "../ui/components";
@@ -376,68 +376,177 @@ function ApiKeyFlow({ session, people, legacy, onDone }: { session: Session; peo
 }
 
 // ---------- Share from a NeoPi ----------
+// Easiest first: a NeoPi on this computer is one click; another computer is one
+// pasted link from `npi auth-gateway link`; address and token remain as a fallback.
 function NeoPiShareFlow({ session, people, onDone }: { session: Session; people: Person[]; onDone: (t: string, text: ReactNode) => void }) {
-	const [url, setUrl] = useState("");
-	const [token, setToken] = useState("");
-	const [name, setName] = useState("");
 	const [owner, setOwner] = useState(session.userId);
-	const save = useSaveSource();
-	const derivedName = name.trim() || (() => {
+	const [link, setLink] = useState("");
+	const [manual, setManual] = useState(false);
+	const local = useLocalNeoPi(session.role === "admin");
+	const connectLocal = useConnectLocalNeoPi();
+	const connectLink = useConnectLink();
+	const detected = local.data;
+	const linkLooksRight = /^neopi-gateway:\/\//i.test(link.trim());
+	const linkName = (() => {
 		try {
-			return `NeoPi on ${new URL(url).hostname}`;
+			return new URL(link.trim().replace(/^neopi-gateway:/i, "http:")).searchParams.get("name") ?? "";
 		} catch {
 			return "";
 		}
 	})();
 
-	async function submit() {
-		try {
-			await save.mutateAsync({ label: derivedName || "NeoPi", url: url.trim(), bearer: token.trim(), ownerId: owner });
-			onDone("NeoPi connected", (
-				<>
-					<p>
-						<strong>{derivedName}</strong> is connected. Its signed-in accounts appear in the pool within about 15 seconds, each as its own tile.
-					</p>
-					<p className="faint">Accounts stay in NeoPi. If that NeoPi goes offline, its tiles pause until it's back.</p>
-				</>
-			));
-		} catch {
-			/* shown below */
-		}
-	}
+	const connected = (name: string, count?: number) =>
+		onDone("NeoPi connected", (
+			<>
+				<p>
+					<strong>{name}</strong> is connected.{" "}
+					{count !== undefined ? `${count} signed-in ${count === 1 ? "account" : "accounts"} will appear in the pool, each as its own tile.` : "Its signed-in accounts appear in the pool within about 15 seconds, each as its own tile."}
+				</p>
+				<p className="faint">Accounts stay in NeoPi. If that NeoPi goes offline, its tiles pause until it's back. Give each one a budget so virtual models can use it.</p>
+			</>
+		));
 
 	return (
 		<div className="stack">
-			<ol className="steps">
-				<li>
-					On the computer running NeoPi, start its gateway so this server can reach it:
-					<CodeLine>npi auth-gateway serve --bind=0.0.0.0:18766</CodeLine>
-					<span className="faint">Use 127.0.0.1 instead of 0.0.0.0 when NeoPi runs on this same computer.</span>
-				</li>
-				<li>
-					Print the gateway's token and copy it:
-					<CodeLine>npi auth-gateway token</CodeLine>
-				</li>
-				<li>Paste the gateway address and token below.</li>
-			</ol>
-			<Field label="Gateway address" hint="Where this server can reach NeoPi, for example http://192.168.1.20:18766" htmlFor="gw-url">
-				<Input id="gw-url" mono value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://127.0.0.1:18766" />
+			{detected?.found && (
+				<div className={cx("local-neopi", detected.running && !detected.alreadyConnected && "is-ready")}>
+					<span className="local-neopi-mark" aria-hidden="true">
+						<Icon name="link" size={18} />
+					</span>
+					<div className="grow">
+						<strong>{detected.alreadyConnected ? "The NeoPi on this computer is already connected" : detected.running ? `NeoPi on this computer${detected.name ? `: ${detected.name}` : ""}` : "NeoPi is installed here, but its gateway isn't running"}</strong>
+						<p className="muted">
+							{detected.alreadyConnected
+								? "Its accounts are already in the pool."
+								: detected.running
+									? `${detected.accountCount !== undefined ? `${detected.accountCount} signed-in ${detected.accountCount === 1 ? "account" : "accounts"} ready to share. ` : ""}NeoProxy reads the gateway's token itself; you don't need to copy anything.`
+									: detected.reason ?? "Start the gateway, then check again."}
+						</p>
+						{!detected.running && detected.startCommand && <CodeLine>{detected.startCommand}</CodeLine>}
+					</div>
+					{detected.running && !detected.alreadyConnected ? (
+						<Button
+							variant="primary"
+							icon="link"
+							busy={connectLocal.isPending}
+							onClick={() =>
+								connectLocal
+									.mutateAsync({ ownerId: owner })
+									.then((r) => connected(r.label || detected.name || "NeoPi on this computer", detected.accountCount))
+									.catch(() => {})
+							}
+						>
+							Connect
+						</Button>
+					) : !detected.running ? (
+						<Button icon="refresh" busy={local.isFetching} onClick={() => local.refetch()}>
+							Check again
+						</Button>
+					) : null}
+				</div>
+			)}
+			{connectLocal.error && (
+				<Notice tone="bad" title="Couldn't connect the local NeoPi">
+					{(connectLocal.error as Error).message}
+				</Notice>
+			)}
+
+			<div className="share-link">
+				<p className="field-label">{detected?.found ? "NeoPi on another computer" : "Connect a NeoPi"}</p>
+				<ol className="steps">
+					<li>
+						On the computer running NeoPi, start its gateway so other machines can reach it:
+						<CodeLine>npi auth-gateway serve --bind=0.0.0.0:4000</CodeLine>
+					</li>
+					<li>
+						Print a connection link and paste it below:
+						<CodeLine>npi auth-gateway link</CodeLine>
+					</li>
+				</ol>
+				<Field label="Connection link" hint="It contains the gateway token, so treat it like a password. NeoProxy keeps it on the server and never shows it again." htmlFor="gw-link">
+					<Input id="gw-link" mono type="password" autoComplete="off" value={link} onChange={(e) => setLink(e.target.value)} placeholder="neopi-gateway://192.168.1.20:4000?token=…" />
+				</Field>
+				{link.trim() && !linkLooksRight && <p className="field-error">That doesn't look like a connection link. It starts with neopi-gateway://</p>}
+			</div>
+
+			<ContributorField session={session} people={people} value={owner} onChange={setOwner} />
+			{connectLink.error && (
+				<Notice tone="bad" title="Couldn't connect to that NeoPi">
+					{(connectLink.error as Error).message}
+				</Notice>
+			)}
+			<div className="row flow-actions">
+				<button type="button" className="link-btn" onClick={() => setManual(!manual)}>
+					{manual ? "Hide address and token" : "Enter an address and token instead"}
+				</button>
+				<span className="grow" />
+				<Button
+					variant="primary"
+					size="lg"
+					icon="link"
+					busy={connectLink.isPending}
+					disabled={!linkLooksRight}
+					onClick={() =>
+						connectLink
+							.mutateAsync({ connectionLink: link.trim(), ownerId: owner })
+							.then((r) => connected(r.label || linkName || "NeoPi", r.accountCount))
+							.catch(() => {})
+					}
+				>
+					Connect with link
+				</Button>
+			</div>
+			{manual && <ManualNeoPi owner={owner} onConnected={(name) => connected(name)} />}
+		</div>
+	);
+}
+
+// Fallback for older NeoPi versions without `npi auth-gateway link`.
+function ManualNeoPi({ owner, onConnected }: { owner: string; onConnected: (name: string) => void }) {
+	const [url, setUrl] = useState("");
+	const [token, setToken] = useState("");
+	const [name, setName] = useState("");
+	const save = useSaveSource();
+	const derivedName =
+		name.trim() ||
+		(() => {
+			try {
+				return `NeoPi on ${new URL(url).hostname}`;
+			} catch {
+				return "";
+			}
+		})();
+	return (
+		<div className="manual-neopi">
+			<p className="faint">
+				For NeoPi versions without the link command: the address is where this server reaches the gateway, and <code>npi auth-gateway token</code> prints the token.
+			</p>
+			<Field label="Gateway address" htmlFor="gw-url">
+				<Input id="gw-url" mono value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://192.168.1.20:4000" />
 			</Field>
-			<Field label="Gateway token" hint="Kept on this server and never shown again. It only lets NeoProxy send requests through NeoPi; it is not a provider password." htmlFor="gw-token">
+			<Field label="Gateway token" hint="Kept on this server and never shown again. It is not a provider password." htmlFor="gw-token">
 				<Input id="gw-token" mono type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
 			</Field>
 			<Field label="Name" optional hint={derivedName ? `Shown as “${derivedName}” if left empty.` : "Shown next to its accounts in the pool."} htmlFor="gw-name">
 				<Input id="gw-name" value={name} onChange={(e) => setName(e.target.value)} />
 			</Field>
-			<ContributorField session={session} people={people} value={owner} onChange={setOwner} />
 			{save.error && (
 				<Notice tone="bad" title="Couldn't connect to that NeoPi">
 					{(save.error as Error).message}
 				</Notice>
 			)}
 			<div className="row flow-actions">
-				<Button variant="primary" size="lg" icon="link" busy={save.isPending} disabled={!url.trim() || !token.trim()} onClick={submit}>
-					Connect NeoPi
+				<Button
+					busy={save.isPending}
+					disabled={!url.trim() || !token.trim()}
+					onClick={() =>
+						save
+							.mutateAsync({ label: derivedName || "NeoPi", url: url.trim(), bearer: token.trim(), ownerId: owner })
+							.then(() => onConnected(derivedName || "NeoPi"))
+							.catch(() => {})
+					}
+				>
+					Connect with address and token
 				</Button>
 			</div>
 		</div>

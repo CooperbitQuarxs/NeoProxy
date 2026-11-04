@@ -978,3 +978,69 @@
 	border-color: var(--accent);
 	color: var(--ink);
 }
+
+/* ---------- Sheet actions ---------- */
+.sheet-actions {
+	align-items: center;
+	gap: 10px;
+}
+.sheet-actions a.btn:hover {
+	text-decoration: none;
+}
+.sheet-actions-note {
+	flex: 1 1 220px;
+	font-size: 12.5px;
+}
+
+/* ---------- One-click NeoPi sharing ---------- */
+.local-neopi {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+	padding: 16px;
+	border-radius: 14px;
+	border: 1px solid var(--line);
+	background: var(--raised);
+}
+.local-neopi.is-ready {
+	border-color: color-mix(in oklab, var(--accent) 45%, var(--line));
+	background: color-mix(in oklab, var(--raised) 88%, var(--accent) 6%);
+}
+.local-neopi .muted {
+	font-size: 13px;
+	margin-top: 2px;
+}
+.local-neopi .codeline {
+	margin-top: 10px;
+}
+.local-neopi-mark {
+	display: grid;
+	place-items: center;
+	width: 38px;
+	height: 38px;
+	flex: none;
+	border-radius: 10px;
+	background: var(--accent-soft);
+	color: var(--accent);
+	box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.share-link {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+.manual-neopi {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	padding: 16px;
+	border-radius: 14px;
+	border: 1px dashed var(--line-strong);
+}
+.import-failed {
+	margin: 4px 0 0;
+	padding-left: 18px;
+	text-align: left;
+	color: var(--ink-2);
+	font-size: 13px;
+}
