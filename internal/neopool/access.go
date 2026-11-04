@@ -40,6 +40,8 @@ type AccessItem struct {
 	Actions         []string    `json:"actions"`
 	// LastProbe is the last POST /access/:id/test result since the server started.
 	LastProbe *AccessProbe `json:"lastProbe,omitempty"`
+	// ProbeConfig is the saved test recipe (endpoint, model, prompt or payload).
+	ProbeConfig *ProbeConfig `json:"probeConfig,omitempty"`
 }
 
 type ImportedFrom struct {
@@ -414,6 +416,9 @@ func (h *HTTP) buildAccessItem(p neo.Principal, a *coreauth.Auth, account *Accou
 	}
 	item.Usage = accessUsage(a, ledger, now)
 	item.LastProbe = h.probes.get(item.ID)
+	if cfg, errCfg := h.pool.ProbeConfig(context.Background(), item.ID); errCfg == nil {
+		item.ProbeConfig = cfg
+	}
 	item.Actions = accessActions(p, kind, item.OwnerID != "" && item.OwnerID == p.UserID, credentialFilePath(a, kind) != "")
 	return item
 }
