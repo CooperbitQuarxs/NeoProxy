@@ -54,6 +54,9 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 		if !next.IsZero() {
 			account.CooldownUntil = next.UnixMilli()
 		}
+		if windows := s.quota.windows(a, s.now()); windows != nil {
+			account.ProviderWindows = windows
+		}
 		p, exists := providers[a.Provider]
 		if !exists {
 			p = Provider{ID: a.Provider, Name: a.Provider, Vendor: a.Provider, Kind: "oauth", Exposed: true}

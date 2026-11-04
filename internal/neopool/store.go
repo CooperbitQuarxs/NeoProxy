@@ -22,13 +22,15 @@ type Store struct {
 	sourcePublish     func(context.Context, Source) error
 	sourceCancel      context.CancelFunc
 	sourceDone        chan struct{}
+	quota             *quotaProber
+	quotaDone         chan struct{}
 }
 
 func New(db *sql.DB, manager *coreauth.Manager) (*Store, error) {
 	if db == nil {
 		return nil, fmt.Errorf("pool database is required")
 	}
-	s := &Store{db: db, manager: manager, changed: make(chan struct{}), now: time.Now}
+	s := &Store{db: db, manager: manager, changed: make(chan struct{}), now: time.Now, quota: newQuotaProber()}
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return nil, err
