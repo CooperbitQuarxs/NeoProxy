@@ -189,7 +189,7 @@ func convertTools(tools []json.RawMessage) []json.RawMessage {
 		tool := gjson.ParseBytes(raw)
 		switch tool.Get("type").String() {
 		case "function":
-			parameters, strict := functionToolSchema(tool.Get("parameters"), tool.Get("strict").Type == gjson.True)
+			parameters, strict := ToolParametersSchema(tool.Get("parameters"), tool.Get("strict").Type == gjson.True, false)
 			fields := []jsjson.Field{
 				{Name: "type", Value: jsjson.Marshal("function")},
 				{Name: "name", Value: jsjson.Marshal(tool.Get("name").String())},

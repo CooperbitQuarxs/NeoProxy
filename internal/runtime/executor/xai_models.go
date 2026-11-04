@@ -34,7 +34,13 @@ func FetchXAIModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.
 	if err != nil {
 		return nil, err
 	}
-	applyXAIChatHeaders(req, auth, token, false, "")
+	if xaiIsGrokBuild(auth) {
+		applyXAIChatHeaders(req, auth, token, false, "")
+	} else {
+		// NeoPi's fetchOpenAICompatibleModels: JSON accept plus the bearer.
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	resp, err := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("xai models: %w", err)

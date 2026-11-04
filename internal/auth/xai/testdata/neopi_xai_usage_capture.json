@@ -1,0 +1,177 @@
+{
+  "source": "NeoPi OWN xaiOauthUsageProvider",
+  "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+  "scenarios": [
+    {
+      "name": "weekly-credits",
+      "credits": {
+        "config": {
+          "currentPeriod": {
+            "start": "2026-11-03T19:17:58.711Z",
+            "end": "2026-11-10T19:17:58.711Z",
+            "type": "BILLING_PERIOD_TYPE_WEEKLY"
+          },
+          "creditUsagePercent": 42.5,
+          "productUsage": [
+            {
+              "product": "GrokBuild",
+              "usagePercent": 10
+            }
+          ],
+          "onDemandCap": {
+            "val": 5
+          },
+          "onDemandUsed": {
+            "val": 1
+          }
+        }
+      },
+      "limits": [
+        {
+          "id": "xai-oauth:credits:1w",
+          "used": 42.5,
+          "limit": 100,
+          "status": "ok",
+          "resetsAt": 1794338278711
+        },
+        {
+          "id": "xai-oauth:product:grokbuild:1w",
+          "used": 10,
+          "limit": 100,
+          "status": "ok",
+          "resetsAt": 1794338278711
+        },
+        {
+          "id": "xai-oauth:on-demand",
+          "used": 1,
+          "limit": 5,
+          "status": "ok"
+        }
+      ],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "cli-chat-proxy.grok.com",
+            "user-agent": "Bun/1.3.14",
+            "x-xai-token-auth": "xai-grok-cli"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "unified-monthly",
+      "credits": {
+        "config": {
+          "currentPeriod": {
+            "start": "2026-11-03T19:17:58.711Z",
+            "end": "2026-11-10T19:17:58.711Z",
+            "type": "BILLING_PERIOD_TYPE_WEEKLY"
+          },
+          "isUnifiedBillingUser": true
+        }
+      },
+      "monthly": {
+        "config": {
+          "billingPeriodStart": "2026-10-25T19:17:58.718Z",
+          "billingPeriodEnd": "2026-11-24T19:17:58.718Z",
+          "monthlyLimit": {
+            "val": 1000
+          },
+          "used": {
+            "val": 250
+          }
+        }
+      },
+      "limits": [
+        {
+          "id": "xai-oauth:included:1mo",
+          "used": 250,
+          "limit": 1000,
+          "status": "ok",
+          "resetsAt": 1795547878718
+        }
+      ],
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "cli-chat-proxy.grok.com",
+            "user-agent": "Bun/1.3.14",
+            "x-xai-token-auth": "xai-grok-cli"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cli-chat-proxy.grok.com/v1/billing",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "cli-chat-proxy.grok.com",
+            "user-agent": "Bun/1.3.14",
+            "x-xai-token-auth": "xai-grok-cli"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "unified-monthly-unavailable",
+      "credits": {
+        "config": {
+          "currentPeriod": {
+            "start": "2026-11-03T19:17:58.711Z",
+            "end": "2026-11-10T19:17:58.711Z",
+            "type": "BILLING_PERIOD_TYPE_WEEKLY"
+          },
+          "isUnifiedBillingUser": true
+        }
+      },
+      "limits": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "cli-chat-proxy.grok.com",
+            "user-agent": "Bun/1.3.14",
+            "x-xai-token-auth": "xai-grok-cli"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cli-chat-proxy.grok.com/v1/billing",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ4YWktc3ViamVjdC1mYWtlIiwiZXhwIjo0MTAyNDQ0ODAwfQ.fake",
+            "connection": "keep-alive",
+            "host": "cli-chat-proxy.grok.com",
+            "user-agent": "Bun/1.3.14",
+            "x-xai-token-auth": "xai-grok-cli"
+          },
+          "body": ""
+        }
+      ]
+    }
+  ]
+}

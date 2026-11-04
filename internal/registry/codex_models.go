@@ -100,6 +100,15 @@ func BundledCodexModelIDs() map[string]bool {
 	return ids
 }
 
+// codexBundledNames maps bundled ids to their display names (keepStaticNames).
+var codexBundledNames = func() map[string]string {
+	names := make(map[string]string, len(codexBundledModels))
+	for _, model := range codexBundledModels {
+		names[model.ID] = model.Name
+	}
+	return names
+}()
+
 // GetCodexModels is the NeoPi fallback used only before live discovery succeeds
 // or while discovery is unavailable. It is not a subscription-plan allowlist.
 func GetCodexModels() []*ModelInfo {
@@ -251,6 +260,12 @@ func codexMandatoryThinking(id string) bool {
 // provider rules without consulting CLIProxyAPI's static subscription tiers.
 func (model CodexModel) ModelInfo() *ModelInfo {
 	resolved := model.Clone()
+	// openai-codex declares keep-bundled-names: a discovered row whose id is in
+	// the bundled catalog keeps the bundled display name ("GPT-6.1 Sol", not
+	// the backend's "GPT-6.1-Sol").
+	if name, ok := codexBundledNames[model.ID]; ok {
+		resolved.Name = name
+	}
 	if resolved.Compat == nil {
 		resolved.Compat = &CodexModelCompat{SupportsReasoningSummary: true, SupportsSamplingParams: true, IncludeEncryptedReasoning: true}
 	}
@@ -333,7 +348,7 @@ func (model CodexModel) ModelInfo() *ModelInfo {
 	case strings.HasPrefix(canonical, "gpt-5.6-terra"):
 		resolved.Cost.LongContext = &CodexLongContextCost{272000, 4, 18, 0.4, 5}
 	}
-	info := &ModelInfo{ID: model.ID, Object: "model", OwnedBy: "openai", Type: "codex", Name: model.ID, DisplayName: model.Name,
+	info := &ModelInfo{ID: model.ID, Object: "model", OwnedBy: "openai", Type: "codex", Name: model.ID, DisplayName: resolved.Name,
 		ContextLength: resolved.ContextWindow, MaxCompletionTokens: resolved.MaxTokens, SupportedInputModalities: slices.Clone(model.Input),
 		SupportConfigurationUpdate: resolved.Compat.SupportsConfigurationUpdate, Codex: resolved,
 		NativeCapabilities: &NativeCapabilities{WebSearch: boolPointer(true)}}

@@ -52,6 +52,31 @@ func sanitizeAssistantReplay(raw []json.RawMessage, supportsImageDetailOriginal 
 	return dropEmptyAssistantMessages(sanitized)
 }
 
+// SanitizeHistoryReplay is sanitizeOpenAIResponsesHistoryItemsForReplay for a
+// model without native computer use: malformed tool calls are dropped, each
+// item is reduced to its replayable shape, and output-only statuses are
+// stripped. Items are re-serialized in JSON.stringify form.
+func SanitizeHistoryReplay(raw []json.RawMessage, supportsImageDetailOriginal bool) []json.RawMessage {
+	items := make([]object, len(raw))
+	for i, item := range raw {
+		items[i] = parseObject(item)
+	}
+	items = dropMalformedToolCalls(items)
+	out := make([]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		replayed := sanitizeReplayItem(item, supportsImageDetailOriginal, false)
+		if replayed == nil {
+			continue
+		}
+		switch replayed.get("type").String() {
+		case "message", "function_call", "custom_tool_call", "compaction", "compaction_summary":
+			replayed.del("status")
+		}
+		out = append(out, replayed.bytes())
+	}
+	return out
+}
+
 func itemType(item object) (string, bool) {
 	kind := item.get("type")
 	return kind.String(), kind.Type == gjson.String

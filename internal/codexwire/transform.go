@@ -63,10 +63,19 @@ func effortIndex(effort string) int {
 // clampEffort is NeoPi's clampThinkingLevelForModel, applied by the agent
 // before the provider's requireSupportedEffort.
 func clampEffort(model *registry.CodexModel, requested string) string {
-	if model == nil || !model.Reasoning || model.Thinking == nil || len(model.Thinking.Efforts) == 0 {
+	if model == nil || !model.Reasoning || model.Thinking == nil {
 		return ""
 	}
-	levels := model.Thinking.Efforts
+	return ClampEffort(model.Thinking.Efforts, requested)
+}
+
+// ClampEffort is clampThinkingLevelForModel over a model's effort ladder: the
+// requested level when offered, else the highest offered level below it, else
+// the lowest offered level. An empty ladder or unknown level yields "".
+func ClampEffort(levels []string, requested string) string {
+	if len(levels) == 0 {
+		return ""
+	}
 	for _, level := range levels {
 		if level == requested {
 			return requested
