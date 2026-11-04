@@ -633,9 +633,16 @@ func (m *Manager) ClearModelCooldown(ctx context.Context, authID, model string) 
 	if trackCooldownState {
 		recordsBefore = m.cooldownStateRecordsForAuthLocked(auth, now)
 	}
+	// Execution stores and checks state under the auth-specific resolved model
+	// (OAuth alias -> upstream), so clear both the requested key and that key.
+	resolvedKey := m.selectionModelKeyForAuth(auth, model)
 	changed := false
 	for key, state := range auth.ModelStates {
-		if state != nil && canonicalModelKey(key) == modelKey && !modelStateIsClean(state) {
+		if state == nil || modelStateIsClean(state) {
+			continue
+		}
+		stateKey := canonicalModelKey(key)
+		if stateKey == modelKey || (resolvedKey != "" && stateKey == resolvedKey) {
 			resetModelState(state, now)
 			changed = true
 		}

@@ -606,7 +606,9 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 		const pool = stagePool(s, accounts);
 		const usage = poolUsage(pool, s.window);
 		const budget = s.cap * allot;
-		const spent = usage.avg !== null && usage.avg >= budget;
+		// A redacted (personal) rail never judges "spent" from pool-wide meters:
+		// the simulation's lit stage is the authority there.
+		const spent = !redacted && usage.avg !== null && usage.avg >= budget;
 		const detail = `${plural(pool.length, "account")} in the pool · ${drawLabel(s.draw).toLowerCase()}`;
 		const node = h(
 			"div",
@@ -630,7 +632,7 @@ export function chainRail(vm, { models, providers, accounts, lit = null, selecte
 					}
 				},
 				"aria-keyshortcuts": onReorder ? "Alt+ArrowLeft Alt+ArrowRight" : null,
-				"aria-label": `Stage ${i + 1} of ${vm.stages.length}, ${name}, ${detail}, ${stageLine(s, allot, usage.metered > 0)}`,
+				"aria-label": `Stage ${i + 1} of ${vm.stages.length}, ${name}, ${detail}, ${stageLine(s, allot, usage.metered > 0, redacted)}`,
 				draggable: onReorder ? "true" : null,
 				dataset: { stage: s.id },
 			},
