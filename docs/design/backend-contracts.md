@@ -195,6 +195,7 @@ The catalogue is derived from the proxy engine's registered provider models and 
 ```
 GET    /v8/neo/virtual-models            → VirtualModel[]
 GET    /v8/neo/virtual-models/:id        → VirtualModel
+GET    /v8/neo/virtual-models/draws      → { draws: DrawMode[], outOfScope: { omniroute, reason }[] }
 POST   /v8/neo/virtual-models            VirtualModel (without id) → 201 VirtualModel
 PUT    /v8/neo/virtual-models/:id        VirtualModel → VirtualModel
 DELETE /v8/neo/virtual-models/:id        → 204   (also removes every grant that references it)
@@ -215,7 +216,9 @@ Stage {
   id: string,              // stable within the virtual model; the dashboard generates "s<rand>" for new ones
   model: string,           // "<provider>/<model>"
   accounts: "all" | string[],   // account ids within that provider; "all" follows the pool as it changes
-  draw: "alternate" | "least-used" | "fill",
+  draw: DrawMode.id,       // see GET /virtual-models/draws; legacy "fill" = "priority", "alternate" = "round-robin"
+  weights?: { [accountId]: number },  // "weighted" draw: finite ≥ 0; missing = 1; all zero = uniform
+  fitContext?: boolean,   // skip the stage ("context") when request tokens exceed the model's context window
   perAccount: number,      // 0..1: draw from an account while its window usage is below this
   accountLimits?: { [accountId]: number },  // per-account override of perAccount (0..1]
   cap: number,             // 0..1: skip the stage once the pool's AVERAGE usage reaches this
@@ -233,6 +236,13 @@ Terminal {
   kind: "limit" | "queue" | "passthrough",
   message: string,         // returned to the caller on limit (and while queued)
   model?: string           // for passthrough: "<provider>/<model>" served with no budget
+}
+
+DrawMode {                 // one Go table, neoroute.DrawModes; validation accepts these ids and aliases
+  id: string, label: string, short: string, doc: string,
+  omniroute?: string,      // the OmniRoute strategy name(s) it corresponds to
+  aliases?: string[],      // older ids that resolve to this mode
+  needs: ("meter" | "weights" | "price" | "history")[]
 }
 ```
 
@@ -263,7 +273,8 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
    - If the **average** of `used(a)` over metered pool members `≥ stage.cap × allot` → skip (`cap`).
    - `limit(a)` = `stage.accountLimits[a.id]` if present, else `stage.perAccount`. `candidates` = pool members that are `healthy` and have `used(a) < limit(a) × allot`. None → skip (`unhealthy` if any pool member is not healthy, else `per-account`).
    - The ledger re-checks the chosen account inside the reservation transaction with the same meter choice (`Reservation.providerUsed`), so simulation and execution agree.
-   - Choose: `fill` → first candidate in pool order; `least-used` → the candidate with the lowest `used`; `alternate` → rotate through candidates on successive requests (the fixture rotates by wall-clock second; the backend should keep a per-stage cursor).
+   - Candidates keep the stage's account order: the explicit `accounts` list's order, or account id order for `"all"`. With `fitContext` (or draw `fit-context`) the stage is skipped (`context`) before this when the model's `context` is known and smaller than the request's estimated tokens.
+   - Choose by `draw` (the trail step records `draw` and a `drawNote`): `priority` → first candidate (OmniRoute fill-first: an account stays a candidate until its threshold); `round-robin` → durable per-stage cursor; `least-used` → lowest `used`; `headroom` → most `limit − used` (unmetered = ∞); `random` → uniform, never the stage's previous pick; `strict-random` → uniform; `weighted` → random by `weights`; `quota-weighted` → random by headroom (unmetered = 1); `p2c` → two uniform picks, the lower `used`; `reset-soonest` / `reset-latest` → the metered candidate whose window resets soonest / latest (no reset time last); `sticky` → the account that last served the stage successfully, else most headroom, never the account that just failed; `cache-affinity` → the account bound to the hash of the first 2 KiB of system text + opening user message (per-stage LRU of 4096), else most headroom; `cheapest` → plan monthly price ascending, unpriced API keys last, ties to headroom; `fit-context` → most headroom; `auto` → highest 0.5×headroom + 0.3×24h success rate + 0.2×(1 − min-max normalized 24h p50 latency). Ties go to stage order. Sticky, cache-affinity and the random no-repeat memory are in-process and reset when the virtual model is saved.
    - Serve. Record usage against `(user, vm, stage, account)`. Apply `effort` if set. Outcome `ok` with `stageIndex`, `stageId`, `model`, `accountId`.
 5. No stage served → the terminal:
    - `limit` → HTTP 429, body `{ error: { message: terminal.message, code: "neoproxy_limit", virtualModel, resetsAt } }`. Outcome `limited`.
