@@ -1,0 +1,386 @@
+{
+  "source": "NeoPi OWN toolWireSchema + normalizeSchemaForGoogle",
+  "cases": [
+    {
+      "name": "type-array-nullable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Max hits."
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "term"
+        ]
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":[\"number\",\"null\"],\"description\":\"Max hits.\"},\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}",
+      "google": "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":\"number\",\"description\":\"Max hits.\",\"nullable\":true},\"term\":{\"type\":\"string\"}},\"required\":[\"term\"],\"propertyOrdering\":[\"limit\",\"term\"]}"
+    },
+    {
+      "name": "type-array-multi",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": [
+              "string",
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "minLength": 2,
+            "maxItems": 3
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":[\"string\",\"array\",\"null\"],\"items\":{\"type\":\"string\"},\"minLength\":2,\"maxItems\":3}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"value\":{\"nullable\":true,\"anyOf\":[{\"type\":\"string\",\"description\":\"{minLength: 2}\"},{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"description\":\"{maxItems: 3}\"}]}}}"
+    },
+    {
+      "name": "const-anyof",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "anyOf": [
+              {
+                "const": "a"
+              },
+              {
+                "const": "b"
+              },
+              {
+                "const": "a"
+              }
+            ],
+            "description": "Mode."
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"mode\":{\"description\":\"Mode.\",\"type\":\"string\",\"enum\":[\"a\",\"b\",\"a\"]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"mode\":{\"description\":\"Mode.\",\"type\":\"string\",\"enum\":[\"a\",\"b\",\"a\"]}}}"
+    },
+    {
+      "name": "const-mixed-null",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pick": {
+            "oneOf": [
+              {
+                "const": 1
+              },
+              {
+                "const": null
+              }
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"pick\":{\"oneOf\":[{\"const\":1},{\"const\":null}]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"pick\":{\"type\":\"number\",\"nullable\":true}}}"
+    },
+    {
+      "name": "bare-const",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fixed": {
+            "const": "x"
+          },
+          "num": {
+            "const": 3
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"fixed\":{\"const\":\"x\"},\"num\":{\"const\":3}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"fixed\":{\"enum\":[\"x\"],\"type\":\"string\"},\"num\":{\"type\":\"number\"}},\"propertyOrdering\":[\"fixed\",\"num\"]}"
+    },
+    {
+      "name": "bare-enum",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "enum": [
+              "s",
+              "m"
+            ]
+          },
+          "level": {
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "mixed": {
+            "type": "string",
+            "enum": [
+              "a",
+              2
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"size\":{\"enum\":[\"s\",\"m\"],\"type\":\"string\"},\"level\":{\"enum\":[1,2],\"type\":\"number\"},\"mixed\":{\"type\":\"string\",\"enum\":[\"a\",2]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"size\":{\"enum\":[\"s\",\"m\"],\"type\":\"string\"},\"level\":{\"type\":\"number\"},\"mixed\":{\"type\":\"string\"}},\"propertyOrdering\":[\"size\",\"level\",\"mixed\"]}"
+    },
+    {
+      "name": "null-type",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "nothing": {
+            "type": "null",
+            "description": "Nada."
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"nothing\":{\"type\":\"null\",\"description\":\"Nada.\"}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"nothing\":{\"description\":\"Nada.\",\"nullable\":true}}}"
+    },
+    {
+      "name": "anyof-null",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "maybe": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "many": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"maybe\":{\"maxLength\":5,\"type\":[\"string\",\"null\"]},\"many\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"integer\"},{\"type\":\"null\"}]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"maybe\":{\"type\":\"string\",\"nullable\":true,\"description\":\"{maxLength: 5}\"},\"many\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"integer\"}],\"nullable\":true}},\"propertyOrdering\":[\"maybe\",\"many\"]}"
+    },
+    {
+      "name": "spill",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z]+$",
+            "format": "uuid",
+            "default": "abc",
+            "examples": [
+              "x"
+            ],
+            "$comment": "c"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9,
+            "description": "Count."
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"pattern\":\"^[a-z]+$\",\"format\":\"uuid\",\"default\":\"abc\",\"examples\":[\"x\"],\"$comment\":\"c\"},\"n\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":9,\"description\":\"Count.\"}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"default\":\"abc\",\"description\":\"{pattern: \\\"^[a-z]+$\\\", format: \\\"uuid\\\", examples: [\\\"x\\\"]}\"},\"n\":{\"type\":\"integer\",\"description\":\"Count.\\n\\n{minimum: 1, maximum: 9}\"}},\"propertyOrdering\":[\"id\",\"n\"]}"
+    },
+    {
+      "name": "refs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "node": {
+            "$ref": "#/$defs/Node",
+            "description": "Root node."
+          },
+          "list": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Leaf"
+            }
+          }
+        },
+        "$defs": {
+          "Node": {
+            "type": "object",
+            "properties": {
+              "child": {
+                "$ref": "#/$defs/Node"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "definitions": {
+          "Leaf": {
+            "type": "string",
+            "enum": [
+              "x",
+              "y"
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"node\":{\"$ref\":\"#/$defs/Node\",\"description\":\"Root node.\"},\"list\":{\"type\":\"array\",\"items\":{\"$ref\":\"#/$defs/Leaf\"}}},\"$defs\":{\"Node\":{\"type\":\"object\",\"properties\":{\"child\":{\"$ref\":\"#/$defs/Node\"},\"name\":{\"type\":\"string\"}}},\"Leaf\":{\"type\":\"string\",\"enum\":[\"x\",\"y\"]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"node\":{\"type\":\"object\",\"properties\":{\"child\":{},\"name\":{\"type\":\"string\"}},\"description\":\"Root node.\",\"propertyOrdering\":[\"child\",\"name\"]},\"list\":{\"type\":\"array\",\"items\":{\"type\":\"string\",\"enum\":[\"x\",\"y\"]}}},\"propertyOrdering\":[\"node\",\"list\"]}"
+    },
+    {
+      "name": "boolean-subschemas",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "anything": true,
+          "never": false,
+          "arr": {
+            "type": "array",
+            "items": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"anything\":true,\"never\":false,\"arr\":{\"type\":\"array\",\"items\":true}},\"additionalProperties\":false}",
+      "google": "{\"type\":\"object\",\"properties\":{\"anything\":{},\"never\":{\"not\":{}},\"arr\":{\"type\":\"array\",\"items\":{}}},\"propertyOrdering\":[\"anything\",\"never\",\"arr\"]}"
+    },
+    {
+      "name": "snake-case",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "opts": {
+            "type": "object",
+            "additional_properties": false,
+            "any_of": [
+              {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"opts\":{\"type\":\"object\",\"additional_properties\":false,\"any_of\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}]}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"opts\":{\"type\":\"object\",\"anyOf\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}],\"properties\":{}}}}"
+    },
+    {
+      "name": "empty-object",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cfg": {
+            "type": "object"
+          },
+          "nested": {
+            "type": "object",
+            "properties": {
+              "one": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"cfg\":{\"type\":\"object\"},\"nested\":{\"type\":\"object\",\"properties\":{\"one\":{\"type\":\"boolean\"}}}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"cfg\":{\"type\":\"object\",\"properties\":{}},\"nested\":{\"type\":\"object\",\"properties\":{\"one\":{\"type\":\"boolean\"}}}},\"propertyOrdering\":[\"cfg\",\"nested\"]}"
+    },
+    {
+      "name": "not-enum",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "s": {
+            "type": "string",
+            "not": {
+              "enum": [
+                1
+              ]
+            }
+          },
+          "t": {
+            "type": "string",
+            "not": {
+              "const": "z"
+            }
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"s\":{\"type\":\"string\",\"not\":{\"enum\":[1],\"type\":\"number\"}},\"t\":{\"type\":\"string\",\"not\":{\"const\":\"z\"}}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"s\":{\"type\":\"string\"},\"t\":{\"type\":\"string\",\"not\":{\"enum\":[\"z\"],\"type\":\"string\"}}},\"propertyOrdering\":[\"s\",\"t\"]}"
+    },
+    {
+      "name": "draft7-items-tuple",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "pair": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "wire": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"type\":\"number\"}]},\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"uniqueItems\":true}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\"},\"tags\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},\"description\":\"{uniqueItems: true}\"}},\"propertyOrdering\":[\"pair\",\"tags\"]}"
+    },
+    {
+      "name": "property-named-const",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "const": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"const\":{\"type\":\"string\"},\"type\":{\"type\":\"string\"}}}",
+      "google": "{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\"},\"enum\":[{\"type\":\"string\"}]},\"propertyOrdering\":[\"type\",\"enum\"]}"
+    }
+  ]
+}

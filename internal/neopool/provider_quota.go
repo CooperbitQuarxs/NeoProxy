@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
@@ -131,6 +132,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "xai"
 	case "kimi":
 		return "kimi"
+	case "devin":
+		return "devin"
 	}
 	return ""
 }
@@ -142,6 +145,13 @@ func quotaAccessToken(a *coreauth.Auth) string {
 	token, _ := a.Metadata["access_token"].(string)
 	if token == "" && zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
 		token = a.Attributes["api_key"]
+	}
+	if token == "" && a.Provider == "devin" {
+		// Devin sign-ins store the session token as their api_key.
+		token = a.Attributes["api_key"]
+		if token == "" {
+			token, _ = a.Metadata["api_key"].(string)
+		}
 	}
 	if token == "" && a.Provider == "claude" {
 		token = a.Attributes["api_key"]
@@ -321,6 +331,60 @@ func kimiUsageWindows(usage *kimiauth.Usage) []Window {
 	return out
 }
 
+// devinUsageWindows adapts NeoPi's Devin report the way its default ranking
+// gates on it: the daily and weekly quota become the day and week windows;
+// the plan-period credit buckets become the month window at the most consumed
+// bucket, where a bucket without a grant counts as used up once its balance
+// is spent (isUsageLimitExhausted). A window without a fraction is reported
+// but unknown to routing.
+func devinUsageWindows(usage *devinauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	window := func(kind string, fraction float64, limit devinauth.UsageLimit) Window {
+		resets := time.Time{}
+		if limit.Window.ResetsAt > 0 {
+			resets = time.UnixMilli(int64(limit.Window.ResetsAt))
+		}
+		starts := time.Time{}
+		if !resets.IsZero() && limit.Window.DurationMs > 0 {
+			starts = resets.Add(-time.Duration(limit.Window.DurationMs) * time.Millisecond)
+		}
+		return percentWindow(kind, fraction*100, starts, resets)
+	}
+	var credits *Window
+	creditFraction, creditReported := -1.0, false
+	for _, limit := range usage.Limits {
+		switch limit.ID {
+		case "devin:quota:daily":
+			out = append(out, window("day", *limit.Amount.UsedFraction, limit))
+		case "devin:quota:weekly":
+			out = append(out, window("week", *limit.Amount.UsedFraction, limit))
+		default:
+			creditReported = true
+			fraction := -1.0
+			if limit.Amount.UsedFraction != nil {
+				fraction = math.Min(*limit.Amount.UsedFraction, 1)
+			} else if limit.Amount.Remaining <= 0 {
+				fraction = 1
+			}
+			if fraction > creditFraction {
+				creditFraction = fraction
+				w := window("month", fraction, limit)
+				credits = &w
+			}
+		}
+	}
+	switch {
+	case credits != nil:
+		out = append(out, *credits)
+	case creditReported:
+		out = append(out, Window{Kind: "month", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -383,6 +447,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return kimiUsageWindows(usage), nil
+	case "devin":
+		usage, err := devinauth.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return devinUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }

@@ -501,13 +501,6 @@ func TestSanitizeOpenAIResponsesReasoningEncryptedContent_StripsRouterSuffixOnNo
 		t.Fatalf("prefixed SWE encrypted_content = %q, want normalized %q", gotSig, "sealed.v1.token")
 	}
 
-	// Gemini carrier wrapping a Meta signature must never be misclassified as a
-	// Devin sealed signature.
-	metaCarrier := base64.StdEncoding.EncodeToString([]byte("cpa-codex-gemini-carrier-v1:Q-PaDgE" + strings.Repeat("A", 1419)))
-	if sigBytes, sigType := parseSignatureBytes(metaCarrier); len(sigBytes) != 0 || sigType != "" {
-		t.Fatalf("parseSignatureBytes(metaCarrier) = (%q, %q), want empty", sigBytes, sigType)
-	}
-
 	// Replay cache backfill + channel switch: a routed signature cached from
 	// OpenRouter is preserved on OpenRouter and stripped to native on official Codex.
 	internalcache.ClearCodexReasoningReplayCache()

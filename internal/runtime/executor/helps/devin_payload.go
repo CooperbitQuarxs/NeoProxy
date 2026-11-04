@@ -35,6 +35,7 @@ var devinPayloadFields = map[protowire.Number]devinPayloadField{
 			3: {name: "arguments", kind: protowire.BytesType},
 		}},
 		7: {name: "tool_call_id", kind: protowire.BytesType},
+		9: {name: "tool_result_is_error", kind: protowire.VarintType},
 		10: {name: "images", kind: protowire.BytesType, repeated: true, children: map[protowire.Number]devinPayloadField{
 			1: {name: "data", kind: protowire.BytesType},
 			2: {name: "mime_type", kind: protowire.BytesType},
@@ -50,34 +51,35 @@ var devinPayloadFields = map[protowire.Number]devinPayloadField{
 		5: {name: "temperature", kind: protowire.Fixed64Type},
 		7: {name: "top_k", kind: protowire.VarintType},
 		8: {name: "top_p", kind: protowire.Fixed64Type},
+		9: {name: "stop_patterns", kind: protowire.BytesType, repeated: true},
 	}},
 	10: {name: "tools", kind: protowire.BytesType, repeated: true, children: map[protowire.Number]devinPayloadField{
-		1: {name: "name", kind: protowire.BytesType},
-		2: {name: "description", kind: protowire.BytesType},
-		3: {name: "parameters", kind: protowire.BytesType, jsonValue: true},
+		1:  {name: "name", kind: protowire.BytesType},
+		2:  {name: "description", kind: protowire.BytesType},
+		3:  {name: "parameters", kind: protowire.BytesType, jsonValue: true},
+		12: {name: "strict", kind: protowire.VarintType},
 	}},
 	16: {name: "cascade_id", kind: protowire.BytesType},
 	21: {name: "model", kind: protowire.BytesType},
 }
 
-// DevinPayloadDefaultsSource maps caller field presence to the native business
-// view so defaults can replace built-in values without replacing caller values.
-func DevinPayloadDefaultsSource(native, interactions []byte) []byte {
+// DevinPayloadDefaultsSource maps caller field presence in the Anthropic
+// Messages request onto the native business view, so defaults can replace
+// built-in values without replacing caller values.
+func DevinPayloadDefaultsSource(native, claude []byte) []byte {
 	out := []byte(`{}`)
 	for target, sources := range map[string][]string{
 		"model":                         {"model"},
-		"system_prompt":                 {"system_instruction", "systemInstruction"},
-		"prompts":                       {"input"},
+		"system_prompt":                 {"system"},
+		"prompts":                       {"messages"},
 		"tools":                         {"tools"},
-		"cascade_id":                    {"session_id", "sessionId", "conversation_id", "previous_interaction_id"},
-		"completion_config.max_tokens":  {"generation_config.max_output_tokens", "generationConfig.max_output_tokens"},
-		"completion_config.temperature": {"generation_config.temperature", "generationConfig.temperature", "temperature"},
-		"completion_config.top_k":       {"generation_config.top_k", "generationConfig.top_k"},
-		"completion_config.top_p":       {"generation_config.top_p", "generationConfig.top_p"},
+		"completion_config.max_tokens":  {"max_tokens"},
+		"completion_config.temperature": {"temperature"},
+		"completion_config.top_p":       {"top_p"},
 	} {
 		var value gjson.Result
 		for _, source := range sources {
-			value = gjson.GetBytes(interactions, source)
+			value = gjson.GetBytes(claude, source)
 			if value.Exists() {
 				break
 			}
@@ -85,7 +87,7 @@ func DevinPayloadDefaultsSource(native, interactions []byte) []byte {
 		if !value.Exists() {
 			continue
 		}
-		if target == "prompts" || target == "tools" {
+		if target == "prompts" || target == "tools" || target == "system_prompt" {
 			value = gjson.GetBytes(native, target)
 		}
 		if value.Exists() {

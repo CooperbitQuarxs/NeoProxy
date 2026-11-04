@@ -278,6 +278,15 @@ func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.Mod
 		if len(models) == 0 {
 			models = registry.XaiOAuthModels(nil)
 		}
+	// NeoPi-ported discovery: the account's roster, else NeoPi's bundled seed.
+	case "kimi":
+		if len(models) == 0 {
+			models = registry.KimiBundledModels()
+		}
+	case "devin":
+		if len(models) == 0 {
+			models = registry.DevinBundledModels()
+		}
 	default:
 		return nil, false
 	}

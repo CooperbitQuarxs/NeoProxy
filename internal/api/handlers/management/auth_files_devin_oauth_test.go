@@ -22,28 +22,28 @@ import (
 )
 
 type fakeDevinOAuthService struct {
-	exchange func(context.Context, string, string) (string, error)
-	create   func(context.Context, string) (*coreauth.Auth, error)
+	exchange func(context.Context, string, string) (devin.Credential, error)
+	create   func(context.Context, devin.Credential) (*coreauth.Auth, error)
 }
 
 func (f *fakeDevinOAuthService) BuildAuthorizationURL(redirectURI, challenge, state string) string {
 	return devin.NewDevinAuthService(nil).BuildAuthorizationURL(redirectURI, challenge, state)
 }
 
-func (f *fakeDevinOAuthService) ExchangeCodeForToken(ctx context.Context, code, verifier string) (string, error) {
+func (f *fakeDevinOAuthService) ExchangeCodeForToken(ctx context.Context, code, verifier string) (devin.Credential, error) {
 	if f.exchange != nil {
 		return f.exchange(ctx, code, verifier)
 	}
-	return "eyJ.test.token", nil
+	return devin.Credential{Access: "eyJ.test.token"}, nil
 }
 
-func (f *fakeDevinOAuthService) CreateAuthRecord(ctx context.Context, token string) (*coreauth.Auth, error) {
+func (f *fakeDevinOAuthService) CreateAuthRecord(ctx context.Context, credential devin.Credential) (*coreauth.Auth, error) {
 	if f.create != nil {
-		return f.create(ctx, token)
+		return f.create(ctx, credential)
 	}
 	return &coreauth.Auth{
 		ID: "devin-test.json", FileName: "devin-test.json", Provider: "devin",
-		Metadata: map[string]any{"type": "devin", "api_key": devin.FormatSessionToken(token), "auth_kind": "oauth"},
+		Metadata: map[string]any{"type": "devin", "api_key": credential.Access, "auth_kind": "oauth"},
 	}, nil
 }
 
@@ -51,7 +51,7 @@ func TestDevinRemoteOAuthFlow(t *testing.T) {
 	authDir := t.TempDir()
 	h := NewHandlerWithoutConfigFilePath(&config.Config{AuthDir: authDir, Port: 8317}, nil)
 	exchanged := make(chan string, 1)
-	service := &fakeDevinOAuthService{exchange: func(ctx context.Context, code, verifier string) (string, error) {
+	service := &fakeDevinOAuthService{exchange: func(ctx context.Context, code, verifier string) (devin.Credential, error) {
 		if code != "remote-code" {
 			t.Errorf("code = %q", code)
 		}
@@ -59,7 +59,7 @@ func TestDevinRemoteOAuthFlow(t *testing.T) {
 			t.Error("login inherited completed HTTP request cancellation")
 		}
 		exchanged <- verifier
-		return "eyJ.test.token", nil
+		return devin.Credential{Access: "eyJ.test.token"}, nil
 	}}
 	originalFactory := newDevinOAuthService
 	newDevinOAuthService = func(*config.Config) devinOAuthService { return service }
@@ -160,7 +160,7 @@ func TestDevinRemoteOAuthFlow(t *testing.T) {
 	if errDecode := json.Unmarshal(data, &record); errDecode != nil {
 		t.Fatal(errDecode)
 	}
-	if record["api_key"] != "devin-session-token$eyJ.test.token" || record["type"] != "devin" || record["auth_kind"] != "oauth" {
+	if record["api_key"] != "eyJ.test.token" || record["type"] != "devin" || record["auth_kind"] != "oauth" {
 		t.Fatalf("unexpected credential: %v", record)
 	}
 
@@ -176,7 +176,6 @@ func TestCompleteDevinOAuthFailures(t *testing.T) {
 		name               string
 		payload            string
 		exchangeErr        bool
-		emptyToken         bool
 		cancelDuringCreate bool
 		saveErr            bool
 		want               string
@@ -186,7 +185,6 @@ func TestCompleteDevinOAuthFailures(t *testing.T) {
 		{name: "missing code", payload: `{"state":"test-state"}`, want: "Missing authorization code"},
 		{name: "malformed callback", payload: `{`, want: "Invalid OAuth callback"},
 		{name: "exchange error", exchangeErr: true, want: "Failed to exchange authorization code for tokens"},
-		{name: "empty token", emptyToken: true, want: "Failed to exchange authorization code for tokens"},
 		{name: "cancel during profile", cancelDuringCreate: true},
 		{name: "save error", saveErr: true, want: "Failed to save authentication tokens"},
 	} {
@@ -206,13 +204,12 @@ func TestCompleteDevinOAuthFailures(t *testing.T) {
 			}
 			service := &fakeDevinOAuthService{}
 			if test.exchangeErr {
-				service.exchange = func(context.Context, string, string) (string, error) { return "", errors.New("secret-upstream-token") }
-			}
-			if test.emptyToken {
-				service.exchange = func(context.Context, string, string) (string, error) { return "", nil }
+				service.exchange = func(context.Context, string, string) (devin.Credential, error) {
+					return devin.Credential{}, errors.New("secret-upstream-token")
+				}
 			}
 			if test.cancelDuringCreate {
-				service.create = func(context.Context, string) (*coreauth.Auth, error) {
+				service.create = func(context.Context, devin.Credential) (*coreauth.Auth, error) {
 					CancelOAuthSession(state)
 					return &coreauth.Auth{}, nil
 				}

@@ -1346,6 +1346,12 @@ func ToolParametersSchema(parameters gjson.Result, strict, flattenRootUnion bool
 	return encodeTree(enforced), effective
 }
 
+// ToolWireSchema is NeoPi's toolWireSchema: the tool's parameters upgraded to
+// draft 2020-12 and post-processed, serialized like JSON.stringify.
+func ToolWireSchema(parameters gjson.Result) json.RawMessage {
+	return encodeTree(postProcessSchema(upgradeSchema(decodeTree(parameters))))
+}
+
 // flattenExclusiveRequiredRootUnion drops an object-root anyOf/oneOf whose
 // branches are only typeless required-key fragments (xAI rejects them).
 func flattenExclusiveRequiredRootUnion(schema *jmap) any {

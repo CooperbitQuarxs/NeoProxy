@@ -209,8 +209,8 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 		}},
 		{"14", "kimi", func(m map[string]any) string { return "" }},
 		{"15", "devin", func(m map[string]any) string {
-			if m["session_token"] != "devin-session-token$devin-fixture-token" {
-				return "devin session token not in engine form"
+			if m["api_key"] != "devin-fixture-token" || m["session_token"] != nil {
+				return "devin token not stored as NeoPi stores it"
 			}
 			return ""
 		}},
