@@ -23,6 +23,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/home"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neoui"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/oauthpage"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	responsesclaude "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/claude/openai/responses"
@@ -36,7 +37,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const oauthCallbackSuccessHTML = `<html><head><meta charset="utf-8"><title>Authentication successful</title><script>setTimeout(function(){window.close();},5000);</script></head><body><h1>Authentication successful!</h1><p>You can close this window.</p><p>This window will close automatically in 5 seconds.</p></body></html>`
+// writeOAuthCallbackPage answers a provider redirect with the shared designed
+// result page. The status stays 200 whatever the provider reported, as before.
+func writeOAuthCallbackPage(c *gin.Context, provider, code, errStr string) {
+	detail := errStr
+	if detail == "" && code == "" {
+		detail = "No authorization code was returned."
+	}
+	oauthpage.Write(c.Writer, http.StatusOK, oauthpage.Page{Provider: provider, Success: detail == "", Detail: detail, DashboardURL: oauthpage.DashboardPath, AutoClose: true})
+}
 
 const codexAlphaSearchSourceFormat = "codex-alpha-search"
 
@@ -173,8 +182,7 @@ func (s *Server) setupRoutes() {
 				_, _ = managementHandlers.WriteOAuthCallbackFileForPendingSession(cfg.AuthDir, "anthropic", state, code, errStr)
 			}
 		}
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, oauthCallbackSuccessHTML)
+		writeOAuthCallbackPage(c, "anthropic", code, errStr)
 	})
 
 	s.engine.GET("/codex/callback", func(c *gin.Context) {
@@ -192,8 +200,7 @@ func (s *Server) setupRoutes() {
 				}
 			}
 		}
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, oauthCallbackSuccessHTML)
+		writeOAuthCallbackPage(c, "codex", code, errStr)
 	})
 
 	s.engine.GET("/antigravity/callback", func(c *gin.Context) {
@@ -208,8 +215,7 @@ func (s *Server) setupRoutes() {
 				_, _ = managementHandlers.WriteOAuthCallbackFileForPendingSession(cfg.AuthDir, "antigravity", state, code, errStr)
 			}
 		}
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, oauthCallbackSuccessHTML)
+		writeOAuthCallbackPage(c, "antigravity", code, errStr)
 	})
 
 	devinCallbackHandler := func(c *gin.Context) {
@@ -233,8 +239,7 @@ func (s *Server) setupRoutes() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired OAuth callback"})
 			return
 		}
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusOK, oauthCallbackSuccessHTML)
+		writeOAuthCallbackPage(c, "devin", code, errStr)
 	}
 
 	s.engine.GET("/callback", devinCallbackHandler)
