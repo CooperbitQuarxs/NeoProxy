@@ -1,16 +1,16 @@
-// Package zai implements Z.ai's GLM Coding Plan sign-in.
+// Package zai is NeoPi's Z.ai "GLM Coding Plan · Sign in" (auth rule
+// zai-coding-plan, hook zai-mint-key).
 //
 // It mirrors ZCode's desktop "Individual Plan" browser sign-in: an
 // authorization-code flow (no PKCE) against chat.z.ai, a JSON token exchange
 // that yields a short-lived OAuth access token, and Z.ai's business APIs that
-// provision a durable "id.secret" API key. Only that key is kept; it is used as
-// a plain bearer key on the GLM Coding Plan endpoint and never needs refreshing.
+// provision a durable "id.secret" API key. Only that key is kept; it is a
+// plain bearer key that never needs refreshing.
 package zai
 
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +19,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -34,41 +38,51 @@ const (
 	RedirectURI = "zcode://zai-auth/callback"
 	// BizBaseURL hosts the business APIs that provision API keys.
 	BizBaseURL = "https://api.z.ai"
-	// CodingPlanBaseURL is the OpenAI-compatible GLM Coding Plan endpoint. The
-	// general https://api.z.ai/api/paas/v4 endpoint bills pay-as-you-go balance
-	// instead of the plan.
+	// CodingPlanBaseURL is the GLM Coding Plan Chat Completions endpoint that
+	// identifies a Z.ai account's openai-compatibility entry.
 	CodingPlanBaseURL = "https://api.z.ai/api/coding/paas/v4"
-	// KeyName names the API key NeoProxy provisions, so signing in never touches
-	// ZCode's or NeoPi's own keys and signing in again reuses it.
-	KeyName = "neoproxy"
+	// KeyName is NeoPi's own key name, so signing in never mutates ZCode's
+	// `zcode-api-key` and signing in again reuses the key.
+	KeyName = "oh-my-pi"
+	// authProvider names the auth rule in NeoPi's token-exchange errors.
+	authProvider = "zai-coding-plan"
+	// userAgent is Bun's fetch default, which NeoPi's sign-in requests carry.
+	userAgent      = "Bun/1.3.14"
+	requestTimeout = 30 * time.Second
 )
 
-// Service performs the sign-in exchanges. Base URLs are fields so tests can
+// IsCodingPlanBaseURL reports whether an openai-compatibility entry's base URL
+// is the GLM Coding Plan endpoint, which marks the entry as a Z.ai account.
+func IsCodingPlanBaseURL(base string) bool {
+	return strings.TrimRight(strings.TrimSpace(base), "/") == CodingPlanBaseURL
+}
+
+// Service performs the sign-in exchanges. Endpoints are fields so tests can
 // point them at a fake upstream.
 type Service struct {
 	client       *http.Client
 	TokenURL     string
 	BizBaseURL   string
-	ModelsBase   string
 	AuthorizeURL string
 }
 
-// NewService returns a Service using client (a 30s-timeout client when nil).
+// NewService returns a Service using client (http.DefaultClient when nil).
+// Every request is bounded by NeoPi's 30 s sign-in timeout.
 func NewService(client *http.Client) *Service {
 	if client == nil {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = http.DefaultClient
 	}
-	return &Service{client: client, TokenURL: TokenURL, BizBaseURL: BizBaseURL, ModelsBase: CodingPlanBaseURL, AuthorizeURL: AuthorizeURL}
+	return &Service{client: client, TokenURL: TokenURL, BizBaseURL: BizBaseURL, AuthorizeURL: AuthorizeURL}
 }
 
-// AuthorizationURL builds the page the person signs in on.
+// AuthorizationURL is generateAuthUrl: the standard authorize parameters in
+// NeoPi's order.
 func (s *Service) AuthorizationURL(state string) string {
-	q := url.Values{}
-	q.Set("client_id", ClientID)
-	q.Set("response_type", "code")
-	q.Set("redirect_uri", RedirectURI)
-	q.Set("state", state)
-	return s.AuthorizeURL + "?" + q.Encode()
+	query := "client_id=" + url.QueryEscape(ClientID) + "&response_type=code&redirect_uri=" + url.QueryEscape(RedirectURI)
+	if state != "" {
+		query += "&state=" + url.QueryEscape(state)
+	}
+	return s.AuthorizeURL + "?" + query
 }
 
 // Account identifies the signed-in Z.ai user.
@@ -77,266 +91,261 @@ type Account struct {
 	ID    string
 }
 
-// ExchangeCode trades an authorization code for the short-lived OAuth token.
+// ExchangeCode is exchangeToken's code grant and credential projection. A
+// pasted `code#state` carries the state Z.ai echoed, which wins.
 func (s *Service) ExchangeCode(ctx context.Context, code, state string) (string, Account, error) {
-	body := map[string]string{"provider": "zai", "code": code, "redirect_uri": RedirectURI, "state": state}
-	var data struct {
-		Zai struct {
-			AccessToken string `json:"access_token"`
-		} `json:"zai"`
-		User struct {
-			Email string          `json:"email"`
-			ID    json.RawMessage `json:"id"`
-		} `json:"user"`
+	if index := strings.IndexByte(code, '#'); index >= 0 {
+		if fragment := code[index+1:]; fragment != "" {
+			state = fragment
+		}
+		code = code[:index]
 	}
-	if err := s.do(ctx, http.MethodPost, s.TokenURL, "", body, "token exchange", &data); err != nil {
-		return "", Account{}, err
+	body := jsjson.Object(
+		jsjson.Field{Name: "provider", Value: jsjson.Marshal("zai")},
+		jsjson.Field{Name: "code", Value: jsjson.Marshal(code)},
+		jsjson.Field{Name: "redirect_uri", Value: jsjson.Marshal(RedirectURI)},
+		jsjson.Field{Name: "state", Value: jsjson.Marshal(state)},
+	)
+	status, raw, err := s.send(ctx, http.MethodPost, s.TokenURL, "", body)
+	if err != nil {
+		return "", Account{}, fmt.Errorf("%s request to %s failed: %w", authProvider, s.TokenURL, err)
 	}
-	token := strings.TrimSpace(data.Zai.AccessToken)
-	if token == "" {
-		return "", Account{}, errors.New("z.ai token exchange returned no access token")
+	if status < 200 || status >= 300 {
+		return "", Account{}, fmt.Errorf("%s token exchange failed: %d %s", authProvider, status, jsPrefix(string(raw), 500))
 	}
-	return token, Account{Email: strings.TrimSpace(data.User.Email), ID: rawID(data.User.ID)}, nil
+	token := gjson.GetBytes(raw, "data.zai.access_token")
+	if token.Type != gjson.String || token.String() == "" {
+		return "", Account{}, fmt.Errorf("%s token response missing access token: %s", authProvider, jsPrefix(string(raw), 500))
+	}
+	user := gjson.GetBytes(raw, "data.user")
+	account := Account{Email: user.Get("email").String(), ID: user.Get("id").String()}
+	return token.String(), account, nil
 }
 
-// MintAPIKey provisions (or reuses) NeoProxy's durable API key from the OAuth
-// token: business login, default organization and project, find or create the
-// key named KeyName, then read its full secret.
+// MintAPIKey is the zai-mint-key hook: business login, default organization
+// and project, find or create the key named KeyName, then read its secret.
 func (s *Service) MintAPIKey(ctx context.Context, oauthToken string) (string, error) {
-	var login struct {
-		AccessToken  string `json:"access_token"`
-		AccessToken2 string `json:"accessToken"`
-	}
-	if err := s.do(ctx, http.MethodPost, s.BizBaseURL+"/api/auth/z/login", "", map[string]string{"token": oauthToken}, "business login", &login); err != nil {
+	data, err := s.call(ctx, http.MethodPost, s.BizBaseURL+"/api/auth/z/login", "", jsjson.Object(jsjson.Field{Name: "token", Value: jsjson.Marshal(oauthToken)}), "business login")
+	if err != nil {
 		return "", err
 	}
-	biz := strings.TrimSpace(firstNonEmpty(login.AccessToken, login.AccessToken2))
+	biz := trimmed(data.Get("access_token"))
 	if biz == "" {
-		return "", errors.New("z.ai business login returned no access token")
+		biz = trimmed(data.Get("accessToken"))
 	}
-	var customer struct {
-		Organizations []struct {
-			OrganizationID string `json:"organizationId"`
-			IsDefault      bool   `json:"isDefault"`
-			Projects       []struct {
-				ProjectID string `json:"projectId"`
-				IsDefault bool   `json:"isDefault"`
-			} `json:"projects"`
-		} `json:"organizations"`
+	if biz == "" {
+		return "", errors.New("Z.ai business login returned no access token")
 	}
-	if err := s.do(ctx, http.MethodGet, s.BizBaseURL+"/api/biz/customer/getCustomerInfo", biz, nil, "customer lookup", &customer); err != nil {
+	customer, err := s.call(ctx, http.MethodGet, s.BizBaseURL+"/api/biz/customer/getCustomerInfo", biz, nil, "customer lookup")
+	if err != nil {
 		return "", err
 	}
-	orgIndex, projectID := -1, ""
-	for i, org := range customer.Organizations {
-		if org.IsDefault || orgIndex < 0 {
-			orgIndex = i
-		}
-		if org.IsDefault {
+	org := pickDefault(customer.Get("organizations"))
+	project := pickDefault(org.Get("projects"))
+	organizationID, projectID := trimmed(org.Get("organizationId")), trimmed(project.Get("projectId"))
+	if organizationID == "" || projectID == "" {
+		return "", errors.New("Z.ai key provisioning failed: no organization/project on account")
+	}
+	keysURL := s.BizBaseURL + "/api/biz/v1/organization/" + organizationID + "/projects/" + projectID + "/api_keys"
+	listed, err := s.call(ctx, http.MethodGet, keysURL, biz, nil, "api key list")
+	if err != nil {
+		return "", err
+	}
+	var record gjson.Result
+	for _, key := range keyArray(listed) {
+		if key.Get("name").String() == KeyName {
+			record = key
 			break
 		}
 	}
-	if orgIndex >= 0 {
-		for i, p := range customer.Organizations[orgIndex].Projects {
-			if p.IsDefault || i == 0 {
-				projectID = strings.TrimSpace(p.ProjectID)
-			}
-			if p.IsDefault {
-				break
-			}
-		}
-	}
-	if orgIndex < 0 || strings.TrimSpace(customer.Organizations[orgIndex].OrganizationID) == "" || projectID == "" {
-		return "", errors.New("z.ai key provisioning failed: no organization or project on the account")
-	}
-	keysURL := s.BizBaseURL + "/api/biz/v1/organization/" + url.PathEscape(strings.TrimSpace(customer.Organizations[orgIndex].OrganizationID)) + "/projects/" + url.PathEscape(projectID) + "/api_keys"
-	var listed json.RawMessage
-	if err := s.do(ctx, http.MethodGet, keysURL, biz, nil, "api key list", &listed); err != nil {
-		return "", err
-	}
-	apiKey := ""
-	for _, k := range keyRecords(listed) {
-		if k.Name == KeyName {
-			apiKey = strings.TrimSpace(k.APIKey)
-			break
-		}
-	}
-	if apiKey == "" {
-		var created keyRecord
-		if err := s.do(ctx, http.MethodPost, keysURL, biz, map[string]string{"name": KeyName}, "api key create", &created); err != nil {
+	if !record.Exists() {
+		if record, err = s.call(ctx, http.MethodPost, keysURL, biz, jsjson.Object(jsjson.Field{Name: "name", Value: jsjson.Marshal(KeyName)}), "api key create"); err != nil {
 			return "", err
 		}
-		apiKey = strings.TrimSpace(created.APIKey)
 	}
+	apiKey := trimmed(record.Get("apiKey"))
 	if apiKey == "" {
-		return "", errors.New("z.ai key provisioning returned no api key")
+		return "", errors.New("Z.ai key provisioning returned no apiKey")
 	}
 	// List entries mask the secret; the copy endpoint always returns it whole.
-	var copied struct {
-		SecretKey string `json:"secretKey"`
-	}
-	if err := s.do(ctx, http.MethodGet, keysURL+"/copy/"+url.PathEscape(apiKey), biz, nil, "api key copy", &copied); err != nil {
+	copied, err := s.call(ctx, http.MethodGet, keysURL+"/copy/"+jsEncodeURIComponent(apiKey), biz, nil, "api key copy")
+	if err != nil {
 		return "", err
 	}
-	secret := strings.TrimSpace(copied.SecretKey)
+	secret := trimmed(copied.Get("secretKey"))
 	if secret == "" {
-		return "", errors.New("z.ai key provisioning returned no secret")
+		return "", errors.New("Z.ai key provisioning returned no secretKey")
 	}
 	return apiKey + "." + secret, nil
 }
 
-// ListModels returns the chat model ids the key can use on the Coding Plan endpoint.
-func (s *Service) ListModels(ctx context.Context, apiKey string) ([]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(s.ModelsBase, "/")+"/models", nil)
+// call sends one business-API request (getJson/postJson) and unwraps Z.ai's
+// {code, msg, data, success} envelope.
+func (s *Service) call(ctx context.Context, method, target, bearer string, body []byte, operation string) (gjson.Result, error) {
+	status, raw, err := s.send(ctx, method, target, bearer, body)
 	if err != nil {
-		return nil, err
+		return gjson.Result{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("z.ai model list: %w", err)
+	if status < 200 || status >= 300 {
+		return gjson.Result{}, fmt.Errorf("HTTP request failed. status=%d; url=%s; body=%s", status, target, raw)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("z.ai model list: HTTP %d", resp.StatusCode)
+	if len(raw) == 0 {
+		return gjson.Result{}, nil
 	}
-	var out struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
+	if !gjson.ValidBytes(raw) {
+		return gjson.Result{}, fmt.Errorf("Z.ai %s returned invalid JSON", operation)
 	}
-	if err = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
-		return nil, fmt.Errorf("z.ai model list: %w", err)
-	}
-	models := make([]string, 0, len(out.Data))
-	for _, m := range out.Data {
-		if id := strings.TrimSpace(m.ID); id != "" {
-			models = append(models, id)
-		}
-	}
-	if len(models) == 0 {
-		return nil, errors.New("z.ai lists no models for this key")
-	}
-	return models, nil
+	return unwrapEnvelope(gjson.ParseBytes(raw), operation)
 }
 
-type keyRecord struct {
-	Name   string `json:"name"`
-	APIKey string `json:"apiKey"`
-}
-
-// keyRecords accepts a bare array or the wrapper shapes Z.ai uses for lists.
-func keyRecords(raw json.RawMessage) []keyRecord {
-	var list []keyRecord
-	if json.Unmarshal(raw, &list) == nil {
-		return list
-	}
-	var wrapped map[string]json.RawMessage
-	if json.Unmarshal(raw, &wrapped) != nil {
-		return nil
-	}
-	for _, field := range []string{"list", "keys", "apiKeys", "records"} {
-		if inner, ok := wrapped[field]; ok && json.Unmarshal(inner, &list) == nil {
-			return list
-		}
-	}
-	return nil
-}
-
-// do sends one JSON request and unwraps Z.ai's {code,msg,data,success}
-// envelope into out. The token endpoint signals success with code 0, the
-// business APIs with code 200 / success true. Error text never includes
-// response bodies, which can carry tokens or keys.
-func (s *Service) do(ctx context.Context, method, target, bearer string, body any, operation string, out any) error {
+func (s *Service) send(ctx context.Context, method, target, bearer string, body []byte) (int, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
+	defer cancel()
 	var reader io.Reader
 	if body != nil {
-		encoded, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		reader = bytes.NewReader(encoded)
+		reader = bytes.NewReader(body)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
-		return err
+		return 0, nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("User-Agent", userAgent)
 	if bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+bearer)
 	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return fmt.Errorf("z.ai %s: %w", operation, err)
+		return 0, nil, err
 	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	defer func() { _ = resp.Body.Close() }()
+	// An explicit Accept-Encoding disables Go's transparent decompression.
+	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
 	if err != nil {
-		return fmt.Errorf("z.ai %s: %w", operation, err)
+		return resp.StatusCode, nil, err
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("z.ai %s: HTTP %d", operation, resp.StatusCode)
+	defer func() { _ = decoded.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(decoded, 1<<20))
+	return resp.StatusCode, raw, err
+}
+
+// unwrapEnvelope is unwrapEnvelope: bodies with a code or success field must
+// report success (code 0 or 200, success not false) and yield their data.
+func unwrapEnvelope(body gjson.Result, operation string) (gjson.Result, error) {
+	if !body.IsObject() || !body.Get("code").Exists() && !body.Get("success").Exists() {
+		return body, nil
 	}
-	data, err := unwrapEnvelope(raw)
-	if err != nil {
-		return fmt.Errorf("z.ai %s failed: %w", operation, err)
+	code := body.Get("code")
+	if body.Get("success").Type == gjson.False || !successCode(code) {
+		message := body.Get("msg").String()
+		if message == "" {
+			message = "code " + jsString(code)
+		}
+		return gjson.Result{}, fmt.Errorf("Z.ai %s failed: %s", operation, message)
 	}
-	if err = json.Unmarshal(data, out); err != nil {
-		return fmt.Errorf("z.ai %s: unexpected response", operation)
+	if data := body.Get("data"); data.Exists() {
+		return data, nil
+	}
+	return body, nil
+}
+
+func successCode(code gjson.Result) bool {
+	switch code.Type {
+	case gjson.Null:
+		return true
+	case gjson.Number:
+		return code.Num == 0 || code.Num == 200
+	case gjson.String:
+		return code.Str == "0" || code.Str == "200"
+	default:
+		return !code.Exists()
+	}
+}
+
+// jsString is String(value) for an envelope code.
+func jsString(value gjson.Result) string {
+	switch value.Type {
+	case gjson.String:
+		return value.Str
+	case gjson.Number:
+		return strconv.FormatFloat(value.Num, 'f', -1, 64)
+	case gjson.True:
+		return "true"
+	case gjson.False:
+		return "false"
+	case gjson.Null:
+		return "null"
+	default:
+		return "undefined"
+	}
+}
+
+// keyArray is asKeyArray: a bare array or a list/keys/apiKeys/records wrapper.
+func keyArray(value gjson.Result) []gjson.Result {
+	if value.IsArray() {
+		return value.Array()
+	}
+	if value.IsObject() {
+		for _, field := range []string{"list", "keys", "apiKeys", "records"} {
+			if inner := value.Get(field); inner.IsArray() {
+				return inner.Array()
+			}
+		}
 	}
 	return nil
 }
 
-func unwrapEnvelope(raw []byte) (json.RawMessage, error) {
-	var env struct {
-		Code    json.RawMessage `json:"code"`
-		Msg     string          `json:"msg"`
-		Data    json.RawMessage `json:"data"`
-		Success *bool           `json:"success"`
-	}
-	if json.Unmarshal(raw, &env) != nil || (env.Code == nil && env.Success == nil) {
-		return raw, nil
-	}
-	if (env.Success != nil && !*env.Success) || !successCode(env.Code) {
-		if env.Msg != "" {
-			return nil, errors.New(env.Msg)
-		}
-		return nil, fmt.Errorf("code %s", string(env.Code))
-	}
-	if env.Data == nil {
-		return raw, nil
-	}
-	return env.Data, nil
-}
-
-func successCode(code json.RawMessage) bool {
-	if code == nil || string(code) == "null" {
-		return true
-	}
-	text := strings.Trim(string(code), `"`)
-	n, err := strconv.Atoi(text)
-	return err == nil && (n == 0 || n == 200)
-}
-
-func rawID(raw json.RawMessage) string {
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return strings.TrimSpace(s)
-	}
-	var n json.Number
-	if json.Unmarshal(raw, &n) == nil {
-		return n.String()
-	}
-	return ""
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
+// pickDefault is `find(x => x?.isDefault) ?? first`.
+func pickDefault(list gjson.Result) gjson.Result {
+	items := list.Array()
+	for _, item := range items {
+		if item.Get("isDefault").Bool() {
+			return item
 		}
 	}
-	return ""
+	if len(items) > 0 {
+		return items[0]
+	}
+	return gjson.Result{}
+}
+
+func trimmed(value gjson.Result) string {
+	if value.Type != gjson.String {
+		return ""
+	}
+	return strings.TrimSpace(value.Str)
+}
+
+// jsPrefix is String.prototype.slice(0, n) over UTF-16 code units.
+func jsPrefix(text string, n int) string {
+	units := 0
+	for index, r := range text {
+		width := 1
+		if r > 0xFFFF {
+			width = 2
+		}
+		if units+width > n {
+			return text[:index]
+		}
+		units += width
+	}
+	return text
+}
+
+// jsEncodeURIComponent escapes like encodeURIComponent.
+func jsEncodeURIComponent(value string) string {
+	var out strings.Builder
+	for _, b := range []byte(value) {
+		if b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z' || b >= '0' && b <= '9' || strings.IndexByte("-_.!~*'()", b) >= 0 {
+			out.WriteByte(b)
+		} else {
+			fmt.Fprintf(&out, "%%%02X", b)
+		}
+	}
+	return out.String()
 }

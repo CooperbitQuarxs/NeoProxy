@@ -1,0 +1,247 @@
+{
+  "source": "NeoPi OWN zaiUsageProvider",
+  "key": "fixtureid0000000000000000000000.fixturesecret00000",
+  "scenarios": [
+    {
+      "name": "coding-plan-credits",
+      "quota": {
+        "code": 200,
+        "success": true,
+        "data": {
+          "level": "pro",
+          "limits": [
+            {
+              "type": "CREDIT_LIMIT",
+              "unit": 3,
+              "number": 5,
+              "usage": 12000,
+              "currentValue": 1438,
+              "percentage": 11,
+              "nextResetTime": 4102444800000
+            },
+            {
+              "type": "CREDIT_LIMIT",
+              "unit": 6,
+              "number": 1,
+              "usage": 60000,
+              "currentValue": 61000,
+              "percentage": 100,
+              "nextResetTime": 4102444800
+            },
+            {
+              "type": "TIME_LIMIT",
+              "unit": 5,
+              "number": 1,
+              "usage": 1000,
+              "currentValue": 10,
+              "percentage": 1,
+              "usageDetails": [
+                {
+                  "modelCode": "search-prime",
+                  "usage": 4
+                },
+                {
+                  "modelCode": "web-reader",
+                  "usage": 3
+                },
+                {
+                  "modelCode": "zread",
+                  "usage": 3
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "plan": "pro",
+      "limits": [
+        {
+          "id": "zai:credits:5h",
+          "windowId": "5h",
+          "durationMs": 18000000,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.11983333333333333,
+          "shared": true
+        },
+        {
+          "id": "zai:credits:1w",
+          "windowId": "1w",
+          "durationMs": 604800000,
+          "resetsAt": 4102444800000,
+          "usedFraction": 1,
+          "shared": true
+        },
+        {
+          "id": "zai:features:zread:1mo",
+          "windowId": "1mo",
+          "durationMs": 2592000000,
+          "resetsAt": null,
+          "usedFraction": 0.01,
+          "shared": false
+        }
+      ],
+      "quotaRequest": {
+        "method": "GET",
+        "url": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "fixtureid0000000000000000000000.fixturesecret00000",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "host": "api.z.ai",
+          "user-agent": "npi/18.14.0"
+        },
+        "body": ""
+      }
+    },
+    {
+      "name": "tokens-and-requests",
+      "quota": {
+        "code": 200,
+        "success": true,
+        "data": {
+          "limits": [
+            {
+              "type": "TOKENS_LIMIT",
+              "unit": 3,
+              "number": 5,
+              "percentage": "37",
+              "nextResetTime": "4102444800000"
+            },
+            {
+              "type": "TIME_LIMIT",
+              "unit": 4,
+              "number": 1,
+              "usage": 500,
+              "currentValue": 125
+            },
+            {
+              "type": "TOKENS_LIMIT",
+              "unit": 9,
+              "number": 2
+            },
+            {
+              "type": "UNKNOWN_LIMIT",
+              "unit": 3,
+              "number": 5,
+              "percentage": 50
+            }
+          ]
+        }
+      },
+      "plan": null,
+      "limits": [
+        {
+          "id": "zai:tokens:5h",
+          "windowId": "5h",
+          "durationMs": 18000000,
+          "resetsAt": 4102444800000,
+          "usedFraction": 0.37,
+          "shared": true
+        },
+        {
+          "id": "zai:requests:1d",
+          "windowId": "1d",
+          "durationMs": 86400000,
+          "resetsAt": null,
+          "usedFraction": 0.25,
+          "shared": true
+        },
+        {
+          "id": "zai:tokens:2u9",
+          "windowId": "2u9",
+          "durationMs": null,
+          "resetsAt": null,
+          "usedFraction": null,
+          "shared": true
+        }
+      ],
+      "quotaRequest": {
+        "method": "GET",
+        "url": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "fixtureid0000000000000000000000.fixturesecret00000",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "host": "api.z.ai",
+          "user-agent": "npi/18.14.0"
+        },
+        "body": ""
+      }
+    },
+    {
+      "name": "no-coding-plan",
+      "quota": {
+        "code": 500,
+        "msg": "当前用户不存在coding plan",
+        "success": false
+      },
+      "plan": null,
+      "limits": null,
+      "quotaRequest": {
+        "method": "GET",
+        "url": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "fixtureid0000000000000000000000.fixturesecret00000",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "host": "api.z.ai",
+          "user-agent": "npi/18.14.0"
+        },
+        "body": ""
+      }
+    },
+    {
+      "name": "invalid-response",
+      "quota": {
+        "code": 1001,
+        "msg": "token expired",
+        "success": false
+      },
+      "plan": null,
+      "limits": null,
+      "quotaRequest": {
+        "method": "GET",
+        "url": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "fixtureid0000000000000000000000.fixturesecret00000",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "host": "api.z.ai",
+          "user-agent": "npi/18.14.0"
+        },
+        "body": ""
+      }
+    },
+    {
+      "name": "http-error",
+      "status": 401,
+      "quota": {
+        "msg": "unauthorized"
+      },
+      "plan": null,
+      "limits": null,
+      "quotaRequest": {
+        "method": "GET",
+        "url": "https://api.z.ai/api/monitor/usage/quota/limit",
+        "headers": {
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate, br, zstd",
+          "authorization": "fixtureid0000000000000000000000.fixturesecret00000",
+          "connection": "keep-alive",
+          "content-type": "application/json",
+          "host": "api.z.ai",
+          "user-agent": "npi/18.14.0"
+        },
+        "body": ""
+      }
+    }
+  ]
+}

@@ -27,9 +27,6 @@ func (f *fakeZaiOAuthService) ExchangeCode(context.Context, string, string) (str
 func (f *fakeZaiOAuthService) MintAPIKey(context.Context, string) (string, error) {
 	return f.key, f.mintErr
 }
-func (f *fakeZaiOAuthService) ListModels(context.Context, string) ([]string, error) {
-	return []string{"glm-5.2", "glm-4.5-air"}, nil
-}
 
 func newZaiTestHandler(t *testing.T, configYAML string) (*Handler, string, string, *[]*coreauth.Auth) {
 	t.Helper()
@@ -86,7 +83,7 @@ func TestCompleteZaiOAuthAddsCodingPlanKey(t *testing.T) {
 		t.Fatalf("compat entries = %+v", cfg.OpenAICompatibility)
 	}
 	entry := cfg.OpenAICompatibility[0]
-	if entry.Name != "zai" || entry.BaseURL != zaiauth.CodingPlanBaseURL || len(entry.APIKeyEntries) != 1 || entry.APIKeyEntries[0].APIKey != "fixtureid.fixturesecret" || len(entry.Models) != 2 {
+	if entry.Name != "zai" || entry.BaseURL != zaiauth.CodingPlanBaseURL || len(entry.APIKeyEntries) != 1 || entry.APIKeyEntries[0].APIKey != "fixtureid.fixturesecret" || len(entry.Models) != 0 {
 		t.Fatalf("zai entry = %+v", entry)
 	}
 	if entries, _ := os.ReadDir(authDir); len(entries) != 0 {

@@ -27,11 +27,10 @@ type zaiOAuthService interface {
 	AuthorizationURL(state string) string
 	ExchangeCode(ctx context.Context, code, state string) (string, zaiauth.Account, error)
 	MintAPIKey(ctx context.Context, oauthToken string) (string, error)
-	ListModels(ctx context.Context, apiKey string) ([]string, error)
 }
 
 var newZaiOAuthService = func(cfg *config.Config) zaiOAuthService {
-	return zaiauth.NewService(util.SetProxy(&cfg.SDKConfig, &http.Client{Timeout: 30 * time.Second}))
+	return zaiauth.NewService(util.SetProxy(&cfg.SDKConfig, &http.Client{}))
 }
 
 // RequestZaiToken starts Z.ai's GLM Coding Plan sign-in. Z.ai only redirects
@@ -102,19 +101,14 @@ func (h *Handler) completeZaiOAuth(ctx context.Context, authDir, state string, a
 		fail("Z.ai signed you in but did not provide an API key. Check that the account has a GLM Coding Plan.")
 		return
 	}
-	models, errModels := authSvc.ListModels(ctx, key)
-	if errModels != nil {
-		log.WithError(errModels).Warn("Z.ai sign-in: model listing failed")
-		fail("Z.ai did not list models for the new key")
-		return
-	}
+	// The entry serves NeoPi's Z.ai catalog, so no model list is stored.
 	if errGuard := guardOAuthSessionPendingForSave(state, "zai"); errGuard != nil {
 		return
 	}
 	h.mu.Lock()
 	name := compatNameForBase(h.cfg, zaiCompatName, zaiauth.CodingPlanBaseURL)
 	h.mu.Unlock()
-	_, errCreate := h.CreateAccountAPIKey(ctx, coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: zaiauth.CodingPlanBaseURL, CompatName: name, Models: models})
+	_, errCreate := h.CreateAccountAPIKey(ctx, coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: zaiauth.CodingPlanBaseURL, CompatName: name})
 	switch {
 	case errors.Is(errCreate, coreauth.ErrAccountKeyConflict):
 		fail("This Z.ai account is already in the pool.")

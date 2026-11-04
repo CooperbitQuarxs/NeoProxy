@@ -148,6 +148,11 @@ func neoPiTextBlock(text string) json.RawMessage {
 // provenance and requestControls are not present in the HTTP dialect; explicit
 // wire controls are preserved rather than inventing that missing session state.
 func projectNeoPiRequest(input []byte, model, base, version string, identity neoPiWireIdentity) ([]byte, http.Header, error) {
+	return projectNeoPiAnthropic(input, model, base, version, identity, neoPiResolveProfile(model))
+}
+
+// projectNeoPiAnthropic shapes a Messages body for one resolved NeoPi model.
+func projectNeoPiAnthropic(input []byte, model, base, version string, identity neoPiWireIdentity, profile neoPiProfile) ([]byte, http.Header, error) {
 	if !gjson.ValidBytes(input) {
 		return nil, nil, fmt.Errorf("claude: invalid Messages JSON")
 	}
@@ -161,8 +166,10 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 	if identity.SessionID == "" && !identity.APIKey {
 		identity.SessionID = uuid.NewString()
 	}
+	if profile.thirdParty != nil {
+		input = neoPiThirdPartyMessages(input, profile.thirdParty)
+	}
 	root := gjson.ParseBytes(input)
-	profile := neoPiResolveProfile(model)
 	cache := json.RawMessage(`{"type":"ephemeral"}`)
 	if !identity.APIKey && neoPiOfficialEndpoint(base) && profile.Compat.SupportsLongCacheRetention {
 		cache = json.RawMessage(`{"type":"ephemeral","ttl":"1h"}`)
@@ -335,6 +342,25 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 	if !profile.Reasoning {
 		effort = ""
 	}
+	party := profile.thirdParty
+	if party != nil && profile.Reasoning {
+		// NeoPi's streamSimple sends a reasoning model's thinking off unless an
+		// effort was requested; a mandatory-thinking model then runs at its
+		// lowest effort instead.
+		kind := thinking.Get("type").String()
+		if effort == "none" || effort == "off" || kind == "disabled" {
+			effort = ""
+		} else if effort == "" && kind == "adaptive" && thinking.Get("budget_tokens").Int() <= 0 && len(party.efforts) > 0 {
+			// [INFERENCE] adaptive without an effort has no NeoPi counterpart;
+			// it runs at the model's highest rung.
+			effort = party.efforts[len(party.efforts)-1]
+		}
+		requested := effort != "" || kind == "enabled" && thinking.Get("budget_tokens").Int() > 0
+		if !requested && party.requiresEffort && len(party.efforts) > 0 {
+			effort, requested = party.efforts[0], true
+		}
+		off, enabled = !requested, requested
+	}
 	var wireThinking json.RawMessage
 	if profile.Thinking.Mode == "anthropic-adaptive" {
 		if enabled {
@@ -363,6 +389,9 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		}
 	} else if enabled {
 		budget := thinking.Get("budget_tokens").Int()
+		if party != nil && effort != "" {
+			budget = neoPiEffortBudgets[effort]
+		}
 		if budget <= 0 {
 			budget = 1024
 		}
@@ -381,6 +410,9 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		}
 	} else if off {
 		wireThinking = json.RawMessage(`{"type":"disabled"}`)
+	}
+	if party != nil && !party.budgetEffort {
+		effort = ""
 	}
 	if profile.Thinking.PrefixBinding && profile.Compat.SupportsThinkingBindingControls {
 		if len(wireThinking) == 0 && !(off && profile.Compat.DisabledThinking == "omit") {
@@ -410,7 +442,7 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 		}
 		outputConfig = neoPiSet(outputConfig, "effort", effort)
 	}
-	if string(outputConfig) == "{}" {
+	if outputConfig != nil && len(gjson.ParseBytes(outputConfig).Map()) == 0 {
 		outputConfig = nil
 	}
 	var metadata json.RawMessage
@@ -466,6 +498,9 @@ func projectNeoPiRequest(input []byte, model, base, version string, identity neo
 			limit = profile.MaxTokens
 		}
 		body = neoPiSet(body, "max_tokens", limit)
+	}
+	if party != nil {
+		return body, neoPiThirdPartyHeaders(body, headerSession, enabled, profile), nil
 	}
 	return body, neoPiHeaders(body, headerSession, version, enabled, len(tools) > 0, base, profile, identity.APIKey), nil
 }
