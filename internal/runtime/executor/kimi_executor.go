@@ -31,21 +31,15 @@ const kimiReasoningUnavailable = "[reasoning unavailable]"
 
 // KimiExecutor is a stateless executor for Kimi API using OpenAI-compatible chat completions.
 type KimiExecutor struct {
-	ClaudeExecutor
+	*ClaudeExecutor
 	cfg *config.Config
 }
 
 // NewKimiExecutor creates a new Kimi executor.
 func NewKimiExecutor(cfg *config.Config) *KimiExecutor {
-	return &KimiExecutor{
-		ClaudeExecutor: ClaudeExecutor{
-			cfg:                     cfg,
-			requestLogProvider:      "kimi",
-			upstreamModelNormalizer: normalizeKimiUpstreamModel,
-			oauthToolAliases:        &claudeOAuthToolAliasStore{},
-		},
-		cfg: cfg,
-	}
+	messages := NewClaudeExecutor(cfg)
+	messages.provider = "kimi"
+	return &KimiExecutor{ClaudeExecutor: messages, cfg: cfg}
 }
 
 // Identifier returns the executor identifier.
@@ -104,12 +98,7 @@ func (e *KimiExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth,
 func (e *KimiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
 	from := opts.SourceFormat
 	if from.String() == "claude" {
-		if auth != nil {
-			if auth.Attributes == nil {
-				auth.Attributes = make(map[string]string)
-			}
-			auth.Attributes["base_url"] = helps.ResolveKimiClaudeBaseURL(auth)
-		}
+		auth = helps.KimiMessagesAuth(auth, kimiCreds(auth))
 		preparedReq, replayScope := prepareKimiThinkingReplayRequest(ctx, req, opts)
 		claudeResp, errExecute := e.ClaudeExecutor.Execute(ctx, auth, preparedReq, opts)
 		if errExecute != nil {
@@ -244,12 +233,7 @@ func (e *KimiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req
 func (e *KimiExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
 	from := opts.SourceFormat
 	if from.String() == "claude" {
-		if auth != nil {
-			if auth.Attributes == nil {
-				auth.Attributes = make(map[string]string)
-			}
-			auth.Attributes["base_url"] = helps.ResolveKimiClaudeBaseURL(auth)
-		}
+		auth = helps.KimiMessagesAuth(auth, kimiCreds(auth))
 		preparedReq, replayScope := prepareKimiThinkingReplayRequest(ctx, req, opts)
 		claudeResult, errExecute := e.ClaudeExecutor.ExecuteStream(ctx, auth, preparedReq, opts)
 		if errExecute != nil {
@@ -842,13 +826,9 @@ func (e *KimiExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth,
 		}
 	}
 
-	if auth != nil {
-		if auth.Attributes == nil {
-			auth.Attributes = make(map[string]string)
-		}
-		auth.Attributes["base_url"] = helps.ResolveKimiClaudeBaseURL(auth)
-	}
-	return e.ClaudeExecutor.countTokensUpstream(ctx, auth, req, opts)
+	auth = helps.KimiMessagesAuth(auth, kimiCreds(auth))
+	req.Model = normalizeKimiUpstreamModel(req.Model)
+	return e.ClaudeExecutor.CountTokens(ctx, auth, req, opts)
 }
 
 func normalizeKimiToolMessageLinks(body []byte) ([]byte, error) {
@@ -1504,6 +1484,6 @@ func (e *KimiExecutor) SupportsApplyPatch() bool { return e != nil }
 // ForAPIKey preserves Kimi's actual Responses/Chat routing while scoping its config.
 func (e KimiExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
 	e.cfg = e.cfg.ForAPIKey()
-	e.ClaudeExecutor = *e.ClaudeExecutor.ForAPIKey().(*ClaudeExecutor)
+	e.ClaudeExecutor = e.ClaudeExecutor.ForAPIKey().(*ClaudeExecutor)
 	return &e
 }

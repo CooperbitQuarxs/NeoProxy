@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	claudeauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/claude"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -141,7 +142,7 @@ func TestManagerLogin_MigratesMatchingLegacyClaudeCredential(t *testing.T) {
 		ID:       targetFileName,
 		FileName: targetFileName,
 		Provider: "claude",
-		Storage: &claudeauth.ClaudeTokenStorage{
+		Storage: &anthropicnpi.Credential{
 			Type:             "claude",
 			Email:            "user@example.com",
 			OrganizationUUID: "organization-a",
@@ -262,7 +263,7 @@ func TestManagerLogin_MultipleOrganizationsSharingEmailCoexist(t *testing.T) {
 		ID:       file1,
 		FileName: file1,
 		Provider: "claude",
-		Storage: &claudeauth.ClaudeTokenStorage{
+		Storage: &anthropicnpi.Credential{
 			Type:             "claude",
 			Email:            "shared@example.com",
 			OrganizationUUID: "org-team-1",
@@ -285,7 +286,7 @@ func TestManagerLogin_MultipleOrganizationsSharingEmailCoexist(t *testing.T) {
 		ID:       file2,
 		FileName: file2,
 		Provider: "claude",
-		Storage: &claudeauth.ClaudeTokenStorage{
+		Storage: &anthropicnpi.Credential{
 			Type:             "claude",
 			Email:            "shared@example.com",
 			OrganizationUUID: "org-enterprise-2",

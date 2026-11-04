@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -47,13 +48,27 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, nil, accessErr(http.StatusBadRequest, "The base URL must be an http(s) address such as http://localhost:11434/v1, without credentials or a query string.")
 	}
+	if style == "anthropic" {
+		models, err := (&anthropicnpi.Client{HTTP: accessHTTPClient}).Models(ctx, key, base)
+		if err != nil {
+			var upstream *anthropicnpi.ModelDiscoveryError
+			if errors.As(err, &upstream) && (upstream.Status == http.StatusUnauthorized || upstream.Status == http.StatusForbidden) {
+				return nil, nil, &AccessError{Status: http.StatusBadRequest, keyRejected: true, Message: fmt.Sprintf("The provider rejected this key (HTTP %d). Check that the whole key was pasted and that it is still active.", upstream.Status)}
+			}
+			return nil, nil, accessErr(http.StatusBadGateway, "%s", err)
+		}
+		if len(models) == 0 {
+			return nil, nil, accessErr(http.StatusBadRequest, "The provider accepted the key but listed no models for it. Check the key's project or permissions.")
+		}
+		ids := make([]string, len(models))
+		for i, model := range models {
+			ids[i] = model.ID
+		}
+		return ids, nil, nil
+	}
 	var target string
 	header := http.Header{}
 	switch style {
-	case "anthropic":
-		target = base + "/v1/models?limit=1000"
-		header.Set("x-api-key", key)
-		header.Set("anthropic-version", "2023-06-01")
 	case "gemini":
 		target = base + "/v1beta/models?pageSize=1000"
 		header.Set("x-goog-api-key", key)

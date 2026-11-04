@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -83,6 +84,11 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 			key, proxyFunc = "proxy:"+u.String(), http.ProxyURL(u)
 		}
 	}
+	timeout, idleTimeout := quotaRequestTimeout, quotaIdleTimeout
+	if a.Provider == "claude" {
+		key += ":claude"
+		timeout, idleTimeout = 0, 0
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if client, ok := c.clients[key]; ok {
@@ -90,8 +96,8 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = proxyFunc
-	transport.IdleConnTimeout = quotaIdleTimeout
-	client := &http.Client{Timeout: quotaRequestTimeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	transport.IdleConnTimeout = idleTimeout
+	client := &http.Client{Timeout: timeout, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	c.clients[key] = client
 	return client
 }
@@ -99,7 +105,13 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 // quotaProvider reports which usage endpoint serves this credential, or ""
 // when it is not a native OAuth sign-in of a provider that has one.
 func quotaProvider(a *coreauth.Auth) string {
-	if a == nil || a.Attributes["neopi_source_id"] != "" || a.AuthKind() != coreauth.AuthKindOAuth {
+	if a == nil || a.Attributes["neopi_source_id"] != "" {
+		return ""
+	}
+	if a.Provider == "claude" && strings.Contains(quotaAccessToken(a), "sk-ant-oat") {
+		return "claude"
+	}
+	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
 	if kind := accessKind(a); kind != "subscription" && kind != "imported" {
@@ -119,6 +131,15 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		return ""
 	}
 	token, _ := a.Metadata["access_token"].(string)
+	if token == "" && a.Provider == "claude" {
+		token = a.Attributes["api_key"]
+		if token == "" {
+			token, _ = a.Metadata["api_key"].(string)
+		}
+		if !strings.Contains(token, "sk-ant-oat") {
+			return ""
+		}
+	}
 	return strings.TrimSpace(token)
 }
 
@@ -166,53 +187,26 @@ func percentWindow(kind string, percent float64, startsAt, resetsAt time.Time) W
 	return w
 }
 
-// parseClaudeUsage reads GET /api/oauth/usage: five_hour and seven_day carry
-// utilization (0..100) and resets_at (RFC3339); either may be null.
-func parseClaudeUsage(data []byte) ([]Window, error) {
-	// Only the two windows matter; the response carries many other keys whose
-	// shapes change between releases, so they are left as raw JSON.
-	var body map[string]json.RawMessage
-	if err := json.Unmarshal(data, &body); err != nil {
-		return nil, fmt.Errorf("invalid usage response")
-	}
-	type usageWindow struct {
-		Utilization *float64 `json:"utilization"`
-		ResetsAt    *string  `json:"resets_at"`
-	}
-	out := []Window{}
+// claudeUsageWindows adapts NeoPi's shared gates to the routing/dashboard model.
+// A null, malformed or reset-only bucket does not invent a zero-percent meter.
+func claudeUsageWindows(usage *anthropicnpi.Usage) ([]Window, error) {
+	out := make([]Window, 0, 2)
 	for _, spec := range []struct {
-		field, kind string
-		length      time.Duration
-	}{{"five_hour", "5h", 5 * time.Hour}, {"seven_day", "week", 7 * 24 * time.Hour}} {
-		raw, ok := body[spec.field]
-		if !ok {
+		bucket *anthropicnpi.UsageBucket
+		kind   string
+		length time.Duration
+	}{{usage.FiveHour, "5h", 5 * time.Hour}, {usage.SevenDay, "week", 7 * 24 * time.Hour}} {
+		if spec.bucket == nil || spec.bucket.Utilization == nil {
 			continue
 		}
-		var v usageWindow
-		if string(raw) != "null" {
-			if err := json.Unmarshal(raw, &v); err != nil {
-				continue
-			}
+		var starts, resets time.Time
+		if reset, err := time.Parse(time.RFC3339Nano, spec.bucket.ResetsAt); err == nil {
+			resets, starts = reset, reset.Add(-spec.length)
 		}
-		// A null window means nothing was used in it yet: 0%, reset unknown.
-		var used float64
-		var resets time.Time
-		if v.Utilization != nil {
-			used = *v.Utilization
-		}
-		if v.ResetsAt != nil {
-			if t, err := time.Parse(time.RFC3339Nano, *v.ResetsAt); err == nil {
-				resets = t
-			}
-		}
-		var starts time.Time
-		if !resets.IsZero() {
-			starts = resets.Add(-spec.length)
-		}
-		out = append(out, percentWindow(spec.kind, used, starts, resets))
+		out = append(out, percentWindow(spec.kind, *spec.bucket.Utilization, starts, resets))
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("usage response has no windows")
+		return nil, fmt.Errorf("usage response has no shared windows")
 	}
 	return out, nil
 }
@@ -281,13 +275,18 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 	client := q.clientFor(a)
 	switch quotaProvider(a) {
 	case "claude":
-		headers["anthropic-beta"] = "oauth-2025-04-20"
-		headers["User-Agent"] = "claude-code/2.1.70"
-		data, err := q.get(ctx, client, q.claudeURL, headers)
+		baseURL := a.Attributes["base_url"]
+		if baseURL == "" {
+			baseURL, _ = a.Metadata["base_url"].(string)
+		}
+		if q.claudeURL != claudeUsageURL {
+			baseURL = strings.TrimSuffix(q.claudeURL, "/api/oauth/usage")
+		}
+		usage, err := (&anthropicnpi.Client{HTTP: client}).Usage(ctx, token, baseURL)
 		if err != nil {
 			return nil, err
 		}
-		return parseClaudeUsage(data)
+		return claudeUsageWindows(usage)
 	case "codex":
 		if id := codexChatGPTAccountID(a, token); id != "" {
 			headers["chatgpt-account-id"] = id

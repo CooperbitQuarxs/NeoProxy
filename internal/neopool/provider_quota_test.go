@@ -34,9 +34,10 @@ func windowByKind(t *testing.T, windows []Window, kind string) Window {
 }
 
 func TestQuotaClaudeUsageShape(t *testing.T) {
-	var gotAuth, gotBeta string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth, gotBeta = r.Header.Get("Authorization"), r.Header.Get("anthropic-beta")
+		if r.Header.Get("Authorization") != "Bearer claude-secret" {
+			t.Error("usage request did not select the account credential")
+		}
 		if r.URL.Path != "/api/oauth/usage" {
 			http.NotFound(w, r)
 			return
@@ -51,9 +52,6 @@ func TestQuotaClaudeUsageShape(t *testing.T) {
 	if err := q.refresh(context.Background(), a, now); err != nil {
 		t.Fatal(err)
 	}
-	if gotAuth != "Bearer claude-secret" || gotBeta != "oauth-2025-04-20" {
-		t.Fatalf("request headers: %q %q", gotAuth, gotBeta)
-	}
 	windows := q.windows(a, now)
 	five := windowByKind(t, windows, "5h")
 	if !five.Known || five.Source != "provider-reported" || five.Unit != "percent" || five.Capacity != 100 || five.UsedTokens != 42 || five.Used != .424 {
@@ -66,6 +64,25 @@ func TestQuotaClaudeUsageShape(t *testing.T) {
 	week := windowByKind(t, windows, "week")
 	if week.UsedTokens != 7 || week.Used != .07 || week.ResetsAt != time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC).UnixMilli() {
 		t.Fatalf("week window: %+v", week)
+	}
+}
+
+func TestQuotaClaudeGenericLimitsDoNotPromoteModelCapsToSharedBudgets(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"five_hour":null,"seven_day":null,"limits":[{"kind":"session","percent":12,"is_active":false},{"kind":"weekly_scoped","percent":100,"scope":{"model":{"display_name":"Fable"}}}]}`))
+	}))
+	defer server.Close()
+	q := newQuotaProber()
+	q.claudeURL = server.URL + "/api/oauth/usage"
+	a := &coreauth.Auth{ID: "claude-generic.json", Provider: "claude", Attributes: map[string]string{"api_key": "sk-ant-oat-api-key-entry"}}
+	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	if err := q.refresh(context.Background(), a, now); err != nil {
+		t.Fatal(err)
+	}
+	windows := q.windows(a, now)
+	if len(windows) != 1 || windows[0].Kind != "5h" || windows[0].Used != .12 || !windows[0].Known {
+		t.Fatalf("model-specific cap or missing week became an account-wide budget: %+v", windows)
 	}
 }
 

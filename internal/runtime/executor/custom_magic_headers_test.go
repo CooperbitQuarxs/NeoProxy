@@ -390,10 +390,11 @@ func TestCustomMagicHeaders_XAI(t *testing.T) {
 
 func TestCustomMagicHeaders_Claude(t *testing.T) {
 	var gotHeaders http.Header
+	fixture := neoPiLoadFixture(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeaders = r.Header.Clone()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}]}`))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, fixture.Response)
 	}))
 	defer server.Close()
 
@@ -404,6 +405,7 @@ func TestCustomMagicHeaders_Claude(t *testing.T) {
 			"base_url":                        server.URL,
 			"api_key":                         "sk-ant-test",
 			"header:X-Claude-Code-Session-Id": "$ABC",
+			"header:X-Forwarded-Session":      "$ABC",
 			"header:X-Missing":                "$NONEXISTENT",
 		},
 	}
@@ -424,8 +426,11 @@ func TestCustomMagicHeaders_Claude(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	if got := gotHeaders.Get("X-Claude-Code-Session-Id"); got != "claude-session-value" {
-		t.Errorf("X-Claude-Code-Session-Id = %q, want %q", got, "claude-session-value")
+	if got := gotHeaders.Get("X-Claude-Code-Session-Id"); got != "" {
+		t.Errorf("NeoPi enforced session header accepted configured override: %q", got)
+	}
+	if got := gotHeaders.Get("X-Forwarded-Session"); got != "claude-session-value" {
+		t.Errorf("X-Forwarded-Session = %q, want %q", got, "claude-session-value")
 	}
 	if _, exists := gotHeaders["X-Missing"]; exists {
 		t.Errorf("expected X-Missing to be omitted, got %q", gotHeaders.Get("X-Missing"))
@@ -678,10 +683,11 @@ func TestCustomMagicHeaders_CPASessionID_GeminiInteractions(t *testing.T) {
 
 func TestCustomMagicHeaders_CPASessionID_Claude(t *testing.T) {
 	var gotHeaders http.Header
+	fixture := neoPiLoadFixture(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeaders = r.Header.Clone()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}]}`))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, fixture.Response)
 	}))
 	defer server.Close()
 

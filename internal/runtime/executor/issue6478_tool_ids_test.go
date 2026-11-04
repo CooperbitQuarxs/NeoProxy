@@ -202,16 +202,15 @@ func TestIssue6478_ClaudeReplaysLegacyToolIDs(t *testing.T) {
 						i := len(resultIDs)
 						id := block.Get("tool_use_id").String()
 						resultIDs = append(resultIDs, id)
-						if !regexp.MustCompile(`^[a-zA-Z0-9_-]+$`).MatchString(id) {
-							t.Errorf("sent tool_result.tool_use_id[%d] = %q violates Anthropic pattern ^[a-zA-Z0-9_-]+$", i, id)
-						}
 						if i < len(issue6478Calls) && block.Get("content").String() != "result for "+issue6478Calls[i].id {
 							t.Errorf("tool result content was rewritten along with ID: %s", block.Raw)
 						}
 					}
 				}
 			}
-			issue6478AssertPortableIDs(t, useIDs)
+			if !slices.Equal(useIDs, legacyIDs) {
+				t.Errorf("custom same-model endpoint changed opaque IDs: got %q want %q", useIDs, legacyIDs)
+			}
 			if !slices.Equal(useIDs, resultIDs) {
 				t.Errorf("sent tool_use and tool_result IDs must pair: uses=%q results=%q", useIDs, resultIDs)
 			}
@@ -230,7 +229,7 @@ func TestIssue6478_ClaudeToolIDRepairPrecedesPayloadRules(t *testing.T) {
 	}
 	cfg := &config.Config{Payload: config.PayloadConfig{
 		Override: []config.PayloadRule{{
-			Models: []config.PayloadModelRule{{Name: "*", Exist: []string{"messages.1.content.0.id"}, NotMatch: []map[string]any{{"messages.1.content.0.id": issue6478Calls[0].id}}}},
+			Models: []config.PayloadModelRule{{Name: "*", Match: []map[string]any{{"messages.1.content.0.id": issue6478Calls[0].id}}}},
 			Params: map[string]any{"temperature": 0.25},
 		}, {
 			Models: []config.PayloadModelRule{{Name: "*"}},
