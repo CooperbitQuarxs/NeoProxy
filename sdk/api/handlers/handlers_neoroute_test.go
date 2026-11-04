@@ -58,13 +58,15 @@ func TestNeoRouteThreeProtocolExecutionAndPinnedFallback(t *testing.T) {
 				t.Fatal(err)
 			}
 			admin := neo.Principal{UserID: session.UserID, Role: "admin", Session: true}
-			cfg := &config.Config{Payload: config.PayloadConfig{Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: "model", Protocol: "openai"}}, Params: map[string]any{"reasoning_effort": "low"}}}}}
+			cfg := &config.Config{Payload: config.PayloadConfig{Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: "model", Protocol: "openai"}}, Params: map[string]any{"reasoning_effort": "low", "top_p": 0.9}}}}}
 			manager := coreauth.NewManager(nil, nil, nil)
 			manager.RegisterExecutor(executor.NewOpenAICompatExecutor("neo-test", cfg))
 			ids := []string{"fault-" + uuid.NewString(), "good-" + uuid.NewString(), "rogue-" + uuid.NewString()}
 			urls := []string{fault.URL, good.URL, forbidden.URL}
 			for i, id := range ids {
-				models := []*registry.ModelInfo{{ID: "model", Object: "model"}}
+				// The virtual model's parameters are derived from these facts.
+				served := &registry.ModelInfo{ID: "model", Object: "model", SupportedParameters: []string{"temperature", "top_p"}, Thinking: &registry.ThinkingSupport{Levels: []string{"low", "medium", "high"}}}
+				models := []*registry.ModelInfo{served}
 				if i == 0 {
 					models = []*registry.ModelInfo{{ID: "fail", Object: "model"}}
 				}
@@ -99,8 +101,14 @@ func TestNeoRouteThreeProtocolExecutionAndPinnedFallback(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			effort := "high"
-			vm, err := route.SaveVirtualModel(neo.WithPrincipal(ctx, admin), neoroute.VirtualModel{Name: "route", Stages: []neoroute.Stage{{ID: "s0", Model: "neo-test/fail", Accounts: neoroute.AccountScope{IDs: []string{neopool.AccountID(ids[0])}}, Draw: "fill", PerAccount: .5, Cap: .5, Window: "day", Per: "user"}, {ID: "s1", Model: "neo-test/model", Accounts: neoroute.AccountScope{IDs: []string{neopool.AccountID(ids[1])}}, Draw: "fill", PerAccount: .5, Cap: .5, Window: "day", Per: "user", Effort: &effort}}, Terminal: neoroute.Terminal{Kind: "limit", Message: "No route"}}, true)
+			// Parameters the virtual model always sets: an effort (a model suffix),
+			// a temperature, and a top_p that a configured payload rule overrides.
+			params := map[string]neoroute.ParamSetting{
+				"effort":      {Mode: "force", Rules: []neoroute.ParamRule{{Value: "high"}}},
+				"temperature": {Mode: "force", Rules: []neoroute.ParamRule{{Value: 0.2}}},
+				"top_p":       {Mode: "force", Rules: []neoroute.ParamRule{{Value: 0.5}}},
+			}
+			vm, err := route.SaveVirtualModel(neo.WithPrincipal(ctx, admin), neoroute.VirtualModel{Name: "route", Stages: []neoroute.Stage{{ID: "s0", Model: "neo-test/fail", Accounts: neoroute.AccountScope{IDs: []string{neopool.AccountID(ids[0])}}, Draw: "fill", PerAccount: .5, Cap: .5, Window: "day", Per: "user"}, {ID: "s1", Model: "neo-test/model", Accounts: neoroute.AccountScope{IDs: []string{neopool.AccountID(ids[1])}}, Draw: "fill", PerAccount: .5, Cap: .5, Window: "day", Per: "user", Params: params}}, Terminal: neoroute.Terminal{Kind: "limit", Message: "No route"}}, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -136,6 +144,16 @@ func TestNeoRouteThreeProtocolExecutionAndPinnedFallback(t *testing.T) {
 			if gjson.GetBytes(upstream, "model").String() != "model" || gjson.GetBytes(upstream, "reasoning_effort").String() != "low" {
 				t.Fatalf("routing overwrote final payload rules: %s", upstream)
 			}
+			// The virtual model's own fields reach the provider, except where a
+			// configured payload rule has the final word.
+			// (The Responses to Chat translator drops sampling fields, so only the
+			// other two protocols carry the temperature through.)
+			if got := gjson.GetBytes(upstream, "temperature").Float(); protocol != "openai-response" && got != 0.2 {
+				t.Fatalf("virtual model temperature = %v: %s", got, upstream)
+			}
+			if got := gjson.GetBytes(upstream, "top_p").Float(); got != 0.9 {
+				t.Fatalf("payload rule must override the virtual model's top_p 0.5, got %v: %s", got, upstream)
+			}
 			requestID := headers.Get("X-NeoProxy-Request-ID")
 			if requestID == "" {
 				t.Fatal("missing request correlation")
@@ -152,5 +170,42 @@ func TestNeoRouteThreeProtocolExecutionAndPinnedFallback(t *testing.T) {
 				t.Fatalf("incorrect actual decision/usage: %s", raw)
 			}
 		})
+	}
+}
+
+// The virtual model's parameters are written into the client-protocol body
+// before translation: service tier per protocol, the served model (already the
+// sibling variant when speed swaps models) and the effort as a model suffix.
+func TestNeoPreparedAppliesParamsPerProtocol(t *testing.T) {
+	high := "high"
+	selection := neoroute.Selection{
+		Model:  "gpt-6-luna",
+		Effort: &high,
+		Decision: neoroute.Decision{VirtualModel: "vm", Params: []neoroute.Applied{
+			{ID: "speed", Value: "fast", Via: "tier"},
+			{ID: "effort", Value: "high", Via: "suffix"},
+			{ID: "context", Value: 300000.0, Via: "window"},
+		}},
+	}
+	for _, test := range []struct {
+		protocol string
+		raw      string
+		path     string
+		want     string
+	}{
+		{"openai", `{"model":"neoproxy/luna-fast","messages":[]}`, "service_tier", "priority"},
+		{"openai-response", `{"model":"neoproxy/luna-fast","input":"hi","service_tier":"auto"}`, "service_tier", "priority"},
+		{"claude", `{"model":"neoproxy/luna-fast","messages":[]}`, "speed", "fast"},
+	} {
+		_, model, body, err := neoPrepared(context.Background(), selection, test.protocol, []byte(test.raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if model != "gpt-6-luna(high)" || gjson.GetBytes(body, "model").String() != "gpt-6-luna(high)" {
+			t.Fatalf("%s model = %q / %s", test.protocol, model, body)
+		}
+		if got := gjson.GetBytes(body, test.path).String(); got != test.want {
+			t.Fatalf("%s %s = %q, want %q: %s", test.protocol, test.path, got, test.want, body)
+		}
 	}
 }

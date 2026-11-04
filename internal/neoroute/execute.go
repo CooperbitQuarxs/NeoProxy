@@ -309,7 +309,7 @@ func (s *Store) reserve(ctx context.Context, req Request, run *runState, state r
 		_ = s.pools.Release(context.Background(), id)
 		return Selection{}, fmt.Errorf("model disappeared")
 	}
-	return Selection{Asked: req.Asked, Provider: model.ProviderID, Model: model.Name, AuthID: a.EngineAuthID, Effort: d.Effort, RequestID: run.record.ID, AttemptID: id, Decision: d}, nil
+	return Selection{Asked: req.Asked, Provider: model.ProviderID, Model: model.Name, AuthID: a.EngineAuthID, Effort: appliedEffort(d.Params), RequestID: run.record.ID, AttemptID: id, Decision: d}, nil
 }
 func contains(ids []string, id string) bool {
 	for _, v := range ids {

@@ -126,7 +126,7 @@ type drawRand interface {
 
 type globalRand struct{}
 
-func (globalRand) IntN(n int) int    { return rand.IntN(n) }
+func (globalRand) IntN(n int) int   { return rand.IntN(n) }
 func (globalRand) Float64() float64 { return rand.Float64() }
 
 // accountHistory is one account's last 24h of routed requests.
@@ -688,9 +688,14 @@ func autoDraw(state routeState, listed []Candidate) (int, string) {
 // tokens is the request's estimated input tokens (body bytes / 4, rounded up).
 func (f *requestFacts) tokens() int64 { return int64((len(f.req.Body) + 3) / 4) }
 
-// fitsContext reports whether the request fits the stage model's context
-// window; an unknown window (0) always fits.
-func fitsContext(st Stage, m neopool.Model, facts *requestFacts) bool {
+// fitsContext reports whether the request fits the stage's effective context
+// window. window is the stage's imposed context parameter (always enforced);
+// without one the model's own window applies, and only when the stage asks for
+// it with FitContext or the fit-context draw. An unknown window (0) always fits.
+func fitsContext(st Stage, m neopool.Model, facts *requestFacts, window int) bool {
+	if window > 0 {
+		return facts == nil || facts.tokens() <= int64(window)
+	}
 	if !st.FitContext && canonicalDraw(st.Draw) != "fit-context" {
 		return true
 	}

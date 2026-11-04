@@ -100,7 +100,7 @@ export function createFixture() {
 		cap: opts.cap ?? 0.2,
 		window: opts.window ?? "week",
 		per: opts.per ?? "user",
-		effort: opts.effort ?? null,
+		params: opts.params ?? {},
 	});
 	const virtualModels = [
 		{
@@ -150,7 +150,7 @@ export function createFixture() {
 			description: "Code review and judgement calls. Opus first, Fable when Opus is spent, then stop.",
 			stages: [
 				stage("s1", "anthropic/claude-opus-5-5", { accounts: ["anthropic-a"], draw: "fill", perAccount: 0.1, cap: 0.1, window: "week" }),
-				stage("s2", "anthropic/claude-fable-5-1", { accounts: ["anthropic-a"], draw: "fill", perAccount: 0.05, cap: 0.05, window: "week", effort: "high" }),
+				stage("s2", "anthropic/claude-fable-5-1", { accounts: ["anthropic-a"], draw: "fill", perAccount: 0.05, cap: 0.05, window: "week", params: { effort: { mode: "force", rules: [{ value: "high" }] } } }),
 			],
 			terminal: { kind: "limit", message: "Review allotment used for this week." },
 			updatedAt: t0 - 40 * HOUR,
@@ -412,7 +412,7 @@ export function resolve({ asked, user, at = now() }, world) {
 			chosen = candidates[n];
 		}
 		step.chosen = chosen.id;
-		return { outcome: "ok", virtualModel: vm.id, stageIndex: i, stageId: s.id, model: s.model, accountId: chosen.id, effort: s.effort, trail };
+		return { outcome: "ok", virtualModel: vm.id, stageIndex: i, stageId: s.id, model: s.model, accountId: chosen.id, params: Object.entries(s.params ?? {}).map(([id, p]) => ({ id, value: p.rules[0]?.value, realize: "" })), trail };
 	}
 	trail.push({ kind: "terminal", terminal: vm.terminal });
 	if (vm.terminal.kind === "passthrough") {

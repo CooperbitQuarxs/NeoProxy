@@ -218,13 +218,16 @@ Stage {
   accounts: "all" | string[],   // account ids within that provider; "all" follows the pool as it changes
   draw: DrawMode.id,       // see GET /virtual-models/draws; legacy "fill" = "priority", "alternate" = "round-robin"
   weights?: { [accountId]: number },  // "weighted" draw: finite ≥ 0; missing = 1; all zero = uniform
-  fitContext?: boolean,   // skip the stage ("context") when request tokens exceed the model's context window
+  fitContext?: boolean,   // skip the stage ("context") when request tokens exceed the model's own window (an imposed params.context window is always enforced)
   perAccount: number,      // 0..1: draw from an account while its window usage is below this
   accountLimits?: { [accountId]: number },  // per-account override of perAccount (0..1]
   cap: number,             // 0..1: skip the stage once the pool's AVERAGE usage reaches this
   window: "5h" | "day" | "week" | "month",
   per: "user" | "all",     // local token meters only: count this user's usage or everyone's
-  effort: null | "low" | "medium" | "high" | "max"   // force the reasoning effort; null = caller's choice
+  follow?: string,         // glob such as "codex/gpt-*-luna": the stage's model is the newest exposed model matching it
+                           // (numbers in the id compared as a version tuple, ties by id; `*` does not cross "/");
+                           // `model` is then the currently resolved model, filled in by the server on every read
+  params?: { [paramId]: ParamSetting },   // the model's always-set properties, see "Parameters" below
   lua?: {                 // named functions defined in VirtualModel.script
     eligible?: string,    // function(ctx) -> boolean, per authorized account
     perAccount?: string,  // function(ctx) -> finite 0..1 window fraction
@@ -245,6 +248,39 @@ DrawMode {                 // one Go table, neoroute.DrawModes; validation accep
   needs: ("meter" | "weights" | "price" | "history")[]
 }
 ```
+
+### Parameters (a virtual model is a model plus properties that are always set)
+
+A virtual model with one stage is "a model and its settings"; the fallback chain is an optional extra. Which settings exist is **derived from the model's discovered facts**, never hard-coded in the dashboard (`internal/neoparams`).
+
+```
+GET /v8/neo/model-params?model=<provider/model>     (admin session)
+→ { model: string, specs: Spec[] }                   404 for a model outside the inventory
+
+Spec {
+  id: string,            // stable: "speed" | "context" | "effort" | "efforts" | "reasoning_summary" | "verbosity" | "temperature" | "top_p" | "max_output"
+  label, help: string, group: "Performance" | "Context" | "Reasoning" | "Sampling" | "Output",
+  kind: "choice" | "toggle" | "range" | "set" | "number",
+  options?: [{ value, label, note?, multiplier? }],     // choice, set
+  min, max, step: number,                               // always present for range and number
+  default: any,                                         // the model's own behaviour when unset (null = provider default)
+  marks?: [{ value, label, note? }],                    // range landmarks: standard window, maximum
+  bands?: [{ from, to, multiplier, note? }],            // price bands, only from published facts
+  unit?: "tokens",
+  modes?: ["force"],                                    // omitted = "force" and "default" both accepted
+  realize: string                                       // what it does on the wire, in a sentence
+}
+
+ParamSetting { mode: "force" | "default", rules: [{ when?: Condition, value }] }
+```
+
+- A parameter is offered only when a fact supports it; no facts, no parameters. Codex models that live discovery describes (`ModelInfo.Codex`) are authoritative: their discovered `service_tiers`, `context_window` and `max_context_window` decide speed and context, so an account without Ultrafast is not offered it; the Codex client catalogue is the fallback for undiscovered models. `speed` (standard/fast/ultrafast): Fast sends `service_tier=priority`, Ultrafast `service_tier=ultrafast` (usage multipliers 2.5× and 8×), or Fast switches to a `<id>-fast` / `<id>-build-fast` sibling model of the same provider. `context` is a range from the model's standard window up to its maximum window (and down to 16k) with the long-context price band where one is published (Codex: ×2 above the standard window; Grok 4.7: ×2 above 256k); it has no wire flag, the router advertises it (`/v1/models` `context_length`) and refuses larger prompts. `effort` and `efforts` (the allowed set) come from the model's reasoning levels. `reasoning_summary` and `verbosity` come from the Codex client catalogue; `temperature`, `top_p` and `max_output` only when `supported_parameters` lists them and discovery does not say the provider strips sampling parameters.
+- `force` overrides whatever the caller sent; `default` applies only when the caller sent nothing for that parameter. `context` and `efforts` are always enforced and reject `default`. `efforts`: a caller effort inside the set passes through, anything else (or none) becomes the highest allowed. `effort` wins over `efforts`.
+- The first rule whose `when` matches wins; a rule without `when` is the fallback and must come last (400 otherwise). `when` uses the same condition tree and evaluator as stage conditions (`/virtual-models/fields`), restricted to request-scope fields: no `account.*`, no `pool.*`, because parameters are decided before accounts are drawn.
+- Validation checks every value against the stage model's specs: parameter exists, kind, option set, range, mode, rules. A stage's `follow` must match at least one exposed model (400 otherwise).
+- Schema v3 migrates a stored stage's `effort` to `params.effort` and `efforts` to `params.efforts` (both `force`) and removes the old fields. Decisions recorded before v3 may still show `effort`; nothing reads it.
+- **Apply path.** The resolver puts `Decision.params: [{id, value, realize, via}]` on the decision (and `params` on the chosen trail step). `via` is `tier`, `body`, `model`, `suffix` or `window`. `sdk/api/handlers/handlers_neoroute.go › neoPrepared` writes them into the client-protocol body before translation: `service_tier` (Chat, Responses; `service_tier` + `speed:"fast"` for Messages), `text.verbosity` / `verbosity`, `reasoning.summary` (Responses), `temperature`, `top_p`, `max_tokens` / `max_output_tokens`; the reasoning effort is the model suffix as before and a sibling-fast swap is already the stage's served model (`Decision.model`). Translators, the thinking applier, executor built-ins and finally the configured payload rules run after this, so payload rules keep the last word.
+- **Context.** `fitContext` and the context parameter use the stage's effective window (the imposed one, else the model's). A stage whose window is too small is skipped (`context`); when every remaining stage is, the request is refused with HTTP 400 `{ error: { code: "context_length_exceeded", type: "invalid_request_error", message } }` (unless the terminal is a passthrough, which still serves). `GET /v1/models` reports a virtual model's `context_length` as its first stage's window (the widest value when conditional) and its fixed properties in `description`.
 
 Validation the backend **must** enforce: name pattern; unique name; not equal to any provider id or served model id; at least one stage; every stage's model exists in the proxy catalogue and belongs to a configured provider; `accounts` ids belong to that provider and satisfy the caller/key's ownership scope; `perAccount ≤ cap` is *not* required. A cap lower than one sip is allowed and simply ends the stage early.
 
@@ -274,9 +310,10 @@ This is the one data structure the simulator, the rings, the flow-board ribbons 
    - If the **average** of `used(a)` over metered pool members `≥ stage.cap × allot` → skip (`cap`).
    - `limit(a)` = `stage.accountLimits[a.id]` if present, else `stage.perAccount`. `candidates` = pool members that are `healthy` and have `used(a) < limit(a) × allot`. None → skip (`unhealthy` if any pool member is not healthy, else `per-account`).
    - The ledger re-checks the chosen account inside the reservation transaction with the same meter choice (`Reservation.providerUsed`), so simulation and execution agree.
+   - The stage's model is its `follow` match when set. Its parameters are evaluated first (first matching rule per parameter, then force/default against what the caller sent): a sibling-fast speed swaps the model before any account check, and an imposed `context` window skips the stage (`context`) when the prompt exceeds it.
    - Candidates keep the stage's account order: the explicit `accounts` list's order, or account id order for `"all"`. With `fitContext` (or draw `fit-context`) the stage is skipped (`context`) before this when the model's `context` is known and smaller than the request's estimated tokens.
    - Choose by `draw` (the trail step records `draw` and a `drawNote`): `priority` → first candidate (OmniRoute fill-first: an account stays a candidate until its threshold); `round-robin` → durable per-stage cursor; `least-used` → lowest `used`; `headroom` → most `limit − used` (unmetered = ∞); `random` → uniform, never the stage's previous pick; `strict-random` → uniform; `weighted` → random by `weights`; `quota-weighted` → random by headroom (unmetered = 1); `p2c` → two uniform picks, the lower `used`; `reset-soonest` / `reset-latest` → the metered candidate whose window resets soonest / latest (no reset time last); `sticky` → the account that last served the stage successfully, else most headroom, never the account that just failed; `cache-affinity` → the account bound to the hash of the first 2 KiB of system text + opening user message (per-stage LRU of 4096), else most headroom; `cheapest` → plan monthly price ascending, unpriced API keys last, ties to headroom; `fit-context` → most headroom; `auto` → highest 0.5×headroom + 0.3×24h success rate + 0.2×(1 − min-max normalized 24h p50 latency). Ties go to stage order. Sticky, cache-affinity and the random no-repeat memory are in-process and reset when the virtual model is saved.
-   - Serve. Record usage against `(user, vm, stage, account)`. Apply `effort` if set. Outcome `ok` with `stageIndex`, `stageId`, `model`, `accountId`.
+   - Serve. Record usage against `(user, vm, stage, account)`. Outcome `ok` with `stageIndex`, `stageId`, `model` (the served model: the sibling when speed swaps models), `accountId` and `params` (what the stage's parameters set on this request).
 5. No stage served → the terminal:
    - `limit` → HTTP 429, body `{ error: { message: terminal.message, code: "neoproxy_limit", virtualModel, resetsAt } }`. Outcome `limited`.
    - `queue` → hold the request until some stage can serve (bounded by the client's timeout; the backend should send keep-alive on streaming responses). Outcome `queued`.
@@ -434,13 +471,14 @@ Decision {
   outcome: "ok" | "limited" | "queued" | "error",
   direct?: true,
   virtualModel?: string, stageIndex?: number, stageId?: string,
-  model?: string, accountId?: string, effort?: string | null,
-  reason?: "unknown-model" | "no-provider-access" | "no-healthy-account" | "not-granted" | "limit" | "queue",
+  model?: string, accountId?: string,
+  params?: [{ id: string, value: any, realize: string, via?: "tier" | "body" | "model" | "suffix" | "window" }],
+  reason?: "unknown-model" | "no-provider-access" | "no-healthy-account" | "not-granted" | "limit" | "queue" | "context_length_exceeded",
   message?: string,
   trail: TrailStep[]
 }
 TrailStep =
-  | { kind: "stage", index, stageId, model, total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" | "upstream-error" | "script" | "lua-policy" | "lua-cap", failureStatus?: number, policy?: {stageId, cap?: number, accounts: [{accountId, eligible: boolean, limit?: number}]} }
+  | { kind: "stage", index, stageId, model, params?: Applied[], total, cap, candidates: [{accountId, used, budget}], chosen?: accountId, skipped?: "cap" | "per-account" | "unhealthy" | "context" | "upstream-error" | "script" | "lua-policy" | "lua-cap", failureStatus?: number, policy?: {stageId, cap?: number, accounts: [{accountId, eligible: boolean, limit?: number}]} }
   | { kind: "terminal", terminal: Terminal }
   | { kind: "direct", model, accountId }
   | { kind: "denied", providerId? , virtualModel? }
