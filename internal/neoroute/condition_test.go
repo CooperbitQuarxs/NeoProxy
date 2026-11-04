@@ -188,40 +188,46 @@ func TestConditionStoreClockAndHandle(t *testing.T) {
 	}
 }
 
+func effortSetting(mode string, values ...string) map[string]ParamSetting {
+	out := map[string]ParamSetting{}
+	if len(values) == 1 {
+		out["effort"] = ParamSetting{Mode: mode, Rules: []ParamRule{{Value: values[0]}}}
+		return out
+	}
+	list := make([]any, len(values))
+	for i, v := range values {
+		list[i] = v
+	}
+	out["efforts"] = ParamSetting{Mode: "force", Rules: []ParamRule{{Value: list}}}
+	return out
+}
+
 func TestStageEfforts(t *testing.T) {
-	high, low := "high", "low"
 	for _, test := range []struct {
 		name   string
-		force  *string
-		allow  []string
-		caller string
+		params map[string]ParamSetting
+		body   string
 		want   string // "" means pass through (no override)
 	}{
-		{"no policy", nil, nil, "medium", ""},
-		{"caller allowed", nil, []string{"low", "high"}, "low", ""},
-		{"caller outside set clamps to highest", nil, []string{"low", "high", "medium"}, "max", "high"},
-		{"caller absent uses highest", nil, []string{"medium", "xhigh"}, "", "xhigh"},
-		{"caller disabled thinking", nil, []string{"minimal", "low"}, "none", "low"},
-		{"force wins over set", &low, []string{"high"}, "high", "low"},
-		{"force alone", &high, nil, "", "high"},
+		{"no params", nil, `{"reasoning_effort":"medium"}`, ""},
+		{"caller allowed", effortSetting("force", "low", "high"), `{"reasoning_effort":"low"}`, ""},
+		{"caller outside set clamps to highest", effortSetting("force", "low", "high", "medium"), `{"reasoning_effort":"max"}`, "high"},
+		{"caller absent uses highest", effortSetting("force", "medium", "xhigh"), `{}`, "xhigh"},
+		{"caller disabled thinking", effortSetting("force", "minimal", "low"), `{"reasoning_effort":"none"}`, "low"},
+		{"force effort alone", effortSetting("force", "high"), `{}`, "high"},
+		{"force effort beats caller", effortSetting("force", "low"), `{"reasoning_effort":"high"}`, "low"},
+		{"default effort yields to caller", effortSetting("default", "low"), `{"reasoning_effort":"high"}`, ""},
+		{"default effort fills a gap", effortSetting("default", "low"), `{}`, "low"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			got := stageEffort(Stage{Effort: test.force, Efforts: test.allow}, test.caller)
-			if (got == nil) != (test.want == "") || (got != nil && *got != test.want) {
-				t.Fatalf("effort=%v want %q", got, test.want)
+			state := policyState()
+			state.vm.Stages[0].Params = test.params
+			d := decide(chatRequest(test.body), state, -1, nil)
+			got := appliedEffort(d.Params)
+			if d.Outcome != "ok" || (got == nil) != (test.want == "") || (got != nil && *got != test.want) {
+				t.Fatalf("decision=%+v effort=%v want %q", d, got, test.want)
 			}
 		})
-	}
-	state := policyState()
-	state.vm.Stages[0].Efforts = []string{"low", "high"}
-	if d := decide(chatRequest(`{"reasoning_effort":"low"}`), state, -1, nil); d.Outcome != "ok" || d.Effort != nil {
-		t.Fatalf("pass-through decision=%+v", d)
-	}
-	if d := decide(chatRequest(`{"reasoning_effort":"medium"}`), state, -1, nil); d.Effort == nil || *d.Effort != "high" {
-		t.Fatalf("clamp decision=%+v", d)
-	}
-	if d := decide(chatRequest(`{}`), state, -1, nil); d.Effort == nil || *d.Effort != "high" {
-		t.Fatalf("absent decision=%+v", d)
 	}
 }
 
@@ -253,9 +259,9 @@ func TestConditionAndEffortValidation(t *testing.T) {
 			s.Condition = &Condition{Any: []Condition{leaf("user.role", "eq", "x")}, Field: "user.id", Op: "eq", Value: "y"}
 		}, "exactly one of"},
 		{"exists value", func(s *Stage) { c := leaf("user.role", "exists", "yes"); s.Condition = &c }, "exists takes"},
-		{"effort set", func(s *Stage) { s.Efforts = []string{"high", "turbo"} }, `effort "turbo"`},
-		{"effort duplicate", func(s *Stage) { s.Efforts = []string{"high", "high"} }, "twice"},
-		{"forced effort", func(s *Stage) { e := "ultra"; s.Effort = &e }, `effort "ultra"`},
+		{"effort set", func(s *Stage) { s.Params = effortSetting("force", "high", "turbo") }, "turbo"},
+		{"effort duplicate", func(s *Stage) { s.Params = effortSetting("force", "high", "high") }, "twice"},
+		{"forced effort", func(s *Stage) { s.Params = effortSetting("force", "ultra") }, "ultra"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			state := policyState()
@@ -268,7 +274,7 @@ func TestConditionAndEffortValidation(t *testing.T) {
 	}
 	// A stored condition round-trips through JSON and stays valid.
 	var st Stage
-	raw := `{"id":"s0","model":"primary/model","accounts":"all","draw":"fill","perAccount":0.5,"cap":0.8,"window":"day","per":"user","effort":null,"efforts":["low","xhigh"],
+	raw := `{"id":"s0","model":"primary/model","accounts":"all","draw":"fill","perAccount":0.5,"cap":0.8,"window":"day","per":"user","params":{"efforts":{"mode":"force","rules":[{"value":["low","xhigh"]}]}},
 		"condition":{"all":[{"field":"request.stream","op":"eq","value":false},{"not":{"field":"request.prompt","op":"matches","value":"(?i)urgent"}},{"any":[{"field":"account.usage","op":"lt","value":0.9},{"field":"account.metered","op":"eq","value":false}]}]}}`
 	if err := json.Unmarshal([]byte(raw), &st); err != nil {
 		t.Fatal(err)
@@ -278,7 +284,7 @@ func TestConditionAndEffortValidation(t *testing.T) {
 	if err := Validate(*state.vm, state.snapshot, neo.Principal{Role: "admin"}); err != nil {
 		t.Fatal(err)
 	}
-	if d := decide(chatRequest(`{"messages":[{"role":"user","content":"hi"}]}`), state, -1, nil); d.Outcome != "ok" || d.Effort == nil || *d.Effort != "xhigh" {
+	if d := decide(chatRequest(`{"messages":[{"role":"user","content":"hi"}]}`), state, -1, nil); d.Outcome != "ok" || appliedEffort(d.Params) == nil || *appliedEffort(d.Params) != "xhigh" {
 		t.Fatalf("decision=%+v", d)
 	}
 	again, _ := json.Marshal(st)
@@ -298,11 +304,10 @@ func TestConditionCatalogueEndpoint(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/v8/neo/virtual-models/fields", nil))
 	var body struct {
-		Fields  []ConditionField `json:"fields"`
-		Ops     []ConditionOp    `json:"ops"`
-		Efforts []string         `json:"efforts"`
+		Fields []ConditionField `json:"fields"`
+		Ops    []ConditionOp    `json:"ops"`
 	}
-	if recorder.Code != 200 || json.Unmarshal(recorder.Body.Bytes(), &body) != nil || len(body.Fields) != len(ConditionFields) || len(body.Ops) != 11 || len(body.Efforts) != 6 {
+	if recorder.Code != 200 || json.Unmarshal(recorder.Body.Bytes(), &body) != nil || len(body.Fields) != len(ConditionFields) || len(body.Ops) != 11 {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body)
 	}
 	scope := &conditionScope{facts: &requestFacts{req: Request{Protocol: "openai"}}, state: &routeState{handle: "h", principal: neo.Principal{UserID: "u", Role: "member"}}, stage: &Stage{Window: "day"}, pool: &poolFacts{}, account: &neopool.Account{Plan: "p"}}

@@ -122,6 +122,8 @@ export const neo = {
 	setModelsExposed: (set) => mutate("POST", "models/exposure", { set }, "models"),
 	virtualModels: () => request("GET", path("virtual-models")),
 	virtualModel: (model) => request("GET", path(`virtual-models/${id(model)}`)),
+	// The adjustable properties one model supports (neoparams.Catalogue), derived from what the proxy knows about that model.
+	modelParams: (model) => cached(`model-params:${model}`, () => request("GET", path("model-params"), { query: { model } }), 60_000),
 	saveVirtualModel: (vm) => {
 		const { name, description, stages, terminal, script } = vm;
 		return mutate(vm.id ? "PUT" : "POST", `virtual-models${vm.id ? `/${id(vm.id)}` : ""}`, { name, description, stages, terminal, script }, "virtual-models");

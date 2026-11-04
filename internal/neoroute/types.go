@@ -71,29 +71,31 @@ type VirtualModel struct {
 //     account-wide when Per is "all", the person's own usage when "user".
 //   - Condition, when set, decides whether the stage serves the request at all
 //     (request fields) and which accounts may serve it (account fields).
-//   - Effort forces one reasoning effort. Otherwise Efforts is the allowed set:
-//     a caller effort in it passes through, anything else becomes its highest.
+//   - Params are the stage model's always-set properties (see ParamSetting);
+//     Follow, when set, picks the newest exposed model matching the glob and
+//     Model then shows what it resolved to.
 //   - Draw picks one account among the candidates (see DrawModes). Candidates
 //     keep the stage's account order: the explicit list's order, or account
 //     ID order for "all". Weights feeds the "weighted" draw (keyed by account
 //     ID; a missing account weighs 1). FitContext skips the stage when the
-//     request's estimated tokens exceed the model's context window.
+//     request's estimated tokens exceed the stage's effective context window
+//     (the context param when set, else the model's own).
 type Stage struct {
-	ID            string             `json:"id"`
-	Model         string             `json:"model"`
-	Accounts      AccountScope       `json:"accounts"`
-	Draw          string             `json:"draw"`
-	Weights       map[string]float64 `json:"weights,omitempty"`
-	FitContext    bool               `json:"fitContext,omitempty"`
-	PerAccount    float64            `json:"perAccount"`
-	AccountLimits map[string]float64 `json:"accountLimits,omitempty"`
-	Cap           float64            `json:"cap"`
-	Window        string             `json:"window"`
-	Per           string             `json:"per"`
-	Effort        *string            `json:"effort"`
-	Efforts       []string           `json:"efforts,omitempty"`
-	Condition     *Condition         `json:"condition,omitempty"`
-	Lua           *LuaPolicy         `json:"lua,omitempty"`
+	ID            string                  `json:"id"`
+	Model         string                  `json:"model"`
+	Accounts      AccountScope            `json:"accounts"`
+	Draw          string                  `json:"draw"`
+	Weights       map[string]float64      `json:"weights,omitempty"`
+	FitContext    bool                    `json:"fitContext,omitempty"`
+	PerAccount    float64                 `json:"perAccount"`
+	AccountLimits map[string]float64      `json:"accountLimits,omitempty"`
+	Cap           float64                 `json:"cap"`
+	Window        string                  `json:"window"`
+	Per           string                  `json:"per"`
+	Follow        string                  `json:"follow,omitempty"`
+	Params        map[string]ParamSetting `json:"params,omitempty"`
+	Condition     *Condition              `json:"condition,omitempty"`
+	Lua           *LuaPolicy              `json:"lua,omitempty"`
 }
 
 // accountLimit is the stage's per-account threshold for account id before
@@ -156,11 +158,16 @@ type TrailStep struct {
 	Asked         string              `json:"asked,omitempty"`
 	FailureStatus int                 `json:"failureStatus,omitempty"`
 	Policy        *ScriptPolicyResult `json:"policy,omitempty"`
+	// Params are the stage's parameters that took effect for this request.
+	Params []Applied `json:"params,omitempty"`
 	// Redirect is set on the "redirect" step that precedes the resolution.
 	Redirect *RedirectRef `json:"redirect,omitempty"`
 	// excluded are the accounts the condition removed, appended to Candidates
 	// (Reason "condition") only once the decision no longer draws from them.
 	excluded []Candidate
+	// window is the context window of the stage's served model, imposed or its
+	// own, for the refusal message.
+	window int
 }
 
 // Stage zero values are meaningful: preserve index 0, a zero cap and an empty
@@ -192,7 +199,7 @@ type Decision struct {
 	StageID      string       `json:"stageId,omitempty"`
 	Model        string       `json:"model,omitempty"`
 	AccountID    string       `json:"accountId,omitempty"`
-	Effort       *string      `json:"effort,omitempty"`
+	Params       []Applied    `json:"params,omitempty"` // what the virtual model set on this request
 	Reason       string       `json:"reason,omitempty"`
 	Message      string       `json:"message,omitempty"`
 	ResetsAt     int64        `json:"resetsAt,omitempty"`

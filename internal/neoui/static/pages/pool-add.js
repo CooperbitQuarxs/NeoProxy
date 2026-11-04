@@ -3,7 +3,7 @@
 // provider); step 2 offers that provider's methods as tabs. Every way ends in
 // the same pool, so the copy says what happens and what to do when it fails.
 
-import { h, icon, replace, fmtInt } from "../lib/dom.js";
+import { h, icon, replace, fmtInt, copyText } from "../lib/dom.js";
 import { neo, ApiError } from "../lib/client.js";
 import { btn, field, input, search, seg, dialog, copyLine, toast } from "../lib/components.js";
 
@@ -84,7 +84,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 
 	const go = (patch) => { runLeave(); Object.assign(state, patch); paint(); };
 	const finish = (title, ...text) => go({ done: { title, text } });
-	const toChoose = () => go({ provider: null, method: null, done: null });
+	// Back to the picker starts a fresh search, focused, rather than the last one.
+	const toChoose = () => { go({ provider: null, method: null, done: null, query: "" }); host.querySelector('input[type="search"]')?.focus(); };
 
 	function paint() {
 		host.replaceChildren();
@@ -105,7 +106,10 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 		const grid = h("div", { class: "pa-grid", role: "list" });
 		const renderGrid = () => {
 			const q = state.query.trim().toLowerCase();
-			const shown = q ? providers.filter((p) => [p.name, p.vendor, p.id].some((s) => s?.toLowerCase().includes(q))) : providers;
+			// Name matches rank before vendor or id matches, so Enter on "Moonshot"
+			// picks Moonshot rather than Kimi (made by Moonshot AI).
+			const rank = (p) => { const n = p.name.toLowerCase(); return n === q ? 0 : n.startsWith(q) ? 1 : n.includes(q) ? 2 : 3; };
+			const shown = q ? providers.filter((p) => [p.name, p.vendor, p.id].some((s) => s?.toLowerCase().includes(q))).sort((a, b) => rank(a) - rank(b)) : providers;
 			replace(grid, ...shown.map((p) => tile(p)), shown.length ? null : h("p", { class: "pa-empty" }, `No provider matches “${state.query.trim()}”. NeoPi sharing and file upload below work for any provider.`));
 		};
 		const tile = (p) => {
@@ -235,7 +239,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			const pasteRow = (placeholder, primary) => h("div", { class: "pa-inline" }, input({ mono: true, placeholder, autocomplete: "off", onInput: (e) => { code = e.target.value; } }), btn("Finish sign-in", { cls: primary ? "primary" : "", onClick: submit }));
 			replace(box, 
 				h("div", { class: "pa-waiting" }, h("span", { class: "pa-pulse" }), h("div", null, h("strong", null, `Waiting for ${site} sign-in`), h("p", { class: "pa-detail" }, device ? "Approve the code on the provider's page; this updates on its own." : flow === "code" ? "Finish on the tab that just opened, then paste the address it ends on below." : "Finish on the tab that just opened. This updates on its own."))),
-				r.user_code ? h("div", { class: "pa-code" }, h("span", { class: "pa-detail" }, verify ? ["Open ", h("a", { href: verify, target: "_blank", rel: "noopener noreferrer" }, verify.replace(/^https?:\/\//, "")), " on any machine and enter this code"] : `Confirm this code on ${site}'s page`), h("span", { class: "pa-code-value mono" }, r.user_code), btn("Copy", { cls: "sm", onClick: async () => { try { await navigator.clipboard.writeText(r.user_code); toast("Code copied"); } catch { toast("Could not copy", "bad"); } } })) : null,
+				r.user_code ? h("div", { class: "pa-code" }, h("span", { class: "pa-detail" }, verify ? ["Open ", h("a", { href: verify, target: "_blank", rel: "noopener noreferrer" }, verify.replace(/^https?:\/\//, "")), " on any machine and enter this code"] : `Confirm this code on ${site}'s page`), h("span", { class: "pa-code-value mono" }, r.user_code), btn("Copy", { cls: "sm", onClick: async () => { if (await copyText(r.user_code)) toast("Code copied"); else toast("Could not copy", "bad"); } })) : null,
 				r.url && !device ? h("p", { class: "pa-detail" }, "No tab opened? ", h("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "Open the sign-in page", icon("external", 12))) : null,
 				flow === "code"
 					? h("div", { class: "pa-stack" }, h("p", { class: "pa-detail" }, "After you approve, ", site, " tries to open its own app at an address starting with ", h("code", null, "zcode://"), ". Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the “Failed to launch” message."), pasteRow("zcode://zai-auth/callback?code=…", true))

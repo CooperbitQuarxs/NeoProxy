@@ -72,7 +72,7 @@ export function toText(node, depth = 0) {
 }
 
 // ---- builder ----
-export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
+export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange, lead = "serve when", empty = "No rules: the stage serves whenever the percentages above allow." }) {
 	let tree = value && isGroup(value) ? structuredClone(value) : { all: value ? [structuredClone(value)] : [] };
 	const root = h("div", { class: "rules" });
 	// Empty nested groups are a step in editing, not a rule; they are pruned
@@ -85,7 +85,13 @@ export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
 		const kept = n[key].map(prune).filter(Boolean);
 		return kept.length ? { [key]: kept } : null;
 	};
-	const emit = () => { onChange(prune(structuredClone(tree))); paint(); };
+	// Repainting replaces every control, so put keyboard focus back on the one that had it.
+	const emit = () => {
+		const keep = root.contains(document.activeElement) ? [...root.querySelectorAll("button, input, select")].indexOf(document.activeElement) : -1;
+		onChange(prune(structuredClone(tree)));
+		paint();
+		if (keep >= 0) [...root.querySelectorAll("button, input, select")][keep]?.focus({ preventScroll: true });
+	};
 
 	function countLeaves(n) {
 		if (!n) return 0;
@@ -129,7 +135,7 @@ export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
 		const arr = inner[key];
 		const box = h("div", { class: `rule-group ${isRoot ? "root" : ""} ${negated ? "negated" : ""}` });
 		const head = h("div", { class: "rule-group-head" },
-			isRoot ? h("span", { class: "rule-lead" }, "serve when") : h("span", { class: "rule-paren" }, "("),
+			isRoot ? h("span", { class: "rule-lead" }, lead) : h("span", { class: "rule-paren" }, "("),
 			negated ? h("span", { class: "tag" }, "not") : null,
 			h("div", { class: "seg sm" },
 				h("button", { type: "button", class: key === "all" ? "on" : "", "aria-pressed": String(key === "all"), onClick: () => { if (key !== "all") { inner.all = inner.any; delete inner.any; emit(); } } }, "all of these"),
@@ -145,7 +151,7 @@ export function ruleBuilder({ value, fields = DEFAULT_FIELDS, onChange }) {
 			if (i > 0) body.append(h("div", { class: "rule-join" }, key === "all" ? "and" : "or"));
 			body.append(isGroup(child) ? groupBox(child, arr, i, false) : leafRow(child, arr, i));
 		});
-		if (!arr.length) body.append(h("div", { class: "rule-empty" }, isRoot ? "No rules: the stage serves whenever the percentages above allow." : "Empty group: it counts as true."));
+		if (!arr.length) body.append(h("div", { class: "rule-empty" }, isRoot ? empty : "Empty group: it counts as true."));
 		body.append(h("div", { class: "rule-adds" },
 			btn("Add a rule", { icon: "plus", cls: "sm", onClick: () => { arr.push(emptyLeaf(fields)); emit(); } }),
 			btn("Add a group ( … )", { cls: "sm ghost", onClick: () => { arr.push({ all: [emptyLeaf(fields)] }); emit(); } }),

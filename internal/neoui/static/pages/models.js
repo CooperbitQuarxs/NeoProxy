@@ -7,7 +7,8 @@
 
 import { h, icon, fmtCompact, fmtInt, plural, clear } from "../lib/dom.js";
 import { neo, onChange } from "../lib/client.js";
-import { pageHead, card, btn, tag, toggle, search, seg, servedName, chainRail, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast, confirm, picker, avatar } from "../lib/components.js";
+import { pageHead, card, btn, tag, toggle, search, seg, servedName, providerLabel, vmSearchText, vmIdentity, empty, spinner, errorState, toast, confirm, picker, avatar } from "../lib/components.js";
+import { propChips } from "../lib/vm-props.js";
 import { multiSelect, selectionBar } from "../lib/multiselect.js";
 import { matchModel, modelName } from "../lib/access.js";
 
@@ -106,7 +107,7 @@ export async function render(ctx) {
 	});
 	host.append(vmCard);
 
-	const treeCard = card({ title: "Provider models", sub: "All / Served / Hidden filters only these provider models. Local providers may have direct selectors; shared-source models use stored virtual names. Hiding a provider disables all routes that draw from it. Drag across rows or Shift+click to select several; Space serves or hides them.", flush: true, body: h("div", { class: "tree" }) });
+	const treeCard = card({ title: "Provider models", sub: "A switch serves or hides one model; hiding a provider stops every route that draws from it. To change several at once, drag across rows or Shift+click, then press Space.", flush: true, body: h("div", { class: "tree" }) });
 	host.append(treeCard);
 	const tree = treeCard.querySelector(".tree");
 
@@ -119,7 +120,7 @@ export async function render(ctx) {
 				onClick: () => ctx.navigate(`virtual-models/${vm.id}`),
 			},
 			h("div", { class: "lt" }, h("div", { class: "main" }, servedName(vm.served, { virtual: true })), h("div", { class: "sub" }, `${vmIdentity(vm, models, vault.providers)} · ${plural(users.filter((u) => u.grants.some((g) => g.virtualModel === vm.id)).length, "user")} · ${reqCount(vm.served)} requests recently`)),
-			h("div", { class: "rail-clip" }, chainRail(vm, { models, providers: vault.providers, accounts: vault.accounts, compact: true })),
+			h("div", { class: "vm-teaser-props" }, propChips(vm.stages[0] ?? {})),
 			icon("chevronRight", 14)));
 		}
 		if (!matches.length) vmList.append(empty({ title: "No virtual models match", hint: "Try a provider, an upstream model name or a virtual name." }));
@@ -305,7 +306,7 @@ export async function render(ctx) {
 		// The bar sits at the bottom of the page, so open the list above it and
 		// let it grow upwards as the search narrows it.
 		const pop = document.body.lastElementChild;
-		if (pop?.classList.contains("picker")) {
+		if (pop?.classList.contains("picker-pop")) {
 			pop.style.top = "auto";
 			pop.style.bottom = `${document.documentElement.clientHeight - anchor.getBoundingClientRect().top - scrollY + 8}px`;
 		}
@@ -354,7 +355,7 @@ export async function render(ctx) {
 		],
 		onClear: () => { ms.clear(); ms.focus(); },
 	});
-	bar.el.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.querySelector(".picker")) { ms.clear(); ms.focus(); } });
+	bar.el.addEventListener("keydown", (e) => { if (e.key === "Escape" && !document.querySelector(".picker-pop")) { ms.clear(); ms.focus(); } });
 	const ms = multiSelect(tree, {
 		row: ".model-row",
 		groupKeys: (el) => matchingIn(modelById.get(el.dataset.key)?.providerId).map((m) => m.id),
