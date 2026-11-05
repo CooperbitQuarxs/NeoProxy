@@ -79,6 +79,11 @@ before falling back to `Error()`. The NeoPi Responses executors preserve both
 handler extracts the upstream error node so an actionable request fault reaches
 the client as an explicit `type: "error"` frame with its original code and message,
 without changing NeoPi's human-readable error text.
+The carrier is raw internal classification data, not a client-safe payload.
+Before serialization or downstream logging, the extracted error node passes
+through the existing Responses recursive sensitive-key/Bearer redaction and
+string-length limits. This policy is reapplied even if an outer wrapper already
+sanitized `Error()`, since `errors.As` can still reach the original raw carrier.
 
 ## 2) Register Translators
 
