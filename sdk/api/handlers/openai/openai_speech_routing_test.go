@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
 	apihandlers "github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	coreexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
@@ -126,6 +129,80 @@ func TestSpeechEndpointsRouteSpeechOnlyModelsToExecutor(t *testing.T) {
 				t.Fatalf("executor source format = %q, want %q", got, xaiSpeechHandlerType)
 			}
 		})
+	}
+}
+
+// neoPiSpeechCaptureExecutor stands in for a NeoPi provider's executor.
+type neoPiSpeechCaptureExecutor struct{ speechCaptureExecutor }
+
+func (e *neoPiSpeechCaptureExecutor) Identifier() string { return "deepinfra" }
+
+// A model a NeoPi provider registered as a speech model runs on that
+// provider, not xAI, and its audio is labelled with the type its executor
+// reports for the audio it produced.
+func TestAudioSpeechRoutesNeoPiSpeechModelToItsProvider(t *testing.T) {
+	xai := &speechCaptureExecutor{}
+	handler, _ := newSpeechRoutingTestHandlers(t, xai)
+	neopi := &neoPiSpeechCaptureExecutor{}
+	manager := handler.AuthManager
+	manager.RegisterExecutor(neopi)
+	auth := &coreauth.Auth{ID: "neopi-speech-auth", Provider: "deepinfra", Status: coreauth.StatusActive}
+	if _, err := manager.Register(context.Background(), auth); err != nil {
+		t.Fatalf("manager.Register: %v", err)
+	}
+	registry.GetGlobalRegistry().RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: "hexgrad/Kokoro-82M", Type: registry.OpenAISpeechModelType}})
+	manager.RefreshSchedulerEntry(auth.ID)
+	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(auth.ID) })
+
+	resp := performSpeechRoutingRequest(t, "/v1/audio/speech", `{"model":"hexgrad/Kokoro-82M","input":"hello","response_format":"wav"}`, handler.AudioSpeech)
+	if resp.Code != http.StatusOK || resp.Body.String() != "ID3audio" {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if got := resp.Header().Get("Content-Type"); got != "audio/mpeg" {
+		t.Errorf("content type = %q, want the executor's audio/mpeg", got)
+	}
+	models, sources := neopi.calls()
+	if len(models) != 1 || models[0] != "hexgrad/Kokoro-82M" || sources[0] != xaiSpeechHandlerType {
+		t.Errorf("provider calls = %v %v, want one openai-speech call for the Kokoro model", models, sources)
+	}
+	if xaiModels, _ := xai.calls(); len(xaiModels) != 0 {
+		t.Errorf("xAI executor ran %v", xaiModels)
+	}
+}
+
+// With header passthrough off (the default), the audio is still labelled
+// with the format the provider produced: here a payload rule turns the
+// request's mp3 default into wav on the real NeoPi executor.
+func TestAudioSpeechLabelsTheProducedFormat(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = io.WriteString(w, "RIFFaudio")
+	}))
+	defer upstream.Close()
+	row := &registry.NeoPiModel{ID: "hexgrad/Kokoro-82M", API: "openai-speech", Kind: "tts", Provider: "deepinfra", BaseURL: upstream.URL}
+	rules := config.PayloadConfig{
+		Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: row.ID}}, Params: map[string]any{"response_format": "wav"}}},
+	}
+	manager := coreauth.NewManager(nil, &coreauth.RoundRobinSelector{}, nil)
+	manager.RegisterExecutor(executor.NewNeoPiCompletionsExecutor("deepinfra", &config.Config{Payload: rules}, executor.NeoPiCompletionsProfile{
+		Row: func(string, string) *registry.NeoPiModel { return row.Clone() },
+	}))
+	auth := &coreauth.Auth{ID: "neopi-speech-produced", Provider: "deepinfra", Status: coreauth.StatusActive, Attributes: map[string]string{"api_key": "key"}}
+	if _, err := manager.Register(context.Background(), auth); err != nil {
+		t.Fatalf("manager.Register: %v", err)
+	}
+	registry.GetGlobalRegistry().RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: row.ID, Type: registry.OpenAISpeechModelType}})
+	manager.RefreshSchedulerEntry(auth.ID)
+	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(auth.ID) })
+	handler := NewOpenAIAPIHandler(apihandlers.NewBaseAPIHandlers(&sdkconfig.SDKConfig{}, manager))
+
+	resp := performSpeechRoutingRequest(t, "/v1/audio/speech", `{"model":"hexgrad/Kokoro-82M","input":"Hi."}`, handler.AudioSpeech)
+	if resp.Code != http.StatusOK || resp.Body.String() != "RIFFaudio" {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if got := resp.Header().Get("Content-Type"); got != "audio/wav" {
+		t.Errorf("content type = %q, want the produced audio/wav", got)
 	}
 }
 

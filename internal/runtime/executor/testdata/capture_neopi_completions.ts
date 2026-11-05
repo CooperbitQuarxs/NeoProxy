@@ -169,9 +169,10 @@ for (const provider of providers) {
 	const bundled = getBundledModels(provider);
 	const listed = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : [];
 	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
-	// Bundled rows NeoProxy serves: Chat Completions, and image generation over
-	// openai-images (NeoPi's generateOpenAIImage).
-	const exported = bundled.filter((model: any) => model.api === "openai-completions" || model.api === "openai-images");
+	// Bundled rows NeoProxy serves: Chat Completions, image generation over
+	// openai-images (generateOpenAIImage) and speech over openai-speech
+	// (synthesizeOpenAiSpeech).
+	const exported = bundled.filter((model: any) => ["openai-completions", "openai-images", "openai-speech"].includes(model.api));
 	const skipped = bundled.length - exported.length;
 
 	// Catalog export: deduplicated compats so large rosters stay small.
