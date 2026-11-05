@@ -80,6 +80,7 @@ var apiKeyRoutes = map[string]route{
 	"synthetic":          {target: "synthetic"},
 	"siliconflow":        {target: "siliconflow"},
 	"siliconflow-cn":     {target: "siliconflow-cn"},
+	"zenmux":             {target: "zenmux"},
 	// Local servers import at their default address (an administrator's
 	// action, as their address is editable).
 	"vllm":                  {target: "vllm"},

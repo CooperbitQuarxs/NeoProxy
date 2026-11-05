@@ -4,10 +4,12 @@ import (
 	_ "embed"
 	"encoding/json"
 	"math"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/tidwall/gjson"
 )
@@ -765,12 +767,16 @@ var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singular
 
 // NeoPiV1BaseURL is the discovery and inference endpoint of a provider in
 // neoPiV1BaseProviders: a blank configured URL is the provider's canonical
-// endpoint, and any other keeps its host and gains a missing /v1. Other
+// endpoint, and any other keeps its host and gains a missing /v1. ZenMux's
+// Anthropic route names its OpenAI one (normalizeZenMuxOpenAiBaseUrl). Other
 // providers' URLs are returned trimmed, the catalog's when blank.
 func NeoPiV1BaseURL(provider, configured string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(configured), "/")
 	if trimmed == "" {
 		return NeoPiCompletionsListingBase(provider)
+	}
+	if provider == "zenmux" && strings.HasSuffix(trimmed, "/api/anthropic") {
+		return strings.Replace(trimmed, "/api/anthropic", "/api/v1", 1)
 	}
 	if !neoPiV1BaseProviders[provider] || strings.HasSuffix(trimmed, "/v1") {
 		return trimmed
@@ -834,5 +840,78 @@ func neoPiMapCharmHyper(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 		spec.cost = NeoPiCost{Input: neoPiRate(pricing.Get("input"), 0), Output: neoPiRate(pricing.Get("output"), 0),
 			CacheRead: neoPiRate(pricing.Get("cache_hit"), 0), CacheWrite: neoPiRate(pricing.Get("cache_create"), 0)}
 	}
+	return spec
+}
+
+// neoPiZenMuxAnthropicBase is toZenMuxAnthropicBaseUrl: the Anthropic route
+// beside ZenMux's OpenAI base (its /api/v1 swapped for /api/anthropic, any
+// other path replaced), the default route when the base does not parse.
+func neoPiZenMuxAnthropicBase(openAIBase string) string {
+	parsed, err := url.Parse(openAIBase)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "https://zenmux.ai/api/anthropic"
+	}
+	path := strings.TrimRight(parsed.EscapedPath(), "/")
+	if strings.HasSuffix(path, "/api/v1") {
+		path = strings.TrimSuffix(path, "/api/v1") + "/api/anthropic"
+	} else {
+		path = "/api/anthropic"
+	}
+	return strings.ToLower(parsed.Scheme) + "://" + strings.ToLower(parsed.Host) + path
+}
+
+// neoPiZenMuxPrice is getZenMuxPricingValue: the first numeric value of a
+// pricings bucket, 0 when it has none.
+func neoPiZenMuxPrice(pricings gjson.Result, key string) float64 {
+	bucket := pricings.Get(key)
+	if !bucket.IsArray() {
+		return 0
+	}
+	for _, item := range bucket.Array() {
+		if !item.IsObject() {
+			continue
+		}
+		if value, ok := neoPiToNumber(item.Get("value")); ok {
+			return value
+		}
+	}
+	return 0
+}
+
+// neoPiMapZenMux is zenmuxModelManagerOptions' mapModel: Claude models (by
+// owner or classification) move to ZenMux's Anthropic Messages route, the
+// rest stay on Chat Completions; the listing's display name, reasoning flag,
+// modalities, bucketed prices and limits fill the row.
+func neoPiMapZenMux(entry gjson.Result, defaults neoPiSpec, openAIBase string) neoPiSpec {
+	spec := defaults
+	owner := entry.Get("owned_by")
+	if owner.Type == gjson.String && strings.ToLower(owner.Str) == "anthropic" ||
+		neopitaxonomy.Classify("zenmux", defaults.id).Class == "anthropic" {
+		spec.api, spec.baseURL = neopicompat.APIAnthropicMessages, neoPiZenMuxAnthropicBase(openAIBase)
+	}
+	spec.name = neoPiModelName(entry.Get("display_name"), defaults.name)
+	if capabilities := entry.Get("capabilities"); capabilities.IsObject() && capabilities.Get("reasoning").Type == gjson.True {
+		spec.reasoning = true
+	}
+	spec.input = neoPiInputCapabilities(entry.Get("input_modalities"))
+	var pricings gjson.Result
+	if value := entry.Get("pricings"); value.IsObject() {
+		pricings = value
+	}
+	cacheWrite := neoPiZenMuxPrice(pricings, "input_cache_write_1_h")
+	if cacheWrite <= 0 {
+		cacheWrite = neoPiZenMuxPrice(pricings, "input_cache_write_5_min")
+	}
+	if cacheWrite <= 0 {
+		cacheWrite = neoPiZenMuxPrice(pricings, "input_cache_write")
+	}
+	spec.cost = NeoPiCost{
+		Input:      neoPiZenMuxPrice(pricings, "prompt"),
+		Output:     neoPiZenMuxPrice(pricings, "completion"),
+		CacheRead:  neoPiZenMuxPrice(pricings, "input_cache_read"),
+		CacheWrite: cacheWrite,
+	}
+	spec.contextWindow = neoPiPositive(entry.Get("context_length"), defaults.contextWindow)
+	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), defaults.maxTokens)
 	return spec
 }
