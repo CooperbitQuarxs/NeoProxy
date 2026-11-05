@@ -42,6 +42,8 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 		h.RequestKiloToken(c)
 	case "snowflake":
 		h.RequestSnowflakeToken(c)
+	case "github-copilot":
+		h.RequestGitHubCopilotToken(c)
 	case "factory-droid":
 		h.RequestFactoryDroidToken(c)
 	default:

@@ -45,24 +45,46 @@ func (cache *BoundedLRU[K, V]) GetOrAdd(key K, create func() V) V {
 	}
 
 	value := create()
-	element := cache.order.PushFront(boundedLRUEntry[K, V]{key: key, value: value})
-	cache.entries[key] = element
-
-	var evicted boundedLRUEntry[K, V]
-	didEvict := false
-	if cache.order.Len() > cache.capacity {
-		oldest := cache.order.Back()
-		evicted = oldest.Value.(boundedLRUEntry[K, V])
-		delete(cache.entries, evicted.key)
-		cache.order.Remove(oldest)
-		didEvict = true
-	}
+	evicted, didEvict := cache.pushLocked(key, value)
 	cache.mu.Unlock()
 
 	if didEvict && cache.onEvict != nil {
 		cache.onEvict(evicted.key, evicted.value)
 	}
 	return value
+}
+
+// Set stores value under key, replacing any current value, and marks it
+// most recently used.
+func (cache *BoundedLRU[K, V]) Set(key K, value V) {
+	cache.mu.Lock()
+	if element, ok := cache.entries[key]; ok {
+		element.Value = boundedLRUEntry[K, V]{key: key, value: value}
+		cache.order.MoveToFront(element)
+		cache.mu.Unlock()
+		return
+	}
+	evicted, didEvict := cache.pushLocked(key, value)
+	cache.mu.Unlock()
+
+	if didEvict && cache.onEvict != nil {
+		cache.onEvict(evicted.key, evicted.value)
+	}
+}
+
+// pushLocked inserts a new key at the front and evicts the least recently
+// used entry when the bound is crossed. The caller holds the cache lock.
+func (cache *BoundedLRU[K, V]) pushLocked(key K, value V) (boundedLRUEntry[K, V], bool) {
+	element := cache.order.PushFront(boundedLRUEntry[K, V]{key: key, value: value})
+	cache.entries[key] = element
+	if cache.order.Len() <= cache.capacity {
+		return boundedLRUEntry[K, V]{}, false
+	}
+	oldest := cache.order.Back()
+	evicted := oldest.Value.(boundedLRUEntry[K, V])
+	delete(cache.entries, evicted.key)
+	cache.order.Remove(oldest)
+	return evicted, true
 }
 
 func (cache *BoundedLRU[K, V]) Get(key K) (V, bool) {

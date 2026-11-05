@@ -427,6 +427,11 @@ func neoPiApplyCompletionsReasoning(body *neoPiOrderedObject, compat *registry.N
 		}
 		body.setNested("chat_template_kwargs", "preserve_thinking", jsjson.Marshal(true))
 	}
+	// A host that takes no reasoning parameters gets none (GitHub Copilot's
+	// chat completions; openai-shared.ts applyChatCompletionsCompatPolicy).
+	if !compat.SupportsReasoningParams {
+		return
+	}
 	if !reasoning.enabled {
 		if !reasoning.disabled {
 			return

@@ -72,6 +72,7 @@ type compiledData struct {
 	Cascade             []*rule             `json:"cascade"`
 	Hosts               map[string]hostSpec `json:"hosts"`
 	CompletionsWireKeys []string            `json:"completionsWireKeys"`
+	ResponsesWireKeys   []string            `json:"responsesWireKeys"`
 	AnthropicWireKeys   []string            `json:"anthropicWireKeys"`
 	GoogleWireKeys      []string            `json:"googleWireKeys"`
 }
@@ -113,6 +114,7 @@ func load() error {
 		}
 		wireKeys = map[string]map[string]bool{
 			APIOpenAICompletions: keySet(data.CompletionsWireKeys),
+			APIOpenAIResponses:   keySet(data.ResponsesWireKeys),
 			APIAnthropicMessages: keySet(data.AnthropicWireKeys),
 			APIGoogleVertex:      keySet(data.GoogleWireKeys),
 		}

@@ -93,12 +93,13 @@ type ProviderInfo struct {
 }
 
 // ProviderField is one detail a provider's sign-in or key needs; the request
-// carries its value under ID.
+// carries its value under ID. An optional field may be left blank.
 type ProviderField struct {
 	ID          string `json:"id"`
 	Label       string `json:"label"`
 	Placeholder string `json:"placeholder"`
 	Hint        string `json:"hint"`
+	Optional    bool   `json:"optional,omitempty"`
 }
 
 // dialectRule routes model ids starting with prefix to dialect.
@@ -185,7 +186,7 @@ func (s *ProviderSubscription) at(site string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid, github-copilot).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -217,6 +218,12 @@ var providerCatalog = []ProviderInfo{
 	{ID: "factory-droid", Name: "Factory Droid", Vendor: "Factory", Hue: 30, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: device("Opens Factory's sign-in in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed.").at("Factory"),
 		Plans:        []ProviderPlan{}},
+	// GitHub's brand is monochrome: tinted so its tile stays apart.
+	{ID: "github-copilot", Name: "GitHub Copilot", Vendor: "GitHub", Hue: 290, Chroma: tintChroma, Methods: []string{"subscription"},
+		Subscription: device("Opens GitHub in a new tab and shows a code to confirm there."),
+		Fields: []ProviderField{{ID: "enterprise_url", Label: "GitHub Enterprise", Placeholder: "github.com", Hint: "Leave blank for github.com, or enter your GitHub Enterprise URL or domain.",
+			Optional: true}},
+		Plans: []ProviderPlan{}},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),
 		Plans:        []ProviderPlan{}},
