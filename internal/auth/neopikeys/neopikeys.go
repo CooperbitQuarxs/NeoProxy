@@ -42,6 +42,8 @@ const (
 	ChatCompletions = "chat-completions"
 	// ModelsEndpoint is validateApiKeyAgainstModelsEndpoint.
 	ModelsEndpoint = "models-endpoint"
+	// AnthropicMessages is validateAnthropicCompatibleApiKey.
+	AnthropicMessages = "anthropic-messages"
 )
 
 // Validation is one compiled `validate` rule.
@@ -217,6 +219,8 @@ func (l Login) Validate(ctx context.Context, client *http.Client, key string) er
 	switch v.Kind {
 	case ChatCompletions:
 		err = validateChatCompletions(ctx, client, label, v, key)
+	case AnthropicMessages:
+		err = validateAnthropicMessages(ctx, client, label, v, key)
 	case ModelsEndpoint:
 		target := v.URL
 		if v.BaseURLEnv != "" {
@@ -274,6 +278,25 @@ func validateChatCompletions(ctx context.Context, client *http.Client, label str
 		return nil
 	}
 	return err
+}
+
+// validateAnthropicMessages is validateAnthropicCompatibleApiKey: a one-token
+// "ping" Messages request to the base (any trailing /v1 dropped), the key in
+// x-api-key. NeoPi's anthropic-version is the legacy one on every host the
+// environment does not opt into a newer version for.
+func validateAnthropicMessages(ctx context.Context, client *http.Client, label string, v *Validation, key string) error {
+	base := strings.TrimRight(strings.TrimSpace(v.BaseURL), "/")
+	base = strings.TrimSuffix(base, "/v1")
+	body := `{"model":` + jsonString(v.Model) + `,"messages":[{"role":"user","content":"ping"}],"max_tokens":1}`
+	req, err := http.NewRequest(http.MethodPost, base+"/v1/messages", strings.NewReader(body))
+	if err != nil {
+		return err
+	}
+	setBunDefaults(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("x-api-key", key)
+	return probe(ctx, client, req, label)
 }
 
 // ErrCoreWeaveProject is requireCoreWeaveProjectHeaders' ConfigurationError:
