@@ -61,9 +61,6 @@ type ProviderInfo struct {
 	// at exactly one of them; validation keeps the first that accepts the key.
 	// APIKey.BaseURL is the first region.
 	regions []string
-	// skipModels are model-id prefixes the provider lists but chat clients
-	// cannot use (image, audio, video and embedding SKUs).
-	skipModels []string
 	// upstreamErrors seeds that openai-compatibility entry's error
 	// classification with provider quirks.
 	upstreamErrors []config.RequestScopedErrorRule
@@ -198,11 +195,11 @@ var providerCatalog = []ProviderInfo{
 	{ID: "mistral", Name: "Mistral", Vendor: "Mistral AI", Hue: 70, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.mistral.ai/v1", "32 letters and digits", "https://console.mistral.ai/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "together", Name: "Together AI", Vendor: "Together AI", Hue: 120, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.together.xyz/v1", "tgp_v1_...", "https://api.together.ai/settings/api-keys"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.together.xyz/v1", "sk-...", "https://api.together.xyz/settings/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "fireworks", Name: "Fireworks AI", Vendor: "Fireworks AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.fireworks.ai/inference/v1", "fw_...", "https://fireworks.ai/account/api-keys"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.fireworks.ai/inference/v1", "fw_...", "https://app.fireworks.ai/settings/users/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "cerebras", Name: "Cerebras", Vendor: "Cerebras", Hue: 95, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/platform/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
@@ -212,12 +209,11 @@ var providerCatalog = []ProviderInfo{
 		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
 	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 267, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey:     openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
-		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
-		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
-		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+		APIKey:  openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
+		Plans:   []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
+		regions: []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL}},
 	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 242, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
@@ -238,7 +234,7 @@ var providerCatalog = []ProviderInfo{
 	// (404 "Function ... Not found for account") or that reached end of life
 	// (410 Gone). Those concern the requested model only, never the whole key.
 	{ID: "nvidia", Name: "NVIDIA NIM", Vendor: "NVIDIA", Hue: 135, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://build.nvidia.com/settings/api-keys"), Plans: []ProviderPlan{},
+		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://org.ngc.nvidia.com/setup/personal-keys"), Plans: []ProviderPlan{},
 		upstreamErrors: []config.RequestScopedErrorRule{
 			{Status: 404, Match: []string{"Not Found", "not found"}, Action: "stop"},
 			{Status: 410, Match: []string{"Gone", "end of life"}, Action: "stop"},
@@ -260,6 +256,50 @@ var providerCatalog = []ProviderInfo{
 	// serves the models its /v1/models/info lists, as NeoPi does.
 	{ID: "umans", Name: umansauth.Name, Vendor: "Umans", Hue: 280, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "anthropic", BaseURL: umansauth.BaseURL, KeyHint: "sk-...", GetKeyURL: umansauth.KeyPageURL}, Plans: []ProviderPlan{}},
+	// NeoPi's Chat Completions key providers: names, key hints and key pages
+	// are NeoPi's login rules; base URLs are its bundled catalogs'.
+	{ID: "aiand", Name: "ai&", Vendor: "ai&", Hue: 10, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.aiand.com/v1", "sk-...", "https://console.aiand.com/api-keys"), Plans: []ProviderPlan{}},
+	{ID: "baseten", Name: "Baseten", Vendor: "Baseten", Hue: 140, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://inference.baseten.co/v1", "bt_...", "https://app.baseten.co/settings/api_keys"), Plans: []ProviderPlan{}},
+	{ID: "coralbricks", Name: "CoralBricks", Vendor: "CoralBricks", Hue: 20, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://inference.coralbricks.ai/v1", "cb_...", "https://www.coralbricks.ai/api-keys"), Plans: []ProviderPlan{}},
+	{ID: "deepinfra", Name: "DeepInfra", Vendor: "DeepInfra", Hue: 215, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.deepinfra.com/v1/openai", "DeepInfra API key", "https://deepinfra.com/dash/api_keys"), Plans: []ProviderPlan{}},
+	{ID: "firepass", Name: "Fire Pass (Fireworks subscription)", Vendor: "Fireworks AI", Hue: 15, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.fireworks.ai/inference/v1", "fpk_...", "https://app.fireworks.ai/settings/users/api-keys"), Plans: []ProviderPlan{}},
+	{ID: "gmi-cloud", Name: "GMI Cloud", Vendor: "GMI Cloud", Hue: 180, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.gmi-serving.com/v1", "eyJ...", "https://console.gmicloud.ai"), Plans: []ProviderPlan{}},
+	{ID: "helmcode", Name: "Helmcode", Vendor: "Helmcode", Hue: 225, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.helmcode.com/v1", "sk-...", "https://cloud.helmcode.com"), Plans: []ProviderPlan{}},
+	{ID: "inception", Name: "Inception", Vendor: "Inception Labs", Hue: 60, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.inceptionlabs.ai/v1", "sk_...", "https://platform.inceptionlabs.ai/dashboard/api-keys"), Plans: []ProviderPlan{}},
+	{ID: "novita", Name: "Novita", Vendor: "Novita AI", Hue: 110, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.novita.ai/openai/v1", "sk_...", "https://novita.ai/settings/key-management"), Plans: []ProviderPlan{}},
+	{ID: "qianfan", Name: "Qianfan", Vendor: "Baidu", Hue: 235, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://qianfan.baidubce.com/v2", "bce-v3/ALTAK-...", "https://console.bce.baidu.com/qianfan/ais/console/apiKey"), Plans: []ProviderPlan{}},
+	{ID: "qwen-portal", Name: "Qwen Portal", Vendor: "Qwen", Hue: 267, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://portal.qwen.ai/v1", "sk-... (Qwen OAuth token or API key)", "https://chat.qwen.ai"), Plans: []ProviderPlan{}},
+	{ID: "sambanova", Name: "SambaNova", Vendor: "SambaNova", Hue: 30, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.sambanova.ai/v1", "SambaNova API key", "https://cloud.sambanova.ai/apis"), Plans: []ProviderPlan{}},
+	{ID: "stepfun", Name: "StepFun", Vendor: "StepFun", Hue: 200, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.stepfun.ai/v1", "StepFun API key", "https://platform.stepfun.ai/interface-key"), Plans: []ProviderPlan{}},
+	{ID: "synthetic", Name: "Synthetic", Vendor: "Synthetic", Hue: 290, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.synthetic.new/openai/v1", "sk-...", "https://dev.synthetic.new/docs/api/overview"), Plans: []ProviderPlan{}},
+	{ID: "venice", Name: "Venice", Vendor: "Venice", Hue: 350, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.venice.ai/api/v1", "vapi_...", "https://venice.ai/settings/api"), Plans: []ProviderPlan{}},
+	{ID: "wafer-serverless", Name: "Wafer Serverless (pay-as-you-go)", Vendor: "Wafer", Hue: 40, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://pass.wafer.ai/v1", "wfr_...", "https://app.wafer.ai/usage"), Plans: []ProviderPlan{}},
+	{ID: "xiaomi-token-plan-sgp", Name: "Xiaomi Token Plan (Singapore)", Vendor: "Xiaomi", Hue: 30, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://token-plan-sgp.xiaomimimo.com/v1", "tp-...", "https://platform.xiaomimimo.com/console/plan-manage"), Plans: []ProviderPlan{}},
+	{ID: "xiaomi-token-plan-ams", Name: "Xiaomi Token Plan (Europe)", Vendor: "Xiaomi", Hue: 30, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://token-plan-ams.xiaomimimo.com/v1", "tp-...", "https://platform.xiaomimimo.com/console/plan-manage"), Plans: []ProviderPlan{}},
+	{ID: "xiaomi-token-plan-cn", Name: "Xiaomi Token Plan (China)", Vendor: "Xiaomi", Hue: 30, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://token-plan-cn.xiaomimimo.com/v1", "tp-...", "https://platform.xiaomimimo.com/console/plan-manage"), Plans: []ProviderPlan{}},
+	{ID: "yolo-auto", Name: "Yolo-Auto", Vendor: "Yolo-Auto", Hue: 160, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://yolo-auto.com/v1", "yolo_...", "https://yolo-auto.com/app"), Plans: []ProviderPlan{}},
+	{ID: "zhipu-coding-plan", Name: "Zhipu Coding Plan (智谱)", Vendor: "Zhipu AI", Hue: 190, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://open.bigmodel.cn/api/coding/paas/v4", "<id>.<secret>", "https://bigmodel.cn/coding-plan/personal/overview"), Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

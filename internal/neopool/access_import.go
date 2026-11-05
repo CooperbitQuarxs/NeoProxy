@@ -162,7 +162,7 @@ func (h *HTTP) importOne(ctx context.Context, p neo.Principal, profile string, c
 		if err != nil {
 			return AccessItem{}, err
 		}
-		return h.AddAPIKey(ctx, p, APIKeyRequest{Provider: key.Provider, APIKey: key.APIKey, BaseURL: key.BaseURL, Label: key.Label, OwnerID: ownerID})
+		return h.AddAPIKey(ctx, p, APIKeyRequest{Provider: key.Provider, APIKey: key.APIKey, BaseURL: key.BaseURL, Label: key.Label, OwnerID: ownerID, Cookie: key.Cookie})
 	}
 	file, err := neopiimport.BuildAuthFile(cred, profile, now, now)
 	if err != nil {
