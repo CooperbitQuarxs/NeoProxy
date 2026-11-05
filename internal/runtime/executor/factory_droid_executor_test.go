@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -158,4 +160,113 @@ func loadFactoryDroidCapture(t *testing.T, path string) factoryDroidCapture {
 		t.Fatalf("%s holds no fixtures", path)
 	}
 	return capture
+}
+
+// factoryDroidServe runs one request for model against a server answering
+// with status and body, the account's row served from that server.
+func factoryDroidServe(t *testing.T, model string, format sdktranslator.Format, payload string, stream bool, status int, contentType, body string) (string, error) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(status)
+		_, _ = io.WriteString(w, body)
+	}))
+	defer server.Close()
+	entry := registry.FactoryDroidModelFor(model)
+	if entry == nil {
+		t.Fatalf("no registry model %s", model)
+	}
+	row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
+	row.BaseURL = server.URL + "/api"
+	auth := &cliproxyauth.Auth{ID: "factory-droid-account", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
+	req := cliproxyexecutor.Request{Model: model, Payload: []byte(payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
+	opts := cliproxyexecutor.Options{SourceFormat: format, OriginalRequest: []byte(payload), Stream: stream}
+	exec := NewFactoryDroidExecutor(&config.Config{})
+	if !stream {
+		response, err := exec.Execute(context.Background(), auth, req, opts)
+		return string(response.Payload), err
+	}
+	result, err := exec.ExecuteStream(context.Background(), auth, req, opts)
+	if err != nil {
+		return "", err
+	}
+	var out strings.Builder
+	for chunk := range result.Chunks {
+		if chunk.Err != nil {
+			return out.String(), chunk.Err
+		}
+		out.Write(chunk.Payload)
+	}
+	return out.String(), nil
+}
+
+// A chat-completions tool name over the route's bound goes out in the CLI's
+// capped form, and the call that comes back carries the declared name.
+func TestFactoryDroidCompletionsReturnsDeclaredToolNames(t *testing.T) {
+	// inkling's route bounds tool names at 64.
+	long := strings.Repeat("lookup.term.", 7)
+	wire := helps.FactoryDroidCompletionsToolName(long, 64)
+	if wire == long {
+		t.Fatal("tool name must exceed the route bound")
+	}
+	upstream := "data: " + `{"id":"c","object":"chat.completion.chunk","model":"inkling","choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"` + wire + `","arguments":"{}"}}]},"finish_reason":null}]}` + "\n\n" +
+		"data: " + `{"id":"c","object":"chat.completion.chunk","model":"inkling","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}` + "\n\ndata: [DONE]\n\n"
+	payload := `{"model":"inkling","messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"` + long + `","parameters":{"type":"object"}}}],"stream":true}`
+	for _, stream := range []bool{true, false} {
+		out, err := factoryDroidServe(t, "inkling", sdktranslator.FormatOpenAI, payload, stream, http.StatusOK, "text/event-stream", upstream)
+		if err != nil {
+			t.Fatalf("stream=%v: %v", stream, err)
+		}
+		if !strings.Contains(out, `"name":"`+long+`"`) || strings.Contains(out, wire) {
+			t.Errorf("stream=%v: returned call does not carry the declared name:\n%s", stream, out)
+		}
+	}
+}
+
+// Gemini routes end the way the native client does: a tool call wins over
+// any finish reason, a prompt block or a missing finish reason fails, and a
+// returned call carries the declared tool name.
+func TestFactoryDroidGeminiTerminal(t *testing.T) {
+	payload := `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"tools":[{"functionDeclarations":[{"name":"my.tool","parameters":{"type":"object"}}]}]}`
+	frame := func(chunk string) string { return "data: " + chunk + "\n\n" }
+	for _, tc := range []struct {
+		name, body, wantErr, wantOut string
+	}{
+		{"tool call wins", frame(`{"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"my_tool","args":{}}}]},"finishReason":"SAFETY"}]}`), "", `"name":"my.tool"`},
+		{"max tokens", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"MAX_TOKENS"}]}`), "", `Hi`},
+		{"prompt block", frame(`{"promptFeedback":{"blockReason":"SAFETY"}}`), "Generation was blocked by content filters (SAFETY)", ""},
+		{"blocked finish", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"RECITATION"}]}`), "Generation was blocked by content filters (RECITATION)", ""},
+		{"unknown finish", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"OTHER"}]}`), "Unknown finish reason: OTHER", ""},
+		{"truncated", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]}}]}`), "closed before a finish_reason", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := factoryDroidServe(t, "garnet-07-15", sdktranslator.FormatGemini, payload, false, http.StatusOK, "text/event-stream", tc.body)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("err = %v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, tc.wantOut) {
+				t.Errorf("response lacks %s:\n%s", tc.wantOut, out)
+			}
+		})
+	}
+}
+
+// A region rejection explains itself without excluding the model, keeping
+// the upstream status.
+func TestFactoryDroidRewritesRegionRejection(t *testing.T) {
+	payload := `{"model":"inkling","messages":[{"role":"user","content":"hi"}],"stream":true}`
+	_, err := factoryDroidServe(t, "inkling", sdktranslator.FormatOpenAI, payload, false, http.StatusForbidden, "application/json", `{"error":{"message":"Model is not available in this region"}}`)
+	if err == nil || err.Error() != "inkling is not served from your network's region. Choose another model." {
+		t.Fatalf("err = %v", err)
+	}
+	var coded interface{ StatusCode() int }
+	if !errors.As(err, &coded) || coded.StatusCode() != http.StatusForbidden {
+		t.Errorf("status = %v, want 403", err)
+	}
 }
