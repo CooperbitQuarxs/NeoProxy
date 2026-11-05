@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"reflect"
@@ -80,6 +81,11 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 		t.Run(result.Provider+"/"+result.Scenario, func(t *testing.T) {
 			baseURL := NeoPiCompletionsListingBase(result.Provider)
 			got, err := neoPiReplayListing(baseURL, result)
+			// An empty listing is a short-lived success that serves the
+			// bundled rows the merge keeps.
+			if empty := (*NeoPiEmptyListing)(nil); errors.As(err, &empty) {
+				got, err = empty.Models, nil
+			}
 			if result.Source == "bundled" {
 				if err == nil {
 					t.Fatalf("NeoPi kept the bundled roster; port resolved %d models", len(got))
@@ -188,8 +194,9 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 				continue
 			}
 			var models []*ModelInfo
-			if models, err = NeoPiCompletionsListing("xiaomi", NeoPiCompletionsListingBase(region), []byte(reply.Body)); err == nil {
-				return models, nil
+			models, err = NeoPiCompletionsListing("xiaomi", NeoPiCompletionsListingBase(region), []byte(reply.Body))
+			if empty := (*NeoPiEmptyListing)(nil); err == nil || errors.As(err, &empty) {
+				return models, err
 			}
 		}
 		return nil, err

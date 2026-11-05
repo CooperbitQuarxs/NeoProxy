@@ -53,7 +53,7 @@ type neoPiImageRequest struct {
 // falls back to the generation endpoint when the host answers 404. NeoPi's
 // image transport does not stream.
 func (e *NeoPiCompletionsExecutor) executeImage(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, endpointPath string) (resp cliproxyexecutor.Response, err error) {
-	row := e.imageRow(req)
+	row := e.runnerRow(auth, req, "openai-images")
 	if row == nil {
 		return resp, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: %s is not an image model", e.provider, req.Model)}
 	}
@@ -78,9 +78,9 @@ func (e *NeoPiCompletionsExecutor) executeImage(ctx context.Context, auth *clipr
 	if edit {
 		path = openAICompatImagesEditsPath
 	}
-	status, header, body, err := e.postImage(ctx, auth, client, row, path, payload)
+	status, header, body, err := e.postRunner(ctx, auth, client, row, path, payload)
 	if err == nil && edit && status == http.StatusNotFound {
-		status, header, body, err = e.postImage(ctx, auth, client, row, openAICompatImagesGenerationsPath, payload)
+		status, header, body, err = e.postRunner(ctx, auth, client, row, openAICompatImagesGenerationsPath, payload)
 	}
 	if err != nil {
 		return resp, err
@@ -100,24 +100,26 @@ func (e *NeoPiCompletionsExecutor) executeImage(ctx context.Context, auth *clipr
 	return cliproxyexecutor.Response{Payload: body, Headers: header.Clone()}, nil
 }
 
-// imageRow resolves the openai-images row a request names.
-func (e *NeoPiCompletionsExecutor) imageRow(req cliproxyexecutor.Request) *registry.NeoPiModel {
-	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == "openai-images" {
-		return info.NeoPi
+// runnerRow resolves the row of the runner transport api (openai-images,
+// openai-speech) a request names: the row the account's discovery
+// registered, else NeoPi's bundled row, on the account's configured endpoint.
+func (e *NeoPiCompletionsExecutor) runnerRow(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, api string) *registry.NeoPiModel {
+	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == api {
+		return e.accountRow(auth, info.NeoPi)
 	}
 	resolve := e.profile.Row
 	if resolve == nil {
 		resolve = registry.NeoPiCompletionsModel
 	}
-	if row := resolve(e.profile.Provider, req.Model); row != nil && row.API == "openai-images" {
-		return row
+	if row := resolve(e.profile.Provider, req.Model); row != nil && row.API == api {
+		return e.accountRow(auth, row)
 	}
 	return nil
 }
 
-// postImage sends one JSON image request with NeoPi's headers and returns the
-// reply.
-func (e *NeoPiCompletionsExecutor) postImage(ctx context.Context, auth *cliproxyauth.Auth, client *http.Client, row *registry.NeoPiModel, path string, payload []byte) (int, http.Header, []byte, error) {
+// postRunner sends one JSON runner request (image or speech) with NeoPi's
+// headers and returns the reply.
+func (e *NeoPiCompletionsExecutor) postRunner(ctx context.Context, auth *cliproxyauth.Auth, client *http.Client, row *registry.NeoPiModel, path string, payload []byte) (int, http.Header, []byte, error) {
 	url := strings.TrimRight(row.BaseURL, "/") + path
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {

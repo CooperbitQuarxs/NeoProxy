@@ -36,6 +36,16 @@ var neoPiAlibabaSeedsGz []byte
 // its manager then keeps the bundled roster.
 var ErrNeoPiListing = errors.New("registry: unusable model listing")
 
+// NeoPiEmptyListing is a successful listing that named no models. NeoPi
+// serves Models (the bundled rows its merge keeps) for this cycle but does
+// not cache the result as authoritative: it retries after its short
+// interval. It travels as an error so it survives callers' error wrapping.
+type NeoPiEmptyListing struct {
+	Models []*ModelInfo
+}
+
+func (e *NeoPiEmptyListing) Error() string { return "registry: the model listing named no models" }
+
 type neoPiSeed struct {
 	ID            string          `json:"id"`
 	Name          string          `json:"name"`
@@ -177,9 +187,9 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
 	specs, authoritative := neoPiListingSpecs(provider, entries)
-	// An authoritative empty listing leaves only the bundled runner rows
-	// retainModelIds keeps; an empty roster is not cached as authoritative,
-	// and the discovery cache retries it after its retry interval.
+	// A listing that names no models comes back as NeoPiEmptyListing with
+	// the bundled rows the merge keeps (runner rows, for an authoritative
+	// provider), which the discovery cache retries after its short interval.
 	return neoPiMergeListing(provider, baseURL, specs, authoritative)
 }
 
@@ -806,6 +816,9 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 		if neoPiServed(row) {
 			out = append(out, NeoPiCompletionsModelInfo(row, provider))
 		}
+	}
+	if len(specs) == 0 {
+		return nil, &NeoPiEmptyListing{Models: out}
 	}
 	return out, nil
 }

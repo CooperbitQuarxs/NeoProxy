@@ -336,8 +336,9 @@ func fetchNeoPiXiaomiTokenPlanModels(ctx context.Context, cfg *config.Config, au
 		body, err := neoPiDiscoveryGet(ctx, cfg, auth, "xiaomi", base+"/models", key)
 		if err == nil {
 			var models []*ModelInfo
-			if models, err = registry.NeoPiCompletionsListing("xiaomi", base, body); err == nil {
-				return models, nil
+			models, err = registry.NeoPiCompletionsListing("xiaomi", base, body)
+			if empty := (*registry.NeoPiEmptyListing)(nil); err == nil || errors.As(err, &empty) {
+				return models, err
 			}
 		}
 		lastErr = fmt.Errorf("xiaomi models: %s: %w", base, err)

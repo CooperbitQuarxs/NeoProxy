@@ -631,3 +631,17 @@ func NeoPiSingularityAPIBaseURL(provider, configured string) string {
 	}
 	return trimmed + "/v1"
 }
+
+// NeoPiAccountBaseURL is the endpoint a NeoPi provider's account serves from
+// when it configures one (NeoPi's provider baseUrl override): SingularityAPI's
+// normalized gateway URL, any other provider's URL as configured. Empty when
+// the account configures none.
+func NeoPiAccountBaseURL(provider, configured string) string {
+	if strings.TrimSpace(configured) == "" {
+		return ""
+	}
+	if provider == "singularityapi-dev" || provider == "singularityapi-tech" {
+		return NeoPiSingularityAPIBaseURL(provider, configured)
+	}
+	return strings.TrimRight(strings.TrimSpace(configured), "/")
+}
