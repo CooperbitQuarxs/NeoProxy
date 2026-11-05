@@ -28,6 +28,7 @@ import (
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"github.com/tiktoken-go/tokenizer"
 )
 
 // NeoPiGoogleHooks bind the shared NeoPi Google surface to one provider: which
@@ -50,8 +51,6 @@ type NeoPiGoogleExecutor struct {
 	cfg      *config.Config
 	provider string
 	hooks    NeoPiGoogleHooks
-	// counter estimates tokens locally; NeoPi never asks Google to count.
-	counter *OpenAICompatExecutor
 }
 
 // NewNeoPiGoogleExecutor builds the NeoPi Google executor for a provider id.
@@ -65,7 +64,7 @@ func NewNeoPiGoogleExecutor(provider string, cfg *config.Config, hooks NeoPiGoog
 	if hooks.BaseURL == nil {
 		hooks.BaseURL = geminiNeoPiBaseURL
 	}
-	return &NeoPiGoogleExecutor{cfg: cfg, provider: provider, hooks: hooks, counter: NewOpenAICompatExecutor(provider, cfg)}
+	return &NeoPiGoogleExecutor{cfg: cfg, provider: provider, hooks: hooks}
 }
 
 // geminiNeoPiRow is the NeoPi record the account's registration produced for
@@ -156,15 +155,62 @@ func (e *NeoPiGoogleExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 	return auth, nil
 }
 
-// CountTokens estimates locally from the Chat Completions form; NeoPi never
-// calls Google's countTokens.
+// CountTokens estimates locally from the prepared request: one preparation
+// (translation, normalizers, thinking, payload rules) serves both the refusal
+// of what generation would refuse and the estimate, so nothing runs twice.
+// NeoPi never calls Google's countTokens.
 func (e *NeoPiGoogleExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	// Refuse exactly what generation would refuse (an unsupported part, a
-	// missing key) before estimating.
-	if _, err := e.prepare(ctx, auth, req, opts, false); err != nil {
+	prepared, err := e.prepare(ctx, auth, req, opts, false)
+	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
-	return e.counter.CountTokens(ctx, auth, req, opts)
+	enc, err := helps.TokenizerForModel(prepared.model)
+	if err != nil {
+		return cliproxyexecutor.Response{}, fmt.Errorf("gemini executor: tokenizer init failed: %w", err)
+	}
+	count, err := geminiCountTokens(enc, prepared.body)
+	if err != nil {
+		return cliproxyexecutor.Response{}, fmt.Errorf("gemini executor: token counting failed: %w", err)
+	}
+	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
+	usage := []byte(fmt.Sprintf(`{"totalTokens":%d}`, count))
+	return cliproxyexecutor.Response{Payload: sdktranslator.TranslateTokenCount(ctx, sdktranslator.FormatGemini, responseFormat, count, usage)}, nil
+}
+
+// geminiCountTokens approximates prompt tokens of a generateContent body: the
+// system instruction, every part's text, call and result, and the tool schemas.
+func geminiCountTokens(enc tokenizer.Codec, body []byte) (int64, error) {
+	root := gjson.ParseBytes(body)
+	var segments []string
+	add := func(value string) {
+		if strings.TrimSpace(value) != "" {
+			segments = append(segments, value)
+		}
+	}
+	for _, part := range root.Get("systemInstruction.parts").Array() {
+		add(part.Get("text").String())
+	}
+	for _, content := range root.Get("contents").Array() {
+		add(content.Get("role").String())
+		for _, part := range content.Get("parts").Array() {
+			add(part.Get("text").String())
+			if call := part.Get("functionCall"); call.Exists() {
+				add(call.Get("name").String())
+				add(call.Get("args").Raw)
+			}
+			if result := part.Get("functionResponse"); result.Exists() {
+				add(result.Get("name").String())
+				add(result.Get("response").Raw)
+			}
+		}
+	}
+	add(root.Get("tools").Raw)
+	joined := strings.TrimSpace(strings.Join(segments, "\n"))
+	if joined == "" {
+		return 0, nil
+	}
+	count, err := enc.Count(joined)
+	return int64(count), err
 }
 
 // neoPiGoogleWireModel is the googlewire view of a NeoPi catalog row.
@@ -241,7 +287,12 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 		// The Gemini→Gemini normalizer sanitizes signatures (dropping a foreign
 		// thought signature loses the turn's provenance) and attaches safety
 		// settings NeoPi never sends, so a native body is read as sent.
-		originalTranslated, translated = original, req.Payload
+		// Registered request-normalizer plugins still run, on the preserved payload.
+		translated = sdktranslator.NormalizeRequest(ctx, opts.SourceFormat, sdktranslator.FormatGemini, row.ID, req.Payload, stream)
+		originalTranslated = translated
+		if !bytes.Equal(original, req.Payload) {
+			originalTranslated = sdktranslator.NormalizeRequest(ctx, opts.SourceFormat, sdktranslator.FormatGemini, row.ID, original, stream)
+		}
 	} else {
 		originalTranslated, translated, err = helps.TranslateRequestPairReturningError(ctx, opts.Headers, e.cfg, opts.SourceFormat, target, row.ID, original, req.Payload, stream, helps.APIKeyModelIsCompat(req))
 		if err != nil {
@@ -332,6 +383,10 @@ func (e *NeoPiGoogleExecutor) open(ctx context.Context, auth *cliproxyauth.Auth,
 		return nil, err
 	}
 	request.Header = prepared.headers.Clone()
+	// net/http writes the authority from Request.Host, not the Host header.
+	if host := request.Header.Get("Host"); host != "" {
+		request.Host = host
+	}
 	info := helps.UpstreamRequestLog{URL: request.URL.String(), Method: request.Method, Headers: request.Header, Body: prepared.body, Provider: e.Identifier()}
 	if auth != nil {
 		info.AuthID, info.AuthLabel = auth.ID, auth.Label
@@ -897,6 +952,7 @@ func FetchGoogleModels(ctx context.Context, cfg *config.Config, auth *cliproxyau
 // mapGoogleUsage reads it: a missing promptTokenCount falls back to
 // total - candidates - thoughts and cachedContentTokenCount is clamped to the
 // prompt, so NeoProxy's accounting never sees a negative or inflated input.
+// toolUsePromptTokenCount is dropped: NeoPi's mapper does not add it.
 func geminiNormalizeUsage(payload []byte) []byte {
 	root := gjson.ParseBytes(payload)
 	node := root.Get("usageMetadata")
@@ -910,9 +966,6 @@ func geminiNormalizeUsage(payload []byte) []byte {
 		{Name: "candidatesTokenCount", Value: jsjson.Marshal(node.Get("candidatesTokenCount").Int())},
 		{Name: "thoughtsTokenCount", Value: jsjson.Marshal(node.Get("thoughtsTokenCount").Int())},
 		{Name: "totalTokenCount", Value: jsjson.Marshal(node.Get("totalTokenCount").Int())},
-	}
-	if toolUse := node.Get("toolUsePromptTokenCount"); toolUse.Exists() {
-		fields = append(fields, jsjson.Field{Name: "toolUsePromptTokenCount", Value: jsjson.Marshal(toolUse.Int())})
 	}
 	return jsjson.Object(jsjson.Field{Name: "usageMetadata", Value: jsjson.Object(fields...)})
 }

@@ -67,7 +67,15 @@ func openAIBlocks(content gjson.Result, drops *translatorcommon.UserTurnDrops) [
 				continue
 			}
 			mime, data, uri := dataURLImage(raw)
-			blocks = append(blocks, Block{Type: BlockImage, MimeType: mime, Data: data, URL: uri})
+			if uri != "" {
+				// Only inline data is sent: a remote URL is refused when it would
+				// leave a user turn empty, as NeoPi's own OpenAI ingress refuses it.
+				if drops != nil {
+					drops.Drop(kind)
+				}
+				continue
+			}
+			blocks = append(blocks, Block{Type: BlockImage, MimeType: mime, Data: data})
 		default:
 			// NeoPi's context holds only text and images; a part with no
 			// equivalent is refused when it would leave a user turn empty.
@@ -115,7 +123,7 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 				ctx.Messages = append(ctx.Messages, Message{Role: RoleUser, IsString: true, Text: content.String()})
 			} else {
 				blocks := openAIBlocks(content, &drops)
-				drops.EndTurn(len(blocks))
+				drops.EndTurn(sendableBlocks(blocks))
 				ctx.Messages = append(ctx.Messages, Message{Role: RoleUser, Content: blocks})
 			}
 		case "assistant":
@@ -219,8 +227,8 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 	}
 	opts.ServiceTier = root.Get("service_tier").String()
 	for _, name := range []string{"cachedContent", "cached_content"} {
-		if value := root.Get(name); value.Type == gjson.String && value.String() != "" {
-			opts.CachedContent = value.String()
+		if value := root.Get(name); value.Type == gjson.String {
+			opts.CachedContent, opts.HasCachedContent = value.String(), true
 			break
 		}
 	}
@@ -232,4 +240,16 @@ func toolResultBlocks(content gjson.Result) []Block {
 		return []Block{{Type: BlockText, Text: content.String()}}
 	}
 	return openAIBlocks(content, nil)
+}
+
+// sendableBlocks counts the blocks a user turn can actually send: images and
+// text that is not blank (whitespace-only text is dropped on the wire).
+func sendableBlocks(blocks []Block) int {
+	n := 0
+	for _, block := range blocks {
+		if block.Type == BlockImage || jsTrim(block.Text) != "" {
+			n++
+		}
+	}
+	return n
 }

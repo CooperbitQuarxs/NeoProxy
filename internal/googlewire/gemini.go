@@ -193,6 +193,17 @@ func FromGemini(body []byte, model *Model) (Context, Options, error) {
 	}
 
 	for _, tool := range root.Get("tools").Array() {
+		var unsupported string
+		tool.ForEach(func(key, _ gjson.Result) bool {
+			if name := key.String(); name != "functionDeclarations" && name != "function_declarations" {
+				unsupported = name
+				return false
+			}
+			return true
+		})
+		if unsupported != "" {
+			return ctx, Options{}, &ValidationError{Message: "Gemini tool " + unsupported + " is not supported: NeoPi's Google provider sends function declarations only"}
+		}
 		for _, declaration := range first(tool, "functionDeclarations", "function_declarations").Array() {
 			parameters := first(declaration, "parametersJsonSchema", "parameters_json_schema", "parameters")
 			raw := json.RawMessage(`{"type":"object","properties":{}}`)
@@ -230,7 +241,11 @@ func FromGemini(body []byte, model *Model) (Context, Options, error) {
 			if budget.Int() == 0 {
 				opts.DisableReasoning = true
 			} else {
+				// The effort picks the ladder rung; the caller's own budget (-1
+				// included) is kept as NeoPi keeps a custom thinkingBudgets entry.
 				opts.Reasoning = effortForBudget(model, int(budget.Int()))
+				override := int(budget.Int())
+				opts.BudgetOverride = &override
 			}
 		}
 	}
@@ -251,7 +266,7 @@ func FromGemini(body []byte, model *Model) (Context, Options, error) {
 		opts.ServiceTier = tier
 	}
 	if cached := first(root, "cachedContent", "cached_content"); cached.Type == gjson.String {
-		opts.CachedContent = cached.String()
+		opts.CachedContent, opts.HasCachedContent = cached.String(), true
 	}
 	return ctx, opts, nil
 }

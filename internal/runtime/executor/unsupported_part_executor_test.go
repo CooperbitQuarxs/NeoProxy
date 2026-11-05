@@ -59,7 +59,7 @@ func TestExecutorsRefuseAFileOnlyTurnBeforeCallingUpstream(t *testing.T) {
 		{"claude to codex", NewCodexExecutor(&config.Config{}), keyAuth("codex", map[string]string{"plan_type": "pro"}), "claude", claudeFile, "container_upload"},
 		{"openai to claude", NewClaudeExecutor(&config.Config{}), keyAuth("claude", nil), "openai", openAIFile, "file"},
 		{"openai to gemini", NewGeminiExecutor(&config.Config{}), keyAuth("gemini", nil), "openai", openAIFile, "file"},
-		// A remote image URL is not refused for Gemini: NeoPi sends it as fileData.
+		{"openai image_url to gemini", NewGeminiExecutor(&config.Config{}), keyAuth("gemini", nil), "openai", openAIImageURL, "image_url"},
 		{"gemini audio to claude", NewClaudeExecutor(&config.Config{}), keyAuth("claude", nil), "gemini", geminiAudio, "inlineData"},
 		{"interactions developer step to claude", NewClaudeExecutor(&config.Config{}), keyAuth("claude", nil), "interactions", interactionsDeveloper, "document"},
 		{"interactions developer step to gemini", NewGeminiExecutor(&config.Config{}), keyAuth("gemini", nil), "interactions", interactionsDeveloper, "document"},

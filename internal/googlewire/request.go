@@ -41,9 +41,16 @@ type Options struct {
 	DisableReasoning bool
 	ToolChoice       ToolChoice
 	ServiceTier      string
+	// BudgetOverride is a caller-supplied thinking budget (NeoPi's custom
+	// thinkingBudgets entry), -1 included; it replaces the catalog budget of
+	// the chosen effort in budget mode.
+	BudgetOverride *int
 	// HideThinkingSummary asks Google to omit thought summaries.
 	HideThinkingSummary bool
-	CachedContent       string
+	// CachedContent is the context-cache name; HasCachedContent records that
+	// the caller set one at all (an empty name is a validation error).
+	CachedContent    string
+	HasCachedContent bool
 }
 
 // Thinking is the resolved GoogleOptions.thinking.
@@ -189,6 +196,9 @@ func MapOptions(model *Model, opts Options) (Resolved, error) {
 	if budget, ok := model.Thinking.EffortBudgets[effort]; ok {
 		requested = budget
 	}
+	if opts.BudgetOverride != nil {
+		requested = *opts.BudgetOverride
+	}
 	headroom := requested
 	if requested <= 0 {
 		headroom = googleHeadroom(model, effort)
@@ -250,7 +260,7 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 				field("mode", str("ANY")), field("allowedFunctionNames", jsjson.Marshal([]string{choice.Name})))))))
 		}
 	}
-	if resolved.CachedContent != "" {
+	if resolved.HasCachedContent || resolved.CachedContent != "" {
 		if jsTrim(resolved.CachedContent) == "" {
 			return nil, &ValidationError{Message: "cachedContent must not be blank"}
 		}

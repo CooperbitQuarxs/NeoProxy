@@ -19,7 +19,8 @@ import (
 // re-registers the account.
 type neoPiDiscovery struct {
 	provider string
-	// ttl is how long a listing stays fresh; retry backs off after a failure.
+	// ttl is how long a listing stays fresh; retry backs off after a failure;
+	// a zero timeout means no deadline on the fetch.
 	ttl, retry, timeout time.Duration
 	bundled             func() []*ModelInfo
 	fetch               func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
@@ -50,7 +51,7 @@ var (
 
 	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
 	// overlays the listing, so its bundled catalog stays authoritative.
-	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 30 * time.Second,
+	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 0,
 		bundled: registry.GoogleBundledModels, fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
 	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, googleDiscovery}
@@ -115,7 +116,14 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 
 	snapshot := a.Clone()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
+		// A zero timeout is deadline-free: after the connection is up no
+		// discovery read may be cut off (AGENTS.md).
+		ctx, cancel := context.Background(), context.CancelFunc(nil)
+		if d.timeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		} else {
+			ctx, cancel = context.WithCancel(ctx)
+		}
 		defer cancel()
 		models, err := d.fetch(ctx, cfg, snapshot)
 		d.mu.Lock()

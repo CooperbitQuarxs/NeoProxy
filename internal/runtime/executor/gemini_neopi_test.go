@@ -5,17 +5,21 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
+	translatorcommon "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/common"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -30,21 +34,45 @@ type geminiCapture struct {
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
 	Fixtures  []struct {
-		Name       string            `json:"name"`
-		Model      string            `json:"model"`
-		Format     string            `json:"format"`
-		Method     string            `json:"method"`
-		Path       string            `json:"path"`
-		Headers    map[string]string `json:"headers"`
-		RawBody    string            `json:"rawBody"`
-		Downstream json.RawMessage   `json:"downstream"`
+		Name         string            `json:"name"`
+		Model        string            `json:"model"`
+		Format       string            `json:"format"`
+		RequestedURL string            `json:"requestedURL"`
+		Method       string            `json:"method"`
+		Headers      map[string]string `json:"headers"`
+		RawBody      string            `json:"rawBody"`
+		Downstream   json.RawMessage   `json:"downstream"`
 	} `json:"fixtures"`
 }
 
+// geminiWireRecorder is a RoundTripper standing in for the network: it records
+// the request exactly as the transport would put it on the wire (full URL,
+// authority, headers, content length, body) and answers with a canned stream.
+type geminiWireRecorder struct {
+	method, url, host string
+	header            http.Header
+	contentLength     int64
+	body              []byte
+}
+
+func (r *geminiWireRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.method, r.url, r.header, r.contentLength = req.Method, req.URL.String(), req.Header.Clone(), req.ContentLength
+	r.host = req.Host
+	if r.host == "" {
+		r.host = req.URL.Host
+	}
+	r.body, _ = io.ReadAll(req.Body)
+	stream := `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Captured."}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1,"totalTokenCount":4}}` + "\n\n"
+	return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(stream)), Request: req}, nil
+}
+
 // Every captured NeoPi request is reproduced by the request NeoProxy actually
-// sends: method, path and query, headers and body, for each thinking mode,
-// tool, image, tool-result and signed-thought history shape, read by an
-// httptest server behind Execute.
+// sends: method, full URL, authority, headers (content-length value included)
+// and body, for each thinking mode, tool, image, tool-result and signed-thought
+// history shape. Only the transport is replaced; only `connection` is excluded
+// (Bun stamps keep-alive on HTTP/1.1, Go's transport manages it and forbids it
+// on the HTTP/2 Google is served over).
 func TestGeminiNeoPiRequestParity(t *testing.T) {
 	file, err := os.Open("testdata/gemini_npi_capture.json.gz")
 	if err != nil {
@@ -66,23 +94,10 @@ func TestGeminiNeoPiRequestParity(t *testing.T) {
 	if len(capture.Fixtures) == 0 {
 		t.Fatal("capture has no fixtures")
 	}
-	var sent struct {
-		method, uri string
-		header      http.Header
-		contentLen  int64
-		body        []byte
-	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sent.method, sent.uri, sent.header, sent.contentLen = r.Method, r.URL.RequestURI(), r.Header.Clone(), r.ContentLength
-		sent.body, _ = io.ReadAll(r.Body)
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = io.WriteString(w, `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Captured."}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1,"totalTokenCount":4}}`+"\n\n")
-	}))
-	defer server.Close()
+	recorder := &geminiWireRecorder{}
+	ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", recorder)
 	exec := NewGeminiExecutor(&config.Config{})
-	// The capture's base URL is the default Gemini one, version included; a
-	// configured base is used verbatim, so the test base carries the version too.
-	auth := &cliproxyauth.Auth{ID: "parity", Provider: "gemini", Attributes: map[string]string{"api_key": capture.APIKey, "base_url": server.URL + "/v1beta"}}
+	auth := &cliproxyauth.Auth{ID: "parity", Provider: "gemini", Attributes: map[string]string{"api_key": capture.APIKey}}
 	for _, fixture := range capture.Fixtures {
 		t.Run(fixture.Name, func(t *testing.T) {
 			// Translators hand the shaper compact JSON.
@@ -95,24 +110,24 @@ func TestGeminiNeoPiRequestParity(t *testing.T) {
 				format = sdktranslator.FormatGemini
 			}
 			req := cliproxyexecutor.Request{Model: fixture.Model, Payload: downstream.Bytes()}
-			if _, err = exec.Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: format}); err != nil {
+			if _, err = exec.Execute(ctx, auth, req, cliproxyexecutor.Options{SourceFormat: format}); err != nil {
 				t.Fatal(err)
 			}
-			if sent.method != fixture.Method {
-				t.Errorf("method = %s, want %s", sent.method, fixture.Method)
+			if recorder.method != fixture.Method {
+				t.Errorf("method = %s, want %s", recorder.method, fixture.Method)
 			}
-			if sent.uri != fixture.Path {
-				t.Errorf("uri = %s, want %s", sent.uri, fixture.Path)
+			if recorder.url != fixture.RequestedURL {
+				t.Errorf("url = %s, want %s", recorder.url, fixture.RequestedURL)
 			}
-			if string(sent.body) != fixture.RawBody {
-				t.Errorf("body:\n got %s\nwant %s", sent.body, fixture.RawBody)
+			if string(recorder.body) != fixture.RawBody {
+				t.Errorf("body:\n got %s\nwant %s", recorder.body, fixture.RawBody)
 			}
-			// content-length is compared as the body length Go's server reports;
-			// host differs by construction (loopback vs the Google host) and
-			// connection is transport-owned (Bun stamps keep-alive on HTTP/1.1, Go's
-			// transport manages it and forbids it on the HTTP/2 Google is served over).
-			if sent.contentLen != int64(len(fixture.RawBody)) {
-				t.Errorf("content-length = %d, want %d", sent.contentLen, len(fixture.RawBody))
+			if recorder.host != fixture.Headers["host"] {
+				t.Errorf("host = %s, want %s", recorder.host, fixture.Headers["host"])
+			}
+			// Go's client writes Content-Length from Request.ContentLength.
+			if got := strconv.FormatInt(recorder.contentLength, 10); got != fixture.Headers["content-length"] {
+				t.Errorf("content-length = %s, want %s", got, fixture.Headers["content-length"])
 			}
 			want := map[string]string{}
 			for name, value := range fixture.Headers {
@@ -121,10 +136,9 @@ func TestGeminiNeoPiRequestParity(t *testing.T) {
 				}
 			}
 			got := map[string]string{}
-			for name, values := range sent.header {
+			for name, values := range recorder.header {
 				got[strings.ToLower(name)] = strings.Join(values, ", ")
 			}
-			delete(got, "content-length")
 			for name, value := range want {
 				if got[name] != value {
 					t.Errorf("header %s = %q, want %q", name, got[name], value)
@@ -397,5 +411,124 @@ func TestGeminiNeoPiNativeSignedThoughtSurvives(t *testing.T) {
 	got := geminiSentBody(t, sdktranslator.FormatGemini, `{"contents":[{"role":"user","parts":[{"text":"hi"}]},{"role":"model","parts":[{"thought":true,"text":"","thoughtSignature":"`+sig+`"},{"text":"Hello","thoughtSignature":"`+sig+`"}]},{"role":"user","parts":[{"text":"more"}]}]}`)
 	if !got.Get("contents.1.parts.0.thought").Bool() || got.Get("contents.1.parts.0.thoughtSignature").String() != sig || got.Get("contents.1.parts.1.thoughtSignature").String() != sig {
 		t.Fatalf("signed thought lost: %s", got.Get("contents").Raw)
+	}
+}
+
+// A configured Host header becomes the request's authority.
+func TestGeminiNeoPiConfiguredHostReachesRequest(t *testing.T) {
+	recorder := &geminiWireRecorder{}
+	ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", recorder)
+	exec := NewGeminiExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest", "header:Host": "virtual.example"}}
+	req, opts := geminiChatRequest()
+	if _, err := exec.Execute(ctx, auth, req, opts); err != nil {
+		t.Fatal(err)
+	}
+	if recorder.host != "virtual.example" {
+		t.Fatalf("host = %q", recorder.host)
+	}
+}
+
+func geminiPrepareError(t *testing.T, source sdktranslator.Format, model, payload string) error {
+	t.Helper()
+	exec := NewGeminiExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest"}}
+	_, err := exec.prepare(context.Background(), auth, cliproxyexecutor.Request{Model: model, Payload: []byte(payload)}, cliproxyexecutor.Options{SourceFormat: source}, false)
+	return err
+}
+
+// An explicit empty cachedContent is a validation error, as in NeoPi.
+func TestGeminiNeoPiEmptyCachedContentIsRejected(t *testing.T) {
+	err := geminiPrepareError(t, sdktranslator.FormatGemini, "gemini-2.5-flash", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"cachedContent":""}`)
+	if err == nil || !strings.Contains(err.Error(), "cachedContent must not be blank") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// Native built-in tools are refused, never silently dropped.
+func TestGeminiNeoPiNativeBuiltInToolsAreRejected(t *testing.T) {
+	err := geminiPrepareError(t, sdktranslator.FormatGemini, "gemini-2.5-flash", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"tools":[{"googleSearch":{}}]}`)
+	status, ok := err.(interface{ StatusCode() int })
+	if !ok || status.StatusCode() != http.StatusBadRequest || !strings.Contains(err.Error(), "googleSearch") {
+		t.Fatalf("err = %T %v", err, err)
+	}
+}
+
+// An explicit native thinking budget, -1 included, reaches the wire unchanged.
+func TestGeminiNeoPiNativeThinkingBudgetIsPreserved(t *testing.T) {
+	for _, budget := range []int{-1, 1000} {
+		recorder := &geminiWireRecorder{}
+		ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", recorder)
+		exec := NewGeminiExecutor(&config.Config{})
+		auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest"}}
+		payload := fmt.Sprintf(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinkingBudget":%d,"includeThoughts":true}}}`, budget)
+		req := cliproxyexecutor.Request{Model: "gemini-2.5-flash", Payload: []byte(payload)}
+		if _, err := exec.Execute(ctx, auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatGemini}); err != nil {
+			t.Fatal(err)
+		}
+		if got := gjson.GetBytes(recorder.body, "generationConfig.thinkingConfig.thinkingBudget").Int(); got != int64(budget) {
+			t.Fatalf("budget %d sent as %d: %s", budget, got, recorder.body)
+		}
+	}
+}
+
+// Whitespace beside an unsupported part still counts as an emptied turn.
+func TestGeminiNeoPiWhitespaceBesideUnsupportedPartIsRefused(t *testing.T) {
+	err := geminiPrepareError(t, sdktranslator.FormatOpenAI, "gemini-2.5-flash", `{"messages":[{"role":"user","content":[{"type":"text","text":"  "},{"type":"input_audio","input_audio":{"data":"x","format":"wav"}}]}]}`)
+	var part *translatorcommon.UnsupportedPartError
+	if !errors.As(err, &part) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// Request-normalizer plugins run once on a native request, and once for a count
+// (which shares the prepared request with the estimator).
+type geminiCountingHooks struct{ calls int }
+
+func (h *geminiCountingHooks) NormalizeRequest(_ context.Context, _, _ sdktranslator.Format, _ string, body []byte, _ bool) []byte {
+	h.calls++
+	return body
+}
+func (h *geminiCountingHooks) TranslateRequest(context.Context, sdktranslator.Format, sdktranslator.Format, string, []byte, bool) ([]byte, bool) {
+	return nil, false
+}
+func (h *geminiCountingHooks) NormalizeResponseBefore(_ context.Context, _, _ sdktranslator.Format, _ string, _, _, body []byte, _ bool) []byte {
+	return body
+}
+func (h *geminiCountingHooks) TranslateResponse(context.Context, sdktranslator.Format, sdktranslator.Format, string, []byte, []byte, []byte, bool) ([]byte, bool) {
+	return nil, false
+}
+func (h *geminiCountingHooks) NormalizeResponseAfter(_ context.Context, _, _ sdktranslator.Format, _ string, _, _, body []byte, _ bool) []byte {
+	return body
+}
+
+func TestGeminiNeoPiNormalizersRunOncePerRequest(t *testing.T) {
+	hooks := &geminiCountingHooks{}
+	sdktranslator.SetPluginHooks(hooks)
+	t.Cleanup(func() { sdktranslator.SetPluginHooks(nil) })
+	for name, source := range map[string]struct {
+		format  sdktranslator.Format
+		payload string
+	}{
+		"native": {sdktranslator.FormatGemini, `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`},
+		"chat":   {sdktranslator.FormatOpenAI, `{"messages":[{"role":"user","content":"hi"}]}`},
+	} {
+		exec := NewGeminiExecutor(&config.Config{})
+		auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest"}}
+		req := cliproxyexecutor.Request{Model: "gemini-2.5-flash", Payload: []byte(source.payload)}
+		hooks.calls = 0
+		if _, err := exec.CountTokens(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: source.format}); err != nil {
+			t.Fatal(err)
+		}
+		if hooks.calls != 1 {
+			t.Errorf("%s: normalizer ran %d times for one count, want 1", name, hooks.calls)
+		}
+	}
+}
+
+func TestGeminiNeoPiUsageDropsToolUsePrompt(t *testing.T) {
+	detail := helps.ParseGeminiUsage(geminiNormalizeUsage([]byte(`{"usageMetadata":{"promptTokenCount":100,"toolUsePromptTokenCount":5,"candidatesTokenCount":10,"thoughtsTokenCount":5,"totalTokenCount":115}}`)))
+	if detail.InputTokens != 100 {
+		t.Fatalf("input = %d, want 100", detail.InputTokens)
 	}
 }
