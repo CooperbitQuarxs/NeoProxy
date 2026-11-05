@@ -173,33 +173,26 @@ func (a *factoryDroidAttempt) policyString(name string) string {
 	return value
 }
 
-// effort is requireSupportedEffort, normalizeMandatoryReasoningOptions and
-// selectEffort over the effort the canonical thinking pipeline settled for
-// the request (suffix over body).
-func (a *factoryDroidAttempt) effort(translated []byte, format string) (string, bool, error) {
+// effort is normalizeMandatoryReasoningOptions and selectEffort over the
+// effort the canonical thinking pipeline settled for the request (suffix
+// over body).
+func (a *factoryDroidAttempt) effort(translated []byte, format string) (string, bool) {
 	return a.effortFor(thinking.ExtractTranslatedReasoningEffort(translated, format))
 }
 
-// effortFor is requireSupportedEffort, normalizeMandatoryReasoningOptions
-// and selectEffort over the caller's requested effort ("none" turns
-// reasoning off): an effort outside the model's ladder is an error before
-// anything is sent, as NeoPi checks every Factory request.
-func (a *factoryDroidAttempt) effortFor(requested string) (string, bool, error) {
+// effortFor is normalizeMandatoryReasoningOptions and selectEffort over a
+// requested effort ("none" turns reasoning off).
+func (a *factoryDroidAttempt) effortFor(requested string) (string, bool) {
 	disabled := requested == string(thinking.LevelNone)
 	if disabled || requested == string(thinking.LevelAuto) {
 		requested = ""
-	}
-	if requested != "" {
-		if err := a.requireSupportedEffort(requested); err != nil {
-			return "", false, err
-		}
 	}
 	// normalizeMandatoryReasoningOptions: a requiresEffort model runs an off
 	// or effort-less request at its floor effort.
 	options := neoPiCompletionsOptions{reasoning: requested, disableReasoning: disabled}
 	neoPiNormalizeMandatoryReasoning(a.row, &options)
 	if options.disableReasoning {
-		return "", true, nil
+		return "", true
 	}
 	// selectEffort: without a caller effort the native default applies,
 	// which can be thinking off.
@@ -212,14 +205,25 @@ func (a *factoryDroidAttempt) effortFor(requested string) (string, bool, error) 
 		}
 	}
 	if selected == "none" || selected == "off" {
-		return "", true, nil
+		return "", true
 	}
-	return selected, false, nil
+	return selected, false
 }
 
-// requireSupportedEffort is NeoPi's requireSupportedEffort over the Factory
-// row: a reasoning model's own ladder admits the effort, or it is refused.
-func (a *factoryDroidAttempt) requireSupportedEffort(effort string) error {
+// requireRequestedEffort is NeoPi's requireSupportedEffort over the effort
+// the caller named (suffix over body; a token budget names none), checked
+// against the Factory row's own ladder before any wire shapes the request:
+// a reasoning model's ladder admits it, or nothing is sent.
+func (a *factoryDroidAttempt) requireRequestedEffort(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) error {
+	payload := opts.OriginalRequest
+	if len(payload) == 0 {
+		payload = req.Payload
+	}
+	effort := thinking.ExplicitReasoningEffort(payload, opts.SourceFormat.String(), req.Model)
+	switch effort {
+	case "", string(thinking.LevelNone), string(thinking.LevelAuto):
+		return nil
+	}
 	if !a.row.Reasoning {
 		return statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("Model %s/%s does not support thinking", factorydroid.Provider, a.model.ID)}
 	}
@@ -268,10 +272,7 @@ func (e *FactoryDroidExecutor) messagesExecutor(a *factoryDroidAttempt) (*Claude
 		catalog:    func(*cliproxyauth.Auth, cliproxyexecutor.Request, string) *registry.NeoPiModel { return row },
 		credential: neoPiAccountBearer(func(*cliproxyauth.Auth) string { return a.token }),
 		factory: func(translated []byte) ([]byte, *neoPiFactoryMessages, http.Header, error) {
-			effort, off, errEffort := a.effort(translated, "claude")
-			if errEffort != nil {
-				return nil, nil, nil, errEffort
-			}
+			effort, off := a.effort(translated, "claude")
 			model := helps.FactoryDroidAnthropicModel{
 				Reasoning:                       row.Reasoning,
 				DisabledThinking:                compat.Get("disabledThinking").String(),
@@ -366,10 +367,7 @@ func (e *FactoryDroidExecutor) completionsExecutor(a *factoryDroidAttempt) (*Neo
 			return strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
 		},
 		Request: func(_ context.Context, _ *cliproxyauth.Auth, row *registry.NeoPiModel, translated []byte) ([]byte, error) {
-			effort, off, errEffort := a.effort(translated, "openai")
-			if errEffort != nil {
-				return nil, errEffort
-			}
+			effort, off := a.effort(translated, "openai")
 			extra := map[string]any{}
 			if reasoning := helps.FactoryDroidCompletionsReasoning(a.policyString("completionsReasoningMode"), a.policyString("completionsReasoningHistory"), effort, off); len(reasoning) > 0 {
 				if errExtra := json.Unmarshal(reasoning, &extra); errExtra != nil {
@@ -496,6 +494,9 @@ func (e *FactoryDroidExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
+	if err = a.requireRequestedEffort(req, opts); err != nil {
+		return cliproxyexecutor.Response{}, err
+	}
 	wire, err := e.wireExecutor(a)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
@@ -511,6 +512,9 @@ func (e *FactoryDroidExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	}
 	a, err := e.attempt(auth, req, opts)
 	if err != nil {
+		return nil, err
+	}
+	if err = a.requireRequestedEffort(req, opts); err != nil {
 		return nil, err
 	}
 	wire, err := e.wireExecutor(a)

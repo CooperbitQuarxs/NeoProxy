@@ -654,6 +654,36 @@ func ExtractReasoningEffort(body []byte, provider, model string) string {
 	return reasoningEffortFromConfig(config)
 }
 
+// ExplicitReasoningEffort is ExtractReasoningEffort limited to an effort the
+// request names: a level, none or auto, with the same precedence (a
+// Responses update, then the model suffix, then the body). A token budget
+// names no effort and reads as empty.
+func ExplicitReasoningEffort(body []byte, provider, model string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	named := func(config ThinkingConfig) string {
+		if config.Mode == ModeBudget {
+			return ""
+		}
+		return reasoningEffortFromConfig(config)
+	}
+	if isResponsesFormat(provider) {
+		if update := extractConfigurationUpdateConfig(body); hasThinkingConfig(update) {
+			return named(update)
+		}
+	}
+	if suffix := ParseSuffix(model); suffix.HasSuffix {
+		if budget, ok := ParseNumericSuffix(suffix.RawSuffix); ok && budget > 0 {
+			return ""
+		}
+		return reasoningEffortFromSuffix(suffix)
+	}
+	config := extractThinkingConfigForUsage(body, provider)
+	if !hasThinkingConfig(config) && (provider == "openai-response" || provider == "openai") {
+		config = extractCodexUsageConfig(body)
+	}
+	return named(config)
+}
+
 // ExtractTranslatedReasoningEffort returns the final provider payload's thinking
 // setting as a canonical reasoning_effort label for usage logging.
 func ExtractTranslatedReasoningEffort(body []byte, provider string) string {
