@@ -32,7 +32,10 @@ type neoPiDiscoveryResult struct {
 	// listing still fetches.
 	Keyless bool   `json:"keyless"`
 	Source  string `json:"source"`
-	Models  []struct {
+	// ModelsDev is the models.dev catalog's answer (SiliconFlow); absent, it
+	// answered 503.
+	ModelsDev *neoPiCaptureReply `json:"modelsDev"`
+	Models    []struct {
 		ID            string         `json:"id"`
 		API           string         `json:"api"`
 		Name          string         `json:"name"`
@@ -221,6 +224,13 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 		return NeoPiClinePassListing(baseURL, []byte(result.Roster.Body), live)
 	case len(result.Replies) == 0 || result.Replies[0].Status/100 != 2:
 		return nil, ErrNeoPiListing
+	}
+	if result.Provider == "siliconflow" || result.Provider == "siliconflow-cn" {
+		var modelsDev []byte
+		if result.ModelsDev != nil && result.ModelsDev.Status/100 == 2 {
+			modelsDev = []byte(result.ModelsDev.Body)
+		}
+		return NeoPiSiliconFlowListing(result.Provider, baseURL, []byte(result.Replies[0].Body), modelsDev)
 	}
 	return NeoPiCompletionsListing(result.Provider, baseURL, []byte(result.Replies[0].Body))
 }

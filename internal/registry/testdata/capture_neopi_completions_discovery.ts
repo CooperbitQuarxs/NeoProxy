@@ -62,6 +62,8 @@ const managers: Record<string, (config: any) => any> = {
 	"charm-hyper": m.charmHyperModelManagerOptions,
 	"alibaba-coding-plan": m.alibabaCodingPlanModelManagerOptions,
 	kilo: m.kiloModelManagerOptions,
+	siliconflow: m.siliconflowModelManagerOptions,
+	"siliconflow-cn": m.siliconflowCnModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -317,9 +319,44 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-kilo-free", pricing: { prompt: "0", completion: "0" } },
 			{ id: "zz-kilo-junk-pricing", pricing: "x" },
 		],
+		// SiliconFlow's bare listing: models.dev, the bundled reference index
+		// or nothing hydrates each id; non-chat ids drop.
+		siliconflow: [
+			{ id: "zai-org/GLM-5.1" },
+			{ id: "deepseek-ai/DeepSeek-V4-Pro", name: "Live V4 Pro", context_length: 777777, max_completion_tokens: 4321 },
+			{ id: "moonshotai/Kimi-K3" },
+			{ id: "Qwen/Qwen3-235B-A22B-Instruct-2507", name: "Live Qwen" },
+			{ id: "openai/gpt-oss-120b" },
+			{ id: "anthropic/claude-sonnet-4.5" },
+			{ id: "BAAI/bge-m3" },
+			{ id: "Kwai-Kolors/Kolors" },
+			{ id: "  " },
+			{ id: "zz-silicon-new" },
+		],
+		"siliconflow-cn": [{ id: "Pro/zai-org/GLM-5.1" }, { id: "deepseek-ai/DeepSeek-V4-Pro" }, { id: "FunAudioLLM/CosyVoice2-0.5B" }, { id: "zz-silicon-cn-new" }],
 	};
 	list.push(...(shaped[provider] ?? []));
 	return list;
+}
+
+// The models.dev payload (catalog.stencil.so) SiliconFlow's manager joins
+// against: hydration, tool-call and kind filtering, junk values.
+function siliconFlowModelsDev(provider: string): unknown {
+	return {
+		[provider]: {
+			models: {
+				"zai-org/GLM-5.1": { name: "GLM-5.1", reasoning: true, tool_call: true, modalities: { input: ["text"] }, cost: { input: 1, output: 3.2, cache_read: 0.2 }, limit: { context: 202752, output: 131072 } },
+				"Pro/zai-org/GLM-5.1": { name: "  ", reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: "202752", output: 0 } },
+				"deepseek-ai/DeepSeek-V4-Pro": { name: "DeepSeek V4 Pro", reasoning: true, tool_call: false, modalities: { input: ["text"] }, cost: { input: 0.55, output: 2.19 }, limit: { context: 1048576, output: 65536 } },
+				"moonshotai/Kimi-K3": { name: "Kimi K3", reasoning: "yes", tool_call: true, modalities: { input: ["text", "image", "video"] }, limit: { context: 262144, output: 32768 } },
+				"BAAI/bge-m3": { name: "BGE M3", kind: "embedding", modalities: { input: ["text"] }, limit: { context: 8192 } },
+				"anthropic/claude-sonnet-4.5": { name: "Sonnet via SF", kind: "chat", limit: { context: -5, output: "x" } },
+				"zz-models-dev-only": { name: "Not Listed", tool_call: true, limit: { context: 4096, output: 1024 } },
+				"zz-not-a-record": 5,
+			},
+		},
+		"other-provider": { models: { "zz-silicon-new": { name: "Wrong Provider", limit: { context: 1 } } } },
+	};
 }
 
 // Control-plane records (GET /v1/accounts/fireworks/models) over two pages.
@@ -352,7 +389,7 @@ function fireworksPages(bundled: string[]): Reply[] {
 // ClinePass reads two hosts at once: Cline's recommended-models roster (the
 // authoritative ids) and OpenRouter's public catalog (enrichment only), so
 // its scenarios answer each host with its own reply.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean };
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -441,6 +478,18 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		// (without Authorization); the others serve the bundled roster.
 		{ name: "no key", keyless: true, replies: [json({ object: "list", data: list })] },
 	];
+	if (provider === "siliconflow" || provider === "siliconflow-cn") {
+		// models.dev answers each scenario; without it only the bundled
+		// reference index hydrates.
+		const modelsDev = json(siliconFlowModelsDev(provider));
+		return [
+			...generic,
+			{ name: "models.dev", modelsDev, replies: [json({ object: "list", data: list })] },
+			{ name: "models.dev, empty listing", modelsDev, replies: [json({ data: [] })] },
+			{ name: "models.dev not json", modelsDev: { status: 200, body: "oops" }, replies: [json({ data: list })] },
+			{ name: "models.dev without provider", modelsDev: json({ elsewhere: {} }), replies: [json({ data: list })] },
+		];
+	}
 	if (provider !== "xiaomi") return generic;
 	// A Token Plan key on the standard provider walks the regional clusters,
 	// SGP then AMS then CN, until one answers.
@@ -481,7 +530,10 @@ for (const [provider, build] of Object.entries(managers)) {
 		let call = 0;
 		const fetchImpl = async (input: any, init: any) => {
 			const url = new URL(typeof input === "string" ? input : input.url);
-			if (url.hostname === "catalog.stencil.so") return new Response("unavailable", { status: 503 });
+			if (url.hostname === "catalog.stencil.so") {
+				const reply = scenario.modelsDev ?? { status: 503, body: "unavailable" };
+				return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
+			}
 			requests.push({
 				method: init?.method ?? "GET",
 				path: url.pathname,
@@ -504,6 +556,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			replies: scenario.replies,
 			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
 			...(scenario.keyless ? { keyless: true } : {}),
+			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,

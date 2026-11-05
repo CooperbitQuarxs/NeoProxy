@@ -303,6 +303,22 @@
 				"label": "Charm Hyper",
 				"url": "https://hyper.charm.land/v1/credits"
 			}
+		},
+		"siliconflow": {
+			"name": "SiliconFlow",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "siliconflow",
+				"url": "https://api.siliconflow.com/v1/models"
+			}
+		},
+		"siliconflow-cn": {
+			"name": "SiliconFlow (China)",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "siliconflow-cn",
+				"url": "https://api.siliconflow.cn/v1/models"
+			}
 		}
 	}
 }

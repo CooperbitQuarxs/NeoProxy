@@ -45,6 +45,9 @@ func TestNeoPiCompletionsTransportParity(t *testing.T) {
 				t.Fatal(err)
 			}
 			profile := NeoPiCompletionsProfile{URL: func(*registry.NeoPiModel) string { return server.URL + "/chat/completions" }}
+			if discovered := neoPiCapturedListingRows(t, capture); len(discovered) > 0 {
+				profile.Row = func(_, model string) *registry.NeoPiModel { return discovered[model] }
+			}
 			exec := NewNeoPiCompletionsExecutor(capture.Provider, nil, profile)
 			auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": capture.APIKey}}
 			_, err = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: fixture.Model, Payload: payload}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI})
