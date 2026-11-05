@@ -37,7 +37,7 @@ type NeoPiCompletionsCatalog struct {
 		InputAuthoritative     bool `json:"inputAuthoritative"`
 		CostAuthoritative      bool `json:"costAuthoritative"`
 	} `json:"discovery"`
-	Models             []struct {
+	Models []struct {
 		ID            string            `json:"id"`
 		Name          string            `json:"name"`
 		API           string            `json:"api"`
