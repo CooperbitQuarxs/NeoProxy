@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -32,6 +33,10 @@ type neoPiDiscovery struct {
 	// match selects the accounts the discovery serves when provider alone
 	// cannot (keys at an address, one provider with two NeoPi catalogs).
 	match func(*coreauth.Auth) bool
+	// scope names the account scope a listing belongs to, when a refresh can
+	// move one account to another (Factory Droid's org, residency and
+	// inference region); a listing from another scope is not served.
+	scope func(*coreauth.Auth) string
 
 	mu      sync.Mutex
 	entries map[string]*neoPiDiscoveryEntry
@@ -39,6 +44,8 @@ type neoPiDiscovery struct {
 
 type neoPiDiscoveryEntry struct {
 	models []*ModelInfo
+	// scope is the account scope the listing was fetched for.
+	scope string
 	// shortLived marks a listing that named no models: its roster stands
 	// for this cycle only and is refetched after the retry interval.
 	shortLived bool
@@ -95,10 +102,21 @@ var (
 	// entitlement), so a listing stays fresh only until the next sweep; the
 	// fetch sets no timeout.
 	factoryDroidDiscovery = &neoPiDiscovery{provider: "factory-droid", ttl: neoPiDiscoverySweepEvery, retry: 5 * time.Minute,
-		bundled: executor.FactoryDroidSeedModels, fetch: executor.FetchFactoryDroidModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: executor.FactoryDroidSeedModels, fetch: executor.FetchFactoryDroidModels, scope: factoryDroidDiscoveryScope,
+		entries: map[string]*neoPiDiscoveryEntry{}}
 
 	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery}
 )
+
+// factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory
+// listing by: the account, its organization, residency and inference region.
+func factoryDroidDiscoveryScope(a *coreauth.Auth) string {
+	credential, ok := factorydroid.RecordCredential(a.Metadata)
+	if !ok {
+		return ""
+	}
+	return strings.Join([]string{credential.AccountID, credential.OrgID, credential.Region, credential.InferenceRegion}, "\x00")
+}
 
 // newResponsesDiscovery is the discovery of one NeoPi Responses provider: the
 // model manager's 2h cache over executor.FetchResponsesModels. NeoPi bounds
@@ -125,7 +143,7 @@ func (d *neoPiDiscovery) models(a *coreauth.Auth, now time.Time) ([]*ModelInfo, 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	entry := d.entries[a.ID]
-	if entry == nil {
+	if entry == nil || entry.scope != d.scopeOf(a) {
 		return d.bundled(a), true
 	}
 	// A successful empty listing stands for this cycle but, as in NeoPi's
@@ -171,8 +189,10 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 	}
 	d.mu.Lock()
 	entry := d.entries[a.ID]
-	if entry == nil {
-		entry = &neoPiDiscoveryEntry{}
+	// A listing for another scope is replaced, never joined: its fetch
+	// publishes into the entry it started with.
+	if scope := d.scopeOf(a); entry == nil || entry.scope != scope {
+		entry = &neoPiDiscoveryEntry{scope: scope}
 		d.entries[a.ID] = entry
 	}
 	if entry.inFlight {
@@ -206,7 +226,12 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 		} else {
 			entry.models, entry.shortLived, entry.fetchedAt, entry.failedAt = models, shortLived, time.Now(), time.Time{}
 		}
+		current := d.entries[snapshot.ID] == entry
 		d.mu.Unlock()
+		if !current {
+			// The account moved to another scope while this fetch ran.
+			return
+		}
 		if err != nil {
 			log.WithError(err).Warnf("%s: model discovery failed for %s", d.provider, snapshot.ID)
 			return
@@ -259,6 +284,14 @@ func (s *Service) runNeoPiDiscovery(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// scopeOf is the account scope a listing for a belongs to.
+func (d *neoPiDiscovery) scopeOf(a *coreauth.Auth) string {
+	if d.scope == nil || a == nil {
+		return ""
+	}
+	return d.scope(a)
 }
 
 // serves reports whether the discovery lists a's models.

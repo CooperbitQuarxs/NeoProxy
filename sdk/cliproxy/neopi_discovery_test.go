@@ -67,3 +67,33 @@ func TestNeoPiDiscoveryRetriesEmptyListingSoon(t *testing.T) {
 		})
 	}
 }
+
+// Factory Droid's listing belongs to the account scope it was fetched for
+// (NeoPi's model-cache namespace holds org, residency and inference region):
+// once a refresh moves the same account to another scope, the cached rows
+// stop serving and a fetch for the new scope is due.
+func TestFactoryDroidDiscoveryFollowsAccountScope(t *testing.T) {
+	account := func(region string) *coreauth.Auth {
+		return &coreauth.Auth{ID: "factory-scope", Provider: "factory-droid", Metadata: map[string]any{
+			"type": "factory-droid", "access_token": "token", "org_id": "org-1", "region": region}}
+	}
+	d := factoryDroidDiscovery
+	t.Cleanup(func() { forgetNeoPiDiscovery("factory-scope") })
+	now := time.Now()
+	global := []*ModelInfo{{ID: "global-only", NeoPi: &registry.NeoPiModel{ID: "global-only"}}}
+	d.mu.Lock()
+	d.entries["factory-scope"] = &neoPiDiscoveryEntry{models: global, fetchedAt: now, scope: d.scopeOf(account("global"))}
+	d.mu.Unlock()
+	if models, stale := d.models(account("global"), now); stale || len(models) != 1 || models[0].ID != "global-only" {
+		t.Fatalf("same scope = (%v, stale %v), want the fresh cached listing", models, stale)
+	}
+	models, stale := d.models(account("eu"), now)
+	if !stale {
+		t.Error("a listing from another scope is not due for refetch")
+	}
+	for _, model := range models {
+		if model.ID == "global-only" {
+			t.Errorf("EU account served the global listing: %v", models)
+		}
+	}
+}
