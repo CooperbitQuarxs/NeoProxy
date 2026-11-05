@@ -140,6 +140,32 @@ func TestWebSocketReaderEndReleasesAHeldWrite(t *testing.T) {
 	}
 }
 
+// TestWebSocketCloseDropsTheConnection ends the socket on a local close even
+// when nothing it writes would reach GitLab, as with a peer whose read side
+// stays open while its buffers are full.
+func TestWebSocketCloseDropsTheConnection(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{}
+		if _, err := upgrader.Upgrade(w, r, nil); err == nil {
+			<-release
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+	conn, gated, next := gatedSocket(t, server)
+	gated.set("hold")
+	conn.Close()
+	if event := next("close"); event.Type != "close" {
+		t.Fatalf("event after a local close %+v, want close", event)
+	}
+	select {
+	case <-gated.released:
+	default:
+		t.Fatal("the connection outlived the socket's close")
+	}
+}
+
 // TestWebSocketDoesNotWaitOnAStalledPeer keeps a peer that stopped reading
 // from holding the runtime: a send queues its frame, and a close drops the
 // connection under the frame GitLab never takes, after which the socket

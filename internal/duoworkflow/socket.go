@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -104,7 +103,6 @@ type gorillaConn struct {
 	mu       sync.Mutex
 	conn     *websocket.Conn
 	closed   bool
-	writing  bool
 	queue    []string
 	writeErr error
 	wake     chan struct{}
@@ -168,9 +166,7 @@ func (c *gorillaConn) signal() {
 	}
 }
 
-// write sends the queued frames in order and, once the socket is closed
-// and drained, a close frame without a status, as ws.close() does; then it
-// drops the connection, and the reader reports the close.
+// write sends the queued frames in order until the socket closes.
 func (c *gorillaConn) write(conn *websocket.Conn) {
 	for {
 		c.mu.Lock()
@@ -179,29 +175,26 @@ func (c *gorillaConn) write(conn *websocket.Conn) {
 			<-c.wake
 			c.mu.Lock()
 		}
-		if len(c.queue) == 0 {
+		if c.closed {
 			c.mu.Unlock()
-			_ = conn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
-			_ = conn.Close()
 			return
 		}
 		data := c.queue[0]
 		c.queue = c.queue[1:]
-		c.writing = true
 		c.mu.Unlock()
 		err := conn.WriteMessage(websocket.TextMessage, []byte(data))
+		if err == nil {
+			continue
+		}
 		c.mu.Lock()
-		c.writing = false
-		if err != nil && !c.closed {
-			// A frame that did not go out fails the socket, unless its
-			// close already dropped the connection under it.
+		if !c.closed {
+			// A frame that did not go out fails the socket, unless a close
+			// already dropped the connection under it.
 			c.writeErr, c.closed = err, true
 		}
 		c.mu.Unlock()
-		if err != nil {
-			_ = conn.Close()
-			return
-		}
+		_ = conn.Close()
+		return
 	}
 }
 
@@ -216,11 +209,12 @@ func (c *gorillaConn) Send(data string) error {
 	return nil
 }
 
-// Close closes the socket once. With every frame sent, the writer sends the
-// close frame, as ws.close() does. A frame still queued or being written
-// would hold that close back for as long as GitLab is not reading it, so
-// the connection is dropped instead: the runtime closes with frames unsent
-// only when the request ends or the session is evicted.
+// Close closes the socket once by dropping its connection; the reader then
+// reports the close. ws.close() never holds its caller, but its close frame
+// could wait indefinitely on a GitLab that stopped reading, and no deadline
+// may bound it, so none is sent: frames already written still reach GitLab,
+// and frames still queued are dropped. The runtime closes a socket only
+// once its turn is settled, its request ended, or its session evicted.
 func (c *gorillaConn) Close() {
 	c.mu.Lock()
 	if c.closed {
@@ -228,10 +222,10 @@ func (c *gorillaConn) Close() {
 		return
 	}
 	c.closed = true
-	conn, unsent := c.conn, c.writing || len(c.queue) > 0
+	conn := c.conn
 	c.queue = nil
 	c.mu.Unlock()
-	if conn != nil && unsent {
+	if conn != nil {
 		_ = conn.Close()
 	}
 	c.signal()

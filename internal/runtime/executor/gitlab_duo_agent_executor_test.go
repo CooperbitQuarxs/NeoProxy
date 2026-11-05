@@ -342,6 +342,38 @@ func TestGitLabDuoAgentExecutorQueuedTurnLeavesOnCancel(t *testing.T) {
 	<-first
 }
 
+// TestGitLabDuoAgentExecutorEndedRequestLeavesTheSession keeps a request
+// that already ended from the session even when the session is free to
+// admit it: the waiting tool answer still resumes the same workflow.
+func TestGitLabDuoAgentExecutorEndedRequestLeavesTheSession(t *testing.T) {
+	gitlabURL, opened, _ := duoAgentFakes(t, duoAgentWeather())
+	exec := NewGitLabDuoAgentExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{ID: "gitlab-duo-agent-test", Provider: "gitlab-duo-agent", Attributes: map[string]string{"api_key": "glpat-test"}}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI}
+	if _, err := exec.Execute(context.Background(), auth, duoAgentRequest(gitlabURL, duoAgentAsk), opts); err != nil {
+		t.Fatal(err)
+	}
+	ended, end := context.WithCancel(context.Background())
+	end()
+	// Admission between a free slot and an ended request is a coin toss;
+	// enough tosses make one that lands on admission all but certain.
+	for range 32 {
+		if _, err := exec.Execute(ended, auth, duoAgentRequest(gitlabURL, duoAgentAnswered), opts); err == nil {
+			t.Fatal("an ended request succeeded")
+		}
+	}
+	if _, err := exec.Execute(context.Background(), auth, duoAgentRequest(gitlabURL, duoAgentAnswered), opts); err != nil {
+		t.Fatal(err)
+	}
+	sockets := opened()
+	if len(sockets) != 1 {
+		t.Fatalf("opened %d sockets, want the waiting workflow resumed", len(sockets))
+	}
+	if frames := sockets[0].frames(); len(frames) != 2 || gjson.Get(frames[1], "actionResponse.requestID").String() != "req-7" {
+		t.Fatalf("frames: %v", frames)
+	}
+}
+
 // TestGitLabDuoAgentExecutorUsesTheConfiguredInstance keeps a key
 // configured for a GitLab instance on that instance: its discovery, and a
 // turn on the seed row the account serves before discovery answers.

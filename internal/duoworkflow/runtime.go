@@ -245,12 +245,18 @@ func (rt *Runtime) markSettingsEnsured(apiKey, baseURL string) {
 func (rt *Runtime) Stream(ctx context.Context, req *Request) *Output {
 	baseURL := trimTrailingSlashes(req.BaseURL)
 	sess := rt.session(baseURL, req.Scope, req.ModelID, req.SessionID)
+	aborted := &Output{Content: []*cursorwire.OutBlock{}, StopReason: "error", ErrorMessage: "GitLab Duo Workflow request aborted"}
 	select {
 	case sess.turn <- struct{}{}:
 	case <-ctx.Done():
-		return &Output{Content: []*cursorwire.OutBlock{}, StopReason: "error", ErrorMessage: "GitLab Duo Workflow request aborted"}
+		return aborted
 	}
 	defer func() { <-sess.turn }()
+	// The slot and the end can be ready together; an ended request still
+	// leaves the session as it found it.
+	if ctx.Err() != nil {
+		return aborted
+	}
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 	t := newTurn(req.Sink)
