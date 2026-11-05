@@ -3,13 +3,16 @@ package executor
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
@@ -20,7 +23,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"golang.org/x/sync/singleflight"
 )
+
+// snowflakeRefreshGroup runs one refresh per Snowflake refresh token at a time.
+var snowflakeRefreshGroup singleflight.Group
 
 // NeoPiCompletionsProfile adapts the shared NeoPi Chat Completions port to one
 // host: where its models come from, how its key is read, and any provider
@@ -115,9 +122,51 @@ func (e *NeoPiCompletionsExecutor) RequestToFormat(req cliproxyexecutor.Request,
 	return sdktranslator.FormatOpenAI
 }
 
-// Refresh is a no-op: these providers take long-lived API keys.
-func (e *NeoPiCompletionsExecutor) Refresh(_ context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
-	return auth, nil
+// Refresh renews a signed-in Snowflake account's tokens
+// (refreshSnowflakeToken); every other provider here takes long-lived keys.
+func (e *NeoPiCompletionsExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+	if e.profile.Provider != snowflake.Provider || auth == nil {
+		return auth, nil
+	}
+	tokens, account, ok := snowflake.RecordTokens(auth.Metadata)
+	if !ok {
+		return auth, nil
+	}
+	if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, e.cfg, auth); handled {
+		return refreshed, err
+	}
+	if cliproxyauth.IsRefreshLocked(auth) {
+		return nil, cliproxyauth.ErrRefreshLocked
+	}
+	client := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+	var result any
+	var err error
+	if tokens.Refresh == "" {
+		// Nothing to exchange: the record keeps or loses its own access token,
+		// so it must not join another record's flight.
+		result, err = snowflake.Refresh(ctx, client, account, tokens)
+	} else {
+		result, err, _ = snowflakeRefreshGroup.Do(account+"\x00"+tokens.Refresh, func() (any, error) {
+			return snowflake.Refresh(ctx, client, account, tokens)
+		})
+	}
+	if err != nil {
+		var oauthErr *snowflake.OAuthError
+		if errors.As(err, &oauthErr) && (oauthErr.Status == 0 || oauthErr.Status == http.StatusBadRequest || oauthErr.Status == http.StatusUnauthorized) {
+			return nil, statusErr{code: http.StatusUnauthorized, msg: err.Error()}
+		}
+		return nil, err
+	}
+	renewed := result.(snowflake.Tokens)
+	if renewed == tokens {
+		return auth, nil
+	}
+	updated := auth.Clone()
+	for key, value := range snowflake.Metadata(renewed, account) {
+		updated.Metadata[key] = value
+	}
+	updated.Metadata["last_refresh"] = time.Now().UTC().Format(time.RFC3339)
+	return updated, nil
 }
 
 // HttpRequest sends an arbitrary request with the account's bearer key.
@@ -146,6 +195,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	}
 	if xaiIsSpeechRequest(opts) {
 		return e.executeSpeech(ctx, auth, req, opts)
+	}
+	if err = e.snowflakeReady(auth, req); err != nil {
+		return result, err
 	}
 	if e.anthropicRow(auth, req) {
 		return e.messages.Execute(ctx, auth, req, opts)
@@ -201,6 +253,9 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	}
 	if xaiIsSpeechRequest(opts) {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: speech synthesis does not stream", e.provider)}
+	}
+	if err = e.snowflakeReady(auth, req); err != nil {
+		return nil, err
 	}
 	if e.anthropicRow(auth, req) {
 		return e.messages.ExecuteStream(ctx, auth, req, opts)
@@ -415,10 +470,18 @@ func neoPiCompletionsDefaultRetryDelay(attempt int) time.Duration {
 
 func (e *NeoPiCompletionsExecutor) now() time.Time { return time.Now() }
 
-// apiKey reads the account's bearer credential.
+// apiKey reads the account's bearer credential (for Snowflake, the token of
+// its PAT or structured OAuth credential).
 func (e *NeoPiCompletionsExecutor) apiKey(auth *cliproxyauth.Auth) string {
 	if e.profile.APIKey != nil {
 		return strings.TrimSpace(e.profile.APIKey(auth))
+	}
+	if e.profile.Provider == snowflake.Provider {
+		credential, ok, err := e.snowflakeCredential(auth)
+		if err != nil || !ok {
+			return ""
+		}
+		return credential.Token
 	}
 	return neoPiCompletionsAPIKey(auth)
 }
@@ -456,21 +519,21 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 // transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
 // cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
+// Snowflake's transport then places the effective row on its account.
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
 	if row == nil || auth == nil {
 		return row
 	}
 	provider := e.profile.Provider
-	base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"])
-	if base == "" || base == row.BaseURL {
-		return row
+	if base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"]); base != "" && base != row.BaseURL &&
+		(provider == "alibaba-token-plan" ||
+			(base != registry.NeoPiCompletionsListingBase(provider) && registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL))) {
+		row = row.Clone()
+		row.BaseURL = base
 	}
-	if provider != "alibaba-token-plan" &&
-		(base == registry.NeoPiCompletionsListingBase(provider) || !registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL)) {
-		return row
+	if provider == snowflake.Provider {
+		return e.snowflakeRow(auth, row)
 	}
-	row = row.Clone()
-	row.BaseURL = base
 	return row
 }
 
@@ -480,4 +543,62 @@ func (e *NeoPiCompletionsExecutor) url(row *registry.NeoPiModel) string {
 		return e.profile.URL(row)
 	}
 	return strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
+}
+
+// snowflakeCredential is the account's Snowflake credential: a signed-in
+// account's OAuth token bound to its account, else its key (a PAT, or a
+// structured OAuth credential naming its account), else SNOWFLAKE_PAT, as
+// NeoPi's transport falls back to.
+func (e *NeoPiCompletionsExecutor) snowflakeCredential(auth *cliproxyauth.Auth) (snowflake.Credential, bool, error) {
+	if auth != nil {
+		if credential, ok, err := snowflake.RecordCredential(auth.Metadata); ok || err != nil {
+			return credential, ok, err
+		}
+	}
+	raw := neoPiCompletionsAPIKey(auth)
+	if raw == "" {
+		raw = os.Getenv("SNOWFLAKE_PAT")
+	}
+	return snowflake.ParseCredential(raw)
+}
+
+// snowflakeRow is snowflakeTransport.prepareRequest's endpoint rewrite: a row
+// on the account placeholder moves to the credential's account, else
+// SNOWFLAKE_ACCOUNT's. A row that cannot be placed keeps the placeholder,
+// which snowflakeReady refuses before any request.
+func (e *NeoPiCompletionsExecutor) snowflakeRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
+	credential, ok, err := e.snowflakeCredential(auth)
+	if err != nil || !ok {
+		return row
+	}
+	base, err := snowflake.BaseURL(row.BaseURL, credential, os.Getenv("SNOWFLAKE_ACCOUNT"))
+	if err != nil || base == row.BaseURL {
+		return row
+	}
+	row = row.Clone()
+	row.BaseURL = base
+	return row
+}
+
+// snowflakeReady reports the configuration error NeoPi's Snowflake transport
+// raises for the request's effective endpoint (a malformed credential, no
+// account, an OAuth account that does not own the endpoint) before anything
+// is sent.
+func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
+	if e.profile.Provider != snowflake.Provider {
+		return nil
+	}
+	credential, ok, err := e.snowflakeCredential(auth)
+	if err != nil {
+		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": " + err.Error()}
+	}
+	if !ok {
+		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no credential"}
+	}
+	if row := e.row(auth, req); row != nil {
+		if _, err = snowflake.BaseURL(row.BaseURL, credential, os.Getenv("SNOWFLAKE_ACCOUNT")); err != nil {
+			return statusErr{code: http.StatusBadRequest, msg: e.provider + ": " + err.Error()}
+		}
+	}
+	return nil
 }

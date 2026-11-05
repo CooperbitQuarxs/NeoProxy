@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	kiloauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -67,7 +68,10 @@ type ProviderInfo struct {
 	Methods      []string              `json:"methods"`
 	Subscription *ProviderSubscription `json:"subscription,omitempty"`
 	APIKey       *ProviderAPIKey       `json:"apiKey,omitempty"`
-	Plans        []ProviderPlan        `json:"plans"`
+	// Account asks which of the provider's accounts a sign-in or key belongs
+	// to (Snowflake's account identifier) before either flow starts.
+	Account *ProviderAccount `json:"account,omitempty"`
+	Plans   []ProviderPlan   `json:"plans"`
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
@@ -84,6 +88,14 @@ type ProviderInfo struct {
 	sessionHeader string
 	// headers are static request headers for the provider's entry.
 	headers map[string]string
+}
+
+// ProviderAccount is the account prompt of a provider whose sign-in and keys
+// are per account (NeoPi's Snowflake account prompt).
+type ProviderAccount struct {
+	Label       string `json:"label"`
+	Placeholder string `json:"placeholder"`
+	Hint        string `json:"hint"`
 }
 
 // dialectRule routes model ids starting with prefix to dialect.
@@ -376,6 +388,14 @@ var providerCatalog = []ProviderInfo{
 	{ID: "kilo", Name: "Kilo Gateway", Vendor: "Kilo", Hue: 50, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
 		Subscription: device("Opens Kilo in a new tab and shows a code to confirm there. The token it grants lasts a year.").at("Kilo"),
 		APIKey:       openAIKey(kiloauth.BaseURL, "Kilo Gateway token (not checked before it is added)", "https://app.kilo.ai"),
+		Plans:        []ProviderPlan{}},
+	// Snowflake Cortex serves each customer from its own account host. NeoPi
+	// signs in there (OAuth, refreshed) or takes a programmatic access token
+	// (PAT) for the account; neither is checked before it is added.
+	{ID: "snowflake", Name: "Snowflake Cortex", Vendor: "Snowflake", Hue: 200, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: browser("Opens your Snowflake account's sign-in in a new tab. NeoProxy keeps the sign-in refreshed.").at("Snowflake"),
+		APIKey:       openAIKey(snowflake.Placeholder+"/api/v2/cortex/v1", "Programmatic access token (not checked before it is added)", "https://docs.snowflake.com/en/user-guide/programmatic-access-tokens"),
+		Account:      &ProviderAccount{Label: "Snowflake account", Placeholder: "myorg-myaccount", Hint: "Your account identifier (orgname-accountname) or account URL."},
 		Plans:        []ProviderPlan{}},
 	// Local OpenAI-compatible servers: an administrator names the server, and
 	// an empty key stands for NeoPi's no-auth placeholder.
