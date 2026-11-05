@@ -1,0 +1,2004 @@
+{
+	"source": "NeoPi OWN pi-catalog wire/cloudflare.ts and pi-ai registry/cloudflare-ai-gateway.ts",
+	"gatewayBase": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>",
+	"parse": [
+		{
+			"input": "cfut_token",
+			"credential": {
+				"token": "cfut_token"
+			}
+		},
+		{
+			"input": "  cfut_token \n",
+			"credential": {
+				"token": "cfut_token"
+			}
+		},
+		{
+			"input": "﻿cfut_token ",
+			"credential": {
+				"token": "cfut_token"
+			}
+		},
+		{
+			"input": "",
+			"credential": null
+		},
+		{
+			"input": "   ",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":\"cfut_token\",\"accountId\":\"acct\",\"gatewayId\":\"default\"}",
+			"credential": {
+				"token": "cfut_token",
+				"accountId": "acct",
+				"gatewayId": "default"
+			}
+		},
+		{
+			"input": "{\"token\":\" cfut_token \",\"accountId\":\" acct \",\"gatewayId\":\"\"}",
+			"credential": {
+				"token": "cfut_token",
+				"accountId": "acct"
+			}
+		},
+		{
+			"input": "{\"token\":\"cfut_token\",\"accountId\":\" acct﻿\"}",
+			"credential": {
+				"token": "cfut_token",
+				"accountId": "acct"
+			}
+		},
+		{
+			"input": "{\"token\":\"cfut_token\",\"gatewayId\":5}",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":\"cfut_token\",\"accountId\":null}",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":\"\",\"accountId\":\"acct\"}",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":\"  \"}",
+			"credential": null
+		},
+		{
+			"input": "{\"accountId\":\"acct\"}",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":7}",
+			"credential": null
+		},
+		{
+			"input": "{\"token\":\"cfut_token\",\"extra\":{\"nested\":true}}",
+			"credential": {
+				"token": "cfut_token"
+			}
+		},
+		{
+			"input": "{not json",
+			"credential": null
+		},
+		{
+			"input": "{}",
+			"credential": null
+		},
+		{
+			"input": "[1]",
+			"credential": {
+				"token": "[1]"
+			}
+		},
+		{
+			"input": "null",
+			"credential": {
+				"token": "null"
+			}
+		},
+		{
+			"input": "{\"token\":\"a<b>&c\"}",
+			"credential": {
+				"token": "a<b>&c"
+			}
+		}
+	],
+	"serialize": [
+		{
+			"credential": {
+				"token": "cfut_token"
+			},
+			"serialized": "{\"token\":\"cfut_token\"}"
+		},
+		{
+			"credential": {
+				"token": " cfut_token ",
+				"accountId": " acct ",
+				"gatewayId": " gw "
+			},
+			"serialized": "{\"token\":\"cfut_token\",\"accountId\":\"acct\",\"gatewayId\":\"gw\"}"
+		},
+		{
+			"credential": {
+				"token": "cfut_token",
+				"accountId": "",
+				"gatewayId": "  "
+			},
+			"serialized": "{\"token\":\"cfut_token\"}"
+		},
+		{
+			"credential": {
+				"token": "a<b>&c",
+				"accountId": "　acct",
+				"gatewayId": "gw "
+			},
+			"serialized": "{\"token\":\"a<b>&c\",\"accountId\":\"acct\",\"gatewayId\":\"gw\"}"
+		}
+	],
+	"transport": [
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-env/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/anthropic",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/anthropic",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-env/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/openai",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/openai",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-env/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-env/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"error": "Cloudflare AI Gateway ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-key/gw-env/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-env/gw-key/<account>/x",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"error": "Cloudflare account ID is required"
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/<account>/<gateway>/<account>/x",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://gateway.ai.cloudflare.com/v1/acct-fixed/gw-fixed/compat",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "cfut_plain",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "cfut_plain",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_plain"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"accountId\":\"acct-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{\"token\":\"cfut_struct\",\"gatewayId\":\"gw-key\"}",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"X-Keep": "kept",
+				"cf-aig-authorization": "Bearer cfut_struct"
+			},
+			"noAuth": true,
+			"prepared": true
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{not json",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "{not json",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "",
+			"env": {},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env",
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_ACCOUNT_ID": "acct-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		},
+		{
+			"base": "https://example.test/v1",
+			"apiKey": "",
+			"env": {
+				"CLOUDFLARE_GATEWAY_ID": "gw-env"
+			},
+			"baseUrl": "https://example.test/v1",
+			"headers": {
+				"Authorization": "Bearer stale",
+				"x-api-key": "stale",
+				"X-Keep": "kept"
+			},
+			"noAuth": false,
+			"prepared": false
+		}
+	]
+}

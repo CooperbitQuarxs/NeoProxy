@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/tidwall/gjson"
@@ -665,6 +666,8 @@ func neoPiListingSpecs(provider, baseURL string, entries []gjson.Result, modelsD
 			spec = neoPiMapVllm(entry, defaults, reference)
 		case "zenmux":
 			spec = neoPiMapZenMux(entry, defaults, baseURL)
+		case cloudflare.Provider:
+			spec = neoPiMapCloudflare(entry, defaults, reference, baseURL)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

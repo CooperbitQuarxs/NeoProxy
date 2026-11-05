@@ -277,6 +277,10 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 		}
 		return NeoPiSiliconFlowListing(result.Provider, baseURL, []byte(result.Replies[0].Body), modelsDev)
 	}
+	if result.Provider == "cloudflare-ai-gateway" {
+		// cloudflareAiGatewayModelManagerOptions lists from its Anthropic base.
+		return NeoPiCompletionsListing(result.Provider, NeoPiCloudflareListingBase(result.BaseURL), []byte(result.Replies[0].Body))
+	}
 	return NeoPiCompletionsListing(result.Provider, baseURL, []byte(result.Replies[0].Body))
 }
 

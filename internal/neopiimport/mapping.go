@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
@@ -88,6 +89,9 @@ var apiKeyRoutes = map[string]route{
 	"minimax-code-cn":    {target: "minimax-code-cn"},
 	// A Snowflake PAT, or NeoPi's structured key that names its account.
 	"snowflake": {target: "snowflake"},
+	// NeoPi's Cloudflare login credential: the gateway token with its account
+	// and gateway ids.
+	"cloudflare-ai-gateway": {target: "cloudflare-ai-gateway"},
 	// Local servers import at their default address (an administrator's
 	// action, as their address is editable).
 	"vllm":                  {target: "vllm"},
@@ -258,6 +262,17 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			}
 			if credential.AccountURL == "" {
 				return "This Snowflake access token does not name its account. Add it in NeoProxy with its Snowflake account."
+			}
+		}
+		if c.Provider == cloudflare.Provider {
+			// NeoPi fills missing ids from CLOUDFLARE_ACCOUNT_ID and
+			// CLOUDFLARE_GATEWAY_ID, which the record does not carry.
+			credential, ok := cloudflare.ParseCredential(apiKeyValue(c))
+			if !ok {
+				return "NeoPi's Cloudflare AI Gateway key is not valid."
+			}
+			if credential.AccountID == "" || credential.GatewayID == "" {
+				return "This Cloudflare AI Gateway token does not name its account and gateway. Add it in NeoProxy with both IDs."
 			}
 		}
 	case r.kind == KindSubscription:
@@ -462,6 +477,12 @@ func label(c Credential, r route) string {
 		// Name the token's ending and its account, never the stored JSON.
 		if credential, ok, err := snowflake.ParseCredential(key); ok && err == nil && credential.AccountURL != "" && len(credential.Token) >= 12 {
 			return "…" + credential.Token[len(credential.Token)-4:] + " (" + strings.TrimPrefix(credential.AccountURL, "https://") + ")"
+		}
+	}
+	if c.Provider == cloudflare.Provider {
+		// Name the token's ending and its gateway, never the stored JSON.
+		if credential, ok := cloudflare.ParseCredential(key); ok && credential.GatewayID != "" && len(credential.Token) >= 12 {
+			return "…" + credential.Token[len(credential.Token)-4:] + " (gateway " + credential.GatewayID + ")"
 		}
 	}
 	if len(key) < 12 {

@@ -62,6 +62,9 @@ type NeoPiCompletionsCatalog struct {
 		// AnthropicCompatIndex indexes AnthropicCompats for an
 		// anthropic-messages row.
 		AnthropicCompatIndex int `json:"anthropicCompatIndex"`
+		// RequestModelID is the wire id the row's transport sends when it
+		// differs from the id (Cloudflare's stripped namespace).
+		RequestModelID string `json:"requestModelId"`
 		// Cost is the bundled row's token tariff.
 		Cost NeoPiCost `json:"cost"`
 	} `json:"models"`
@@ -152,6 +155,7 @@ func loadNeoPiCompletionsCatalogs() {
 				CompletionsCompat:         compat,
 				AnthropicCompat:           anthropic,
 				CompatConfig:              row.CompatConfig,
+				RequestModelID:            row.RequestModelID,
 				cost:                      row.Cost,
 				thinkingRequiresEffortSet: requiresEffortSet,
 			})

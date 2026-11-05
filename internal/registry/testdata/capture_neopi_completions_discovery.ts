@@ -19,6 +19,12 @@ const outFile = process.env.OUT_FILE ?? join(dirname(new URL(import.meta.url).pa
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
 const m = await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
+// Cloudflare's transport routes each row per request (prepareModel); the
+// exported catalog and the port keep the routed rows, so discovered rows are
+// recorded routed too.
+const { cloudflareAiGatewayTransport } = await import(root + "/pi-ai/src/registry/cloudflare-ai-gateway.ts");
+const routed = (provider: string, model: any) =>
+	provider === "cloudflare-ai-gateway" ? cloudflareAiGatewayTransport.prepareModel(model) : model;
 
 const managers: Record<string, (config: any) => any> = {
 	cerebras: m.cerebrasModelManagerOptions,
@@ -67,6 +73,7 @@ const managers: Record<string, (config: any) => any> = {
 	vllm: m.vllmModelManagerOptions,
 	"lm-studio": m.lmStudioModelManagerOptions,
 	zenmux: m.zenmuxModelManagerOptions,
+	"cloudflare-ai-gateway": m.cloudflareAiGatewayModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -566,6 +573,19 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			},
 		];
 	}
+	if (provider === "cloudflare-ai-gateway") {
+		// An Anthropic /v1/models listing on the configured base, else on the
+		// unfilled gateway placeholders; the login credential is the raw key.
+		const listing = json({ object: "list", data: list });
+		const credential = JSON.stringify({ token: "cfut_capture", accountId: "acct", gatewayId: "gw" });
+		return [
+			...generic,
+			{ name: "structured credential", apiKey: credential, replies: [listing] },
+			{ name: "configured base", baseUrl: "https://gw.example/acct/gw/anthropic/", replies: [listing] },
+			{ name: "configured v1 base", baseUrl: "https://gw.example/custom/v1", apiKey: credential, replies: [listing] },
+			{ name: "oauth-shaped key", apiKey: "sk-ant-oat01-capture", baseUrl: "https://gw.example/acct/gw/anthropic", replies: [listing] },
+		];
+	}
 	if (provider === "zenmux") {
 		// A configured Anthropic-route base names the OpenAI route; any other
 		// path keeps its own listing and puts Claude rows on /api/anthropic.
@@ -656,7 +676,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			requests,
 			source: resolved.source,
 			stale: resolved.stale,
-			models: resolved.models.map((model: any) => ({
+			models: resolved.models.map((raw: any) => routed(provider, raw)).map((model: any) => ({
 				id: model.id,
 				api: model.api,
 				name: model.name,
@@ -665,6 +685,7 @@ for (const [provider, build] of Object.entries(managers)) {
 				contextWindow: model.contextWindow ?? null,
 				maxTokens: model.maxTokens ?? null,
 				baseUrl: model.baseUrl,
+				...(model.requestModelId && model.requestModelId !== model.id ? { requestModelId: model.requestModelId } : {}),
 				compatIndex: compatIndex(model.compat),
 				...(model.thinking ? { thinking: model.thinking } : {}),
 				...(model.kind ? { kind: model.kind } : {}),
