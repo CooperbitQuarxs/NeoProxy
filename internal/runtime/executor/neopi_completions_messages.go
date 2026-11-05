@@ -2,11 +2,13 @@ package executor
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // neoPiCompletionsRecognition lists the properties NeoPi reads a replayed
@@ -25,7 +27,54 @@ func neoPiCompletionsMessages(root gjson.Result, row *registry.NeoPiModel, compa
 	messages = neoPiSanitizeMalformedToolCalls(messages)
 	messages = neoPiRepairToolCallWindows(messages)
 	supportsImages := neoPiCompletionsVisionSupported(row, compat)
-	return jsjson.Marshal(neoPiConvertCompletionsMessages(messages, row, compat, supportsImages)), nil
+	params := neoPiConvertCompletionsMessages(messages, row, compat, supportsImages)
+	if compat.CacheControlFormat == "anthropic" {
+		neoPiAddAnthropicCacheControl(params)
+	}
+	return jsjson.Marshal(params), nil
+}
+
+// neoPiAddAnthropicCacheControl is maybeAddAnthropicCacheControl: a cache
+// breakpoint on the last non-empty text of the last message that has one, so
+// the cached prefix advances every request, tool results included.
+func neoPiAddAnthropicCacheControl(params []json.RawMessage) {
+	const ephemeral = `{"type":"ephemeral"}`
+	for i := len(params) - 1; i >= 0; i-- {
+		message := gjson.ParseBytes(params[i])
+		switch message.Get("role").String() {
+		case "user", "assistant", "developer", "tool":
+		default:
+			continue
+		}
+		content := message.Get("content")
+		switch {
+		case content.Type == gjson.String:
+			if strings.TrimSpace(content.String()) == "" {
+				continue
+			}
+			part := jsjson.Object(
+				jsjson.Field{Name: "type", Value: jsjson.Marshal("text")},
+				jsjson.Field{Name: "text", Value: jsjson.Marshal(content.String())},
+				jsjson.Field{Name: "cache_control", Value: json.RawMessage(ephemeral)},
+			)
+			if updated, err := sjson.SetRawBytes(params[i], "content", append([]byte{'['}, append(part, ']')...)); err == nil {
+				params[i] = updated
+			}
+			return
+		case content.IsArray():
+			parts := content.Array()
+			for j := len(parts) - 1; j >= 0; j-- {
+				text := parts[j].Get("text")
+				if parts[j].Get("type").String() != "text" || text.Type != gjson.String || strings.TrimSpace(text.String()) == "" {
+					continue
+				}
+				if updated, err := sjson.SetRawBytes(params[i], "content."+strconv.Itoa(j)+".cache_control", []byte(ephemeral)); err == nil {
+					params[i] = updated
+				}
+				return
+			}
+		}
+	}
 }
 
 // neoPiCompletionsVisionSupported is isOpenAICompletionsVisionSupported: the

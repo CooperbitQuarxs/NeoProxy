@@ -1,0 +1,427 @@
+{
+  "source": "NeoPi OWN loginXiaomi",
+  "results": [
+    {
+      "name": "standard-ok",
+      "input": "  sk-standard-key  ",
+      "steps": [
+        {
+          "body": {
+            "choices": [
+              {
+                "message": {
+                  "content": "pong"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://api.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer sk-standard-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": "sk-standard-key",
+      "error": null,
+      "errorName": null
+    },
+    {
+      "name": "standard-401",
+      "input": "sk-standard-key",
+      "steps": [
+        {
+          "status": 401,
+          "body": {
+            "error": {
+              "message": "Invalid API Key"
+            }
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://api.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer sk-standard-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "Xiaomi MiMo API key validation failed (401): {\"error\":{\"message\":\"Invalid API Key\"}}",
+      "errorName": "OAuthError"
+    },
+    {
+      "name": "standard-500",
+      "input": "sk-standard-key",
+      "steps": [
+        {
+          "status": 500,
+          "body": "upstream exploded"
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://api.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer sk-standard-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "Xiaomi MiMo API key validation failed (500): upstream exploded",
+      "errorName": "OAuthError"
+    },
+    {
+      "name": "standard-empty-body",
+      "input": "sk-standard-key",
+      "steps": [
+        {
+          "status": 403,
+          "body": ""
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://api.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer sk-standard-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "Xiaomi MiMo API key validation failed (403)",
+      "errorName": "OAuthError"
+    },
+    {
+      "name": "standard-network",
+      "input": "sk-standard-key",
+      "steps": [
+        {
+          "networkError": true
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://api.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer sk-standard-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "fetch failed",
+      "errorName": "TypeError"
+    },
+    {
+      "name": "token-plan-sgp",
+      "input": "tp-plan-key",
+      "steps": [
+        {
+          "body": {
+            "choices": [
+              {
+                "message": {
+                  "content": "pong"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": "tp-plan-key",
+      "error": null,
+      "errorName": null
+    },
+    {
+      "name": "token-plan-ams-after-401",
+      "input": "tp-plan-key",
+      "steps": [
+        {
+          "status": 401,
+          "body": {
+            "error": {
+              "message": "Invalid API Key"
+            }
+          }
+        },
+        {
+          "body": {
+            "choices": [
+              {
+                "message": {
+                  "content": "pong"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-ams.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": "tp-plan-key",
+      "error": null,
+      "errorName": null
+    },
+    {
+      "name": "token-plan-cn-after-network",
+      "input": "ttp-plan-key",
+      "steps": [
+        {
+          "networkError": true
+        },
+        {
+          "status": 401,
+          "body": {
+            "error": {
+              "message": "Invalid API Key"
+            }
+          }
+        },
+        {
+          "body": {
+            "choices": [
+              {
+                "message": {
+                  "content": "pong"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer ttp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-ams.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer ttp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer ttp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": "ttp-plan-key",
+      "error": null,
+      "errorName": null
+    },
+    {
+      "name": "token-plan-all-401",
+      "input": "tp-plan-key",
+      "steps": [
+        {
+          "status": 401,
+          "body": {
+            "error": {
+              "message": "Invalid API Key"
+            }
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-ams.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "Xiaomi MiMo API key validation failed (401): {\"error\":{\"message\":\"Invalid API Key\"}}",
+      "errorName": "OAuthError"
+    },
+    {
+      "name": "token-plan-429-stops",
+      "input": "tp-plan-key",
+      "steps": [
+        {
+          "status": 401,
+          "body": {
+            "error": {
+              "message": "Invalid API Key"
+            }
+          }
+        },
+        {
+          "status": 429,
+          "body": {
+            "error": {
+              "message": "slow down"
+            }
+          }
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-ams.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "Xiaomi MiMo API key validation failed (429): {\"error\":{\"message\":\"slow down\"}}",
+      "errorName": "OAuthError"
+    },
+    {
+      "name": "token-plan-all-network",
+      "input": "tp-plan-key",
+      "steps": [
+        {
+          "networkError": true
+        }
+      ],
+      "requests": [
+        {
+          "url": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-ams.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        },
+        {
+          "url": "https://token-plan-cn.xiaomimimo.com/v1/chat/completions",
+          "method": "POST",
+          "headers": {
+            "authorization": "Bearer tp-plan-key",
+            "content-type": "application/json"
+          },
+          "body": "{\"model\":\"mimo-v2.6-flash\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}]}"
+        }
+      ],
+      "value": null,
+      "error": "fetch failed",
+      "errorName": "TypeError"
+    },
+    {
+      "name": "empty",
+      "input": "   ",
+      "steps": [
+        {
+          "body": {
+            "choices": [
+              {
+                "message": {
+                  "content": "pong"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "requests": [],
+      "value": null,
+      "error": "API key is required",
+      "errorName": "ApiKeyRequiredError"
+    }
+  ]
+}

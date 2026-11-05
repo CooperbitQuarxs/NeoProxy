@@ -157,6 +157,7 @@ func neoPiCompletionsRequest(input []byte, row *registry.NeoPiModel, call neoPiC
 	}
 	compat, reasoning := neoPiResolveCompletionsReasoning(row, compat, options, choice)
 	neoPiApplyCompletionsReasoning(&body, compat, reasoning)
+	neoPiApplyClinePassBudget(&body, row, options, reasoning)
 	neoPiApplyGatewayRouting(&body, compat)
 	neoPiApplyExtraBody(&body, compat)
 	if compat.SupportsPromptCacheKey {
@@ -467,7 +468,7 @@ func neoPiApplyCompletionsReasoning(body *neoPiOrderedObject, compat *registry.N
 		if reasoning.wireEffort != "" {
 			body.setNested("chat_template_kwargs", "reasoning_effort", jsjson.Marshal(reasoning.wireEffort))
 		}
-	case "openrouter-enabled-false", "cline-enabled-false":
+	case "openrouter-enabled-false":
 		if reasoning.wireEffort != "" {
 			body.set("reasoning", jsjson.Object(jsjson.Field{Name: "effort", Value: jsjson.Marshal(reasoning.wireEffort)}))
 		}
@@ -476,6 +477,21 @@ func neoPiApplyCompletionsReasoning(body *neoPiOrderedObject, compat *registry.N
 			body.set("reasoning_effort", jsjson.Marshal(reasoning.wireEffort))
 		}
 	}
+}
+
+// neoPiApplyClinePassBudget is the ClinePass tail of
+// applyChatCompletionsReasoningParams: a budget-mode model takes its thinking
+// budget for the requested effort in place of the effort field.
+func neoPiApplyClinePassBudget(body *neoPiOrderedObject, row *registry.NeoPiModel, options neoPiCompletionsOptions, reasoning neoPiCompletionsReasoning) {
+	if row.Provider != "cline-pass" || !reasoning.enabled || row.Thinking == nil || row.Thinking.Mode != "budget" || options.reasoning == "" {
+		return
+	}
+	budget, ok := row.Thinking.EffortBudgets[options.reasoning]
+	if !ok {
+		return
+	}
+	body.del("reasoning_effort")
+	body.setNested("reasoning", "max_tokens", jsjson.Marshal(budget))
 }
 
 // neoPiEncodeDisabledReasoning is encodeChatCompletionsDisabledReasoning.
@@ -521,6 +537,8 @@ func neoPiCompletionsWireModelID(row *registry.NeoPiModel, options neoPiCompleti
 		wireID = row.RequestModelID
 	}
 	switch row.CompletionsCompat.WireModelIDMode {
+	case "cline-pass":
+		return neoPiClinePassWireModelID(wireID)
 	case "fireworks":
 		return neoPiFireworksWireModelID(wireID)
 	case "firepass":
@@ -548,6 +566,17 @@ func neoPiFireworksWireModelID(modelID string) string {
 func neoPiFirepassWireModelID(modelID string) string {
 	stripped := strings.TrimPrefix(modelID, neoPiFirepassWirePrefix)
 	return neoPiFirepassWirePrefix + neoPiDotVersions(stripped)
+}
+
+// neoPiClinePassWirePrefix namespaces ClinePass subscription ids on the wire.
+const neoPiClinePassWirePrefix = "cline-pass/"
+
+// neoPiClinePassWireModelID is toClinePassWireModelId.
+func neoPiClinePassWireModelID(modelID string) string {
+	if strings.HasPrefix(modelID, neoPiClinePassWirePrefix) {
+		return modelID
+	}
+	return neoPiClinePassWirePrefix + modelID
 }
 
 // neoPiDotVersions is the VERSION_DOT_PATTERN replacement: a dot between two
@@ -613,9 +642,10 @@ func neoPiCompletionsOutputTokens(body *neoPiOrderedObject, row *registry.NeoPiM
 }
 
 // neoPiCompletionsOutputClamp is resolveOpenAICompletionsOutputClamp: the
-// provider's output ceiling, else NeoPi's generic one.
+// provider's output ceiling, else NeoPi's generic one. ClinePass accepts its
+// full advertised caps.
 func neoPiCompletionsOutputClamp(row *registry.NeoPiModel, compat *registry.NeoPiCompletionsCompat) float64 {
-	if neoPiIsZaiReasoningEffortDialect(compat) || compat.ClampOutputToModelMax {
+	if row.Provider == "cline-pass" || neoPiIsZaiReasoningEffortDialect(compat) || compat.ClampOutputToModelMax {
 		if row.MaxTokens > 0 {
 			return float64(row.MaxTokens)
 		}

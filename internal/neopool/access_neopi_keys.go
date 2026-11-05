@@ -9,6 +9,7 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xiaomi"
 )
 
 // Providers NeoProxy serves through NeoPi's OpenAI Chat Completions provider
@@ -38,6 +39,11 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base, preferred, k
 		accepted, err := validateTokenPlanKey(ctx, info, preferred, key)
 		return accepted, true, err
 	}
+	if info.ID == xiaomi.Provider {
+		// loginXiaomi: the standard host, or the Token Plan clusters for a
+		// tp-/ttp- key, which discovery and inference then reach on their own.
+		return base, true, neoPiKeyFailure(info, xiaomi.ValidateKey(ctx, accessHTTPClient, key))
+	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {
 		return "", false, nil
@@ -64,6 +70,10 @@ func validateTokenPlanKey(ctx context.Context, info ProviderInfo, preferred, key
 func neoPiKeyFailure(info ProviderInfo, err error) error {
 	if err == nil {
 		return nil
+	}
+	if errors.Is(err, neopikeys.ErrCoreWeaveProject) {
+		// NeoPi reads the project from the environment, so the server's must name it.
+		return accessErr(http.StatusServiceUnavailable, "%s needs a W&B project: set COREWEAVE_PROJECT=<team>/<project> in the NeoProxy server's environment and restart it.", info.Name)
 	}
 	var upstream *neopikeys.HTTPError
 	if !errors.As(err, &upstream) {

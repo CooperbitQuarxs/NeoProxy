@@ -53,6 +53,10 @@ const managers: Record<string, (config: any) => any> = {
 	"xiaomi-token-plan-cn": (config: any) => m.xiaomiModelManagerOptions({ ...config, providerId: "xiaomi-token-plan-cn", tokenPlanRegion: "cn" }),
 	"yolo-auto": m.yoloAutoModelManagerOptions,
 	"zhipu-coding-plan": m.zhipuCodingPlanModelManagerOptions,
+	coreweave: m.coreWeaveModelManagerOptions,
+	"cline-pass": m.clinePassModelManagerOptions,
+	aimlapi: m.aimlApiModelManagerOptions,
+	xiaomi: m.xiaomiModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -198,6 +202,16 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: bundled[5], reasoning_effort_support_list: ["low"] },
 		],
 		helmcode: [{ id: "rerank" }, { id: "Kokoro" }, { id: "zz-helm-new", name: "Helm New" }],
+		// Unbundled ids NeoPi resolves through its bundled reference index.
+		"gmi-cloud": [
+			{ id: "zai-org/GLM-5.3", name: "GLM 5.3" }, { id: "deepseek-ai/DeepSeek-V4-Pro" }, { id: "moonshotai/Kimi-K3" },
+			{ id: "Qwen/Qwen3-Coder-480B-A35B-Instruct" }, { id: "openai/gpt-oss-120b" },
+		],
+		aimlapi: [
+			{ id: "openai/tts-1-hd" }, { id: "flux-pro/v1.1" }, { id: "text-embedding-3-large" }, { id: "google/veo-3" },
+			{ id: "openai/whisper-1" }, { id: "Stable-Image-Ultra" }, { id: "zz-lab/zz-chat-new", name: "ZZ Chat" },
+			{ id: "anthropic/claude-sonnet-4-6" },
+		],
 		"xiaomi-token-plan-sgp": [{ id: "mimo-v3-tts" }, { id: bundled[0], display_name: "Display Name" }, { id: "zz-xiaomi-asr-x" }],
 		"yolo-auto": [
 			{ id: bundled[0], thinking: ["low", "high"] },
@@ -240,10 +254,73 @@ function fireworksPages(bundled: string[]): Reply[] {
 	return [json(page1), json(page2)];
 }
 
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean };
+// ClinePass reads two hosts at once: Cline's recommended-models roster (the
+// authoritative ids) and OpenRouter's public catalog (enrichment only), so
+// its scenarios answer each host with its own reply.
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string };
+
+function clinePassScenarios(bundled: string[]): Scenario[] {
+	const pass = [
+		...bundled.filter(id => !id.includes("/")).map(id => ({ id: `cline-pass/${id}` })),
+		{ id: "cline-pass/glm-5.3" },
+		{ id: "cline-pass/kimi-k2.6" },
+		{ id: "cline-pass/mimo-v2.5" },
+		{ id: " cline-pass/zz-pass-live " },
+		{ id: "cline-pass/zz-pass-unknown" },
+		{ id: "cline-pass/glm-5.1" },
+		{ id: "cline-pass/claude-sonnet-4-6" },
+		{ id: "cline-pass/gpt-5.4-thinking" },
+		{ id: "cline-pass/" },
+		{ id: "unprefixed-model" },
+		{ id: 5 },
+		{ name: "no id" },
+		null,
+	];
+	const free = [
+		...bundled.filter(id => id.includes("/")).map(id => ({ id })),
+		{ id: "deepseek/deepseek-v4-flash" },
+		{ id: "poolside/laguna-s-2.1:free" },
+		{ id: "cline-free/deepseek-v4.1-flash" },
+		{ id: "qwen/qwen3-coder:free" },
+		{ id: "zz-lab/zz-free-live" },
+		{ id: "zz-lab/zz-free-slug" },
+		{ id: "zz-lab/zz-free-unknown" },
+		{ id: "zz-lab/zz-free-nbsp" },
+		{ id: "[Tag] zz-lab/glm-5.1 [x]" },
+		{ id: "cline-pass/should-skip" },
+		{ id: "glm-5.3" },
+		{ id: "  " },
+		{ id: 7 },
+	];
+	const live = json({
+		data: [
+			{ id: "zz-vendor/zz-pass-live", name: "Vendor: ZZ Pass Live", context_length: 400000, top_provider: { max_completion_tokens: 50000 }, pricing: { prompt: "0.000001", completion: "0.000002", input_cache_read: "0.0000001" }, supported_parameters: ["tools", "reasoning"], architecture: { modality: "text+image->text" } },
+			{ id: "zz-lab/zz-free-live", name: "ZZ Free Live (free)", context_length: 100000, top_provider: { max_completion_tokens: 0 }, pricing: { prompt: "0", completion: "0" }, supported_parameters: ["tools"], architecture: { modality: "text->text" } },
+			{ id: "other/zz-free-slug", name: "Other: Slug Model", context_length: "x", supported_parameters: ["reasoning"] },
+			{ id: "zz-lab/zz-free-nbsp", name: "Vendor:\u00a0NBSP Model (free)\u00a0", supported_parameters: [] },
+			{ id: "zz-vendor/zz-pass-unknown-not", name: "Not it" },
+			{ id: "", name: "blank" },
+			7,
+		],
+	});
+	const both = json({ clinePass: pass, free });
+	return [
+		{ name: "roster + live", replies: [], roster: both, live },
+		{ name: "roster, live down", replies: [], roster: both, live: json({ error: "down" }, 503) },
+		{ name: "roster, live not json", replies: [], roster: both, live: { status: 200, body: "oops" } },
+		{ name: "roster, live empty", replies: [], roster: both, live: json({ data: [] }) },
+		{ name: "pass only", replies: [], roster: json({ clinePass: pass }), live },
+		{ name: "free not array", replies: [], roster: json({ clinePass: pass, free: { id: "x" } }), live },
+		{ name: "no valid pass ids", replies: [], roster: json({ clinePass: [{ id: "unprefixed" }], free }), live },
+		{ name: "missing clinePass", replies: [], roster: json({ free }), live },
+		{ name: "http 500", replies: [], roster: json({ error: "boom" }, 500), live },
+		{ name: "not json", replies: [], roster: { status: 200, body: "oops" }, live },
+	];
+}
 
 function scenarios(provider: string, bundled: string[]): Scenario[] {
 	const list = entries(provider, bundled);
+	if (provider === "cline-pass") return clinePassScenarios(bundled);
 	if (provider === "fireworks") {
 		return [
 			{ name: "control-plane pages", replies: fireworksPages(bundled) },
@@ -253,7 +330,7 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			{ name: "not an object", replies: [json([1, 2])] },
 		];
 	}
-	return [
+	const generic: Scenario[] = [
 		{ name: "data envelope", replies: [json({ object: "list", data: list })] },
 		{ name: "models envelope", replies: [json({ models: list })] },
 		{ name: "result envelope", replies: [json({ result: list })] },
@@ -265,6 +342,17 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		{ name: "http 500", replies: [json({ error: "boom" }, 500)] },
 		{ name: "not json", replies: [{ status: 200, body: "oops" }] },
 		{ name: "no list", replies: [json({ object: "list" })] },
+	];
+	if (provider !== "xiaomi") return generic;
+	// A Token Plan key on the standard provider walks the regional clusters,
+	// SGP then AMS then CN, until one answers.
+	const tp = "tp-capture-key";
+	return [
+		...generic,
+		{ name: "token plan: sgp", apiKey: tp, replies: [json({ data: list })] },
+		{ name: "token plan: ams after sgp 401", apiKey: tp, replies: [json({ error: "no" }, 401), json({ data: list })] },
+		{ name: "token plan: cn after two failures", apiKey: "ttp-capture-key", replies: [json({ error: "boom" }, 500), { status: 200, body: "oops" }, json({ data: list })] },
+		{ name: "token plan: every region fails", apiKey: tp, replies: [json({ error: "no" }, 401)] },
 	];
 }
 
@@ -302,16 +390,22 @@ for (const [provider, build] of Object.entries(managers)) {
 				query: Object.fromEntries(url.searchParams),
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
 			});
-			const reply = scenario.replies[Math.min(call++, scenario.replies.length - 1)];
+			const reply = scenario.roster
+				? url.hostname === "openrouter.ai"
+					? scenario.live!
+					: scenario.roster
+				: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
-		const options = build({ apiKey, fetch: fetchImpl });
+		const options = build({ apiKey: scenario.apiKey ?? apiKey, fetch: fetchImpl });
 		options.cacheDbPath = join(cacheDir, `${provider}-${results.length}.db`);
 		const resolved = await resolveProviderModels(options, "online");
 		results.push({
 			provider,
 			scenario: scenario.name,
 			replies: scenario.replies,
+			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
+			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,
 			stale: resolved.stale,
@@ -334,52 +428,74 @@ for (const [provider, build] of Object.entries(managers)) {
 
 writeFileSync(outFile, Bun.gzipSync(JSON.stringify({ apiKey, compats, results })));
 
-// What NeoPi's rule engine derives for a discovered row the bundle lacks and
-// whose reasoning the mapper switched on. The Go port cannot run the rule
-// engine, so it embeds these per provider/kind (see
-// models/neopi_discovery/derived.json.gz).
-const find = (provider: string, scenario: string, id: string) =>
-	results.find(r => r.provider === provider && r.scenario === scenario)?.models.find((model: any) => model.id === id);
-const derivedSource: Array<[string, string, string, string]> = [
-	["nanogpt", "reasoning", "data envelope", "zz-base"],
-	["fireworks", "reasoning", "control-plane pages", "zz-new-model"],
-	["fireworks", "deepseek-v4", "control-plane pages", "deepseek-v4-zz"],
-	["moonshot", "kimi-k3", "data envelope", "kimi-k3-0801"],
-	["moonshot", "kimi-k2", "data envelope", "kimi-k2-new-turbo"],
-	["alibaba-token-plan", "deepseek-v4", "data envelope", "deepseek-v4-new"],
-	// Unbundled reasoning ids with no close bundled sibling: the generic
-	// ladder and compat NeoPi's rule engine gives each provider.
-	["synthetic", "reasoning", "data envelope", "zz-syn-flag"],
-	["novita", "reasoning", "data envelope", "zz-nov"],
-	["deepinfra", "reasoning", "data envelope", "zz-di-space"],
-	["wafer-serverless", "reasoning", "data envelope", "zz-wafer-r"],
-	["zhipu-coding-plan", "reasoning", "data envelope", "glm-7.1"],
-	// Qianfan lists no reasoning flags, so its generic ladder shows only on a
-	// collapsed bare/thinking pair (derivePairThinkingSurface).
-	["qianfan", "reasoning", "data envelope", "zz-pair"],
-];
-const derived: any[] = derivedSource.map(([provider, kind, scenario, id]) => {
-	const model = find(provider, scenario, id);
-	if (!model) throw new Error(`no ${id} in ${provider}/${scenario}`);
-	const { effortRouting: _routing, ...thinking } = model.thinking ?? {};
-	return { provider, kind, id, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow, maxTokens: model.maxTokens, thinking, compat: compats[model.compatIndex] };
-});
-// Token Plan's model manager uses NeoPi's authored seed rows (not the generated
-// bundle) as the reference for every listed seed id: their explicit thinking
-// ladder wins over the rule-derived one in the merge, so it is exported per id.
+// Token Plan's model manager takes NeoPi's authored seed specs (not the
+// generated bundle) as its static rows and the reference for every listed
+// seed id, so they are exported whole.
 const { seedModels } = await import(root + "/pi-catalog/src/compat/providers.ts");
-for (const seed of seedModels("alibaba-token-plan") as any[]) {
-	if (!seed.thinking) continue;
-	derived.push({ provider: "alibaba-token-plan", kind: `seed:${seed.id}`, id: seed.id, reasoning: seed.reasoning, input: seed.input, contextWindow: seed.contextWindow ?? null, maxTokens: seed.maxTokens ?? null, thinking: seed.thinking, compat: null });
-}
-const derivedFile = process.env.DERIVED_FILE ?? join(dirname(new URL(import.meta.url).pathname), "../models/neopi_discovery/derived.json.gz");
-mkdirSync(dirname(derivedFile), { recursive: true });
-writeFileSync(derivedFile, Bun.gzipSync(JSON.stringify(derived)));
-console.log(`wrote ${derived.length} derived rows to ${derivedFile}`);
+const seeds = (seedModels("alibaba-token-plan") as any[]).map(seed => ({
+	id: seed.id,
+	name: seed.name,
+	reasoning: seed.reasoning,
+	input: seed.input,
+	contextWindow: seed.contextWindow ?? null,
+	maxTokens: seed.maxTokens ?? null,
+	...(seed.thinking ? { thinking: seed.thinking } : {}),
+	...(seed.compat ? { compat: seed.compat } : {}),
+}));
+const discoveryDir = join(dirname(new URL(import.meta.url).pathname), "../models/neopi_discovery");
+mkdirSync(discoveryDir, { recursive: true });
+const seedsFile = join(discoveryDir, "alibaba_token_plan_seeds.json.gz");
+writeFileSync(seedsFile, Bun.gzipSync(JSON.stringify(seeds)));
+console.log(`wrote ${seeds.length} Token Plan seed specs to ${seedsFile}`);
 // The runtime exclude-models rules (compat/rules.json behavior.excludeModels)
 // the discovery filters apply through isExcludedModel.
 const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: { type: "json" } })).default as any;
-const excludeFile = join(dirname(derivedFile), "exclude_models.json");
+const excludeFile = join(discoveryDir, "exclude_models.json");
 writeFileSync(excludeFile, JSON.stringify(rules.behavior.excludeModels));
 console.log(`wrote ${rules.behavior.excludeModels.length} exclude rules to ${excludeFile}`);
 console.log(`wrote ${results.length} scenarios to ${outFile}`);
+
+// ClinePass discovery inputs the Go port embeds: Cline's curated per-id
+// metadata (provider-models/cline-pass.ts) and NeoPi's bundled proxy-reference
+// index (identity/bundled.ts) with the vocabulary its candidate expansion
+// strips, which resolves an id the ClinePass bundle lacks to its upstream row.
+const { CLINE_PASS_MODEL_METADATA } = await import(root + "/pi-catalog/src/provider-models/cline-pass.ts");
+const { getBundledModelReferenceIndex } = await import(root + "/pi-catalog/src/identity/bundled.ts");
+const { discoveryVocabulary, collapseVocabulary } = await import(root + "/pi-catalog/src/compat/taxonomy.ts");
+const referenceIndex = getBundledModelReferenceIndex();
+const referenceRows: any[] = [];
+const referenceRowIndex = new Map<any, number>();
+const referenceRow = (model: any): number => {
+	let index = referenceRowIndex.get(model);
+	if (index === undefined) {
+		index = referenceRows.length;
+		referenceRowIndex.set(model, index);
+		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}) });
+	}
+	return index;
+};
+const discovery = discoveryVocabulary();
+const collapse = collapseVocabulary();
+const markerSuffixes = [
+	...discovery.billingVariantSuffixes,
+	...[...discovery.trailingMarkers, ...discovery.referenceOnlyTrailingMarkers].flatMap((marker: string) => [`-${marker}`, `:${marker}`]),
+	...collapse.suffixes.map((rule: any) => rule.suffix),
+	...collapse.routingVariants.map((rule: any) => rule.suffix),
+];
+const clinePassFile = join(discoveryDir, "cline_pass.json.gz");
+writeFileSync(
+	clinePassFile,
+	Bun.gzipSync(
+		JSON.stringify({
+			source: "NeoPi OWN pi-catalog provider-models/cline-pass.ts CLINE_PASS_MODEL_METADATA and identity/bundled.ts getBundledModelReferenceIndex",
+			metadata: CLINE_PASS_MODEL_METADATA,
+			reference: {
+				markerSuffixes,
+				exact: Object.fromEntries([...referenceIndex.exact].map(([key, model]) => [key, referenceRow(model)])),
+				suffixAlias: Object.fromEntries([...referenceIndex.suffixAlias].map(([key, model]) => [key, referenceRow(model)])),
+				rows: referenceRows,
+			},
+		}),
+	),
+);
+console.log(`wrote ClinePass metadata and ${referenceRows.length} reference rows to ${clinePassFile}`);

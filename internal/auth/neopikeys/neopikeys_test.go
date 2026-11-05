@@ -26,13 +26,14 @@ type capturedRequest struct {
 // (and loginAlibabaTokenPlan) over a scripted loopback server.
 type keysCapture struct {
 	Scenarios []struct {
-		Provider     string          `json:"provider"`
-		Label        string          `json:"label"`
-		Input        string          `json:"input"`
-		Env          *string         `json:"env"`
-		Status       int             `json:"status"`
-		Body         json.RawMessage `json:"body"`
-		NetworkError bool            `json:"networkError"`
+		Provider     string            `json:"provider"`
+		Label        string            `json:"label"`
+		Input        string            `json:"input"`
+		Env          *string           `json:"env"`
+		EnvVars      map[string]string `json:"envVars"`
+		Status       int               `json:"status"`
+		Body         json.RawMessage   `json:"body"`
+		NetworkError bool              `json:"networkError"`
 		Result       struct {
 			Value     string `json:"value"`
 			Error     string `json:"error"`
@@ -89,11 +90,16 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 		}
 		checked++
 		t.Run(scenario.Provider+"/"+scenario.Label, func(t *testing.T) {
-			env := ""
+			env := map[string]string{}
 			if scenario.Env != nil {
-				env = *scenario.Env
+				env["MOONSHOT_BASE_URL"] = *scenario.Env
 			}
-			t.Setenv("MOONSHOT_BASE_URL", env)
+			for name, value := range scenario.EnvVars {
+				env[name] = value
+			}
+			for _, name := range []string{"MOONSHOT_BASE_URL", "COREWEAVE_PROJECT", "WANDB_INFERENCE_PROJECT", "WANDB_PROJECT", "WANDB_ENTITY"} {
+				t.Setenv(name, env[name])
+			}
 			key, normalizeErr := login.NormalizeKey(scenario.Input)
 			if normalizeErr != nil {
 				if scenario.Result.Error != normalizeErr.Error() && !(scenario.Result.ErrorName == "ApiKeyRequiredError" && errors.Is(normalizeErr, ErrKeyRequired)) {
@@ -175,6 +181,12 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 				}
 				return
 			}
+			if scenario.Result.ErrorName == "ConfigurationError" {
+				if validateErr.Error() != scenario.Result.Error {
+					t.Fatalf("Validate() = %v, want %q", validateErr, scenario.Result.Error)
+				}
+				return
+			}
 			if !errors.As(validateErr, &httpErr) || httpErr.Error() != scenario.Result.Error {
 				t.Fatalf("Validate() = %v, want %q", validateErr, scenario.Result.Error)
 			}
@@ -185,9 +197,10 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 	}
 }
 
-// Groq and Mistral have no key entry in NeoPi, so a key is accepted untouched.
+// Groq, Mistral and AIML API have no key entry in NeoPi, so a key is accepted
+// untouched.
 func TestProvidersWithoutProbeAcceptKey(t *testing.T) {
-	for _, provider := range []string{"groq", "mistral"} {
+	for _, provider := range []string{"groq", "mistral", "aimlapi"} {
 		login, ok := LoginFor(provider)
 		if !ok || login.Probe != nil {
 			t.Fatalf("%s login = %+v, %v", provider, login, ok)

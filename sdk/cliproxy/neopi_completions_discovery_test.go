@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -43,12 +44,12 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 	var capture struct {
 		APIKey  string `json:"apiKey"`
 		Results []struct {
-			Provider string `json:"provider"`
-			Scenario string `json:"scenario"`
-			Replies  []struct {
-				Status int    `json:"status"`
-				Body   string `json:"body"`
-			} `json:"replies"`
+			Provider string               `json:"provider"`
+			Scenario string               `json:"scenario"`
+			Replies  []neoPiCapturedReply `json:"replies"`
+			// Roster and Live answer ClinePass's two hosts.
+			Roster   *neoPiCapturedReply    `json:"roster"`
+			Live     *neoPiCapturedReply    `json:"live"`
 			Requests []neoPiCapturedRequest `json:"requests"`
 		} `json:"results"`
 	}
@@ -61,6 +62,12 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			continue
 		}
 		seen[result.Provider] = true
+		if result.Roster != nil {
+			t.Run(result.Provider, func(t *testing.T) {
+				testNeoPiClinePassDiscoveryRequests(t, capture.APIKey, result.Roster, result.Live, result.Requests)
+			})
+			continue
+		}
 		t.Run(result.Provider, func(t *testing.T) {
 			call := 0
 			var got []neoPiCapturedRequest
@@ -98,6 +105,57 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type neoPiCapturedReply struct {
+	Status int    `json:"status"`
+	Body   string `json:"body"`
+}
+
+// testNeoPiClinePassDiscoveryRequests compares ClinePass's two discovery
+// requests: the roster with Cline's client identity and no key, and
+// OpenRouter's catalog with no headers of NeoPi's own.
+func testNeoPiClinePassDiscoveryRequests(t *testing.T, key string, roster, live *neoPiCapturedReply, want []neoPiCapturedRequest) {
+	var mu sync.Mutex
+	got := map[string]http.Header{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		got[r.URL.Path] = r.Header.Clone()
+		mu.Unlock()
+		reply := roster
+		if r.URL.Path == "/api/v1/models" {
+			reply = live
+		}
+		w.WriteHeader(reply.Status)
+		_, _ = w.Write([]byte(reply.Body))
+	}))
+	defer server.Close()
+	modelsURL, liveURL := neoPiClinePassModelsURL, neoPiClinePassLiveCatalogURL
+	neoPiClinePassModelsURL = server.URL + "/api/v1/ai/cline/recommended-models"
+	neoPiClinePassLiveCatalogURL = server.URL + "/api/v1/models"
+	defer func() { neoPiClinePassModelsURL, neoPiClinePassLiveCatalogURL = modelsURL, liveURL }()
+	auth := &coreauth.Auth{ID: "a", Provider: "cline-pass", Attributes: map[string]string{"api_key": key}}
+	if _, err := fetchNeoPiCompletionsModels("cline-pass")(context.Background(), &config.Config{}, auth); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("requests: port sent %d, NeoPi %d", len(got), len(want))
+	}
+	for _, request := range want {
+		header, ok := got[request.Path]
+		if !ok {
+			t.Errorf("port never requested %s", request.Path)
+			continue
+		}
+		for name, value := range request.Headers {
+			if header.Get(name) != value {
+				t.Errorf("%s header %s: port %q, NeoPi %q", request.Path, name, header.Get(name), value)
+			}
+		}
+		if _, keyed := request.Headers["authorization"]; !keyed && header.Get("Authorization") != "" {
+			t.Errorf("%s: port sent the account key", request.Path)
+		}
 	}
 }
 

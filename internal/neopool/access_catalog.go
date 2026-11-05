@@ -300,6 +300,20 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://yolo-auto.com/v1", "yolo_...", "https://yolo-auto.com/app"), Plans: []ProviderPlan{}},
 	{ID: "zhipu-coding-plan", Name: "Zhipu Coding Plan (智谱)", Vendor: "Zhipu AI", Hue: 190, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://open.bigmodel.cn/api/coding/paas/v4", "<id>.<secret>", "https://bigmodel.cn/coding-plan/personal/overview"), Plans: []ProviderPlan{}},
+	// CoreWeave bills each request to the W&B project COREWEAVE_PROJECT (or
+	// WANDB_ENTITY/WANDB_PROJECT) names in the server's environment, as NeoPi does.
+	{ID: "coreweave", Name: "CoreWeave Serverless Inference", Vendor: "CoreWeave", Hue: 255, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.inference.wandb.ai/v1", "api-key", "https://wandb.ai/settings"), Plans: []ProviderPlan{}},
+	{ID: "cline-pass", Name: "ClinePass", Vendor: "Cline", Hue: 205, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.cline.bot/api/v1", "sk_...", "https://app.cline.bot/dashboard/account"), Plans: []ProviderPlan{}},
+	// NeoPi takes AIML API keys from AIMLAPI_API_KEY only, so the pasted key is
+	// not probed (like Groq and Mistral).
+	{ID: "aimlapi", Name: "AIML API", Vendor: "AIML API", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.aimlapi.com/v1", "AIML API key", "https://aimlapi.com/app/keys"), Plans: []ProviderPlan{}},
+	// A Token Plan key (tp-/ttp-) pasted here is probed and listed on the
+	// regional clusters, as NeoPi's Xiaomi login does.
+	{ID: "xiaomi", Name: "Xiaomi MiMo", Vendor: "Xiaomi", Hue: 30, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.xiaomimimo.com/v1", "sk-..., tp-..., or ttp-...", "https://platform.xiaomimimo.com/#/console/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

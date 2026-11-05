@@ -27,8 +27,6 @@ type NeoPiCompletionsCatalog struct {
 	BaseURL  string `json:"baseUrl"`
 	// Compats are the resolved completions compats the rows share.
 	Compats []*NeoPiCompletionsCompat `json:"compats"`
-	// UnknownCompatIndex is the compat NeoPi resolves for a non-bundled id.
-	UnknownCompatIndex int `json:"unknownCompatIndex"`
 	// Discovery holds the model manager's authority flags: how a provider's
 	// listing replaces its bundled rows (mergeDynamicModels). Listing is
 	// false when NeoPi never fetches one and serves the bundled roster.
@@ -49,8 +47,9 @@ type NeoPiCompletionsCatalog struct {
 		Input         []string          `json:"input"`
 		ContextWindow int               `json:"contextWindow"`
 		MaxTokens     int               `json:"maxTokens"`
-		Thinking      *NeoPiThinking    `json:"thinking"`
+		Thinking      json.RawMessage   `json:"thinking"`
 		Headers       map[string]string `json:"headers"`
+		CompatConfig  map[string]any    `json:"compatConfig"`
 		CompatIndex   int               `json:"completionsCompatIndex"`
 	} `json:"models"`
 }
@@ -89,22 +88,30 @@ func loadNeoPiCompletionsCatalogs() {
 		providerRows := make([]*NeoPiModel, 0, len(catalog.Models))
 		for i := range catalog.Models {
 			row := catalog.Models[i]
-			compat := catalog.UnknownCompat()
-			if row.CompatIndex >= 0 && row.CompatIndex < len(catalog.Compats) {
-				compat = catalog.Compats[row.CompatIndex]
+			if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
+				neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
+				return
+			}
+			compat := catalog.Compats[row.CompatIndex]
+			thinking, requiresEffortSet, thinkingErr := neoPiDecodeThinking(row.Thinking)
+			if thinkingErr != nil {
+				neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: %w", name, row.ID, thinkingErr)
+				return
 			}
 			providerRows = append(providerRows, &NeoPiModel{
-				ID:                row.ID,
-				Name:              row.Name,
-				API:               row.API,
-				Provider:          row.Provider,
-				BaseURL:           row.BaseURL,
-				Reasoning:         row.Reasoning,
-				Input:             row.Input,
-				ContextWindow:     row.ContextWindow,
-				MaxTokens:         row.MaxTokens,
-				Thinking:          row.Thinking,
-				CompletionsCompat: compat,
+				ID:                        row.ID,
+				Name:                      row.Name,
+				API:                       row.API,
+				Provider:                  row.Provider,
+				BaseURL:                   row.BaseURL,
+				Reasoning:                 row.Reasoning,
+				Input:                     row.Input,
+				ContextWindow:             row.ContextWindow,
+				MaxTokens:                 row.MaxTokens,
+				Thinking:                  thinking,
+				CompletionsCompat:         compat,
+				CompatConfig:              row.CompatConfig,
+				thinkingRequiresEffortSet: requiresEffortSet,
 			})
 		}
 		rows[catalog.Provider] = providerRows
@@ -124,18 +131,6 @@ func readGzipFile(name string) ([]byte, error) {
 	}
 	defer func() { _ = reader.Close() }()
 	return io.ReadAll(reader)
-}
-
-// UnknownCompat is the compat NeoPi resolves for an id the bundle does not
-// hold, which a live model listing can then add.
-func (c *NeoPiCompletionsCatalog) UnknownCompat() *NeoPiCompletionsCompat {
-	if c == nil || len(c.Compats) == 0 {
-		return &NeoPiCompletionsCompat{}
-	}
-	if c.UnknownCompatIndex >= 0 && c.UnknownCompatIndex < len(c.Compats) {
-		return c.Compats[c.UnknownCompatIndex]
-	}
-	return c.Compats[0]
 }
 
 // NeoPiCompletionsProvider reports whether provider has an exported catalog.
@@ -170,9 +165,10 @@ func NeoPiCompletionsBundledModels(provider, ownedBy string) []*ModelInfo {
 	return out
 }
 
-// NeoPiCompletionsModel resolves a provider's model id to NeoPi's record; nil
-// when the provider is unknown entirely, and a discovered row (unknown id)
-// carrying NeoPi's default compat for the provider when the bundle lacks it.
+// NeoPiCompletionsModel resolves a provider's model id to NeoPi's record: the
+// bundled row, else the row NeoPi builds for an id the bundle lacks (a bare
+// non-reasoning spec on the provider's endpoint). Nil when the provider is
+// unknown or NeoPi cannot build the id.
 func NeoPiCompletionsModel(provider, id string) *NeoPiModel {
 	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
 	for _, row := range neopiCompletionsRows[provider] {
@@ -184,9 +180,11 @@ func NeoPiCompletionsModel(provider, id string) *NeoPiModel {
 	if !ok {
 		return nil
 	}
-	compat := catalog.UnknownCompat().Clone()
-	return &NeoPiModel{ID: id, Name: id, API: "openai-completions", Provider: provider, BaseURL: catalog.BaseURL,
-		Input: []string{"text"}, CompletionsCompat: compat}
+	row, err := neoPiBuildRow(provider, catalog.BaseURL, &neoPiSpec{id: id, name: id, input: []string{"text"}})
+	if err != nil {
+		return nil
+	}
+	return row
 }
 
 // NeoPiCompletionsModelInfo materializes a NeoPi record as a registered model.
@@ -199,65 +197,4 @@ func NeoPiCompletionsModelInfo(row *NeoPiModel, ownedBy string) *ModelInfo {
 		info.Thinking = &ThinkingSupport{Levels: slices.Clone(model.Thinking.Efforts), ZeroAllowed: !model.Thinking.RequiresEffort || model.Thinking.SuppressWhenOff}
 	}
 	return info
-}
-
-// NeoPiCompletionsMergedModels is NeoPi's model manager result: the bundled
-// roster, with a live listing's ids added and its limits applied where the
-// endpoint reports them. A listing only describes the chat roster, so a
-// bundled row it omits stays (NeoPi keeps its static seed for those hosts).
-func NeoPiCompletionsMergedModels(provider, ownedBy string, live []NeoPiDiscoveredModel) []*ModelInfo {
-	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
-	if len(live) == 0 {
-		return NeoPiCompletionsBundledModels(provider, ownedBy)
-	}
-	byID := map[string]NeoPiDiscoveredModel{}
-	for _, model := range live {
-		byID[model.ID] = model
-	}
-	rows := neopiCompletionsRows[provider]
-	out := make([]*ModelInfo, 0, len(rows)+len(live))
-	seen := make(map[string]bool, len(rows)+len(live))
-	for _, row := range rows {
-		merged := row.Clone()
-		if discovered, ok := byID[merged.ID]; ok {
-			seen[merged.ID] = true
-			if discovered.Name != "" && discovered.Name != merged.ID {
-				merged.Name = discovered.Name
-			}
-			if discovered.ContextWindow > 0 {
-				merged.ContextWindow = discovered.ContextWindow
-			}
-			if discovered.MaxTokens > 0 {
-				merged.MaxTokens = discovered.MaxTokens
-			}
-			if len(discovered.Input) > 0 {
-				merged.Input = discovered.Input
-			}
-		}
-		out = append(out, NeoPiCompletionsModelInfo(merged, ownedBy))
-	}
-	catalog, _ := NeoPiCompletionsProvider(provider)
-	for _, discovered := range live {
-		if seen[discovered.ID] {
-			continue
-		}
-		row := &NeoPiModel{ID: discovered.ID, Name: discovered.Name, API: "openai-completions", Provider: provider,
-			BaseURL: catalog.BaseURL, Reasoning: false, Input: []string{"text"},
-			ContextWindow: discovered.ContextWindow, MaxTokens: discovered.MaxTokens,
-			CompletionsCompat: catalog.UnknownCompat().Clone()}
-		if row.Name == "" {
-			row.Name = discovered.ID
-		}
-		out = append(out, NeoPiCompletionsModelInfo(row, ownedBy))
-	}
-	return out
-}
-
-// NeoPiDiscoveredModel is one id a provider's live model listing reported.
-type NeoPiDiscoveredModel struct {
-	ID            string
-	Name          string
-	ContextWindow int
-	MaxTokens     int
-	Input         []string
 }
