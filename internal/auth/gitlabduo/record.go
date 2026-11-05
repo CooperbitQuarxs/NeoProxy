@@ -44,3 +44,13 @@ func RecordCredential(metadata map[string]any) (Credential, bool) {
 	}
 	return credential, true
 }
+
+// BaseURL is the address a personal access token (NeoPi's GITLAB_TOKEN) is
+// added under as an account key: the GitLab instance it authenticates at.
+const BaseURL = "https://gitlab.com"
+
+// IsBaseURL reports whether an account key's base URL is GitLab's, so the
+// key is served as GitLab Duo.
+func IsBaseURL(base string) bool {
+	return strings.TrimRight(strings.TrimSpace(base), "/") == BaseURL
+}

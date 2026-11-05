@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
@@ -225,6 +226,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"devin",
 		"factory-droid",
 		"github-copilot",
+		"gitlab-duo",
 		"meta",
 		"cursor",
 		"nous-portal",
@@ -342,6 +344,19 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor(compatProviderKey, cfg))
 			return
 		}
+		if gitlabduo.IsBaseURL(a.Attributes["base_url"]) {
+			// A GitLab personal access token (NeoPi's GITLAB_TOKEN) is
+			// served as GitLab Duo.
+			if !forceReplace {
+				if existing, ok := s.coreManager.Executor(compatProviderKey); ok {
+					if duo, isDuo := existing.(*executor.GitLabDuoExecutor); isDuo && duo.UsesConfig(cfg) {
+						return
+					}
+				}
+			}
+			s.coreManager.RegisterExecutor(executor.NewGitLabDuoExecutor(compatProviderKey, cfg))
+			return
+		}
 		if umansauth.IsBaseURL(a.Attributes["base_url"]) {
 			// NeoPi serves Umans keys itself over Anthropic Messages.
 			if !forceReplace {
@@ -400,6 +415,8 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewFactoryDroidExecutor(cfg))
 	case "github-copilot":
 		s.coreManager.RegisterExecutor(executor.NewGitHubCopilotExecutor(cfg))
+	case "gitlab-duo":
+		s.coreManager.RegisterExecutor(executor.NewGitLabDuoExecutor("gitlab-duo", cfg))
 	case "meta":
 		s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor("meta", cfg))
 	case "cursor":

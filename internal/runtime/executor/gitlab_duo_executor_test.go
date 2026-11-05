@@ -336,3 +336,39 @@ func TestGitLabDuoDirectAccessMatchesNeoPi(t *testing.T) {
 		})
 	}
 }
+
+// A personal access token added as an account key (NeoPi's GITLAB_TOKEN) is
+// the GitLab token the direct-access mint carries, and the request then goes
+// to GitLab's proxy like a sign-in's.
+func TestGitLabDuoServesPersonalAccessToken(t *testing.T) {
+	loop := newGitLabDuoLoopback(t)
+	loop.mint = func(w http.ResponseWriter) {
+		_, _ = io.WriteString(w, `{"token":"direct-from-pat","headers":{"x-gitlab-realm":"saas"}}`)
+	}
+	bundled, err := registry.GitLabDuoBundledModels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var row *registry.NeoPiModel
+	for _, candidate := range bundled {
+		if candidate.ID == "duo-chat-gpt-5-1" {
+			row = candidate
+		}
+	}
+	gitlabduo.ClearDirectAccessCache()
+	auth := &cliproxyauth.Auth{ID: "gitlab-pat", Provider: "openai-compatibility",
+		Attributes: map[string]string{"api_key": "glpat-personal", "base_url": gitlabduo.BaseURL, "compat_name": "gitlab-duo"}}
+	payload := []byte(`{"model":"duo-chat-gpt-5-1","messages":[{"role":"user","content":"hi"}]}`)
+	_, _ = NewGitLabDuoExecutor("gitlab-duo", &config.Config{}).Execute(loop.context(), auth, cliproxyexecutor.Request{Model: row.ID, Payload: payload,
+		Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.GitLabDuoModelInfo(row)}},
+		cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, OriginalRequest: payload})
+	if len(loop.calls) != 2 {
+		t.Fatalf("sent %d requests, want the mint and the model request", len(loop.calls))
+	}
+	if got := loop.calls[0].Headers["authorization"]; got != "Bearer glpat-personal" {
+		t.Fatalf("mint Authorization = %q, want the personal access token", got)
+	}
+	if got := loop.calls[1].Headers["authorization"]; got != "Bearer direct-from-pat" || loop.calls[1].Path != "/ai/v1/proxy/openai/v1/chat/completions" {
+		t.Fatalf("model request %s with Authorization %q, want GitLab's proxy with the minted token", loop.calls[1].Path, got)
+	}
+}
