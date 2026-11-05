@@ -142,6 +142,13 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-aiand-default-off", capabilities: ["reasoning"], reasoning_efforts: ["minimal", "max"], reasoning_effort_default: "medium" },
 			{ id: "zz-aiand-plain", name: "Plain", description: "   ", capabilities: [], context_window: "x" },
 			{ id: bundled[5], capabilities: ["reasoning"], reasoning_efforts: ["low", "medium"] },
+			// Tariffs decide whether a thinking pair collapses: unequal stays
+			// apart, equal folds; a non-USD card is unpriced.
+			{ id: "zz-aiand-pair", currency: "usd", input_per_1m: "1", output_per_1m: "2" },
+			{ id: "zz-aiand-pair-thinking", currency: "usd", input_per_1m: "3", output_per_1m: 4, capabilities: ["reasoning"] },
+			{ id: "zz-aiand-same", input_per_1m: 1, output_per_1m: 2 },
+			{ id: "zz-aiand-same-thinking", input_per_1m: 1, output_per_1m: 2, capabilities: ["reasoning"] },
+			{ id: "zz-aiand-eur", currency: "eur", input_per_1m: 5, output_per_1m: 6 },
 		],
 		baseten: [
 			{ id: "zai-org/GLM-5.3", supported_features: ["reasoning", "tools"], input_modalities: ["text", "image"], context_length: 200000 },
@@ -151,6 +158,8 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "openai/gpt-oss-120b", supported_features: ["reasoning", "tools"] },
 			{ id: "meta/llama-new", supported_features: ["reasoning"] },
 			{ id: bundled[5], supported_features: [], input_modalities: ["text"] },
+			{ id: "zz-bt-priced", pricing: { prompt: "0.0000006", completion: 0.0000022, input_cache_read: "x" } },
+			{ id: "zz-bt-junk", pricing: "x" },
 		],
 		coralbricks: [
 			{ id: "zz-coral-off", supports_chat: false },
@@ -170,11 +179,15 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: " zz-di-space ", metadata: { tags: ["chat", "reasoning", "vlm"] } },
 			{ id: bundled[1], metadata: { tags: ["chat"], context_length: 1024 } },
 			{ id: "zz-di-nometa" },
+			{ id: "zz-di-priced", metadata: { tags: ["chat"], pricing: { input_tokens: 0.75, output_tokens: 2.5, cache_read_tokens: 0.1 }, discount: 0.35 } },
+			{ id: "zz-di-bad-discount", metadata: { tags: ["chat"], pricing: { input_tokens: 1, output_tokens: "2" }, discount: 1.5 } },
 		],
 		inception: [
 			{ id: "zz-inc", supported_endpoints: ["chat.completions"], input_modalities: ["text", "image"], context_length: 128000, max_output_length: 16000 },
 			{ id: bundled[0], name: "Inc Live", supported_endpoints: ["chat.completions", "fim"] },
 			{ id: "zz-fim", supported_endpoints: ["fim"] },
+			{ id: "zz-inc-priced", supported_endpoints: ["chat.completions"], pricing: { prompt: "0.00000025", completion: "0.000001" } },
+			{ id: bundled[1], supported_endpoints: ["chat.completions"], pricing: "x" },
 		],
 		novita: [
 			{ id: "zz-nov", display_name: "Nov Display", status: 1, endpoints: ["chat/completions"], max_output_tokens: 8000, context_size: 131072, features: ["reasoning", "function-calling"], input_modalities: ["image"] },
@@ -182,8 +195,20 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "AI_INFER_TEST_x", endpoints: ["chat/completions"], max_output_tokens: 10 },
 			{ id: "zz-inactive", status: 0, endpoints: ["chat/completions"], max_output_tokens: 10 },
 			{ id: "zz-no-cap", endpoints: ["chat/completions"] },
+			{ id: "zz-nov-priced", endpoints: ["chat/completions"], max_output_tokens: 8000, input_token_price_per_m: 5000, output_token_price_per_m: "20000", pricing: { input_cache_read: { price_per_m: 1250 } } },
+			{ id: "zz-nov-cache-flat", endpoints: ["chat/completions"], max_output_tokens: 8000, input_token_price_per_m: 1, pricing: { input_cache_read: 9 } },
 		],
-		sambanova: [{ id: "zz-Whisper-x" }, { id: "E5-Mistral-7B-Instruct" }, { id: "zz-clip-v" }],
+		sambanova: [
+			{ id: "zz-Whisper-x" }, { id: "E5-Mistral-7B-Instruct" }, { id: "zz-clip-v" },
+			{ id: "zz-sn-priced", pricing: { prompt: "0.0000006", completion: "0.0000012", input_cache_read: null } },
+			{ id: "zz-sn-partial", pricing: { prompt: "0.000001" } },
+			{ id: "zz-sn-free", pricing: { prompt: 0, completion: 0 } },
+			{ id: "zz-sn-bad-cache", pricing: { prompt: 0.000001, completion: 0.000002, input_cache_write: "x" } },
+		],
+		nanogpt: [
+			{ id: "zz-nano-priced", pricing: { unit: "per_million_tokens", prompt: 0.5, completion: "2", cacheReadInputPer1kTokens: 0.0001, cacheWriteInputPer1kTokens: -1 } },
+			{ id: "zz-nano-other-unit", pricing: { unit: "per_token", prompt: 1, completion: 2 } },
+		],
 		qianfan: [{ id: "zz-pair" }, { id: "zz-pair-thinking" }],
 		synthetic: [
 			{ id: "zz-syn-none", reasoning_parameters: { efforts: ["none"] } },
@@ -191,6 +216,8 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-syn-none-low", reasoning_parameters: { efforts: ["none", "low"] }, supports_vision: true, max_tokens: 16000 },
 			{ id: "zz-syn-flag", supports_reasoning: true, max_output_length: null, max_tokens: 12000 },
 			{ id: bundled[5], reasoning_parameters: { efforts: ["none"] }, input_modalities: ["text"] },
+			{ id: "zz-syn-priced", pricing: { prompt: "$0.00000045", completion: "0.0000018", input_cache_reads: " $0.0000001 " } },
+			{ id: "zz-syn-half", pricing: { prompt: "0.000001", input_cache_writes: "0.000002" } },
 		],
 		"wafer-serverless": [
 			{ id: "GLM-5.4", wafer: { display_name: "Wafer GLM", capabilities: { reasoning: true, vision: true }, context_length: 200000, provider: "zai" } },
@@ -200,6 +227,7 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-wafer-qwen", wafer: { capabilities: { reasoning: true }, provider: "Alibaba Qwen" } },
 			{ id: "zz-wafer-other", wafer: { capabilities: { reasoning: true }, provider: "deepseek" } },
 			{ id: "Kimi-K3.5", wafer: { capabilities: { reasoning: true } } },
+			{ id: "zz-wafer-priced", wafer: { pricing: { input_cents_per_million: 60, output_cents_per_million: "220", cache_read_cents_per_million: -1 } } },
 		],
 		stepfun: [
 			{ id: "stepaudio-2" }, { id: "Step-Image-Edit" },
@@ -251,6 +279,9 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-both", capabilities: [{ endpoint: "/v1/images/generations" }, { endpoint: "/v1/chat/completions", context_window_tokens: 64000 }] },
 			{ id: "kimi-k3", capabilities: "not-an-array" },
 			{ id: "glm-5.3", capabilities: [null, 5, { endpoint: "/v1/chat/completions", context_window_tokens: 0 }] },
+			// An image-only member never folds into a chat thinking variant.
+			{ id: "zz-sapi-pair", capabilities: [{ endpoint: "/v1/images/generations" }] },
+			{ id: "zz-sapi-pair-thinking", capabilities: [{ endpoint: "/v1/chat/completions", context_window_tokens: 64000 }] },
 		],
 		"singularityapi-tech": [
 			{ id: "deepseek-ai/DeepSeek-V4.1-Flash" },
@@ -274,6 +305,10 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "kimi-k3", capabilities: { vision: true }, reasoning: { effort_levels: [{ value: "minimal" }, "bogus", { value: 3 }, { value: "xhigh" }, { value: "max" }] } },
 			{ id: "zz-hyper-none-only", reasoning: { effort_levels: [{ value: "none" }] } },
 			{ id: "zz-hyper-junk", display_name: "  ", context_window: -1, capabilities: "x", reasoning: "x" },
+			{ id: "zz-hyper-pair", pricing: { input: 1, output: 2 } },
+			{ id: "zz-hyper-pair-thinking", pricing: { input: 3, output: 4 }, reasoning: { effort_levels: [{ value: "low" }, { value: "high" }] } },
+			{ id: "zz-hyper-same", pricing: { input: 1, output: 2, cache_create: -3 } },
+			{ id: "zz-hyper-same-thinking", pricing: { input: 1, output: 2 }, reasoning: { effort_levels: [{ value: "low" }] } },
 		],
 		// Kilo prices per token (perTokenPricingCost); rows otherwise keep
 		// the listing defaults.
@@ -486,6 +521,8 @@ for (const [provider, build] of Object.entries(managers)) {
 				...(model.thinking ? { thinking: model.thinking } : {}),
 				...(model.kind ? { kind: model.kind } : {}),
 				...(model.supportsTools === false ? { supportsTools: false } : {}),
+				// The tariff decides whether NeoPi collapses a thinking pair.
+				cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 },
 			})),
 		});
 	}
@@ -535,7 +572,7 @@ const referenceRow = (model: any): number => {
 	if (index === undefined) {
 		index = referenceRows.length;
 		referenceRowIndex.set(model, index);
-		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}) });
+		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}), cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 } });
 	}
 	return index;
 };

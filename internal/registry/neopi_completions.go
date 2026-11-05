@@ -25,6 +25,8 @@ var neopiCompletionsCatalogFiles embed.FS
 type NeoPiCompletionsCatalog struct {
 	Provider string `json:"provider"`
 	BaseURL  string `json:"baseUrl"`
+	// Seeds are the rule-seeded ids, which win over a manager's references.
+	Seeds []string `json:"seeds"`
 	// Compats are the resolved completions compats the rows share.
 	Compats []*NeoPiCompletionsCompat `json:"compats"`
 	// Discovery holds the model manager's authority flags: how a provider's

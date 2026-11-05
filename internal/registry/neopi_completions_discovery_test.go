@@ -44,6 +44,7 @@ type neoPiDiscoveryResult struct {
 		CompatIndex   int            `json:"compatIndex"`
 		Thinking      *NeoPiThinking `json:"thinking"`
 		Kind          string         `json:"kind"`
+		Cost          NeoPiCost      `json:"cost"`
 	} `json:"models"`
 }
 
@@ -145,6 +146,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				}
 				if !reflect.DeepEqual(row.Thinking, want.Thinking) {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
+				}
+				if row.cost != want.Cost {
+					t.Errorf("%s: cost %+v, NeoPi %+v", want.ID, row.cost, want.Cost)
 				}
 				if want.API != "openai-completions" {
 					continue

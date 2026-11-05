@@ -29,6 +29,7 @@ const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
+const { seedModels } = await import(root + "/pi-catalog/src/compat/providers.ts");
 const cacheDir = mkdtempSync(join(tmpdir(), "neopi-completions-"));
 
 // Providers NeoPi bundles no rows for discover their whole roster; their
@@ -240,6 +241,9 @@ for (const provider of providers) {
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
+		// Rule-seeded ids, which take precedence over a manager's references
+		// (xiaomiModelManagerOptions).
+		seeds: seedModels(provider).map((model: any) => model.id),
 		discovery: {
 			// Whether the model manager fetches a live listing at all.
 			listing: typeof manager?.fetchDynamicModels === "function",

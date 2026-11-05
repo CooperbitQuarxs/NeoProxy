@@ -517,6 +517,11 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 	for _, entry := range entries {
 		defaults := neoPiDefaultSpec(entry)
 		reference := neoPiBundledRow(provider, defaults.id)
+		if catalog, ok := NeoPiCompletionsProvider(provider); ok && strings.HasPrefix(provider, "xiaomi-token-plan-") && !slices.Contains(catalog.Seeds, defaults.id) {
+			// xiaomiModelManagerOptions references xiaomi's bundled rows,
+			// tariffs included; only the region's own seeds take precedence.
+			reference = neoPiBundledRow("xiaomi", defaults.id)
+		}
 		var spec neoPiSpec
 		switch provider {
 		case "moonshot":
@@ -656,6 +661,10 @@ func neoPiMapMoonshot(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 		if model.maxTokens == 0 {
 			model.maxTokens = limits[1]
 		}
+		// The official tariff stands in for a listing that reports none.
+		if model.cost.Input == 0 && model.cost.Output == 0 && model.cost.CacheRead == 0 {
+			model.cost = NeoPiCost{Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3}
+		}
 		return model
 	}
 	isK2 := strings.HasPrefix(id, "kimi-k2")
@@ -674,16 +683,36 @@ func neoPiMapNanoGpt(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 	if !maxOutput.Exists() || maxOutput.Type == gjson.Null {
 		maxOutput = entry.Get("max_completion_tokens")
 	}
+	spec := defaults
 	if reference == nil {
-		defaults.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
-		defaults.maxTokens = neoPiPositive(maxOutput, 0)
-		defaults.name = neoPiModelName(entry.Get("name"), defaults.name)
-		return defaults
+		spec.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
+		spec.maxTokens = neoPiPositive(maxOutput, 0)
+		spec.name = neoPiModelName(entry.Get("name"), defaults.name)
+	} else {
+		spec = neoPiReferenceSpec(defaults.id, reference)
+		spec.name = neoPiModelName(entry.Get("name"), reference.Name)
+		spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
+		spec.maxTokens = neoPiPositive(maxOutput, reference.MaxTokens)
 	}
-	spec := neoPiReferenceSpec(defaults.id, reference)
-	spec.name = neoPiModelName(entry.Get("name"), reference.Name)
-	spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
-	spec.maxTokens = neoPiPositive(maxOutput, reference.MaxTokens)
+	// nanoGptPricingCost: prompt and completion per million, the cache legs
+	// per thousand; legs the row does not price keep the mapped tariff.
+	if pricing := entry.Get("pricing"); pricing.IsObject() && pricing.Get("unit").Type == gjson.String && pricing.Get("unit").Str == "per_million_tokens" {
+		perThousand := func(value gjson.Result, fallback float64) float64 {
+			if rate := neoPiPositiveRate(value); rate > 0 {
+				return rate * 1_000
+			}
+			return fallback
+		}
+		positive := func(value gjson.Result, fallback float64) float64 {
+			if rate := neoPiPositiveRate(value); rate > 0 {
+				return rate
+			}
+			return fallback
+		}
+		spec.cost = NeoPiCost{Input: positive(pricing.Get("prompt"), spec.cost.Input), Output: positive(pricing.Get("completion"), spec.cost.Output),
+			CacheRead:  perThousand(pricing.Get("cacheReadInputPer1kTokens"), spec.cost.CacheRead),
+			CacheWrite: perThousand(pricing.Get("cacheWriteInputPer1kTokens"), spec.cost.CacheWrite)}
+	}
 	return spec
 }
 
@@ -946,8 +975,9 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		if !ok || baseID == row.ID || base == nil || dropped[row.ID] || dropped[base.ID] {
 			continue
 		}
-		if row.cost.priced() && base.cost.priced() && row.cost != base.cost {
-			// deriveThinkingPairFamilies keeps differently priced members apart.
+		// deriveThinkingPairFamilies keeps members of different transports, or
+		// both priced differently, apart.
+		if row.API != base.API || row.cost.priced() && base.cost.priced() && row.cost != base.cost {
 			continue
 		}
 		if base.Thinking != nil && base.Thinking.EffortRouting != nil {
