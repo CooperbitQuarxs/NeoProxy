@@ -3,7 +3,9 @@ package executor
 import (
 	"context"
 	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -17,12 +19,26 @@ const neoPiCompletionsDefaultIdleTimeoutMs = 300_000
 
 // neoPiCompletionsHeaders is the OpenAI client's request headers as NeoPi sends
 // them for a Chat Completions row: the account's configured headers first,
-// then the ones NeoPi's client enforces.
-func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel) http.Header {
+// then the ones NeoPi's client enforces. sessionID is NeoPi's
+// promptCacheSessionId, which ClinePass carries as its task id.
+func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID string) http.Header {
 	headers := make(http.Header)
 	if auth != nil {
 		request := (&http.Request{Header: headers}).WithContext(ctx)
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes, incoming)
+	}
+	if row != nil {
+		switch row.Provider {
+		case "cline-pass":
+			// prependHeaders: the configured headers win over the mirrored identity.
+			for name, value := range openaiwire.ClinePassClientHeaders(sessionID) {
+				if headers.Get(name) == "" {
+					headers.Set(name, value)
+				}
+			}
+		case "coreweave":
+			neoPiApplyCoreWeaveProjectHeader(headers, os.Getenv)
+		}
 	}
 	headers.Set("Accept", "text/event-stream")
 	headers.Set("Accept-Encoding", "gzip, deflate, br, zstd")
@@ -53,4 +69,17 @@ func neoPiCompletionsTimeoutHeader(row *registry.NeoPiModel) string {
 		timeout = row.CompletionsCompat.StreamIdleTimeoutMs
 	}
 	return strconv.Itoa(timeout / 1000)
+}
+
+// neoPiApplyCoreWeaveProjectHeader is applyCoreWeaveProjectHeader: a blank
+// configured project header is dropped, a set one is kept, and otherwise the
+// W&B project named by the environment is sent.
+func neoPiApplyCoreWeaveProjectHeader(headers http.Header, getenv func(string) string) {
+	if strings.TrimSpace(headers.Get(openaiwire.CoreWeaveProjectHeader)) != "" {
+		return
+	}
+	headers.Del(openaiwire.CoreWeaveProjectHeader)
+	if project := openaiwire.ResolveCoreWeaveProject(getenv); project != "" {
+		headers.Set(openaiwire.CoreWeaveProjectHeader, project)
+	}
 }

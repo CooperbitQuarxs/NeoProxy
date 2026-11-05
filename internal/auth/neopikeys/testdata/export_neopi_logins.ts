@@ -14,7 +14,7 @@ const served = [
 	"cerebras", "deepseek", "fireworks", "groq", "huggingface", "mistral", "moonshot", "nanogpt", "nvidia", "together",
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
-	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan",
+	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 const names: Record<string, string> = { groq: "Groq", mistral: "Mistral" };
@@ -27,7 +27,9 @@ for (const id of served) {
 		continue;
 	}
 	const v = rule.login.validate;
-	if (v?.headersHook) throw new Error(`${id}: validation headers hook is not exported`);
+	// neopikeys implements these hooks (registry/hooks/api-key.ts) itself.
+	const portedHooks = ["coreweave-project", "cline-pass-client"];
+	if (v?.headersHook && !portedHooks.includes(v.headersHook)) throw new Error(`${id}: validation headers hook ${v.headersHook} is not ported`);
 	logins[id] = {
 		name: rule.name,
 		...(rule.login.normalize ? { normalize: rule.login.normalize } : {}),

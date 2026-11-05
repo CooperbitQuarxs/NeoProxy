@@ -24,9 +24,6 @@ const neoPiWaferMaxTokensCap = 65536
 func neoPiMapZhipuCodingPlan(defaults neoPiSpec) neoPiSpec {
 	identity := neopitaxonomy.Classify("zhipu-coding-plan", defaults.id)
 	defaults.reasoning = neoPiIsGlmReasoningIdentity("zhipu-coding-plan", defaults.id, "4.5") || identity.ThinkingVariant
-	if defaults.reasoning {
-		defaults.kind = neoPiKindReasoning
-	}
 	defaults.input = []string{"text"}
 	return defaults
 }
@@ -43,9 +40,6 @@ func neoPiMapWafer(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	spec := defaults
 	spec.name = neoPiModelName(wafer.Get("display_name"), defaults.name)
 	spec.reasoning = capabilities.Get("reasoning").Type == gjson.True
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	spec.input = []string{"text"}
 	if capabilities.Get("vision").Type == gjson.True {
 		spec.input = []string{"text", "image"}
@@ -57,15 +51,12 @@ func neoPiMapWafer(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	}
 	// Wafer passes the body through, so a reasoning row speaks its upstream
 	// backend's thinking control; every row refuses the developer role.
-	spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.SupportsDeveloperRole = false })
+	spec.withCompat("supportsDeveloperRole", false)
 	if spec.reasoning {
-		format := neoPiWaferThinkingFormat(defaults.id, wafer.Get("provider"))
-		spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) {
-			c.ReasoningContentField = "reasoning_content"
-			if format != "" {
-				c.ThinkingFormat = format
-			}
-		})
+		spec.withCompat("reasoningContentField", "reasoning_content")
+		if format := neoPiWaferThinkingFormat(defaults.id, wafer.Get("provider")); format != "" {
+			spec.withCompat("thinkingFormat", format)
+		}
 	}
 	return spec
 }
@@ -148,7 +139,6 @@ func neoPiMapAiand(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	spec.contextWindow = neoPiPositive(entry.Get("context_window"), 0)
 	spec.maxTokens = 0
 	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
 		if efforts := neoPiParseWireEfforts(entry.Get("reasoning_efforts")); len(efforts) > 0 {
 			spec.thinking = &NeoPiThinking{Mode: "effort", Efforts: efforts}
 			if level, ok := neoPiWireEfforts[entry.Get("reasoning_effort_default").Str]; ok && entry.Get("reasoning_effort_default").Type == gjson.String && slices.Contains(efforts, level) {
@@ -174,10 +164,6 @@ func neoPiMapBaseten(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 		neoPiIsDeepseekV4Generation("baseten", defaults.id)
 	spec := neoPiMapWithBundledReference(entry, defaults, reference)
 	spec.reasoning = supported && (slices.Contains(features, "reasoning") || slices.Contains(features, "reasoning_effort"))
-	spec.kind = ""
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	spec.input = []string{"text"}
 	if slices.Contains(modalities, "image") || reference != nil && slices.Contains(reference.Input, "image") {
 		spec.input = []string{"text", "image"}
@@ -324,10 +310,6 @@ func neoPiMapSynthetic(entry gjson.Result, defaults neoPiSpec, reference *NeoPiM
 	default:
 		spec.reasoning = entry.Get("supports_reasoning").Type == gjson.True || reference != nil && reference.Reasoning
 	}
-	spec.kind = ""
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	spec.thinking = thinking
 	switch {
 	case len(modalities) > 0 && slices.Contains(modalities, "image"),
@@ -367,10 +349,6 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 	case gjson.False:
 		spec.reasoning = false
 	}
-	spec.kind = ""
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	controls := entry.Get("reasoning")
 	if !controls.IsObject() {
 		controls = gjson.Result{}
@@ -380,7 +358,7 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 	// the bundled ladder survives only while the row still reasons, and an
 	// advertised vocabulary replaces it (an empty one leaves no dial).
 	if reasoningFlag.IsBool() || wire.IsArray() {
-		spec.ownThinking = true
+		spec.withCompat("trustExplicitThinkingOnly", true)
 		if spec.reasoning && reference != nil {
 			spec.thinking = reference.Thinking.Clone()
 		}
@@ -393,7 +371,7 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 				spec.thinking.DefaultLevel = level.Str
 			}
 			if mandatory := controls.Get("mandatory"); mandatory.IsBool() {
-				spec.thinking.RequiresEffort = mandatory.Bool()
+				spec.thinking.RequiresEffort, spec.thinkingRequiresEffortSet = mandatory.Bool(), true
 			}
 		}
 	}
@@ -401,9 +379,9 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 		disable := controls.Get("disable")
 		switch {
 		case controls.Get("mandatory").Type == gjson.True || disable.Type == gjson.Null && disable.Exists():
-			spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.ReasoningDisableMode = "lowest-effort" })
+			spec.withCompat("reasoningDisableMode", "lowest-effort")
 		case disable.IsObject() && disable.Get("reasoning_effort").Str == "none" && disable.Get("reasoning_effort").Type == gjson.String:
-			spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.ReasoningDisableMode = "none-effort" })
+			spec.withCompat("reasoningDisableMode", "none-effort")
 		}
 	}
 	switch entry.Get("supports_image_input").Type {
@@ -473,10 +451,6 @@ func neoPiMapNovita(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMode
 	spec := neoPiMapWithBundledReference(entry, defaults, reference)
 	spec.name = neoPiModelName(name, fallback)
 	spec.reasoning = slices.Contains(neoPiStrings(entry.Get("features")), "reasoning")
-	spec.kind = ""
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	spec.input = neoPiInputCapabilities(entry.Get("input_modalities"))
 	spec.contextWindow = neoPiPositive(entry.Get("context_size"), spec.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_output_tokens"), spec.maxTokens)
@@ -518,9 +492,6 @@ func neoPiMapDeepinfra(entry gjson.Result) (neoPiSpec, bool) {
 		contextFallback, referenceMax = reference.ContextWindow, reference.MaxTokens
 	}
 	spec.reasoning = slices.Contains(tags, "reasoning") || slices.Contains(tags, "reasoning_effort")
-	if spec.reasoning {
-		spec.kind = neoPiKindReasoning
-	}
 	if slices.Contains(tags, "reasoning_effort") {
 		spec.thinking = &NeoPiThinking{Mode: "effort", Efforts: slices.Clone(neoPiDeepinfraEfforts)}
 	}
@@ -544,7 +515,7 @@ func neoPiMapDeepinfra(entry gjson.Result) (neoPiSpec, bool) {
 // usage chunk for listed models.
 func neoPiMapVenice(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel) neoPiSpec {
 	spec := neoPiMapWithBundledReference(entry, defaults, reference)
-	spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.SupportsUsageInStreaming = false })
+	spec.withCompat("supportsUsageInStreaming", false)
 	return spec
 }
 
@@ -563,7 +534,6 @@ func neoPiMapStepfun(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 	}
 	if efforts := neoPiLadder(neoPiStrings(entry.Get("reasoning_effort_support_list"))); len(efforts) > 0 {
 		spec.reasoning = true
-		spec.kind = neoPiKindReasoning
 		spec.thinking = &NeoPiThinking{Mode: "effort", Efforts: efforts}
 	}
 	return spec
@@ -600,6 +570,5 @@ func neoPiMapYoloAuto(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 	thinking.Efforts = efforts
 	spec.thinking = thinking
 	spec.reasoning = true
-	spec.kind = neoPiKindReasoning
 	return spec
 }

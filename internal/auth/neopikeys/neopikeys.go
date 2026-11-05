@@ -4,9 +4,9 @@
 // the three validation probes of registry/api-key-validation.ts.
 //
 // A pasted key is trimmed, optionally stripped of a leading "Bearer", probed
-// once against the provider and kept as typed. Groq and Mistral have no login
-// in NeoPi (their keys come from the environment), so their keys are accepted
-// without a probe.
+// once against the provider and kept as typed. Groq, Mistral and AIML API have
+// no login in NeoPi (their keys come from the environment), so their keys are
+// accepted without a probe.
 package neopikeys
 
 import (
@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/tidwall/gjson"
 )
@@ -65,6 +66,9 @@ type Validation struct {
 	BaseURLPath string `json:"baseUrlPath"`
 	// Optional trusts the key unless the probe proves an auth failure.
 	Optional bool `json:"optional"`
+	// HeadersHook names the computed headers a models-endpoint probe sends
+	// (registry/hooks/api-key.ts API_KEY_HEADERS_HOOKS).
+	HeadersHook string `json:"headersHook"`
 }
 
 // Login is one provider's key entry.
@@ -80,7 +84,7 @@ type Login struct {
 // loginsJSON is NeoPi's compiled `login "api-key"` rules for the providers
 // NeoProxy serves through NeoPi's Chat Completions provider, exported by
 // testdata/export_neopi_logins.ts. A provider whose keys come only from the
-// environment (Groq, Mistral) carries its name alone and takes keys unprobed.
+// environment (Groq, Mistral, AIML API) carries its name alone and takes keys unprobed.
 // The Token Plan's region and cookie prompts live in package alibabatokenplan.
 //
 //go:embed logins.json
@@ -186,7 +190,11 @@ func (l Login) Validate(ctx context.Context, client *http.Client, key string) er
 				target = strings.TrimRight(base, "/") + path
 			}
 		}
-		err = ValidateModelsEndpoint(ctx, client, label, target, key)
+		headers, hookErr := validationHeaders(v.HeadersHook)
+		if hookErr != nil {
+			return hookErr
+		}
+		err = validateModelsEndpoint(ctx, client, label, target, key, headers)
 	default:
 		return fmt.Errorf("neopikeys: unknown validation kind %q", v.Kind)
 	}
@@ -230,14 +238,44 @@ func validateChatCompletions(ctx context.Context, client *http.Client, label str
 	return err
 }
 
+// ErrCoreWeaveProject is requireCoreWeaveProjectHeaders' ConfigurationError:
+// CoreWeave bills every request to a W&B project the environment must name.
+var ErrCoreWeaveProject = errors.New("CoreWeave Serverless Inference requires OpenAI-Project. Set COREWEAVE_PROJECT=<team>/<project> before running /login coreweave. To persist it, add export COREWEAVE_PROJECT=<team>/<project> to your shell startup file (for example ~/.zshrc, ~/.bashrc, or your shell's profile/rc file).")
+
+// validationHeaders resolves a probe's headers hook.
+func validationHeaders(hook string) (map[string]string, error) {
+	switch hook {
+	case "":
+		return nil, nil
+	case "coreweave-project":
+		project := openaiwire.ResolveCoreWeaveProject(lookupEnv)
+		if project == "" {
+			return nil, ErrCoreWeaveProject
+		}
+		return map[string]string{openaiwire.CoreWeaveProjectHeader: project}, nil
+	case "cline-pass-client":
+		return openaiwire.ClinePassClientHeaders(""), nil
+	}
+	return nil, fmt.Errorf("neopikeys: unknown validation headers hook %q", hook)
+}
+
 // ValidateModelsEndpoint is validateApiKeyAgainstModelsEndpoint: a GET of the
 // provider's model listing with the key as a bearer token.
 func ValidateModelsEndpoint(ctx context.Context, client *http.Client, label, modelsURL, key string) error {
+	return validateModelsEndpoint(ctx, client, label, modelsURL, key, nil)
+}
+
+// validateModelsEndpoint sends the probe with the hook's headers over Bun's
+// defaults and under the bearer key.
+func validateModelsEndpoint(ctx context.Context, client *http.Client, label, modelsURL, key string, headers map[string]string) error {
 	req, err := http.NewRequest(http.MethodGet, modelsURL, nil)
 	if err != nil {
 		return err
 	}
 	setBunDefaults(req)
+	for name, value := range headers {
+		req.Header.Set(name, value)
+	}
 	req.Header.Set("Authorization", "Bearer "+key)
 	return probe(ctx, client, req, label)
 }

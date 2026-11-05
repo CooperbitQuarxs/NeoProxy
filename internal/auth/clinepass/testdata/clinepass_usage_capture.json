@@ -1,0 +1,615 @@
+{
+  "source": "NeoPi OWN clinePassUsageProvider.fetchUsage",
+  "apiKey": "sk_clinepass-usage-capture-0000",
+  "results": [
+    {
+      "name": "three-windows",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": {
+          "data": {
+            "limits": [
+              {
+                "type": "five_hour",
+                "percentUsed": 42.5,
+                "resetsAt": "2026-11-05T05:00:00.000Z"
+              },
+              {
+                "type": "weekly",
+                "percentUsed": 91,
+                "resetsAt": "2026-11-09T00:00:00Z"
+              },
+              {
+                "type": "monthly",
+                "percentUsed": 120,
+                "resetsAt": "not a date"
+              }
+            ]
+          }
+        }
+      },
+      "account": {
+        "status": 200,
+        "body": {
+          "data": {
+            "email": "  dev@example.com ",
+            "id": "acct_123"
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        },
+        {
+          "url": "https://api.cline.bot/api/v1/users/me",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "email": "dev@example.com",
+        "accountId": "acct_123",
+        "limits": [
+          {
+            "id": "cline-pass:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 1793854800000,
+            "used": 42.5,
+            "usedFraction": 0.425,
+            "status": "ok"
+          },
+          {
+            "id": "cline-pass:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 1794182400000,
+            "used": 91,
+            "usedFraction": 0.91,
+            "status": "warning"
+          },
+          {
+            "id": "cline-pass:30d",
+            "windowId": "30d",
+            "durationMs": 2592000000,
+            "resetsAt": 0,
+            "used": 120,
+            "usedFraction": 1.2,
+            "status": "exhausted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bare-payload",
+      "baseUrl": "https://gateway.example/cline/api/v1//",
+      "usage": {
+        "status": 200,
+        "body": {
+          "limits": [
+            {
+              "type": "five_hour",
+              "percentUsed": -3
+            },
+            {
+              "type": "daily",
+              "percentUsed": 10
+            },
+            {
+              "type": "weekly",
+              "percentUsed": "50"
+            },
+            {
+              "type": "weekly"
+            },
+            null
+          ]
+        }
+      },
+      "account": {
+        "status": 200,
+        "body": {
+          "email": "",
+          "id": 7
+        }
+      },
+      "requests": [
+        {
+          "url": "https://gateway.example/cline/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        },
+        {
+          "url": "https://gateway.example/cline/api/v1/users/me",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "email": "",
+        "accountId": "",
+        "limits": [
+          {
+            "id": "cline-pass:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 0,
+            "usedFraction": 0,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "account-fails",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": {
+          "data": {
+            "limits": [
+              {
+                "type": "weekly",
+                "percentUsed": 0
+              }
+            ]
+          }
+        }
+      },
+      "account": {
+        "status": 500,
+        "body": {
+          "error": "x"
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        },
+        {
+          "url": "https://api.cline.bot/api/v1/users/me",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "email": "",
+        "accountId": "",
+        "limits": [
+          {
+            "id": "cline-pass:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 0,
+            "used": 0,
+            "usedFraction": 0,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "account-not-json",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": {
+          "data": {
+            "limits": [
+              {
+                "type": "weekly",
+                "percentUsed": 5
+              }
+            ]
+          }
+        }
+      },
+      "account": {
+        "status": 200,
+        "body": "oops"
+      },
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        },
+        {
+          "url": "https://api.cline.bot/api/v1/users/me",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "email": "",
+        "accountId": "",
+        "limits": [
+          {
+            "id": "cline-pass:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 0,
+            "used": 5,
+            "usedFraction": 0.05,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "no-valid-limits",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": {
+          "data": {
+            "limits": [
+              {
+                "type": "yearly",
+                "percentUsed": 1
+              }
+            ]
+          }
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "limits-not-array",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": {
+          "data": {
+            "limits": {
+              "type": "weekly"
+            }
+          }
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "not-an-object",
+      "baseUrl": "",
+      "usage": {
+        "status": 200,
+        "body": [
+          1,
+          2
+        ]
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "no-plan",
+      "baseUrl": "",
+      "usage": {
+        "status": 404,
+        "body": {
+          "error": "No plan history found for user"
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "not-found-other",
+      "baseUrl": "",
+      "usage": {
+        "status": 404,
+        "body": {
+          "error": "missing"
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "rejected",
+      "baseUrl": "",
+      "usage": {
+        "status": 401,
+        "body": {
+          "error": "bad key"
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": "ClinePass usage endpoint returned 401",
+      "report": null
+    },
+    {
+      "name": "forbidden",
+      "baseUrl": "",
+      "usage": {
+        "status": 403,
+        "body": {
+          "error": "nope"
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": "ClinePass usage endpoint returned 403",
+      "report": null
+    },
+    {
+      "name": "transient",
+      "baseUrl": "",
+      "usage": {
+        "status": 503,
+        "body": {
+          "error": "down"
+        }
+      },
+      "account": null,
+      "requests": [
+        {
+          "url": "https://api.cline.bot/api/v1/users/me/plan/usage-limits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer sk_clinepass-usage-capture-0000",
+            "http-referer": "https://cline.bot",
+            "user-agent": "Cline/3.0.58",
+            "x-client-type": "cline-sdk",
+            "x-client-version": "3.0.58",
+            "x-core-version": "0.0.79",
+            "x-is-multiroot": "false",
+            "x-platform": "linux",
+            "x-platform-version": "3.0.54",
+            "x-title": "Cline"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    }
+  ]
+}
