@@ -58,13 +58,30 @@ func SelectTransport(ctx context.Context, cfg *config.Config, auth *cliproxyauth
 }
 
 // Client is an HTTP client over the selected transport (timeout 0 means no
-// timeout), decorated for the context.
+// timeout), through the context's transport wrapper, decorated for the
+// context.
 func (s TransportSelection) Client(ctx context.Context, timeout time.Duration) *http.Client {
-	httpClient := &http.Client{Transport: s.Transport}
+	transport := s.Transport
+	if ctx != nil {
+		if wrap, ok := ctx.Value(transportWrapperKey{}).(func(http.RoundTripper) http.RoundTripper); ok && wrap != nil {
+			transport = wrap(transport)
+		}
+	}
+	httpClient := &http.Client{Transport: transport}
 	if timeout > 0 {
 		httpClient.Timeout = timeout
 	}
 	return httptransport.Decorate(ctx, httpClient)
+}
+
+type transportWrapperKey struct{}
+
+// WithTransportWrapper scopes a provider's transport policy (such as
+// Copilot's identity fallback) to one execution: every client built for the
+// returned context routes its selected transport (nil meaning the default)
+// through wrap, beneath any context decorator.
+func WithTransportWrapper(ctx context.Context, wrap func(http.RoundTripper) http.RoundTripper) context.Context {
+	return context.WithValue(ctx, transportWrapperKey{}, wrap)
 }
 
 // ContextRoundTripper is the RoundTripper a context carries for clients

@@ -44,10 +44,11 @@ const METHOD_LABEL = { subscription: "Sign in with an account", apiKey: "Paste a
 const PICKER_SEARCH_FROM = 9;
 
 // A provider's own details (NeoPi's login prompts: Snowflake's account,
-// Cloudflare's account and gateway ids), asked before its flow starts.
+// Cloudflare's account and gateway ids, Copilot's optional Enterprise
+// instance), asked before its flow starts.
 const providerFields = (p, values, onChange) => (p.fields ?? []).map((f) =>
 	field(f.label, input({ mono: true, placeholder: f.placeholder, autocomplete: "off", value: values[f.id] ?? "", onInput: (e) => { values[f.id] = e.target.value; onChange(); } }), f.hint));
-const fieldsFilled = (p, values) => (p.fields ?? []).every((f) => (values[f.id] ?? "").trim());
+const fieldsFilled = (p, values) => (p.fields ?? []).every((f) => f.optional || (values[f.id] ?? "").trim());
 const trimmedFields = (p, values) => p.fields?.length ? Object.fromEntries(p.fields.map((f) => [f.id, (values[f.id] ?? "").trim()])) : undefined;
 
 // Sets the provider hue as real custom properties (style objects can't).
@@ -228,7 +229,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			popup = mode === "device" ? null : window.open("about:blank", "_blank");
 			button.disabled = true;
 			button.lastChild.textContent = "Starting…";
-			const query = mode === "device" ? { mode: "device" } : trimmedFields(p, values);
+			const query = { ...trimmedFields(p, values), ...(mode === "device" ? { mode: "device" } : {}) };
 			neo.startLogin(p.id, query).then((r) => {
 				if (dead) { popup?.close(); return; }
 				if (r.url && popup) popup.location.href = r.url;

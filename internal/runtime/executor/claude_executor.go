@@ -76,6 +76,10 @@ type neoPiThirdPartyProvider struct {
 	// configured header, as Vertex's authenticated fetch does on the finished
 	// request.
 	enforceBearer bool
+	// copilot sets GitHub Copilot's identity on a request built for its
+	// Anthropic proxy, which takes NeoPi's Copilot header set rather than
+	// the SDK's (no Stainless fingerprint, no x-api-key, caller betas only).
+	copilot func(translated []byte, headers, incoming http.Header)
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {

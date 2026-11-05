@@ -15,6 +15,7 @@ import (
 // The NeoPi APIs whose model policy this package resolves.
 const (
 	APIOpenAICompletions = "openai-completions"
+	APIOpenAIResponses   = "openai-responses"
 	APIAnthropicMessages = "anthropic-messages"
 	APIGoogleVertex      = "google-vertex"
 )
@@ -47,13 +48,14 @@ type Policy struct {
 	Reasoning bool
 }
 
-// Resolve is resolveModelPolicy for an openai-completions, anthropic-messages
-// or google-vertex spec, plus buildModel's reasoning materialization.
+// Resolve is resolveModelPolicy for an openai-completions, openai-responses,
+// anthropic-messages or google-vertex spec, plus buildModel's reasoning
+// materialization.
 func Resolve(spec Spec) (Policy, error) {
 	if err := load(); err != nil {
 		return Policy{}, err
 	}
-	if spec.API != APIOpenAICompletions && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex {
+	if spec.API != APIOpenAICompletions && spec.API != APIOpenAIResponses && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex {
 		return Policy{}, fmt.Errorf("neopicompat: api %q is not ported", spec.API)
 	}
 	// withoutUnverifiedThinking: an unverified ladder was derived, not authored.
@@ -79,6 +81,8 @@ func Resolve(spec Spec) (Policy, error) {
 		compat = resolveAnthropicPolicy(spec, facts, resolved)
 	case APIGoogleVertex:
 		compat = resolveGooglePolicy(spec, resolved)
+	case APIOpenAIResponses:
+		compat = resolveResponsesPolicy(spec, facts, resolved)
 	default:
 		compat = resolveCompletionsPolicy(spec, facts, resolved)
 	}

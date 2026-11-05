@@ -158,6 +158,40 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if provider.enforceBearer {
 		headers.Set("Authorization", "Bearer "+bearer)
 	}
+	if provider.copilot != nil {
+		// NeoPi's github-copilot branch: its own header set, the model and
+		// dynamic Copilot headers, then the caller's (anthropic.ts:3891-3913).
+		for name := range headers {
+			if strings.HasPrefix(name, "X-Stainless-") || name == "X-App" || name == "X-Api-Key" {
+				delete(headers, name)
+			}
+		}
+		// Copilot's Anthropic proxy takes only the caller's betas (NeoPi's
+		// extraBetas: effort, fast mode, task budget, control and compaction
+		// betas), none the generic SDK builder adds.
+		var kept []string
+		for _, beta := range strings.Split(headers.Get("anthropic-beta"), ",") {
+			switch beta = strings.TrimSpace(beta); beta {
+			case "", "interleaved-thinking-2025-05-14", "context-management-2025-06-27", "fine-grained-tool-streaming-2025-05-14", "fallback-credit-2026-06-01":
+				continue
+			}
+			kept = append(kept, beta)
+		}
+		headers.Del("anthropic-beta")
+		if len(kept) > 0 {
+			headers.Set("anthropic-beta", strings.Join(kept, ","))
+		}
+		headers.Set("Authorization", "Bearer "+bearer)
+		provider.copilot(translated, headers, opts.Headers)
+		if auth != nil {
+			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), auth.Attributes, opts.Headers)
+		}
+		// applyInferenceHeaders runs over the merged set: the authoritative
+		// conversation id wins over a caller's session header.
+		if identity.SessionID != "" {
+			headers.Set("X-Claude-Code-Session-Id", identity.SessionID)
+		}
+	}
 	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
 	}

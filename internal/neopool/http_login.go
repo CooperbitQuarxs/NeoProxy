@@ -88,7 +88,7 @@ func (h *HTTP) login(c *gin.Context) {
 	}
 	provider := c.Param("provider")
 	switch provider {
-	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo", "snowflake", "factory-droid":
+	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo", "snowflake", "factory-droid", "github-copilot":
 	default:
 		poolError(c, 400, "unsupported login provider")
 		return
@@ -107,6 +107,11 @@ func (h *HTTP) login(c *gin.Context) {
 	// only snowflakecomputing.com account hosts.
 	if dispatch == "snowflake" {
 		query.Set("account", c.Query("account"))
+	}
+	// GitHub Copilot signs in on the GitHub Enterprise instance it is asked
+	// for, github.com when none is named.
+	if dispatch == "github-copilot" {
+		query.Set("enterprise_url", c.Query("enterprise_url"))
 	}
 	inner := engineContext(c, "/v8/management/oauth/auth-url", query)
 	captured := &loginWriter{ResponseWriter: c.Writer}

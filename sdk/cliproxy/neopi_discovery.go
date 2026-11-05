@@ -104,8 +104,13 @@ var (
 	factoryDroidDiscovery = &neoPiDiscovery{provider: "factory-droid", ttl: neoPiDiscoverySweepEvery, retry: 5 * time.Minute,
 		bundled: executor.FactoryDroidSeedModels, fetch: executor.FetchFactoryDroidModels, scope: factoryDroidDiscoveryScope,
 		entries: map[string]*neoPiDiscoveryEntry{}}
+	// githubCopilotDiscovery lists GET /models on the account's Copilot
+	// endpoint: NeoPi's model manager default 2h cache TTL; the plan endpoint
+	// probe and the listing run without NeoPi's 10s bound.
+	githubCopilotDiscovery = &neoPiDiscovery{provider: "github-copilot", ttl: 2 * time.Hour, retry: 5 * time.Minute,
+		bundled: neoPiStaticSeed(registry.GitHubCopilotSeedModels), fetch: executor.FetchGitHubCopilotModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery, githubCopilotDiscovery}
 )
 
 // factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory

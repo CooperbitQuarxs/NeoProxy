@@ -1,0 +1,862 @@
+{
+ "source": "NeoPi OWN githubCopilotUsageProvider.fetchUsage (oauth)",
+ "token": "gho_usage_fixture",
+ "results": [
+  {
+   "name": "premium-limited",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":120,\"percent_remaining\":40,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":120},\"chat\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":0},\"completions\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":0}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 180,
+       "limit": 300,
+       "remaining": 120,
+       "usedFraction": 0.6,
+       "remainingFraction": 0.4,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "free-plan-all-limited",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"free\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":50,\"remaining\":0,\"percent_remaining\":0,\"unlimited\":false,\"overage_count\":5,\"overage_permitted\":true,\"quota_id\":\"premium_interactions\",\"quota_remaining\":0},\"chat\":{\"entitlement\":50,\"remaining\":10,\"percent_remaining\":20,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":10},\"completions\":{\"entitlement\":2000,\"remaining\":1900,\"percent_remaining\":95,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"completions\",\"quota_remaining\":1900}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "free",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 50,
+       "limit": 50,
+       "remaining": 0,
+       "usedFraction": 1,
+       "remainingFraction": 0,
+       "unit": "requests"
+      },
+      "status": "exhausted",
+      "notes": [
+       "Overage requests: 5"
+      ]
+     },
+     {
+      "id": "copilot:chat",
+      "label": "Chat Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "free",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 40,
+       "limit": 50,
+       "remaining": 10,
+       "usedFraction": 0.8,
+       "remainingFraction": 0.2,
+       "unit": "requests"
+      },
+      "status": "ok"
+     },
+     {
+      "id": "copilot:completions",
+      "label": "Completions",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "free",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 100,
+       "limit": 2000,
+       "remaining": 1900,
+       "usedFraction": 0.05,
+       "remainingFraction": 0.95,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "free",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "warning",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":1000,\"remaining\":50,\"percent_remaining\":5,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":50},\"chat\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":0}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 950,
+       "limit": 1000,
+       "remaining": 50,
+       "usedFraction": 0.95,
+       "remainingFraction": 0.05,
+       "unit": "requests"
+      },
+      "status": "warning"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "premium-unlimited",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":0},\"chat\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":0},\"completions\":{\"entitlement\":0,\"remaining\":0,\"percent_remaining\":100,\"unlimited\":true,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"chat\",\"quota_remaining\":0}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "unit": "requests"
+      },
+      "status": "ok",
+      "notes": [
+       "Unlimited"
+      ]
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "malformed-details",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"not a date\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":10,\"unlimited\":false},\"chat\":\"nope\",\"completions\":{\"entitlement\":\"2000\",\"remaining\":\"1500\",\"percent_remaining\":\"75\",\"unlimited\":false,\"overage_count\":\"2\",\"overage_permitted\":false,\"quota_id\":\"premium_interactions\"}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:completions",
+      "label": "Completions",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual"
+      },
+      "amount": {
+       "used": 500,
+       "limit": 2000,
+       "remaining": 1500,
+       "usedFraction": 0.25,
+       "remainingFraction": 0.75,
+       "unit": "requests"
+      },
+      "status": "ok",
+      "notes": [
+       "Overage requests: 2"
+      ]
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "not a date"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "no-snapshots",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"business\",\"quota_reset_date\":\"2026-12-01T00:00:00Z\"}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "business",
+     "quotaResetDate": "2026-12-01T00:00:00Z"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "user-lookup-fails",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":299,\"percent_remaining\":99.66666666666667,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":299}}}"
+   },
+   "user": {
+    "status": 500,
+    "body": "{}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 1,
+       "limit": 300,
+       "remaining": 299,
+       "usedFraction": 0.0033333333333333335,
+       "remainingFraction": 0.9966666666666667,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": null,
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "user-without-login",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":299,\"percent_remaining\":99.66666666666667,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":299}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 1,
+       "limit": 300,
+       "remaining": 299,
+       "usedFraction": 0.0033333333333333335,
+       "remainingFraction": 0.9966666666666667,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": null,
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "enterprise",
+   "enterpriseUrl": "octo.ghe.com",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":120,\"percent_remaining\":40,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":120}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.octo.ghe.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.octo.ghe.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 180,
+       "limit": 300,
+       "remaining": 120,
+       "usedFraction": 0.6,
+       "remainingFraction": 0.4,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "enterprise-api-host",
+   "enterpriseUrl": "api.octo.ghe.com",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":120,\"percent_remaining\":40,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":120}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.octo.ghe.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://api.octo.ghe.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 180,
+       "limit": 300,
+       "remaining": 120,
+       "usedFraction": 0.6,
+       "remainingFraction": 0.4,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "enterprise-url",
+   "enterpriseUrl": "https://octo.ghe.com/",
+   "internal": {
+    "status": 200,
+    "body": "{\"copilot_plan\":\"individual\",\"quota_reset_date\":\"2026-12-01\",\"quota_snapshots\":{\"premium_interactions\":{\"entitlement\":300,\"remaining\":120,\"percent_remaining\":40,\"unlimited\":false,\"overage_count\":0,\"overage_permitted\":false,\"quota_id\":\"premium_interactions\",\"quota_remaining\":120}}}"
+   },
+   "user": {
+    "status": 200,
+    "body": "{\"login\":\"octocat\",\"id\":1}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://octo.ghe.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    },
+    {
+     "method": "GET",
+     "url": "https://octo.ghe.com/user",
+     "headers": {
+      "accept": "application/vnd.github+json",
+      "authorization": "Bearer gho_usage_fixture",
+      "x-github-api-version": "2022-11-28"
+     }
+    }
+   ],
+   "report": {
+    "limits": [
+     {
+      "id": "copilot:premium",
+      "label": "Premium Requests",
+      "scope": {
+       "provider": "github-copilot",
+       "accountId": "octocat",
+       "tier": "individual",
+       "windowId": "monthly"
+      },
+      "window": {
+       "id": "monthly",
+       "label": "Monthly",
+       "resetsAt": 1796083200000
+      },
+      "amount": {
+       "used": 180,
+       "limit": 300,
+       "remaining": 120,
+       "usedFraction": 0.6,
+       "remainingFraction": 0.4,
+       "unit": "requests"
+      },
+      "status": "ok"
+     }
+    ],
+    "metadata": {
+     "accountId": "octocat",
+     "plan": "individual",
+     "quotaResetDate": "2026-12-01"
+    }
+   },
+   "error": null
+  },
+  {
+   "name": "internal-401",
+   "internal": {
+    "status": 401,
+    "body": "{\"message\":\"Bad credentials\"}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    }
+   ],
+   "report": null,
+   "error": {
+    "status": 401,
+    "message": "401 Error: {\"message\":\"Bad credentials\"}"
+   }
+  },
+  {
+   "name": "internal-403",
+   "internal": {
+    "status": 403,
+    "body": "{\"message\":\"Forbidden\"}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    }
+   ],
+   "report": null,
+   "error": {
+    "status": 403,
+    "message": "403 Error: {\"message\":\"Forbidden\"}"
+   }
+  },
+  {
+   "name": "internal-500",
+   "internal": {
+    "status": 500,
+    "body": "{}"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    }
+   ],
+   "report": null,
+   "error": null
+  },
+  {
+   "name": "internal-not-object",
+   "internal": {
+    "status": 200,
+    "body": "[1,2]"
+   },
+   "requests": [
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "content-type": "application/json",
+      "accept": "application/json",
+      "authorization": "Bearer gho_usage_fixture",
+      "user-agent": "copilot/1.0.82"
+     }
+    }
+   ],
+   "report": null,
+   "error": null
+  }
+ ]
+}
