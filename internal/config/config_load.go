@@ -328,6 +328,9 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	// Sanitize Meta keys.
 	cfg.SanitizeMetaKeys()
 
+	// Sanitize GitLab Duo Agent keys.
+	cfg.SanitizeGitLabDuoAgentKeys()
+
 	// Sanitize Claude header defaults.
 	cfg.SanitizeClaudeHeaderDefaults()
 

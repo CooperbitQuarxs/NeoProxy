@@ -309,6 +309,31 @@ func sanitizeMetaKeyEntries(entries []MetaKey) []MetaKey {
 	return out
 }
 
+// SanitizeGitLabDuoAgentKeys normalizes GitLab Duo Agent token entries,
+// defaulting BaseURL to https://gitlab.com.
+func (cfg *Config) SanitizeGitLabDuoAgentKeys() {
+	if cfg == nil || len(cfg.GitLabDuoAgentKey) == 0 {
+		return
+	}
+	out := make([]GitLabDuoAgentKey, 0, len(cfg.GitLabDuoAgentKey))
+	for _, e := range cfg.GitLabDuoAgentKey {
+		e.APIKey = strings.TrimSpace(e.APIKey)
+		if e.APIKey == "" {
+			continue
+		}
+		e.Prefix = normalizeModelPrefix(e.Prefix)
+		e.BaseURL = strings.TrimRight(strings.TrimSpace(e.BaseURL), "/")
+		if e.BaseURL == "" {
+			e.BaseURL = "https://gitlab.com"
+		}
+		e.Headers = NormalizeHeaders(e.Headers)
+		e.ExcludedModels = NormalizeExcludedModels(e.ExcludedModels)
+		e.AlphaSearch = false
+		out = append(out, e)
+	}
+	cfg.GitLabDuoAgentKey = out
+}
+
 func sanitizeCodexKeyEntries(entries []CodexKey) []CodexKey {
 	if len(entries) == 0 {
 		return entries

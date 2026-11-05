@@ -84,11 +84,11 @@ func TestGitLabDuoReadsCompressedResponses(t *testing.T) {
 	defer ClearDirectAccessCache()
 	t.Setenv("GITLAB_CLIENT_ID", "")
 	token := gzipAnswer{`{"access_token":"access","refresh_token":"refresh","expires_in":7200,"created_at":1800000000}`}
-	session := &Session{ClientID: ClientID(), RedirectURI: "http://localhost:8080/callback", Verifier: "verifier"}
+	session := Duo.newSession("http://localhost:8080/callback", "state", []byte("verifier"))
 	if credential, err := session.Exchange(context.Background(), &http.Client{Transport: token}, "code"); err != nil || credential.Access != "access" {
 		t.Fatalf("exchange = %+v, %v", credential, err)
 	}
-	if credential, err := Refresh(context.Background(), &http.Client{Transport: token}, "stored"); err != nil || credential.Access != "access" {
+	if credential, err := Duo.Refresh(context.Background(), &http.Client{Transport: token}, "stored"); err != nil || credential.Access != "access" {
 		t.Fatalf("refresh = %+v, %v", credential, err)
 	}
 	mint := gzipAnswer{`{"token":"direct","headers":{"x-gitlab-realm":"saas"}}`}

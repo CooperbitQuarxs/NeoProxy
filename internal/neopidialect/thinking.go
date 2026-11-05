@@ -7,9 +7,9 @@ import (
 )
 
 // scanKind enumerates the in-band scan events of NeoPi's InbandScanEvent the
-// healing scanners produce. impliedThinkingEnd is omitted: it is only emitted
-// when the scanner runs with impliedOpen, which StreamMarkupHealing never
-// sets; toolArgDelta is omitted because healing never reads it.
+// healing scanners produce. impliedThinkingEnd comes only from a scanner
+// built with impliedOpen, as the leaked-thinking projector's is;
+// toolArgDelta is omitted because healing never reads it.
 type scanKind int
 
 const (
@@ -19,6 +19,7 @@ const (
 	scanThinkingEnd
 	scanToolStart
 	scanToolEnd
+	scanImpliedThinkingEnd
 )
 
 // scanEvent is one scanner event. text carries the text for scanText and
@@ -35,14 +36,15 @@ type reasoningTag struct {
 	open   string
 	close  string
 	fenced bool
+	// impliedOpen marks a tag whose bare close reads as the end of thinking
+	// a template opened before the stream began.
+	impliedOpen bool
 }
 
 // reasoningTags lists every dialect's in-band thinking section in its canonical
-// renderThinking form (NeoPi dialect/thinking.ts TAGS). The DeepSeek `<think>`
-// tag is also an implied-open tag in NeoPi, which only matters to scanners built
-// with impliedOpen; this port never enables it.
+// renderThinking form (NeoPi dialect/thinking.ts TAGS).
 var reasoningTags = []reasoningTag{
-	{open: "<think>", close: "</think>"},
+	{open: "<think>", close: "</think>", impliedOpen: true},
 	{open: "<thinking>", close: "</thinking>"},
 	{open: "<scratchpad>", close: "</scratchpad>"},
 	{open: "```thinking\n", close: "```", fenced: true},                          // gemini fenced thinking
@@ -54,12 +56,14 @@ var reasoningTags = []reasoningTag{
 const backtick = '`'
 
 // thinkingScanner heals reasoning a model leaked into its visible text channel
-// back into thinking events (port of NeoPi's ThinkingInbandScanner without the
-// impliedOpen mode).
+// back into thinking events (port of NeoPi's ThinkingInbandScanner).
 type thinkingScanner struct {
-	buffer   string
-	closeTag string
-	thinking strings.Builder
+	// impliedOpen reports a bare close of an implied-open tag as an implied
+	// thinking end instead of passing it through as text.
+	impliedOpen bool
+	buffer      string
+	closeTag    string
+	thinking    strings.Builder
 	// fenced is the fence-aware close-matcher while inside a ```thinking block.
 	fenced *fencedThinkingScanner
 	// codeTicks is the backtick count that opened the Markdown code span/fence we
@@ -158,7 +162,7 @@ func (s *thinkingScanner) consume(final bool) []scanEvent {
 			break
 		}
 
-		hit := scanVisible(s.buffer, final)
+		hit := scanVisible(s.buffer, final, s.impliedOpen)
 		if hit.kind == hitNone {
 			events = s.emitText(s.buffer, events)
 			s.buffer = ""
@@ -170,6 +174,11 @@ func (s *thinkingScanner) consume(final bool) []scanEvent {
 		if hit.kind == hitHold {
 			s.buffer = s.buffer[hit.index:]
 			break
+		}
+		if hit.kind == hitImpliedClose {
+			s.buffer = s.buffer[hit.index+len(hit.tag.close):]
+			events = append(events, scanEvent{kind: scanImpliedThinkingEnd})
+			continue
 		}
 		if hit.kind == hitCode {
 			fenced := hit.ticks >= 3 && s.lineIndent >= 0 && s.lineIndent <= 3
@@ -262,6 +271,7 @@ type hitKind int
 const (
 	hitNone hitKind = iota
 	hitTag
+	hitImpliedClose
 	hitCode
 	hitHold
 )
@@ -276,8 +286,9 @@ type visibleHit struct {
 }
 
 // scanVisible walks idle visible text for the earliest boundary: a leaked
-// reasoning-tag open, a Markdown code-span/fence opener (a backtick run), or, when
-// more chunks may follow, a held partial delimiter at the buffer tail.
+// reasoning-tag open, a bare close of an implied-open tag (when impliedOpen),
+// a Markdown code-span/fence opener (a backtick run), or, when more chunks may
+// follow, a held partial delimiter at the buffer tail.
 //
 // Reasoning tags win at any position so the gemini ```thinking fence is healed
 // instead of being read as a code fence. Backtick runs enter code mode so a
@@ -287,7 +298,7 @@ type visibleHit struct {
 // finds exactly the boundaries NeoPi finds scanning UTF-16 code units; NeoPi's
 // "only the tail can be a prefix" index bound is implied by the length check on
 // the held rest.
-func scanVisible(buffer string, final bool) visibleHit {
+func scanVisible(buffer string, final, impliedOpen bool) visibleHit {
 	for i := 0; i < len(buffer); i++ {
 		c := buffer[i]
 		if c != '<' && c != backtick {
@@ -298,10 +309,20 @@ func scanVisible(buffer string, final bool) visibleHit {
 				return visibleHit{kind: hitTag, index: i, tag: tag}
 			}
 		}
+		if impliedOpen {
+			for _, tag := range reasoningTags {
+				if tag.impliedOpen && strings.HasPrefix(buffer[i:], tag.close) {
+					return visibleHit{kind: hitImpliedClose, index: i, tag: tag}
+				}
+			}
+		}
 		if !final {
 			rest := buffer[i:]
 			for _, tag := range reasoningTags {
 				if len(tag.open) > len(rest) && strings.HasPrefix(tag.open, rest) {
+					return visibleHit{kind: hitHold, index: i}
+				}
+				if impliedOpen && tag.impliedOpen && len(tag.close) > len(rest) && strings.HasPrefix(tag.close, rest) {
 					return visibleHit{kind: hitHold, index: i}
 				}
 			}
