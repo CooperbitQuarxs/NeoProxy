@@ -239,7 +239,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 
 		function waiting(r) {
 			const device = r.flow === "device" || (r.status === "ok" && !!r.user_code);
-			const verify = r.verification_uri_complete || r.verification_uri || r.verification_url || null;
+			// Most device-code starts (Kimi, xAI, Meta, Nous) send the provider's device page as `url`.
+			const verify = r.verification_uri_complete || r.verification_uri || r.verification_url || (device ? r.url : null) || null;
 			let code = "";
 			const note = h("div");
 			const submit = async (e) => {
