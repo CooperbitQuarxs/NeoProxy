@@ -39,15 +39,15 @@ type runtimeScenario struct {
 	UUIDStart       int             `json:"uuidStart"`
 	WireModelID     string          `json:"wireModelId"`
 	Model           struct {
-		ID                                 string                                 `json:"id"`
-		Name                               string                                 `json:"name"`
-		RequestModelID                     string                                 `json:"requestModelId"`
-		CursorMaxMode                      *bool                                  `json:"cursorMaxMode"`
-		CursorMaxModeRoutes                map[string]bool                        `json:"cursorMaxModeRoutes"`
-		CursorModelRoutes                  map[string]neopicatalog.CursorRoute    `json:"cursorModelRoutes"`
-		CursorModelParameters              []neopicatalog.ModelParameter          `json:"cursorModelParameters"`
-		EffortRouting                      map[string]string                      `json:"effortRouting"`
-		RequiresCursorToolSchemaProjection bool                                   `json:"requiresCursorToolSchemaProjection"`
+		ID                                 string                              `json:"id"`
+		Name                               string                              `json:"name"`
+		RequestModelID                     string                              `json:"requestModelId"`
+		CursorMaxMode                      *bool                               `json:"cursorMaxMode"`
+		CursorMaxModeRoutes                map[string]bool                     `json:"cursorMaxModeRoutes"`
+		CursorModelRoutes                  map[string]neopicatalog.CursorRoute `json:"cursorModelRoutes"`
+		CursorModelParameters              []neopicatalog.ModelParameter       `json:"cursorModelParameters"`
+		EffortRouting                      map[string]string                   `json:"effortRouting"`
+		RequiresCursorToolSchemaProjection bool                                `json:"requiresCursorToolSchemaProjection"`
 	} `json:"model"`
 	Exchanges [][]struct {
 		Send  []string        `json:"send"`
