@@ -122,8 +122,28 @@ func (h *BaseAPIHandler) executeWithAuthManagerFormats(ctx context.Context, entr
 	passthroughHeaders := executionPassthroughHeaders(h.CurrentConfig(), execOptions.InternalSource)
 	responseHeaders := downstreamHeadersFromExecutor(rawResponseHeaders, passthroughHeaders)
 	body, responseHeaders := h.applyResponseInterceptors(ctx, lifecycle.requestID(), responseProtocol, normalizedModel, originalRequestedModel, executedOpts, rawResponseHeaders, responseHeaders, executedOpts.OriginalRequest, executedReq.Payload, resp.Payload, http.StatusOK, execOptions.SkipInterceptorPluginID, passthroughHeaders)
+	if isModelExecutionSpeechProtocol(entryProtocol) {
+		responseHeaders = withSpeechContentType(responseHeaders, rawResponseHeaders)
+	}
 	lifecycle.complete(pluginapi.RequestCompletionSucceeded, http.StatusOK, nil)
 	return body, responseHeaders, nil
+}
+
+// withSpeechContentType keeps the executor's Content-Type on a speech
+// response whatever the header passthrough setting: it names the audio
+// format the provider actually produced, which the request alone cannot tell
+// once payload rules or interceptors changed it. A Content-Type a response
+// interceptor set wins.
+func withSpeechContentType(headers, raw http.Header) http.Header {
+	contentType := raw.Get("Content-Type")
+	if contentType == "" || headers.Get("Content-Type") != "" {
+		return headers
+	}
+	if headers == nil {
+		headers = http.Header{}
+	}
+	headers.Set("Content-Type", contentType)
+	return headers
 }
 
 // ExecuteCountWithAuthManager executes a non-streaming request via the core auth manager.

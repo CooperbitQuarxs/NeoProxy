@@ -35,7 +35,7 @@ func TestModelRoutesFollowTheAdvertisedAPI(t *testing.T) {
 		t.Fatal("opencode-go missing from the catalog")
 	}
 	base := server.URL + "/zen/go/v1"
-	got, models, routes, err := validateCatalogKey(context.Background(), info, base, "", "test-key")
+	got, models, routes, err := validateCatalogKey(context.Background(), info, base, regionChoice{}, "test-key")
 	if err != nil || got != base {
 		t.Fatalf("validateCatalogKey = %q, %v", got, err)
 	}

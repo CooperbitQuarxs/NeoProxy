@@ -106,6 +106,38 @@ func LoginFor(provider string) (Login, bool) {
 	return login, ok
 }
 
+// The Alibaba Coding Plan sign-in's International and China endpoints, and
+// the model its chat probe asks for.
+const (
+	AlibabaCodingPlanIntlURL         = "https://coding-intl.dashscope.aliyuncs.com/v1"
+	AlibabaCodingPlanCNURL           = "https://coding.dashscope.aliyuncs.com/v1"
+	alibabaCodingPlanValidationModel = "qwen3.5-plus"
+)
+
+// AlibabaCodingPlanBaseURL is the endpoint loginAlibabaCodingPlan settles
+// on: the International one unless another is named, without trailing
+// slashes.
+func AlibabaCodingPlanBaseURL(base string) string {
+	if base = strings.TrimRight(strings.TrimSpace(base), "/"); base == "" {
+		return AlibabaCodingPlanIntlURL
+	}
+	return base
+}
+
+// AlibabaCodingPlanLogin is loginAlibabaCodingPlan's key check for the
+// endpoint it chose: a one-token chat probe on the International or China
+// endpoint, the models endpoint when the custom option was chosen. NeoPi
+// branches on that choice, not on the URL, so a custom selection naming a
+// regional endpoint still probes its models.
+func AlibabaCodingPlanLogin(base string, custom bool) Login {
+	base = AlibabaCodingPlanBaseURL(base)
+	probe := &Validation{Kind: ModelsEndpoint, URL: base + "/models"}
+	if !custom && (base == AlibabaCodingPlanIntlURL || base == AlibabaCodingPlanCNURL) {
+		probe = &Validation{Kind: ChatCompletions, BaseURL: base, Model: alibabaCodingPlanValidationModel}
+	}
+	return Login{Name: "Alibaba Coding Plan", Probe: probe}
+}
+
 // Errors of the key-entry normalisation.
 var (
 	// ErrKeyRequired is ApiKeyRequiredError: nothing was pasted.

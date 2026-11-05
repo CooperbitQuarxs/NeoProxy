@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/clienterror"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
 	"github.com/tidwall/gjson"
 )
@@ -41,25 +42,70 @@ var openAISpeechVoices = map[string]string{
 	"verse":   "lumen",
 }
 
+// AudioSpeech serves /v1/audio/speech: a model a NeoPi provider registered
+// as a speech model runs on that provider, every other model on xAI's TTS.
 func (h *OpenAIAPIHandler) AudioSpeech(c *gin.Context) {
-	h.handleXAISpeech(c)
+	raw, ok := readSpeechBody(c)
+	if !ok {
+		return
+	}
+	requested := strings.TrimSpace(gjson.GetBytes(raw, "model").String())
+	if info := registry.LookupModelInfo(requested); info != nil && info.Type == registry.OpenAISpeechModelType {
+		h.handleNeoPiSpeech(c, raw, requested)
+		return
+	}
+	h.handleXAISpeech(c, raw)
 }
 
 func (h *OpenAIAPIHandler) XAITTS(c *gin.Context) {
-	h.handleXAISpeech(c)
+	if raw, ok := readSpeechBody(c); ok {
+		h.handleXAISpeech(c, raw)
+	}
 }
 
-func (h *OpenAIAPIHandler) handleXAISpeech(c *gin.Context) {
+// readSpeechBody reads a speech request body, answering the client itself
+// when it cannot be read or is too large.
+func readSpeechBody(c *gin.Context) ([]byte, bool) {
 	raw, err := handlers.ReadRequestBody(c)
 	if err != nil {
 		writeSpeechError(c, clienterror.HTTPStatusFromErrorOr(err, http.StatusBadRequest), fmt.Sprintf("Invalid request: %v", err))
-		return
+		return nil, false
 	}
 	if len(raw) > maxXAISpeechBody {
 		writeSpeechError(c, http.StatusBadRequest, "request body is larger than 1MB")
+		return nil, false
+	}
+	return raw, true
+}
+
+// handleNeoPiSpeech runs an OpenAI speech request on the NeoPi provider that
+// registered model. The audio carries the MIME type the provider's executor
+// or a response interceptor set when those headers reach the handler, else
+// NeoPi's MIME type for the requested format (mp3 when none is named).
+func (h *OpenAIAPIHandler) handleNeoPiSpeech(c *gin.Context, raw []byte, model string) {
+	format := "mp3"
+	if value := gjson.GetBytes(raw, "response_format"); value.Exists() {
+		format = value.String()
+	}
+	cliCtx, cliCancel := h.GetContextWithCancel(h, c, context.Background())
+	resp, upstreamHeaders, errMsg := h.ExecuteWithAuthManager(cliCtx, xaiSpeechHandlerType, model, raw, "")
+	if errMsg != nil {
+		h.WriteErrorResponse(c, errMsg)
+		if errMsg.Error != nil {
+			cliCancel(errMsg.Error)
+		} else {
+			cliCancel(nil)
+		}
 		return
 	}
+	handlers.WriteUpstreamHeaders(c.Writer.Header(), upstreamHeaders)
+	c.Header("Content-Type", speechResponseContentType(format, upstreamHeaders.Get("Content-Type")))
+	c.Writer.Header().Del("Content-Length")
+	_, _ = c.Writer.Write(resp)
+	cliCancel(nil)
+}
 
+func (h *OpenAIAPIHandler) handleXAISpeech(c *gin.Context, raw []byte) {
 	requested := strings.TrimSpace(gjson.GetBytes(raw, "model").String())
 	model, ok := speechRoutingModel(requested)
 	if !ok {
@@ -218,12 +264,20 @@ func speechCodecFormat(codec string, sampleRate int) (string, map[string]any, er
 	}
 }
 
+// speechContentType is NeoPi's SPEECH_FORMAT_MIME_TYPES; an unknown format
+// is labelled mp3.
 func speechContentType(format string) string {
 	switch format {
 	case "wav":
 		return "audio/wav"
 	case "pcm":
 		return "audio/pcm"
+	case "opus":
+		return "audio/opus"
+	case "aac":
+		return "audio/aac"
+	case "flac":
+		return "audio/flac"
 	default:
 		return "audio/mpeg"
 	}
