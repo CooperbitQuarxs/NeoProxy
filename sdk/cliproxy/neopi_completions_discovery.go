@@ -201,9 +201,13 @@ const neoPiFireworksMaxPages = 25
 
 // fetchNeoPiCompletionsModels is NeoPi's fetchDynamicModels for provider:
 // GET <base>/models with an Accept header and the key as a bearer token, or
-// Fireworks' paginated control-plane catalog.
+// Fireworks' paginated control-plane catalog. A provider whose NeoPi model
+// manager has no listing (Firepass) serves its bundled roster unfetched.
 func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error) {
 	return func(ctx context.Context, cfg *config.Config, auth *coreauth.Auth) ([]*ModelInfo, error) {
+		if !registry.NeoPiCompletionsDiscovers(provider) {
+			return registry.NeoPiCompletionsBundledModels(provider, provider), nil
+		}
 		key, base, err := neoPiCompletionsDiscoveryAccount(provider, auth)
 		if err != nil {
 			return nil, err

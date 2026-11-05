@@ -17,7 +17,7 @@ if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const here = dirname(new URL(import.meta.url).pathname);
 
 const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: { type: "json" } })).default as any;
-const { classifyModel } = await import(root + "/pi-catalog/src/compat/taxonomy.ts");
+const { classifyModel, collapseVariantId, stripThinkingVariantSuffix } = await import(root + "/pi-catalog/src/compat/taxonomy.ts");
 const { getBundledModels, getBundledProviders } = await import(root + "/pi-catalog/src/models.ts");
 
 const { classes, collapse } = rules.taxonomy;
@@ -25,12 +25,14 @@ writeFileSync(
 	join(here, "../taxonomy.json"),
 	JSON.stringify({
 		classes,
-		collapse: { suffixes: collapse.suffixes, lanes: collapse.lanes, effortFamilies: collapse.effortFamilies },
+		collapse: { suffixes: collapse.suffixes, lanes: collapse.lanes, effortFamilies: collapse.effortFamilies, pairTokens: collapse.pairTokens },
 	}),
 );
 
 // Ids no bundle carries: revision edge cases, namespaces, collapse suffixes.
 const probes = [
+	"qwen3-235b-reasoning", "model-non-thinking", "model-no-thinking", "x-thinking-2507", "-thinking", "deepseek-reasoner",
+	"Model-Thinking-Pro", "glm-5.2-thinking-high", "kimi-k2-thinking-turbo", "a/b-reasoning", "thinking",
 	"glm-4.5", "glm-4.5-air", "glm-4.5-flash", "glm-5.3-flash", "glm-5.2", "zai-org/GLM-5.3-FP8", "glm-4.6v",
 	"glm-5v-turbo", "GLM-5.2-thinking", "glm-z1-air", "glm-4.7-flashx", "glm5.3", "glm-5-2", "glm-300.1",
 	"kimi-k3", "Kimi-K3-0801", "moonshotai/kimi-k3-thinking", "kimi-k2.9-thinking", "kimi-latest",
@@ -57,7 +59,8 @@ const cases: any[] = [];
 for (const [provider, ids] of pairs) {
 	for (const id of ids) {
 		const identity = classifyModel(provider, id, { lenient: true });
-		cases.push([provider, id, identity.class, identity.family ?? "", identity.revision ?? "", identity.effort ?? "", identity.thinkingVariant === true, identity.logicalId ?? ""]);
+		const collapsed = collapseVariantId(provider, id);
+		cases.push([provider, id, identity.class, identity.family ?? "", identity.revision ?? "", identity.effort ?? "", identity.thinkingVariant === true, identity.logicalId ?? "", stripThinkingVariantSuffix(id) ?? "", collapsed.logicalId, collapsed.thinkingVariant]);
 	}
 }
 writeFileSync(join(here, "classify_capture.json.gz"), Bun.gzipSync(JSON.stringify(cases)));

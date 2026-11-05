@@ -126,6 +126,83 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "qwen3.8-max" },
 		);
 	}
+	// Provider-shaped rows: the fields each provider's own mapper reads.
+	const shaped: Record<string, unknown[]> = {
+		aiand: [
+			{ id: "zz-aiand-r", description: "  Described  ", capabilities: ["reasoning", "vision"], context_window: 200000, reasoning_efforts: ["low", "high", "bogus"], reasoning_effort_default: "high" },
+			{ id: "zz-aiand-default-off", capabilities: ["reasoning"], reasoning_efforts: ["minimal", "max"], reasoning_effort_default: "medium" },
+			{ id: "zz-aiand-plain", name: "Plain", description: "   ", capabilities: [], context_window: "x" },
+			{ id: bundled[5], capabilities: ["reasoning"], reasoning_efforts: ["low", "medium"] },
+		],
+		baseten: [
+			{ id: "zai-org/GLM-5.3", supported_features: ["reasoning", "tools"], input_modalities: ["text", "image"], context_length: 200000 },
+			{ id: "zai-org/GLM-5.1", supported_features: ["reasoning"] },
+			{ id: "moonshotai/Kimi-K3", supported_features: ["reasoning_effort"] },
+			{ id: "deepseek-ai/DeepSeek-V4.1-Flash", supported_features: ["reasoning"], max_completion_tokens: 32000 },
+			{ id: "openai/gpt-oss-120b", supported_features: ["reasoning", "tools"] },
+			{ id: "meta/llama-new", supported_features: ["reasoning"] },
+			{ id: bundled[5], supported_features: [], input_modalities: ["text"] },
+		],
+		coralbricks: [
+			{ id: "zz-coral-off", supports_chat: false },
+			{ id: "zz-coral-r", supports_reasoning: true, supports_image_input: true, context_length: 64000, reasoning: { supported_efforts: ["none", "low", "high"], default_effort: "high", mandatory: false, disable: { reasoning_effort: "none" } } },
+			{ id: "zz-coral-mandatory", supports_reasoning: true, reasoning: { supported_efforts: ["medium"], mandatory: true } },
+			{ id: "zz-coral-empty", supports_reasoning: true, reasoning: { supported_efforts: [], disable: null } },
+			{ id: "zz-coral-flag-only", supports_reasoning: true },
+			{ id: bundled[5], supports_reasoning: false, supports_image_input: false },
+		],
+		deepinfra: [
+			{ id: bundled[0], metadata: { tags: ["chat", "reasoning_effort", "vision"], context_length: 131072, max_tokens: 131072 } },
+			{ id: "zz-di-chat", metadata: { tags: ["chat"], context_length: 64000, max_tokens: 8000 } },
+			{ id: "zz-di-chat", metadata: { tags: ["chat", "reasoning"], context_length: 1000 } },
+			{ id: "zz-di-tts", metadata: { tags: ["tts"] } },
+			{ id: " zz-di-space ", metadata: { tags: ["chat", "reasoning", "vlm"] } },
+			{ id: bundled[1], metadata: { tags: ["chat"], context_length: 1024 } },
+			{ id: "zz-di-nometa" },
+		],
+		inception: [
+			{ id: "zz-inc", supported_endpoints: ["chat.completions"], input_modalities: ["text", "image"], context_length: 128000, max_output_length: 16000 },
+			{ id: bundled[0], name: "Inc Live", supported_endpoints: ["chat.completions", "fim"] },
+			{ id: "zz-fim", supported_endpoints: ["fim"] },
+		],
+		novita: [
+			{ id: "zz-nov", display_name: "Nov Display", status: 1, endpoints: ["chat/completions"], max_output_tokens: 8000, context_size: 131072, features: ["reasoning", "function-calling"], input_modalities: ["image"] },
+			{ id: bundled[0], title: "Title Name", endpoints: ["chat/completions"], max_output_tokens: 4000, features: [] },
+			{ id: "AI_INFER_TEST_x", endpoints: ["chat/completions"], max_output_tokens: 10 },
+			{ id: "zz-inactive", status: 0, endpoints: ["chat/completions"], max_output_tokens: 10 },
+			{ id: "zz-no-cap", endpoints: ["chat/completions"] },
+		],
+		sambanova: [{ id: "zz-Whisper-x" }, { id: "E5-Mistral-7B-Instruct" }, { id: "zz-clip-v" }],
+		synthetic: [
+			{ id: "zz-syn-none", reasoning_parameters: { efforts: ["none"] } },
+			{ id: "zz-syn-tiers", supported_features: ["reasoning", "tools"], reasoning_parameters: { efforts: ["low", "high"] }, input_modalities: ["text"], max_output_length: 32000 },
+			{ id: "zz-syn-none-low", reasoning_parameters: { efforts: ["none", "low"] }, supports_vision: true, max_tokens: 16000 },
+			{ id: "zz-syn-flag", supports_reasoning: true, max_output_length: null, max_tokens: 12000 },
+			{ id: bundled[5], reasoning_parameters: { efforts: ["none"] }, input_modalities: ["text"] },
+		],
+		"wafer-serverless": [
+			{ id: "GLM-5.4", wafer: { display_name: "Wafer GLM", capabilities: { reasoning: true, vision: true }, context_length: 200000, provider: "zai" } },
+			{ id: "zz-wafer-r", wafer: { capabilities: { reasoning: true } } },
+			{ id: bundled[5], max_model_len: 32000, wafer: { capabilities: { reasoning: false } } },
+			{ id: "zz-wafer-big", wafer: { context_length: 1000000 } },
+		],
+		stepfun: [
+			{ id: "stepaudio-2" }, { id: "Step-Image-Edit" },
+			{ id: "zz-step-r", reasoning_effort_support_list: ["low", "high", "bogus"] },
+			{ id: bundled[5], reasoning_effort_support_list: ["low"] },
+		],
+		helmcode: [{ id: "rerank" }, { id: "Kokoro" }, { id: "zz-helm-new", name: "Helm New" }],
+		"xiaomi-token-plan-sgp": [{ id: "mimo-v3-tts" }, { id: bundled[0], display_name: "Display Name" }, { id: "zz-xiaomi-asr-x" }],
+		"yolo-auto": [
+			{ id: bundled[0], thinking: ["low", "high"] },
+			{ id: "zz-yolo-r", thinking: ["medium", "bogus"] },
+			{ id: "zz-yolo-plain", thinking: [] },
+		],
+		"zhipu-coding-plan": [
+			{ id: "glm-5.4" }, { id: "glm-5.3-flash" }, { id: "glm-4.7-flash" }, { id: "glm-5v-turbo" }, { id: "glm-5.2-thinking" }, { id: "glm-4" },
+		],
+	};
+	list.push(...(shaped[provider] ?? []));
 	return list;
 }
 
@@ -233,6 +310,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			stale: resolved.stale,
 			models: resolved.models.map((model: any) => ({
 				id: model.id,
+				api: model.api,
 				name: model.name,
 				reasoning: model.reasoning,
 				input: model.input,
@@ -262,6 +340,12 @@ const derivedSource: Array<[string, string, string, string]> = [
 	["moonshot", "kimi-k3", "data envelope", "kimi-k3-0801"],
 	["moonshot", "kimi-k2", "data envelope", "kimi-k2-new-turbo"],
 	["alibaba-token-plan", "deepseek-v4", "data envelope", "deepseek-v4-new"],
+	// Unbundled reasoning ids with no close bundled sibling: the generic
+	// ladder and compat NeoPi's rule engine gives each provider.
+	["synthetic", "reasoning", "data envelope", "zz-syn-flag"],
+	["novita", "reasoning", "data envelope", "zz-nov"],
+	["deepinfra", "reasoning", "data envelope", "zz-di-space"],
+	["wafer-serverless", "reasoning", "data envelope", "zz-wafer-r"],
 ];
 const derived: any[] = derivedSource.map(([provider, kind, scenario, id]) => {
 	const model = find(provider, scenario, id);
@@ -281,4 +365,10 @@ const derivedFile = process.env.DERIVED_FILE ?? join(dirname(new URL(import.meta
 mkdirSync(dirname(derivedFile), { recursive: true });
 writeFileSync(derivedFile, Bun.gzipSync(JSON.stringify(derived)));
 console.log(`wrote ${derived.length} derived rows to ${derivedFile}`);
+// The runtime exclude-models rules (compat/rules.json behavior.excludeModels)
+// the discovery filters apply through isExcludedModel.
+const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: { type: "json" } })).default as any;
+const excludeFile = join(dirname(derivedFile), "exclude_models.json");
+writeFileSync(excludeFile, JSON.stringify(rules.behavior.excludeModels));
+console.log(`wrote ${rules.behavior.excludeModels.length} exclude rules to ${excludeFile}`);
 console.log(`wrote ${results.length} scenarios to ${outFile}`);

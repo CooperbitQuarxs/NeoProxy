@@ -130,6 +130,7 @@ type rules struct {
 		Suffixes       []collapseSuffix `json:"suffixes"`
 		Lanes          []effortLane     `json:"lanes"`
 		EffortFamilies []effortFamily   `json:"effortFamilies"`
+		PairTokens     []string         `json:"pairTokens"`
 	} `json:"collapse"`
 
 	// exact indexes model overrides by lowercase bare model: the first
@@ -505,6 +506,46 @@ type collapsed struct {
 	logicalID       string
 	effort          string
 	thinkingVariant bool
+}
+
+// CollapseVariant is NeoPi's collapseVariantId(provider, model): the logical
+// id after a declared thinking or effort suffix is collapsed, and whether
+// the id was a thinking variant.
+func CollapseVariant(provider, model string) (logicalID string, thinkingVariant bool) {
+	c := collapseVariantID(taxonomy(), provider, model)
+	return c.logicalID, c.thinkingVariant
+}
+
+func isTokenByte(c byte) bool { return isDigit(c) || c >= 'a' && c <= 'z' }
+
+// StripThinkingVariantSuffix is NeoPi's stripThinkingVariantSuffix: the id
+// without its first "-<pair token>" (thinking, reasoning, reasoner) that
+// ends a word and is not negated ("non-thinking", "no-thinking"); ok is
+// false when there is none or nothing would remain.
+func StripThinkingVariantSuffix(model string) (string, bool) {
+	lower := jsLower(model)
+	for _, token := range taxonomy().Collapse.PairTokens {
+		needle := "-" + token
+		for searchFrom := 0; searchFrom < len(lower); {
+			found := strings.Index(lower[searchFrom:], needle)
+			if found < 0 {
+				break
+			}
+			index := searchFrom + found
+			end := index + len(needle)
+			followed := end < len(lower) && isTokenByte(lower[end])
+			wordStart := index
+			for wordStart > 0 && isTokenByte(lower[wordStart-1]) {
+				wordStart--
+			}
+			if preceding := lower[wordStart:index]; !followed && preceding != "non" && preceding != "no" {
+				stripped := model[:index] + model[end:]
+				return stripped, stripped != ""
+			}
+			searchFrom = index + 1
+		}
+	}
+	return "", false
 }
 
 func collapseVariantID(r *rules, provider, model string) collapsed {

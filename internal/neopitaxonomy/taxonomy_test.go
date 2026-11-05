@@ -49,6 +49,14 @@ func TestClassifyMatchesNeoPi(t *testing.T) {
 				t.Errorf("%s/%q: got %+v, NeoPi %+v", provider, id, got, want)
 			}
 		}
+		if stripped, _ := StripThinkingVariantSuffix(id); stripped != c[8].(string) {
+			failures++
+			t.Errorf("%q: stripped %q, NeoPi %q", id, stripped, c[8])
+		}
+		if logical, thinking := CollapseVariant(provider, id); logical != c[9].(string) || thinking != c[10].(bool) {
+			failures++
+			t.Errorf("%s/%q: collapsed %q/%v, NeoPi %q/%v", provider, id, logical, thinking, c[9], c[10])
+		}
 	}
 	if failures > 0 {
 		t.Errorf("%d of %d cases differ", failures, len(cases))

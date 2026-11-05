@@ -182,14 +182,20 @@ for (const provider of providers) {
 	// The model manager's authority flags decide how a listing replaces the
 	// bundled rows (model-manager.ts mergeDynamicModels).
 	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
-	const manager = descriptor?.createModelManagerOptions({ apiKey: "capture" });
+	// The fixture key has each provider's credential shape, so a manager that
+	// parses its key (Token Plan) still wires its listing.
+	const manager = descriptor?.createModelManagerOptions({ apiKey: apiKeyFor(provider) });
 	const catalog = {
 		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)}) with buildModel for a non-bundled id`,
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
 		discovery: {
-			modelsAuthoritative: !!(manager?.dynamicModelsAuthoritative ?? descriptor?.dynamicModelsAuthoritative),
+			// Whether the model manager fetches a live listing at all.
+			listing: typeof manager?.fetchDynamicModels === "function",
+			// The descriptor's KDL flag only steers bundle generation; the
+			// runtime model manager reads its own options.
+			modelsAuthoritative: !!manager?.dynamicModelsAuthoritative,
 			reasoningAuthoritative: !!manager?.dynamicReasoningAuthoritative,
 			inputAuthoritative: !!manager?.dynamicInputAuthoritative,
 			costAuthoritative: !!manager?.dynamicCostAuthoritative,
