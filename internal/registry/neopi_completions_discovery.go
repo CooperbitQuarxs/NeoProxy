@@ -540,6 +540,14 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			// cross-provider reference index, which is not carried here; such
 			// an id maps like any unknown id.
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
+		case "aimlapi":
+			// isLikelyAimlApiChatModelId: image, audio, video and embedding
+			// generators share the listing.
+			spec = neoPiMapWithBundledReference(entry, defaults, reference)
+			normalized := strings.ToLower(strings.TrimSpace(spec.id))
+			if normalized == "" || neoPiExcludedModel("aimlapi", normalized) {
+				continue
+			}
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

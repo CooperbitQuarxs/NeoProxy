@@ -55,6 +55,7 @@ const managers: Record<string, (config: any) => any> = {
 	"zhipu-coding-plan": m.zhipuCodingPlanModelManagerOptions,
 	coreweave: m.coreWeaveModelManagerOptions,
 	"cline-pass": m.clinePassModelManagerOptions,
+	aimlapi: m.aimlApiModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -200,6 +201,11 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: bundled[5], reasoning_effort_support_list: ["low"] },
 		],
 		helmcode: [{ id: "rerank" }, { id: "Kokoro" }, { id: "zz-helm-new", name: "Helm New" }],
+		aimlapi: [
+			{ id: "openai/tts-1-hd" }, { id: "flux-pro/v1.1" }, { id: "text-embedding-3-large" }, { id: "google/veo-3" },
+			{ id: "openai/whisper-1" }, { id: "Stable-Image-Ultra" }, { id: "zz-lab/zz-chat-new", name: "ZZ Chat" },
+			{ id: "anthropic/claude-sonnet-4-6" },
+		],
 		"xiaomi-token-plan-sgp": [{ id: "mimo-v3-tts" }, { id: bundled[0], display_name: "Display Name" }, { id: "zz-xiaomi-asr-x" }],
 		"yolo-auto": [
 			{ id: bundled[0], thinking: ["low", "high"] },

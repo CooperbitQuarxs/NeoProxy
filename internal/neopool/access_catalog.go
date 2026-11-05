@@ -306,6 +306,10 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.inference.wandb.ai/v1", "api-key", "https://wandb.ai/settings"), Plans: []ProviderPlan{}},
 	{ID: "cline-pass", Name: "ClinePass", Vendor: "Cline", Hue: 205, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.cline.bot/api/v1", "sk_...", "https://app.cline.bot/dashboard/account"), Plans: []ProviderPlan{}},
+	// NeoPi takes AIML API keys from AIMLAPI_API_KEY only, so the pasted key is
+	// not probed (like Groq and Mistral).
+	{ID: "aimlapi", Name: "AIML API", Vendor: "AIML API", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.aimlapi.com/v1", "AIML API key", "https://aimlapi.com/app/keys"), Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

@@ -4,9 +4,9 @@
 // the three validation probes of registry/api-key-validation.ts.
 //
 // A pasted key is trimmed, optionally stripped of a leading "Bearer", probed
-// once against the provider and kept as typed. Groq and Mistral have no login
-// in NeoPi (their keys come from the environment), so their keys are accepted
-// without a probe.
+// once against the provider and kept as typed. Groq, Mistral and AIML API have
+// no login in NeoPi (their keys come from the environment), so their keys are
+// accepted without a probe.
 package neopikeys
 
 import (
@@ -84,7 +84,7 @@ type Login struct {
 // loginsJSON is NeoPi's compiled `login "api-key"` rules for the providers
 // NeoProxy serves through NeoPi's Chat Completions provider, exported by
 // testdata/export_neopi_logins.ts. A provider whose keys come only from the
-// environment (Groq, Mistral) carries its name alone and takes keys unprobed.
+// environment (Groq, Mistral, AIML API) carries its name alone and takes keys unprobed.
 // The Token Plan's region and cookie prompts live in package alibabatokenplan.
 //
 //go:embed logins.json

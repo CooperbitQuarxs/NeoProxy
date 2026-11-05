@@ -273,6 +273,9 @@
 				"url": "https://api.cline.bot/api/v1/users/me",
 				"headersHook": "cline-pass-client"
 			}
+		},
+		"aimlapi": {
+			"name": "AIML API"
 		}
 	}
 }

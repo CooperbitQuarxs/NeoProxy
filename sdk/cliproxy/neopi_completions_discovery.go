@@ -30,7 +30,7 @@ var neoPiCompletionsProviders = []string{
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception",
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
-	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass",
+	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by

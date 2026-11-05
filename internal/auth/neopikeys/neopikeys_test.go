@@ -197,9 +197,10 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 	}
 }
 
-// Groq and Mistral have no key entry in NeoPi, so a key is accepted untouched.
+// Groq, Mistral and AIML API have no key entry in NeoPi, so a key is accepted
+// untouched.
 func TestProvidersWithoutProbeAcceptKey(t *testing.T) {
-	for _, provider := range []string{"groq", "mistral"} {
+	for _, provider := range []string{"groq", "mistral", "aimlapi"} {
 		login, ok := LoginFor(provider)
 		if !ok || login.Probe != nil {
 			t.Fatalf("%s login = %+v, %v", provider, login, ok)
