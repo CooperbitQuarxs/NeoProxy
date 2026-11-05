@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/tidwall/gjson"
 )
@@ -116,9 +117,13 @@ type neoPiSpec struct {
 	// requestModelID is a collapsed family's default wire id.
 	requestModelID string
 	// api is the spec's transport when a mapper moves it off
-	// openai-completions ("openai-images"); kind is its authored model kind.
+	// openai-completions ("openai-images", "anthropic-messages"); kind is its
+	// authored model kind.
 	api  string
 	kind string
+	// baseURL is the spec's own endpoint when its mapper routes it off the
+	// provider's listing base (ZenMux's Anthropic route); empty is that base.
+	baseURL string
 	// cost is the spec's token tariff (zero for a bare listing row).
 	cost NeoPiCost
 }
@@ -213,7 +218,7 @@ func neoPiCompletionsListing(provider, baseURL string, body []byte, extras neoPi
 		}
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
-	specs, authoritative := neoPiListingSpecs(provider, entries, extras.modelsDev)
+	specs, authoritative := neoPiListingSpecs(provider, baseURL, entries, extras.modelsDev)
 	if extras.lmStudio != nil {
 		neoPiApplyLmStudioMetadata(specs, extras.lmStudio)
 	}
@@ -457,6 +462,9 @@ func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
 	if neoPiRunnerAPI(reference.API) {
 		spec.api = reference.API
 	}
+	if reference.API == neopicompat.APIAnthropicMessages {
+		spec.api, spec.baseURL = reference.API, reference.BaseURL
+	}
 	return spec
 }
 
@@ -529,7 +537,7 @@ func neoPiIsGlmReasoningIdentity(provider, id, floor string) bool {
 
 // neoPiListingSpecs maps the listing's entries with the provider's mapper and
 // filter, deduplicating by id (the last entry wins).
-func neoPiListingSpecs(provider string, entries []gjson.Result, modelsDev map[string]*NeoPiModel) (specs []neoPiSpec, authoritative bool) {
+func neoPiListingSpecs(provider, baseURL string, entries []gjson.Result, modelsDev map[string]*NeoPiModel) (specs []neoPiSpec, authoritative bool) {
 	if catalog, ok := NeoPiCompletionsProvider(provider); ok {
 		authoritative = catalog.Discovery.ModelsAuthoritative
 	}
@@ -655,6 +663,8 @@ func neoPiListingSpecs(provider string, entries []gjson.Result, modelsDev map[st
 			spec = neoPiMapSiliconFlow(entry, defaults, modelsDev)
 		case "vllm":
 			spec = neoPiMapVllm(entry, defaults, reference)
+		case "zenmux":
+			spec = neoPiMapZenMux(entry, defaults, baseURL)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}
@@ -928,12 +938,19 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 	if dynamic.RequestModelID != "" {
 		merged.requestModelID = dynamic.RequestModelID
 	}
+	// The discovered row's transport and endpoint win.
+	if dynamic.API == neopicompat.APIAnthropicMessages {
+		merged.api = dynamic.API
+	}
+	if dynamic.BaseURL != baseURL {
+		merged.baseURL = dynamic.BaseURL
+	}
 	merged.reasoning = static.Reasoning || dynamic.Reasoning
 	if catalog != nil && catalog.Discovery.ReasoningAuthoritative {
 		merged.reasoning = dynamic.Reasoning
 	}
 	supportsImage := slices.Contains(static.Input, "image") || slices.Contains(dynamic.Input, "image")
-	if static.BaseURL != baseURL || catalog != nil && catalog.Discovery.InputAuthoritative {
+	if static.BaseURL != dynamic.BaseURL || catalog != nil && catalog.Discovery.InputAuthoritative {
 		supportsImage = slices.Contains(dynamic.Input, "image")
 	}
 	merged.input = []string{"text"}
@@ -943,8 +960,10 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 	merged.contextWindow = neoPiPreferLimit(dynamic.ContextWindow, static.ContextWindow)
 	merged.maxTokens = neoPiPreferLimit(dynamic.MaxTokens, static.MaxTokens)
 	merged.thinking, merged.thinkingRequiresEffortSet = dynamic.Thinking.Clone(), dynamic.thinkingRequiresEffortSet
+	// The bundled compat is transport-scoped: it follows only a row whose
+	// discovered API is unchanged.
 	merged.compat = maps.Clone(spec.compat)
-	if merged.compat == nil {
+	if merged.compat == nil && dynamic.API == static.API {
 		merged.compat = maps.Clone(static.CompatConfig)
 	}
 	costAuthoritative := catalog != nil && catalog.Discovery.CostAuthoritative

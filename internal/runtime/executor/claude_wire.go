@@ -362,6 +362,10 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		effort = ""
 	}
 	party := profile.thirdParty
+	// mandatory marks thinking a mandatory-thinking model runs although the
+	// caller asked for none: the provider clamps it, past streamSimple's
+	// reasoning options, so the caller's allowance gains no budget.
+	mandatory := false
 	if party != nil && profile.Reasoning {
 		// NeoPi's streamSimple sends a reasoning model's thinking off unless an
 		// effort was requested; a mandatory-thinking model then runs at its
@@ -376,7 +380,7 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 		requested := effort != "" || kind == "enabled" && thinking.Get("budget_tokens").Int() > 0
 		if !requested && party.requiresEffort && len(party.efforts) > 0 {
-			effort, requested = party.efforts[0], true
+			effort, requested, mandatory = party.efforts[0], true, true
 		}
 		off, enabled = !requested, requested
 	}
@@ -417,6 +421,24 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 			enabled, off, effort = false, true, ""
 		} else {
 			partyBudget, maxTokens = budget, allowance
+		}
+	}
+	// Adaptive thinking spends the same max_tokens as the answer: streamSimple
+	// gives a requested effort's thinking budget on top of a caller's
+	// allowance, within the model cap.
+	if party != nil && enabled && !mandatory && profile.Thinking.Mode == "anthropic-adaptive" {
+		if caller := root.Get("max_tokens").Int(); caller > 0 {
+			maxTokens = min(caller+neoPiEffortBudgets[effort], profile.MaxTokens)
+		}
+	}
+	// mapEffortToAnthropicAdaptiveEffort: the wire effort is the row's effort
+	// map entry, and minimal, which the effort field lacks, goes out as low.
+	if party != nil && enabled && effort != "" {
+		if mapped := party.effortMap[effort]; mapped != "" {
+			effort = mapped
+		}
+		if effort == "minimal" {
+			effort = "low"
 		}
 	}
 	var wireThinking json.RawMessage

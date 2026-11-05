@@ -327,6 +327,13 @@
 		"lm-studio": {
 			"name": "LM Studio (Local OpenAI-compatible)",
 			"emptyFallback": "lm-studio-local"
+		},
+		"zenmux": {
+			"name": "ZenMux",
+			"validate": {
+				"kind": "models-endpoint",
+				"url": "https://zenmux.ai/api/v1/models"
+			}
 		}
 	}
 }

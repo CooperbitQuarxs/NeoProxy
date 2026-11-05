@@ -66,6 +66,7 @@ const managers: Record<string, (config: any) => any> = {
 	"siliconflow-cn": m.siliconflowCnModelManagerOptions,
 	vllm: m.vllmModelManagerOptions,
 	"lm-studio": m.lmStudioModelManagerOptions,
+	zenmux: m.zenmuxModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -345,6 +346,32 @@ function entries(provider: string, bundled: string[]): unknown[] {
 		],
 		// LM Studio's listing; its native metadata answers per scenario.
 		"lm-studio": [{ id: "qwen/qwen3.8-vl-8b" }, { id: "google/gemma-4-12b" }, { id: "lm-judge" }, { id: "lm-judge:2" }, { id: "zz-lms-cap" }],
+		// ZenMux: Claude ids (by class, or by owner) move to the Anthropic
+		// route; prices come from bucketed pricings, cache writes preferring
+		// the 1-hour tier, then 5-minute, then the flat one.
+		zenmux: [
+			{
+				id: "anthropic/claude-haiku-5.5",
+				display_name: "Claude Haiku 5.5 (live)",
+				owned_by: "anthropic",
+				capabilities: { reasoning: true },
+				input_modalities: ["text", "image"],
+				context_length: 300000,
+				max_completion_tokens: 64000,
+				pricings: {
+					prompt: [{ value: 1, unit: "perMTokens" }],
+					completion: [{ value: "5" }],
+					input_cache_read: [{ value: 0.1 }],
+					input_cache_write_1_h: [{ value: 2 }],
+					input_cache_write_5_min: [{ value: 1.25 }],
+				},
+			},
+			{ id: "anthropic/claude-fable-5.1", owned_by: "Anthropic", pricings: { prompt: ["junk", { value: "x" }, { value: 3 }], input_cache_write_1_h: [{ value: 0 }], input_cache_write_5_min: [{ value: 3.75 }] } },
+			{ id: "zz-lab/claude-sonnet-9", display_name: "  ", capabilities: { reasoning: "yes" }, input_modalities: "image", pricings: { input_cache_write: [{ value: 6 }] } },
+			{ id: "zz-lab/house-model", owned_by: "ANTHROPIC", capabilities: { reasoning: true }, context_length: "65536" },
+			{ id: "openai/gpt-5.6", display_name: "GPT 5.6", capabilities: { reasoning: true }, input_modalities: ["image"], pricings: { prompt: [{ value: 1.25 }], completion: [{ value: 10 }] } },
+			{ id: "zz-zenmux-new", pricings: "junk", context_length: -1 },
+		],
 	};
 	list.push(...(shaped[provider] ?? []));
 	return list;
@@ -400,7 +427,9 @@ function fireworksPages(bundled: string[]): Reply[] {
 // ClinePass reads two hosts at once: Cline's recommended-models roster (the
 // authoritative ids) and OpenRouter's public catalog (enrichment only), so
 // its scenarios answer each host with its own reply.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply } };
+// baseUrl is the provider base an account configures (NeoPi's provider
+// baseUrl override), absent for the manager's default.
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -537,6 +566,16 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			},
 		];
 	}
+	if (provider === "zenmux") {
+		// A configured Anthropic-route base names the OpenAI route; any other
+		// path keeps its own listing and puts Claude rows on /api/anthropic.
+		const listing = json({ object: "list", data: list });
+		return [
+			...generic,
+			{ name: "anthropic-route base", baseUrl: "https://eu.zenmux.example/api/anthropic/", replies: [listing] },
+			{ name: "custom path base", baseUrl: "https://proxy.example/zen/v2", replies: [listing] },
+		];
+	}
 	if (provider !== "xiaomi") return generic;
 	// A Token Plan key on the standard provider walks the regional clusters,
 	// SGP then AMS then CN, until one answers.
@@ -597,7 +636,11 @@ for (const [provider, build] of Object.entries(managers)) {
 					: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
-		const options = build({ apiKey: scenario.keyless ? undefined : (scenario.apiKey ?? apiKey), fetch: fetchImpl });
+		const options = build({
+			apiKey: scenario.keyless ? undefined : (scenario.apiKey ?? apiKey),
+			fetch: fetchImpl,
+			...(scenario.baseUrl ? { baseUrl: scenario.baseUrl } : {}),
+		});
 		options.cacheDbPath = join(cacheDir, `${provider}-${results.length}.db`);
 		const resolved = await resolveProviderModels(options, "online");
 		results.push({
@@ -605,6 +648,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			scenario: scenario.name,
 			replies: scenario.replies,
 			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
+			...(scenario.baseUrl ? { baseUrl: scenario.baseUrl } : {}),
 			...(scenario.keyless ? { keyless: true } : {}),
 			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
 			...(scenario.native ? { native: scenario.native } : {}),

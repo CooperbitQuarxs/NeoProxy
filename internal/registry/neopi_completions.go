@@ -27,8 +27,10 @@ type NeoPiCompletionsCatalog struct {
 	BaseURL  string `json:"baseUrl"`
 	// Seeds are the rule-seeded ids, which win over a manager's references.
 	Seeds []string `json:"seeds"`
-	// Compats are the resolved completions compats the rows share.
-	Compats []*NeoPiCompletionsCompat `json:"compats"`
+	// Compats are the resolved completions compats the rows share;
+	// AnthropicCompats the resolved anthropic-messages compats.
+	Compats          []*NeoPiCompletionsCompat `json:"compats"`
+	AnthropicCompats []*NeoPiAnthropicCompat   `json:"anthropicCompats"`
 	// Discovery holds the model manager's authority flags: how a provider's
 	// listing replaces its bundled rows (mergeDynamicModels). Listing is
 	// false when NeoPi never fetches one and serves the bundled roster.
@@ -57,6 +59,9 @@ type NeoPiCompletionsCatalog struct {
 		Headers       map[string]string `json:"headers"`
 		CompatConfig  map[string]any    `json:"compatConfig"`
 		CompatIndex   int               `json:"completionsCompatIndex"`
+		// AnthropicCompatIndex indexes AnthropicCompats for an
+		// anthropic-messages row.
+		AnthropicCompatIndex int `json:"anthropicCompatIndex"`
 		// Cost is the bundled row's token tariff.
 		Cost NeoPiCost `json:"cost"`
 	} `json:"models"`
@@ -109,9 +114,18 @@ func loadNeoPiCompletionsCatalogs() {
 		providerRows := make([]*NeoPiModel, 0, len(catalog.Models))
 		for i := range catalog.Models {
 			row := catalog.Models[i]
-			// A runner row (image, speech) carries no completions compat.
+			// A runner row (image, speech) carries no compat; an
+			// anthropic-messages row carries its Anthropic compat.
 			var compat *NeoPiCompletionsCompat
-			if !neoPiRunnerAPI(row.API) {
+			var anthropic *NeoPiAnthropicCompat
+			switch {
+			case row.API == "anthropic-messages":
+				if row.AnthropicCompatIndex < 0 || row.AnthropicCompatIndex >= len(catalog.AnthropicCompats) {
+					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: anthropic compat index %d out of range", name, row.ID, row.AnthropicCompatIndex)
+					return
+				}
+				anthropic = catalog.AnthropicCompats[row.AnthropicCompatIndex]
+			case !neoPiRunnerAPI(row.API):
 				if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
 					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
 					return
@@ -136,6 +150,7 @@ func loadNeoPiCompletionsCatalogs() {
 				MaxTokens:                 row.MaxTokens,
 				Thinking:                  thinking,
 				CompletionsCompat:         compat,
+				AnthropicCompat:           anthropic,
 				CompatConfig:              row.CompatConfig,
 				cost:                      row.Cost,
 				thinkingRequiresEffortSet: requiresEffortSet,

@@ -28,6 +28,9 @@ type neoPiDiscoveryResult struct {
 	// APIKey is the scenario's own key, when not the capture's: a Xiaomi
 	// Token Plan key walks the regional clusters.
 	APIKey string `json:"apiKey"`
+	// BaseURL is the provider base the scenario's account configures;
+	// empty is the manager's default.
+	BaseURL string `json:"baseUrl"`
 	// Keyless scenarios build the manager without a key: only a public
 	// listing still fetches.
 	Keyless bool   `json:"keyless"`
@@ -93,6 +96,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 	for _, result := range capture.Results {
 		t.Run(result.Provider+"/"+result.Scenario, func(t *testing.T) {
 			baseURL := NeoPiCompletionsListingBase(result.Provider)
+			if result.BaseURL != "" {
+				baseURL = NeoPiV1BaseURL(result.Provider, result.BaseURL)
+			}
 			got, err := neoPiReplayListing(baseURL, result)
 			// An empty listing is a short-lived success that serves the
 			// bundled rows the merge keeps.
@@ -112,14 +118,16 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 			for _, info := range got {
 				byID[info.ID] = info.NeoPi
 			}
-			// The port serves NeoPi's chat rows over Chat Completions and its
-			// image and speech rows over their runner transports. Rows a rule
-			// classifies as a runner kind while they stay on the completions
-			// transport (which NeoPi keeps out of chat) are not served.
+			// The port serves NeoPi's chat rows over Chat Completions or
+			// Anthropic Messages and its image and speech rows over their
+			// runner transports. Rows a rule classifies as a runner kind while
+			// they stay on a chat transport (which NeoPi keeps out of chat)
+			// are not served.
 			want := result.Models[:0:0]
 			for _, model := range result.Models {
 				runner := model.API == "openai-images" || model.API == "openai-speech"
-				if runner || model.API == "openai-completions" && (model.Kind == "" || model.Kind == "chat") {
+				chat := model.API == "openai-completions" || model.API == "anthropic-messages"
+				if runner || chat && (model.Kind == "" || model.Kind == "chat") {
 					want = append(want, model)
 				}
 			}
@@ -159,26 +167,47 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				if row.cost != want.Cost {
 					t.Errorf("%s: cost %+v, NeoPi %+v", want.ID, row.cost, want.Cost)
 				}
-				if want.API != "openai-completions" {
-					continue
-				}
-				var wantCompat NeoPiCompletionsCompat
-				if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
-					t.Fatal(err)
-				}
-				if !reflect.DeepEqual(row.CompletionsCompat, &wantCompat) {
-					t.Errorf("%s: compat differs from NeoPi's", want.ID)
+				switch want.API {
+				case "openai-completions":
+					var wantCompat NeoPiCompletionsCompat
+					if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(row.CompletionsCompat, &wantCompat) {
+						t.Errorf("%s: compat differs from NeoPi's", want.ID)
+					}
+				case "anthropic-messages":
+					var wantCompat NeoPiAnthropicCompat
+					if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(row.AnthropicCompat, &wantCompat) {
+						t.Errorf("%s: anthropic compat %+v, NeoPi %+v", want.ID, row.AnthropicCompat, wantCompat)
+					}
 				}
 			}
 		})
 	}
 }
 
-// Every compat field NeoPi resolves has a home in the Go record: a field the
-// record lacked would be silently dropped before the parity comparison.
+// Every compat field NeoPi resolves for a completions row has a home in the
+// Go record: a field the record lacked would be silently dropped before the
+// parity comparison. (The Anthropic record keeps only the fields NeoPi's
+// Anthropic provider reads for a third-party model.)
 func TestNeoPiCompletionsCapturedCompatFieldsKnown(t *testing.T) {
 	capture := loadNeoPiDiscoveryCapture(t)
+	completions := map[int]bool{}
+	for _, result := range capture.Results {
+		for _, model := range result.Models {
+			if model.API == "openai-completions" {
+				completions[model.CompatIndex] = true
+			}
+		}
+	}
 	for i, raw := range capture.Compats {
+		if !completions[i] {
+			continue
+		}
 		var compat NeoPiCompletionsCompat
 		decoder := json.NewDecoder(bytes.NewReader(raw))
 		decoder.DisallowUnknownFields()

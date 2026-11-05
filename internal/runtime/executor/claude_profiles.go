@@ -63,6 +63,13 @@ type neoPiThirdParty struct {
 	// replayUnsigned is compat.replayUnsignedThinking: unsigned thinking is
 	// replayed as a thinking block rather than demoted to text.
 	replayUnsigned bool
+	// signing is a non-official endpoint that enforces Anthropic thinking
+	// signatures (compat.signingEndpoint && !compat.officialEndpoint): a
+	// same-model replay drops unsigned thinking, and interleaved thinking
+	// still needs its beta there.
+	signing bool
+	// effortMap is thinking.effortMap: the wire effort an effort level sends.
+	effortMap map[string]string
 	// modelID selects the dialect demoted thinking is rendered in.
 	modelID string
 	// gatewayWebSearch keeps a web_search tool definition and tool_choice

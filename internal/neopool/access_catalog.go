@@ -324,6 +324,10 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://token-plan-cn.xiaomimimo.com/v1", "tp-...", "https://platform.xiaomimimo.com/console/plan-manage"), Plans: []ProviderPlan{}},
 	{ID: "yolo-auto", Name: "Yolo-Auto", Vendor: "Yolo-Auto", Hue: 160, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://yolo-auto.com/v1", "yolo_...", "https://yolo-auto.com/app"), Plans: []ProviderPlan{}},
+	// ZenMux serves one key over two transports: Chat Completions at /api/v1
+	// and, for Claude models, Anthropic Messages at /api/anthropic.
+	{ID: "zenmux", Name: "ZenMux", Vendor: "ZenMux", Hue: 280, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://zenmux.ai/api/v1", "sk-...", "https://zenmux.ai/settings/keys"), Plans: []ProviderPlan{}},
 	{ID: "zhipu-coding-plan", Name: "Zhipu Coding Plan (智谱)", Vendor: "Zhipu AI", Hue: 190, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://open.bigmodel.cn/api/coding/paas/v4", "<id>.<secret>", "https://bigmodel.cn/coding-plan/personal/overview"), Plans: []ProviderPlan{}},
 	// CoreWeave bills each request to the W&B project COREWEAVE_PROJECT (or
