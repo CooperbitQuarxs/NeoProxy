@@ -88,10 +88,13 @@ type NeoPiThinking struct {
 // NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
 // provider reads for a non-Anthropic model (ResolvedAnthropicCompat).
 type NeoPiAnthropicCompat struct {
-	OfficialEndpoint                   bool `json:"officialEndpoint"`
-	FirstPartyProvider                 bool `json:"firstPartyProvider"`
-	InjectClaudeCodeInstruction        bool `json:"injectClaudeCodeInstruction"`
-	ReplayUnsignedThinking             bool `json:"replayUnsignedThinking"`
+	OfficialEndpoint            bool `json:"officialEndpoint"`
+	FirstPartyProvider          bool `json:"firstPartyProvider"`
+	InjectClaudeCodeInstruction bool `json:"injectClaudeCodeInstruction"`
+	ReplayUnsignedThinking      bool `json:"replayUnsignedThinking"`
+	// EscapeBuiltinToolNames prefixes every tool name, built-in names included,
+	// for gateways that reserve Anthropic's built-in tool names.
+	EscapeBuiltinToolNames             bool `json:"escapeBuiltinToolNames"`
 	RequiresToolResultID               bool `json:"requiresToolResultId"`
 	DisableStrictTools                 bool `json:"disableStrictTools"`
 	SupportsContextManagement          bool `json:"supportsContextManagement"`

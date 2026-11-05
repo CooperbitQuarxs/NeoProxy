@@ -61,6 +61,23 @@ func neoPiToolName(name string) string {
 	}
 }
 
+// neoPiWireToolName is encodeAnthropicToolName. definition marks a tool
+// definition or tool_choice, where Umans' gateway web search keeps its name.
+func neoPiWireToolName(name string, oauth bool, party *neoPiThirdParty, definition bool) string {
+	if party != nil {
+		if definition && party.gatewayWebSearch && strings.ToLower(name) == "web_search" {
+			return name
+		}
+		if party.escapeToolNames {
+			return "_" + name
+		}
+	}
+	if oauth {
+		return neoPiToolName(name)
+	}
+	return name
+}
+
 func neoPiUserID(existing string, identity neoPiWireIdentity) string {
 	if strings.HasPrefix(existing, "{") && gjson.Valid(existing) {
 		session := gjson.Get(existing, "session_id")
@@ -194,8 +211,12 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 				case "tool_result":
 					raw = neoPiSet(raw, "tool_use_id", toolIDs.result(block.Get("tool_use_id").String()))
 				}
-				if !identity.APIKey && block.Get("type").String() == "tool_use" {
-					raw = neoPiSet(raw, "name", neoPiToolName(block.Get("name").String()))
+				if name := block.Get("name").String(); block.Get("type").String() == "tool_use" {
+					// OAuth requests always reserialize the name, as NeoPi's
+					// fresh block does; API-key requests only when it changes.
+					if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, false); wire != name || !identity.APIKey {
+						raw = neoPiSet(raw, "name", wire)
+					}
 				}
 				if block.Get("type").String() == "tool_result" && !block.Get("is_error").Exists() {
 					raw = neoPiSet(raw, "is_error", false)
@@ -304,10 +325,7 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 				strictCount++
 			}
 		}
-		wireName := name
-		if !identity.APIKey {
-			wireName = neoPiToolName(name)
-		}
+		wireName := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, true)
 		wire := jsjson.Object(jsjson.Field{Name: "name", Value: jsjson.Marshal(wireName)}, jsjson.Field{Name: "description", Value: jsjson.Marshal(tool.Get("description").String())}, jsjson.Field{Name: "input_schema", Value: normalized})
 		if neoPiOfficialEndpoint(base) && profile.Compat.SupportsEagerToolInputStreaming {
 			wire = neoPiSet(wire, "eager_input_streaming", true)
@@ -362,6 +380,45 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 		off, enabled = !requested, requested
 	}
+	// partyBudget is the thinking budget streamSimple settles on for a
+	// third-party budget or budget-effort model (mapOptionsForApi), and
+	// maxTokens the output allowance it pairs with it. A budget the model cap
+	// cannot fit at 1024 or more turns thinking off and keeps the caller's
+	// own max_tokens.
+	partyBudget := int64(0)
+	if party != nil && enabled && profile.Thinking.Mode != "anthropic-adaptive" {
+		budget := thinking.Get("budget_tokens").Int()
+		if effort != "" {
+			budget = neoPiEffortBudgets[effort]
+		}
+		if budget <= 0 {
+			budget = 1024
+		}
+		caller := root.Get("max_tokens").Int()
+		requested := budget
+		if profile.MaxTokens < budget+4000 {
+			budget = profile.MaxTokens - 4000
+		}
+		allowance := maxTokens
+		if budget >= 1024 {
+			if caller > 0 {
+				allowance = min(caller+requested, profile.MaxTokens)
+			}
+		} else {
+			allowance = min(64000, profile.MaxTokens)
+			if caller > 0 {
+				allowance = min(caller+budget, profile.MaxTokens)
+			}
+			if allowance < budget+4000 {
+				budget = allowance - 4000
+			}
+		}
+		if budget < 1024 {
+			enabled, off, effort = false, true, ""
+		} else {
+			partyBudget, maxTokens = budget, allowance
+		}
+	}
 	var wireThinking json.RawMessage
 	if profile.Thinking.Mode == "anthropic-adaptive" {
 		if enabled {
@@ -390,8 +447,8 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 	} else if enabled {
 		budget := thinking.Get("budget_tokens").Int()
-		if party != nil && effort != "" {
-			budget = neoPiEffortBudgets[effort]
+		if party != nil {
+			budget = partyBudget
 		}
 		if budget <= 0 {
 			budget = 1024
@@ -479,8 +536,10 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	}
 	if choice := root.Get("tool_choice"); choice.Exists() {
 		raw := []byte(choice.Raw)
-		if !identity.APIKey && choice.Get("type").String() == "tool" {
-			raw = neoPiSet(raw, "name", neoPiToolName(choice.Get("name").String()))
+		if name := choice.Get("name").String(); choice.Get("type").String() == "tool" {
+			if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, true); wire != name || !identity.APIKey {
+				raw = neoPiSet(raw, "name", wire)
+			}
 		}
 		if !profile.Compat.SupportsForcedToolChoice && (choice.Get("type").String() == "tool" || choice.Get("type").String() == "any") {
 			raw = []byte(`{"type":"auto"}`)

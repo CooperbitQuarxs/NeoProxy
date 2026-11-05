@@ -1,0 +1,330 @@
+{
+  "source": "NeoPi OWN umansUsageProvider.fetchUsage",
+  "apiKey": "sk-umans-usage-capture-0000",
+  "results": [
+    {
+      "name": "weighted-with-burst",
+      "baseUrl": "",
+      "status": 200,
+      "body": {
+        "plan": {
+          "display_name": "Pro"
+        },
+        "limits": {
+          "requests": {
+            "limit": 200,
+            "hard_cap": 400,
+            "window_seconds": 18000
+          },
+          "concurrency": {
+            "limit": 4
+          }
+        },
+        "window": {
+          "started_at": "2026-11-04T10:00:00Z",
+          "resets_at": "2026-11-04T15:00:00.000Z",
+          "remaining_minutes": 100
+        },
+        "usage": {
+          "requests_in_window": 250,
+          "remaining_requests": 0,
+          "weighted_in_window": 190.5,
+          "weighted_remaining_requests": 9.5,
+          "concurrent_sessions": 1,
+          "priority": {
+            "low": true
+          }
+        }
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": {
+        "plan": "Pro",
+        "notes": [
+          "Requests deprioritized after a rate-limit burst."
+        ],
+        "limits": [
+          {
+            "id": "umans:requests:soft",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 1793804400000,
+            "used": 190.5,
+            "limit": 200,
+            "usedFraction": 0.9525,
+            "status": "warning"
+          },
+          {
+            "id": "umans:requests:hard",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 1793804400000,
+            "used": 250,
+            "limit": 400,
+            "usedFraction": 0.625,
+            "status": "ok"
+          },
+          {
+            "id": "umans:concurrency",
+            "windowId": "concurrency",
+            "durationMs": 0,
+            "resetsAt": 0,
+            "used": 1,
+            "limit": 4,
+            "usedFraction": 0.25,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "legacy-raw-only",
+      "baseUrl": "https://api.code.umans.ai/v1/",
+      "status": 200,
+      "body": {
+        "limits": {
+          "requests": {
+            "limit": 100
+          }
+        },
+        "window": {
+          "resets_at": "not a date"
+        },
+        "usage": {
+          "requests_in_window": 120,
+          "remaining_requests": 0
+        }
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": {
+        "plan": "",
+        "notes": [],
+        "limits": [
+          {
+            "id": "umans:requests",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 120,
+            "limit": 100,
+            "usedFraction": 1,
+            "status": "exhausted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "weighted-without-burst",
+      "baseUrl": "",
+      "status": 200,
+      "body": {
+        "limits": {
+          "requests": {
+            "limit": 100,
+            "hard_cap": null
+          }
+        },
+        "usage": {
+          "requests_in_window": 300,
+          "weighted_in_window": 95
+        }
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": {
+        "plan": "",
+        "notes": [],
+        "limits": [
+          {
+            "id": "umans:requests",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 95,
+            "limit": 100,
+            "usedFraction": 0.95,
+            "status": "warning"
+          }
+        ]
+      }
+    },
+    {
+      "name": "burst-without-raw",
+      "baseUrl": "https://gateway.example/team/umans/V1",
+      "status": 200,
+      "body": {
+        "limits": {
+          "requests": {
+            "limit": 100,
+            "hard_cap": 300
+          }
+        },
+        "usage": {
+          "weighted_in_window": 40
+        }
+      },
+      "request": {
+        "url": "https://gateway.example/team/umans/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": {
+        "plan": "",
+        "notes": [],
+        "limits": [
+          {
+            "id": "umans:requests:soft",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 40,
+            "limit": 100,
+            "usedFraction": 0.4,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "concurrency-only",
+      "baseUrl": "",
+      "status": 200,
+      "body": {
+        "limits": {
+          "concurrency": {
+            "limit": 2
+          }
+        },
+        "usage": {
+          "concurrent_sessions": 2
+        }
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": {
+        "plan": "",
+        "notes": [],
+        "limits": [
+          {
+            "id": "umans:concurrency",
+            "windowId": "concurrency",
+            "durationMs": 0,
+            "resetsAt": 0,
+            "used": 2,
+            "limit": 2,
+            "usedFraction": 1,
+            "status": "exhausted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "nothing-metered",
+      "baseUrl": "",
+      "status": 200,
+      "body": {
+        "plan": {
+          "display_name": "Free"
+        }
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "not-an-object",
+      "baseUrl": "",
+      "status": 200,
+      "body": [
+        1,
+        2
+      ],
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "rejected",
+      "baseUrl": "",
+      "status": 401,
+      "body": {
+        "error": "bad key"
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": "Umans usage endpoint returned 401",
+      "report": null
+    },
+    {
+      "name": "transient",
+      "baseUrl": "",
+      "status": 503,
+      "body": {
+        "error": "down"
+      },
+      "request": {
+        "url": "https://api.code.umans.ai/v1/usage",
+        "method": "GET",
+        "headers": {
+          "accept": "application/json",
+          "authorization": "Bearer sk-umans-usage-capture-0000"
+        }
+      },
+      "error": null,
+      "report": null
+    }
+  ]
+}
