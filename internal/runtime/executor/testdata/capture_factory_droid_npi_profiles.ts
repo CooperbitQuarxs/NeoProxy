@@ -20,6 +20,7 @@ const { buildFactoryDroidModel } = await import(root + "/pi-catalog/src/discover
 const { resolveModelPolicy } = await import(root + "/pi-catalog/src/compat/resolve.ts");
 const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
 const { FACTORY_DROID_CLIENT_VERSION } = await import(root + "/pi-catalog/src/wire/factory-droid.ts");
+const { quotaTierFor } = await import(root + "/pi-catalog/src/compat/behavior.ts");
 
 // The route NeoPi resolves for one account-scoped model and upstream.
 const route = (spec: any, wire: string, upstream: string) => {
@@ -50,6 +51,8 @@ const models = factoryDroidRegistry().map(({ spec: seed, policy }: any) => {
 		reasoning: global.reasoning,
 		...(global.thinking ? { thinking: global.thinking } : {}),
 		...(global.factoryDroidCredits !== undefined ? { credits: global.factoryDroidCredits } : {}),
+		// quota-tiers provider="factory-droid": the subscription pool it bills.
+		...(quotaTierFor("factory-droid", seed.id) ? { quotaTier: quotaTierFor("factory-droid", seed.id) } : {}),
 		policy,
 		routes,
 	};

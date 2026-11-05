@@ -2,6 +2,7 @@ package neopool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -18,11 +19,13 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
@@ -162,6 +165,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "devin"
 	case "cursor":
 		return "cursor"
+	case factorydroid.Provider:
+		return factorydroid.Provider
 	}
 	return ""
 }
@@ -555,6 +560,43 @@ func cursorUsageWindows(usage *cursorauth.Usage) []Window {
 	return out
 }
 
+// factoryDroidUsageWindows adapts NeoPi's Factory Droid report the way its
+// ranking strategy gates on it: each subscription pool (Standard credits,
+// Droid Core) gates only the models it bills (quota-tiers), so every pool
+// window is scoped to that pool's models. The extra usage balance is not a
+// gate (a funded balance does not establish permission to use it).
+func factoryDroidUsageWindows(provider string, usage *factorydroid.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "weekly": "week", "monthly": "month"}
+	for _, pool := range []string{"standard", "core"} {
+		var models []string
+		for _, id := range registry.FactoryDroidPoolModels(pool) {
+			models = append(models, provider+"/"+id)
+		}
+		for _, limit := range usage.Limits {
+			if limit.Window == nil || !strings.HasPrefix(limit.ID, "factory-droid:"+pool+":") {
+				continue
+			}
+			kind := kinds[strings.TrimPrefix(limit.ID, "factory-droid:"+pool+":")]
+			if kind == "" {
+				continue
+			}
+			var starts, resets time.Time
+			if limit.Window.ResetsAt != nil {
+				resets = time.UnixMilli(int64(*limit.Window.ResetsAt))
+				starts = resets.Add(-time.Duration(limit.Window.DurationMs) * time.Millisecond)
+			}
+			w := percentWindow(kind, limit.Amount.UsedFraction*100, starts, resets)
+			w.Models = models
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -652,6 +694,16 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, fmt.Errorf("cursor usage: no usage endpoint answered")
 		}
 		return cursorUsageWindows(usage), nil
+	case factorydroid.Provider:
+		credential, ok := factorydroid.RecordCredential(a.Metadata)
+		if !ok {
+			return nil, fmt.Errorf("factory-droid usage: sign-in has no access token")
+		}
+		usage, err := factorydroid.FetchUsage(ctx, client, credential, now)
+		if err != nil {
+			return nil, err
+		}
+		return factoryDroidUsageWindows(a.Provider, usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
@@ -677,9 +729,11 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 	} else {
 		entry.failing = true
 		entry.gen = gen
-		if quotaProvider(a) == "alibaba-token-plan" {
+		var lostAccess *factorydroid.Error
+		if quotaProvider(a) == "alibaba-token-plan" || errors.As(err, &lostAccess) && (lostAccess.Status == http.StatusUnauthorized || lostAccess.Status == http.StatusForbidden) {
 			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
 			// an expired cookie or refused report makes the windows unknown.
+			// A Factory credential that lost access drops its cached quota.
 			entry.goodAt = time.Time{}
 		}
 	}

@@ -84,13 +84,16 @@ type FactoryDroidRoute struct {
 // FactoryDroidModel is one registry model: its account-independent build
 // and its routes.
 type FactoryDroidModel struct {
-	ID        string                       `json:"id"`
-	Name      string                       `json:"name"`
-	Input     []string                     `json:"input"`
-	Cost      NeoPiCost                    `json:"cost"`
-	Reasoning bool                         `json:"reasoning"`
-	Thinking  *NeoPiThinking               `json:"thinking,omitempty"`
-	Credits   *float64                     `json:"credits,omitempty"`
+	ID        string         `json:"id"`
+	Name      string         `json:"name"`
+	Input     []string       `json:"input"`
+	Cost      NeoPiCost      `json:"cost"`
+	Reasoning bool           `json:"reasoning"`
+	Thinking  *NeoPiThinking `json:"thinking,omitempty"`
+	Credits   *float64       `json:"credits,omitempty"`
+	// QuotaTier is the subscription pool the model bills (quota-tiers
+	// provider="factory-droid"): "core" or "standard".
+	QuotaTier string                       `json:"quotaTier,omitempty"`
 	Policy    FactoryDroidPolicy           `json:"policy"`
 	Routes    map[string]FactoryDroidRoute `json:"routes"`
 }
@@ -125,6 +128,18 @@ func FactoryDroidModelFor(id string) *FactoryDroidModel {
 		}
 	}
 	return nil
+}
+
+// FactoryDroidPoolModels are the registry models a subscription pool bills
+// (quota-tiers provider="factory-droid"), in registry order.
+func FactoryDroidPoolModels(tier string) []string {
+	var out []string
+	for _, model := range factoryDroidRegistry() {
+		if model.QuotaTier == tier {
+			out = append(out, model.ID)
+		}
+	}
+	return out
 }
 
 // FactoryDroidCanonicalPolicyID is canonicalPolicyId: the registry id an

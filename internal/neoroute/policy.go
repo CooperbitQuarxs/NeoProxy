@@ -10,7 +10,7 @@ func scriptWindow(w neopool.Window, now int64) ScriptWindow {
 	known := w.Known && (w.ResetsAt == 0 || w.ResetsAt > now)
 	// Unknown is not an available fraction. Keep the flag even when the last
 	// reported value remains useful for explanation.
-	return ScriptWindow{Kind: w.Kind, Known: known, Used: w.Used, ResetsAt: w.ResetsAt}
+	return ScriptWindow{Kind: w.Kind, Known: known, Used: w.Used, ResetsAt: w.ResetsAt, Models: w.Models}
 }
 
 // Validate every reduction at the authority boundary, including hooks other than
