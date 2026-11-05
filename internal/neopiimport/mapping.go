@@ -87,6 +87,7 @@ var apiKeyRoutes = map[string]route{
 	"zhipu-coding-plan":     {target: "zhipu-coding-plan"},
 	"coreweave":             {target: "coreweave"},
 	"cline-pass":            {target: "cline-pass"},
+	"aimlapi":               {target: "aimlapi"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
