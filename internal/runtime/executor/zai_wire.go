@@ -47,6 +47,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	// NeoPi keys this on the provider: Kimi shares its affinity identity
 	// across its two transports.
 	party.promptCacheUserID = model.Provider == "kimi-code"
+	party.ownStream = model.Provider == "kimi-code"
 	if compat := model.AnthropicCompat; compat != nil {
 		profile.Compat.SupportsContextManagement = compat.SupportsContextManagement
 		profile.Compat.SupportsEagerToolInputStreaming = compat.SupportsEagerToolInputStreaming

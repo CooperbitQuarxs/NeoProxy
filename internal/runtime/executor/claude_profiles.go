@@ -56,6 +56,9 @@ type neoPiThirdParty struct {
 	// promptCacheUserID: NeoPi sends Kimi Code's prompt-cache key as
 	// metadata.user_id when the caller sets none.
 	promptCacheUserID bool
+	// ownStream marks Kimi Code, which NeoPi streams through streamKimi: its
+	// option mapping puts no thinking budget on top of a caller's allowance.
+	ownStream bool
 	// escapeToolNames is compat.escapeBuiltinToolNames: every tool name goes
 	// out with the Claude tool prefix, built-in names included, and comes back
 	// without it.
