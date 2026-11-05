@@ -120,7 +120,9 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 	}
 	if e.binding != nil {
 		options.SessionID = e.binding.session
-		e.binding.shape(&conversation, &options)
+		if err := e.binding.shape(body, &conversation, &options); err != nil {
+			return ctx, nil, err
+		}
 	}
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)

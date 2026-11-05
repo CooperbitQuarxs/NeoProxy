@@ -24,7 +24,6 @@ import (
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
-	"github.com/tidwall/gjson"
 )
 
 // factoryDroidCapture is testdata/neopi_factory_droid/<wire>.json.gz: NeoPi's
@@ -343,13 +342,13 @@ func TestFactoryDroidSendsConfiguredHeaders(t *testing.T) {
 	}
 }
 
-// A Responses route sends the effort NeoPi resolves for the model's own
-// ladder (requireSupportedEffort): gpt-5.4 tops out at xhigh, so a caller's
-// max goes out as xhigh.
-func TestFactoryDroidResponsesClampsEffortToModel(t *testing.T) {
-	var body []byte
+// NeoPi checks a Factory request's effort against the model's own ladder
+// before any wire (requireSupportedEffort): gpt-5.4 tops out at xhigh, so a
+// caller's max is rejected with NeoPi's message and nothing is sent.
+func TestFactoryDroidRejectsUnsupportedEffort(t *testing.T) {
+	sent := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ = io.ReadAll(r.Body)
+		sent = true
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer server.Close()
@@ -359,9 +358,14 @@ func TestFactoryDroidResponsesClampsEffortToModel(t *testing.T) {
 	payload := `{"model":"gpt-5.4","input":"hi","reasoning":{"effort":"max"}}`
 	auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
 	req := cliproxyexecutor.Request{Model: "gpt-5.4", Payload: []byte(payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
-	_, _ = NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: []byte(payload)})
-	if got := gjson.GetBytes(body, "reasoning.effort").String(); got != "xhigh" {
-		t.Errorf("reasoning.effort = %q, want xhigh; body %s", got, body)
+	_, err := NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: []byte(payload)})
+	const want = "Thinking effort max is not supported by factory-droid/gpt-5.4. Supported efforts: low, medium, high, xhigh"
+	var coded interface{ StatusCode() int }
+	if err == nil || err.Error() != want || !errors.As(err, &coded) || coded.StatusCode() != http.StatusBadRequest {
+		t.Errorf("err = %v, want a 400 %q", err, want)
+	}
+	if sent {
+		t.Error("an unsupported effort reached the upstream")
 	}
 }
 

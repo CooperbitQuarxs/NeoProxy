@@ -61,8 +61,9 @@ type neoPiResponsesBinding struct {
 	token   string
 	session string
 	// shape sets the wrapper's options over the ones NeoPi derived from the
-	// downstream request.
-	shape func(conversation *openaiwire.Context, options *openaiwire.Options)
+	// downstream request, whose shaped body it reads; an error refuses the
+	// request before anything is sent.
+	shape func(body []byte, conversation *openaiwire.Context, options *openaiwire.Options) error
 	// headers finishes the request headers over the transport's own.
 	headers func(ctx context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header)
 }

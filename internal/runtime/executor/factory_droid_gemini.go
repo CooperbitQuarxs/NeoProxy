@@ -89,7 +89,10 @@ func (g *factoryDroidGemini) prepare(ctx context.Context, auth *cliproxyauth.Aut
 		return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
 	}
 	neoPiContext.SystemPrompts = append([]string{helps.FactoryDroidSystemPrefix}, neoPiContext.SystemPrompts...)
-	effort, off := a.effort(translated, target.String())
+	effort, off, errEffort := a.effort(translated, target.String())
+	if errEffort != nil {
+		return nil, errEffort
+	}
 	var stops []string
 	stopField := "stop"
 	if native {
