@@ -3,6 +3,8 @@ package registry
 import (
 	"maps"
 	"slices"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicatalog"
 )
 
 // NeoPiModel is a model as NeoPi's catalog resolves it (pi-catalog buildModel):
@@ -29,6 +31,32 @@ type NeoPiModel struct {
 	RequestModelID string `json:"requestModelId,omitempty"`
 	// DevinCompat is the compat NeoPi resolves for a devin-agent row.
 	DevinCompat *NeoPiDevinCompat `json:"devinCompat,omitempty"`
+	// GoogleCompat is the compat NeoPi resolves for a google-generative-ai row.
+	GoogleCompat *NeoPiGoogleCompat `json:"googleCompat,omitempty"`
+	// Cursor is the cursor-agent routing NeoPi's discovery resolves.
+	Cursor *NeoPiCursor `json:"cursor,omitempty"`
+}
+
+// NeoPiGoogleCompat is the resolved compat NeoPi's Google request builders read
+// (ResolvedGoogleCompat), under NeoPi's names.
+type NeoPiGoogleCompat struct {
+	MultimodalFunctionResponse                      bool `json:"multimodalFunctionResponse"`
+	RequiresSkipThoughtSignature                    bool `json:"requiresSkipThoughtSignature"`
+	RequiresSkipThoughtSignatureOnFirstFunctionCall bool `json:"requiresSkipThoughtSignatureOnFirstFunctionCall"`
+	SupportsFunctionPartID                          bool `json:"supportsFunctionPartId"`
+	DropUnsignedThinking                            bool `json:"dropUnsignedThinking"`
+	CCALegacyParametersSchema                       bool `json:"ccaLegacyParametersSchema"`
+}
+
+// NeoPiCursor is a cursor-agent row's routing: its max-mode markers, fixed
+// parameters, the rich route each wire id stands for, and whether its MCP
+// tool schemas need Cursor's projection.
+type NeoPiCursor struct {
+	MaxMode                      *bool                               `json:"maxMode,omitempty"`
+	MaxModeRoutes                map[string]bool                     `json:"maxModeRoutes,omitempty"`
+	ModelParameters              []neopicatalog.ModelParameter       `json:"modelParameters,omitempty"`
+	ModelRoutes                  map[string]neopicatalog.CursorRoute `json:"modelRoutes,omitempty"`
+	RequiresToolSchemaProjection bool                                `json:"requiresToolSchemaProjection,omitempty"`
 }
 
 // NeoPiDevinCompat is DevinCompat: whether the row is an AssignModel router
@@ -51,6 +79,10 @@ type NeoPiThinking struct {
 	// EffortRouting maps an effort (or "off") to the wire id that serves it.
 	EffortRouting map[string]string `json:"effortRouting,omitempty"`
 	DefaultLevel  string            `json:"defaultLevel,omitempty"`
+	// SuppressWhenOff models handle "off" provider-side through explicit wire suppression.
+	SuppressWhenOff bool `json:"suppressWhenOff,omitempty"`
+	// EffortBudgets maps an effort to its thinking-token budget (budget mode).
+	EffortBudgets map[string]int `json:"effortBudgets,omitempty"`
 }
 
 // NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
@@ -165,9 +197,19 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 		compat.ReasoningEffortMap = maps.Clone(m.CompletionsCompat.ReasoningEffortMap)
 		out.CompletionsCompat = &compat
 	}
+	if m.GoogleCompat != nil {
+		compat := *m.GoogleCompat
+		out.GoogleCompat = &compat
+	}
 	if m.DevinCompat != nil {
 		compat := *m.DevinCompat
 		out.DevinCompat = &compat
+	}
+	if m.Cursor != nil {
+		spec := (&neopicatalog.Spec{CursorMaxMode: m.Cursor.MaxMode, CursorMaxModeRoutes: m.Cursor.MaxModeRoutes,
+			CursorModelParameters: m.Cursor.ModelParameters, CursorModelRoutes: m.Cursor.ModelRoutes}).Clone()
+		out.Cursor = &NeoPiCursor{MaxMode: spec.CursorMaxMode, MaxModeRoutes: spec.CursorMaxModeRoutes, ModelParameters: spec.CursorModelParameters,
+			ModelRoutes: spec.CursorModelRoutes, RequiresToolSchemaProjection: m.Cursor.RequiresToolSchemaProjection}
 	}
 	return &out
 }
@@ -181,6 +223,7 @@ func (t *NeoPiThinking) Clone() *NeoPiThinking {
 	out.Efforts = slices.Clone(t.Efforts)
 	out.EffortMap = maps.Clone(t.EffortMap)
 	out.EffortRouting = maps.Clone(t.EffortRouting)
+	out.EffortBudgets = maps.Clone(t.EffortBudgets)
 	if t.SupportsDisplay != nil {
 		display := *t.SupportsDisplay
 		out.SupportsDisplay = &display

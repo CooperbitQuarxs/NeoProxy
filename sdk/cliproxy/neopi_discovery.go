@@ -20,7 +20,8 @@ import (
 // re-registers the account.
 type neoPiDiscovery struct {
 	provider string
-	// ttl is how long a listing stays fresh; retry backs off after a failure.
+	// ttl is how long a listing stays fresh; retry backs off after a failure;
+	// a zero timeout means no deadline on the fetch.
 	ttl, retry, timeout time.Duration
 	bundled             func() []*ModelInfo
 	fetch               func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
@@ -51,6 +52,11 @@ var (
 	// 2h cache TTL and its 15s discovery bound.
 	devinDiscovery = &neoPiDiscovery{provider: "devin", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
 		bundled: registry.DevinBundledModels, fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
+	// cursorDiscovery calls GetUsableModels, AvailableModels and
+	// GetDefaultModelForCli: the model manager's default 2h cache TTL; each
+	// RPC carries its own 5s (AvailableModels 2s) deadline inside the bound.
+	cursorDiscovery = &neoPiDiscovery{provider: "cursor", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
+		bundled: registry.CursorBundledModels, fetch: executor.FetchCursorModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
 	// museCodeDiscovery lists a Meta sign-in's models: NeoPi's muse-code
 	// manager (authoritative `/v1/models` over the subscription key).
@@ -61,16 +67,22 @@ var (
 	// keys at those gateways, NeoPi's authoritative `/v1/models` managers.
 	sakanaDiscovery       = newResponsesDiscovery(registry.ResponsesSakana, "")
 	abliterationDiscovery = newResponsesDiscovery(registry.ResponsesAbliterate, "")
+	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
+	// overlays the listing, so its bundled catalog stays authoritative.
+	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 0,
+		bundled: registry.GoogleBundledModels, fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery}
 )
 
 // newResponsesDiscovery is the discovery of one NeoPi Responses provider: the
-// model manager's 2h cache and 10s discovery bound over executor.FetchResponsesModels.
+// model manager's 2h cache over executor.FetchResponsesModels. NeoPi bounds
+// openai-compatible discovery at 10s; the repository bans deadlines after the
+// connection is up, so the fetch runs without one.
 // provider is the engine provider its accounts carry, or "" for the
 // openai-compatibility keys served by address.
 func newResponsesDiscovery(neoPiProvider, provider string) *neoPiDiscovery {
-	return &neoPiDiscovery{provider: provider, ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 10 * time.Second,
+	return &neoPiDiscovery{provider: provider, ttl: 2 * time.Hour, retry: 5 * time.Minute,
 		match: func(a *coreauth.Auth) bool { return executor.ResponsesProviderOfAuth(a) == neoPiProvider },
 		bundled: func() []*ModelInfo {
 			owner, modelType := "meta", "meta"
@@ -147,7 +159,14 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 
 	snapshot := a.Clone()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
+		// A zero timeout is deadline-free: after the connection is up no
+		// discovery read may be cut off (AGENTS.md).
+		ctx, cancel := context.Background(), context.CancelFunc(nil)
+		if d.timeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		} else {
+			ctx, cancel = context.WithCancel(ctx)
+		}
 		defer cancel()
 		models, err := d.fetch(ctx, cfg, snapshot)
 		d.mu.Lock()

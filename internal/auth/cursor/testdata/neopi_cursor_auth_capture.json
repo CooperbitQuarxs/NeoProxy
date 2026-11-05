@@ -1,0 +1,663 @@
+{
+  "source": "NeoPi OWN registry/oauth/cursor.ts (loginCursorHook, refreshCursorHook)",
+  "now": 1800000000000,
+  "verifierBytes": "(i*7+3)&0xff",
+  "uuid": "11111111-2222-4333-8444-555555555555",
+  "scenarios": [
+    {
+      "name": "login-after-pending",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 404,
+            "body": ""
+          },
+          {
+            "status": 404,
+            "body": ""
+          },
+          {
+            "status": 200,
+            "body": "{\"accessToken\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake\",\"refreshToken\":\"refresh-1\"}"
+          }
+        ],
+        "/aiserver.v1.DashboardService/GetMe": [
+          {
+            "status": 200,
+            "body": "{\"authId\":\"github|1245379\",\"email\":\" shay@example.test \",\"name\":\"Shay\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        }
+      ],
+      "delays": [
+        1000,
+        1200,
+        1440
+      ],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 1899999700000,
+        "email": "shay@example.test"
+      },
+      "error": null,
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "login-profile-other-account",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 200,
+            "body": "{\"accessToken\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake\",\"refreshToken\":\"refresh-1\"}"
+          }
+        ],
+        "/aiserver.v1.DashboardService/GetMe": [
+          {
+            "status": 200,
+            "body": "{\"authId\":\"github|999\",\"email\":\"other@example.test\",\"name\":\"Shay\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        }
+      ],
+      "delays": [
+        1000
+      ],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 1899999700000
+      },
+      "error": null,
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "login-profile-fails",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 200,
+            "body": "{\"accessToken\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake\",\"refreshToken\":\"refresh-1\"}"
+          }
+        ],
+        "/aiserver.v1.DashboardService/GetMe": [
+          {
+            "status": 500,
+            "body": "{}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        }
+      ],
+      "delays": [
+        1000
+      ],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 1899999700000
+      },
+      "error": null,
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "login-opaque-token",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 200,
+            "body": "{\"accessToken\":\"opaque\",\"refreshToken\":\"refresh-1\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "delays": [
+        1000
+      ],
+      "result": {
+        "access": "opaque",
+        "refresh": "refresh-1",
+        "expires": 1800003600000
+      },
+      "error": null,
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "login-errors-reset-by-pending",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 500,
+            "body": ""
+          },
+          "network-error",
+          {
+            "status": 404,
+            "body": ""
+          },
+          {
+            "status": 200,
+            "body": "not json"
+          },
+          {
+            "status": 502,
+            "body": ""
+          },
+          {
+            "status": 200,
+            "body": "{\"accessToken\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake\",\"refreshToken\":\"r\"}"
+          }
+        ],
+        "/aiserver.v1.DashboardService/GetMe": [
+          {
+            "status": 200,
+            "body": "{\"authId\":\"github|1245379\",\"email\":\"shay@example.test\",\"name\":\"Shay\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "networkError": true
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        }
+      ],
+      "delays": [
+        1000,
+        1000,
+        1000,
+        1200,
+        1200,
+        1200
+      ],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "r",
+        "expires": 1899999700000,
+        "email": "shay@example.test"
+      },
+      "error": null,
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "login-three-errors",
+      "replies": {
+        "/auth/poll": [
+          {
+            "status": 500,
+            "body": ""
+          },
+          {
+            "status": 200,
+            "body": "not json"
+          },
+          "network-error"
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/poll?uuid=11111111-2222-4333-8444-555555555555&verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc",
+          "networkError": true
+        }
+      ],
+      "delays": [
+        1000,
+        1000,
+        1000
+      ],
+      "result": null,
+      "error": "Too many consecutive errors during Cursor auth polling",
+      "loginUrl": "https://cursor.com/loginDeepControl?challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&uuid=11111111-2222-4333-8444-555555555555&mode=login&redirectTarget=cli"
+    },
+    {
+      "name": "refresh-access-only",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 200,
+            "body": "{\"access_token\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        }
+      ],
+      "delays": [],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 1900003300000
+      },
+      "error": null,
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0,
+        "email": "shay@example.test"
+      }
+    },
+    {
+      "name": "refresh-rotated",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 200,
+            "body": "{\"access_token\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake\",\"refresh_token\":\"refresh-2\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        }
+      ],
+      "delays": [],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake",
+        "refresh": "refresh-2",
+        "expires": 1900003300000
+      },
+      "error": null,
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0,
+        "email": "shay@example.test"
+      }
+    },
+    {
+      "name": "refresh-adds-email",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 200,
+            "body": "{\"access_token\":\"eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake\"}"
+          }
+        ],
+        "/aiserver.v1.DashboardService/GetMe": [
+          {
+            "status": 200,
+            "body": "{\"authId\":\"github|1245379\",\"email\":\"shay@example.test\",\"name\":\"Shay\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        }
+      ],
+      "delays": [],
+      "result": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMzYwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 1900003300000,
+        "email": "shay@example.test"
+      },
+      "error": null,
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0
+      }
+    },
+    {
+      "name": "refresh-should-logout",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 200,
+            "body": "{\"access_token\":\"\",\"shouldLogout\":true}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        }
+      ],
+      "delays": [],
+      "result": null,
+      "error": "invalid_grant: Cursor ended this session; run /login cursor again",
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0,
+        "email": "e"
+      }
+    },
+    {
+      "name": "refresh-no-token",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 200,
+            "body": "{}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        }
+      ],
+      "delays": [],
+      "result": null,
+      "error": "Cursor token refresh returned no access token",
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0,
+        "email": "e"
+      }
+    },
+    {
+      "name": "refresh-rejected",
+      "replies": {
+        "/oauth/token": [
+          {
+            "status": 401,
+            "body": "{\"error\":\"invalid_grant\"}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "105",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{\"grant_type\":\"refresh_token\",\"client_id\":\"KbZUR41cY7W6zRSdpSUJ7I7mLYBKOCmB\",\"refresh_token\":\"refresh-1\"}"
+        }
+      ],
+      "delays": [],
+      "result": null,
+      "error": "Cursor token refresh failed: {\"error\":\"invalid_grant\"}",
+      "credentials": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+        "refresh": "refresh-1",
+        "expires": 0,
+        "email": "e"
+      }
+    }
+  ]
+}
