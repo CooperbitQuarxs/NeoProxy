@@ -618,30 +618,76 @@ func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	return spec
 }
 
-// NeoPiSingularityAPIBaseURL is normalizeSingularityApiBaseUrl against the
-// provider's own gateway: a blank configured URL is the gateway's canonical
-// endpoint, and any other keeps its host and gains a missing /v1.
-func NeoPiSingularityAPIBaseURL(provider, configured string) string {
+// neoPiV1BaseProviders are the providers whose configured base URL NeoPi
+// resolves onto the gateway's /v1 surface (normalizeSingularityApiBaseUrl,
+// normalizeCharmHyperBaseUrl).
+var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true}
+
+// NeoPiV1BaseURL is the discovery and inference endpoint of a provider in
+// neoPiV1BaseProviders: a blank configured URL is the provider's canonical
+// endpoint, and any other keeps its host and gains a missing /v1. Other
+// providers' URLs are returned trimmed, the catalog's when blank.
+func NeoPiV1BaseURL(provider, configured string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(configured), "/")
 	if trimmed == "" {
 		return NeoPiCompletionsListingBase(provider)
 	}
-	if strings.HasSuffix(trimmed, "/v1") {
+	if !neoPiV1BaseProviders[provider] || strings.HasSuffix(trimmed, "/v1") {
 		return trimmed
 	}
 	return trimmed + "/v1"
 }
 
 // NeoPiAccountBaseURL is the endpoint a NeoPi provider's account serves from
-// when it configures one (NeoPi's provider baseUrl override): SingularityAPI's
-// normalized gateway URL, any other provider's URL as configured. Empty when
-// the account configures none.
+// when it configures one (NeoPi's provider baseUrl override), normalized as
+// NeoPiV1BaseURL does. Empty when the account configures none.
 func NeoPiAccountBaseURL(provider, configured string) string {
 	if strings.TrimSpace(configured) == "" {
 		return ""
 	}
-	if provider == "singularityapi-dev" || provider == "singularityapi-tech" {
-		return NeoPiSingularityAPIBaseURL(provider, configured)
+	return NeoPiV1BaseURL(provider, configured)
+}
+
+// neoPiCharmHyperEffortNone is Hyper's thinking-off wire tier.
+const neoPiCharmHyperEffortNone = "none"
+
+// neoPiMapCharmHyper is charmHyperModelManagerOptions' mapModel: the ladder
+// is the advertised effort vocabulary (none excluded: it is the off switch,
+// routed through reasoningDisableMode), with the advertised default; a row
+// without one exposes no dial.
+func neoPiMapCharmHyper(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
+	var wire []string
+	reasoning := entry.Get("reasoning")
+	if levels := reasoning.Get("effort_levels"); reasoning.IsObject() && levels.IsArray() {
+		for _, level := range levels.Array() {
+			if value := level.Get("value"); level.IsObject() && value.Type == gjson.String && !slices.Contains(wire, value.Str) {
+				wire = append(wire, value.Str)
+			}
+		}
 	}
-	return strings.TrimRight(strings.TrimSpace(configured), "/")
+	var efforts []string
+	for _, effort := range neoPiThinkingEfforts {
+		if slices.Contains(wire, effort) {
+			efforts = append(efforts, effort)
+		}
+	}
+	spec := defaults
+	spec.name = neoPiModelName(entry.Get("display_name"), defaults.name)
+	spec.reasoning = len(efforts) > 0
+	if spec.reasoning {
+		spec.thinking = &NeoPiThinking{Mode: "effort", Efforts: efforts}
+		if advertised := reasoning.Get("default_effort_level"); advertised.Type == gjson.String && slices.Contains(efforts, advertised.Str) {
+			spec.thinking.DefaultLevel = advertised.Str
+		}
+		if slices.Contains(wire, neoPiCharmHyperEffortNone) {
+			spec.withCompat("reasoningDisableMode", "none-effort")
+		}
+	}
+	spec.input = []string{"text"}
+	if capabilities := entry.Get("capabilities"); capabilities.IsObject() && capabilities.Get("vision").Type == gjson.True {
+		spec.input = []string{"text", "image"}
+	}
+	spec.contextWindow = neoPiPositive(entry.Get("context_window"), defaults.contextWindow)
+	spec.maxTokens = neoPiPositive(entry.Get("max_output_tokens"), defaults.maxTokens)
+	return spec
 }

@@ -5,7 +5,7 @@
 
 import { h, icon, replace, fmtInt, copyText } from "../lib/dom.js";
 import { neo, ApiError } from "../lib/client.js";
-import { btn, field, input, search, seg, dialog, copyLine, toast } from "../lib/components.js";
+import { btn, field, input, select, search, seg, dialog, copyLine, toast } from "../lib/components.js";
 
 export const KIND_COPY = {
 	subscription: {
@@ -273,6 +273,16 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 	function apiKeyFlow(p) {
 		const cfg = p.apiKey ?? {};
 		let key = "", baseUrl = "", label = "", monthly = "";
+		// Regional providers (NeoPi's endpoint prompt): each key works at one
+		// region; administrators may also name a custom endpoint.
+		const regions = cfg.regions ?? [];
+		const CUSTOM = "custom";
+		let region = regions[0]?.baseUrl ?? "";
+		const customField = field("Custom endpoint", input({ mono: true, placeholder: "https://your-proxy.com/v1", onInput: (e) => { baseUrl = e.target.value; sync(); } }), "The base URL to send this key's requests to, usually ending in /v1.");
+		customField.style.display = "none";
+		const regionOptions = [...regions.map((r) => ({ value: r.baseUrl, label: `${r.label} (${r.baseUrl})` })), ...(admin && cfg.customRegion ? [{ value: CUSTOM, label: "Custom endpoint" }] : [])];
+		const regionField = regions.length ? field("Region", select(regionOptions, region, (v) => { region = v; customField.style.display = v === CUSTOM ? "" : "none"; sync(); }), "Keys work only in the region they were created in.") : null;
+		const chosenBaseUrl = () => cfg.editableBaseUrl ? baseUrl.trim() || undefined : region === CUSTOM ? baseUrl.trim() : region || undefined;
 		const errorHost = h("div");
 		const keyInput = input({ mono: true, type: "password", autocomplete: "off", placeholder: cfg.keyHint, onInput: (e) => { key = e.target.value; sync(); } });
 		const reveal = btn("Show", { onClick: () => { const show = keyInput.type === "password"; keyInput.type = show ? "text" : "password"; reveal.lastChild.textContent = show ? "Hide" : "Show"; } });
@@ -280,15 +290,17 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			errorHost.replaceChildren();
 			await busy(submit, async () => {
 				try {
-					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), baseUrl: cfg.editableBaseUrl ? baseUrl.trim() || undefined : undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
+					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), baseUrl: chosenBaseUrl(), customBaseUrl: region === CUSTOM || undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
 					finish("API key added", h("p", null, h("strong", null, p.name), " checked out and is now in the pool. Its models are available to virtual models and grants right away."));
 				} catch (e) { replace(errorHost, notice("bad", "The key wasn't added", e.message)); }
 			});
 		} });
-		const sync = () => { submit.disabled = !key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl); };
+		const sync = () => { submit.disabled = (!key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl)) || (region === CUSTOM && !baseUrl.trim()); };
 		sync();
 		return h("form", { class: "pa-stack", onSubmit: (e) => { e.preventDefault(); if (!submit.disabled) submit.click(); } },
 			cfg.editableBaseUrl ? field("Server address", input({ mono: true, placeholder: p.id === "custom" ? "https://example.com/v1" : cfg.baseUrl, onInput: (e) => { baseUrl = e.target.value; } }), p.id === "custom" ? "The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1" : `The gateway's base URL. Leave empty for the default, ${cfg.baseUrl}`) : null,
+			regionField,
+			regionField ? customField : null,
 			field("API key", h("div", { class: "pa-inline" }, keyInput, reveal), h("span", null, "Stored on this server only and never shown again. ", cfg.getKeyUrl ? h("a", { href: cfg.getKeyUrl, target: "_blank", rel: "noopener noreferrer" }, `Get a key from ${p.vendor}`) : null)),
 			h("div", { class: "pa-two" },
 				field("Name (optional)", input({ placeholder: "Team research", onInput: (e) => { label = e.target.value; } }), "Helps tell keys apart."),

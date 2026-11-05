@@ -31,7 +31,10 @@ type NeoPiCompletionsCatalog struct {
 	// listing replaces its bundled rows (mergeDynamicModels). Listing is
 	// false when NeoPi never fetches one and serves the bundled roster.
 	Discovery struct {
-		Listing                bool `json:"listing"`
+		Listing bool `json:"listing"`
+		// Unauthenticated is set when the listing also runs without a key,
+		// sending no Authorization (Charm Hyper's public /v1/models).
+		Unauthenticated        bool `json:"unauthenticated"`
 		ModelsAuthoritative    bool `json:"modelsAuthoritative"`
 		ReasoningAuthoritative bool `json:"reasoningAuthoritative"`
 		InputAuthoritative     bool `json:"inputAuthoritative"`

@@ -159,6 +159,13 @@ func NeoPiCompletionsDiscovers(provider string) bool {
 	return ok && catalog.Discovery.Listing
 }
 
+// NeoPiCompletionsDiscoversWithoutKey reports whether provider's NeoPi model
+// manager still fetches its listing when no key is configured.
+func NeoPiCompletionsDiscoversWithoutKey(provider string) bool {
+	catalog, ok := NeoPiCompletionsProvider(provider)
+	return ok && catalog.Discovery.Listing && catalog.Discovery.Unauthenticated
+}
+
 // NeoPiCompletionsListing resolves a provider's GET /models body (fetched from
 // baseURL) into the roster NeoPi's model manager produces: the bundled rows,
 // with the listing's ids and limits merged in. An unusable body is an error;
@@ -583,6 +590,8 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 		case "singularityapi-tech":
 			// The lane roster answers bare ids; rows keep the defaults.
 			spec = defaults
+		case "charm-hyper":
+			spec = neoPiMapCharmHyper(entry, defaults)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

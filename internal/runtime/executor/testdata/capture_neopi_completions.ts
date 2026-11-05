@@ -32,26 +32,39 @@ const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-man
 const cacheDir = mkdtempSync(join(tmpdir(), "neopi-completions-"));
 
 // Providers NeoPi bundles no rows for discover their whole roster; their
-// captures run over the rows NeoPi's own manager builds from this listing of
-// bare ids (no capability metadata, so a discovered id's row is the bare spec
-// NeoProxy builds for it).
-const discoveredRosters: Record<string, string[]> = {
-	"singularityapi-dev": ["deepseek-v4-flash", "deepseek-v4-pro", "gpt-5.6-sol", "kimi-k3", "glm-5.3", "zz-gateway-new"],
-	"singularityapi-tech": ["deepseek-ai/DeepSeek-V4.1-Flash", "deepseek-v4-flash-0731", "deepseek-v4.1-flash", "zz-lane-new"],
+// captures run over the rows NeoPi's own manager builds from this listing,
+// which the fixtures record so NeoProxy builds the same rows from it.
+const discoveredRosters: Record<string, any[]> = {
+	"singularityapi-dev": ["deepseek-v4-flash", "deepseek-v4-pro", "gpt-5.6-sol", "kimi-k3", "glm-5.3", "zz-gateway-new"].map(id => ({ id })),
+	"singularityapi-tech": ["deepseek-ai/DeepSeek-V4.1-Flash", "deepseek-v4-flash-0731", "deepseek-v4.1-flash", "zz-lane-new"].map(id => ({ id })),
+	"charm-hyper": [
+		{
+			id: "glm-5.3",
+			display_name: "GLM 5.3",
+			context_window: 200000,
+			max_output_tokens: 131072,
+			capabilities: { vision: false },
+			reasoning: { effort_levels: [{ value: "none" }, { value: "low" }, { value: "medium" }, { value: "high" }], default_effort_level: "medium" },
+		},
+		{ id: "glm-5.1", context_window: 200000, max_output_tokens: 131072, reasoning: { effort_levels: [{ value: "low" }, { value: "high" }] } },
+		{ id: "minimax-m2.7", context_window: 196608, max_output_tokens: 131072 },
+		{ id: "kimi-k3", capabilities: { vision: true }, reasoning: { effort_levels: [{ value: "minimal" }, { value: "xhigh" }, { value: "max" }] } },
+		{ id: "zz-hyper-plain" },
+	],
 };
 
-async function discoveredRows(provider: string, apiKey: string): Promise<any[]> {
-	const ids = discoveredRosters[provider];
-	if (!ids) return [];
+async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string }> {
+	const entries = discoveredRosters[provider];
+	if (!entries) return { models: [] };
 	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
-	const listing = JSON.stringify({ object: "list", data: ids.map(id => ({ id, object: "model" })) });
+	const listing = JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
 	const options = descriptor.createModelManagerOptions({
 		apiKey,
 		fetch: async () => new Response(listing, { status: 200, headers: { "content-type": "application/json" } }),
 	});
 	options.cacheDbPath = join(cacheDir, `${provider}.db`);
 	const resolved = await resolveProviderModels(options, "online");
-	return resolved.models;
+	return { models: resolved.models, listing };
 }
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
@@ -167,7 +180,8 @@ const apiKeyFor = (provider: string) =>
 
 for (const provider of providers) {
 	const bundled = getBundledModels(provider);
-	const listed = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : [];
+	const discovered = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : { models: [] };
+	const listed = discovered.models;
 	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
 	// Bundled rows NeoProxy serves: Chat Completions, image generation over
 	// openai-images (generateOpenAIImage) and speech over openai-speech
@@ -210,6 +224,14 @@ for (const provider of providers) {
 	// The fixture key has each provider's credential shape, so a manager that
 	// parses its key (Token Plan) still wires its listing.
 	const manager = descriptor?.createModelManagerOptions({ apiKey: apiKeyFor(provider) });
+	// A manager built without a key that still lists models discovers from a
+	// public endpoint (Charm Hyper). Managers that parse their key may throw.
+	let keyless: any;
+	try {
+		keyless = descriptor?.createModelManagerOptions({});
+	} catch {
+		keyless = undefined;
+	}
 	const catalog = {
 		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)})`,
 		provider,
@@ -218,6 +240,8 @@ for (const provider of providers) {
 		discovery: {
 			// Whether the model manager fetches a live listing at all.
 			listing: typeof manager?.fetchDynamicModels === "function",
+			// Whether that listing also runs without a key (no Authorization).
+			unauthenticated: typeof keyless?.fetchDynamicModels === "function",
 			// The descriptor's KDL flag only steers bundle generation; the
 			// runtime model manager reads its own options.
 			modelsAuthoritative: !!manager?.dynamicModelsAuthoritative,
@@ -318,7 +342,16 @@ for (const provider of providers) {
 	}
 	await Bun.write(
 		join(outDir, `${provider}.fixtures.json.gz`),
-		Bun.gzipSync(JSON.stringify({ source: listed.length > 0 ? `NeoPi OWN streamSimple over resolveProviderModels(${JSON.stringify(provider)})` : `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)})`, provider, apiKey, sessionId, fixtures })),
+		Bun.gzipSync(
+			JSON.stringify({
+				source: listed.length > 0 ? `NeoPi OWN streamSimple over resolveProviderModels(${JSON.stringify(provider)})` : `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)})`,
+				provider,
+				apiKey,
+				sessionId,
+				...(discovered.listing ? { listing: discovered.listing } : {}),
+				fixtures,
+			}),
+		),
 	);
 	console.error(`${provider}: ${completions.length} rows, ${compats.length} compats, ${picked.length} models, ${fixtures.length} fixtures, ${fixtures.filter(f => f.error).length} errors`);
 }

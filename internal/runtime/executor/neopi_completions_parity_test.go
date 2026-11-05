@@ -22,7 +22,10 @@ type neoPiCompletionsCapture struct {
 	Provider  string `json:"provider"`
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
-	Fixtures  []struct {
+	// Listing is the /models answer NeoPi's manager discovered the captured
+	// rows from, for a provider NeoPi bundles no rows for.
+	Listing  string `json:"listing"`
+	Fixtures []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`
 		RequestedURL string            `json:"requestedURL"`
@@ -51,13 +54,26 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 		provider := capture.Provider
 		t.Run(provider, func(t *testing.T) {
 			auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": capture.APIKey}}
+			discovered := map[string]*registry.NeoPiModel{}
+			if capture.Listing != "" {
+				infos, err := registry.NeoPiCompletionsListing(provider, registry.NeoPiCompletionsListingBase(provider), []byte(capture.Listing))
+				if err != nil {
+					t.Fatalf("listing: %v", err)
+				}
+				for _, info := range infos {
+					discovered[info.ID] = info.NeoPi
+				}
+			}
 			for _, fixture := range capture.Fixtures {
 				if fixture.Error != "" {
 					t.Errorf("%s: NeoPi capture failed: %s", fixture.Name, fixture.Error)
 					continue
 				}
 				t.Run(fixture.Name, func(t *testing.T) {
-					row := registry.NeoPiCompletionsModel(provider, fixture.Model)
+					row := discovered[fixture.Model]
+					if row == nil {
+						row = registry.NeoPiCompletionsModel(provider, fixture.Model)
+					}
 					if row == nil || row.CompletionsCompat == nil {
 						t.Fatalf("no NeoPi row for %s", fixture.Model)
 					}
