@@ -222,6 +222,18 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/platform/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
+	// MiniMax serves its models over Anthropic Messages; the Token Plans add
+	// two Chat Completions models at /v1, the account's endpoint. NeoPi has no
+	// MiniMax pay-as-you-go login, so those keys are kept unprobed; Token Plan
+	// keys are checked with a one-token Messages request.
+	{ID: "minimax", Name: "MiniMax", Vendor: "MiniMax", Hue: 350, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.minimax.io/anthropic", "sk-...", "https://platform.minimax.io/"), Plans: []ProviderPlan{}},
+	{ID: "minimax-cn", Name: "MiniMax (China)", Vendor: "MiniMax", Hue: 350, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.minimaxi.com/anthropic", "sk-...", "https://platform.minimaxi.com/"), Plans: []ProviderPlan{}},
+	{ID: "minimax-code", Name: "MiniMax Token Plan (International)", Vendor: "MiniMax", Hue: 350, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.minimax.io/v1", "sk-...", "https://platform.minimax.io/subscribe/token-plan"), Plans: []ProviderPlan{}},
+	{ID: "minimax-code-cn", Name: "MiniMax Token Plan (China)", Vendor: "MiniMax", Hue: 350, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.minimaxi.com/v1", "sk-...", "https://platform.minimaxi.com/subscribe/token-plan"), Plans: []ProviderPlan{}},
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
 	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
 	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},

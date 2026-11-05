@@ -267,7 +267,9 @@ for (const provider of providers) {
 	};
 	const { list: compats, indexOf } = dedupe();
 	const { list: anthropicCompats, indexOf: anthropicIndexOf } = dedupe();
-	const baseUrl = completions[0]?.baseUrl;
+	// The provider's Chat Completions endpoint; a provider NeoPi serves only
+	// over Anthropic Messages (MiniMax) keeps its bundled rows' endpoint.
+	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl;
 	const rows = exported.map((model: any) => ({
 		id: model.id,
 		name: model.name,
@@ -415,7 +417,9 @@ for (const provider of providers) {
 		if (captured.length !== 1) throw new Error(`Capture ${provider}/${scenario.name} saw ${captured.length} requests`);
 		fixtures.push({ name: scenario.name, model: scenario.model, options: scenario.options, downstream: scenario.downstream, requestedURL, ...captured[0] });
 	}
-	await Bun.write(
+	// A provider NeoPi serves only over Anthropic Messages has no Chat
+	// Completions requests to capture.
+	if (fixtures.length > 0) await Bun.write(
 		join(outDir, `${provider}.fixtures.json.gz`),
 		Bun.gzipSync(
 			JSON.stringify({

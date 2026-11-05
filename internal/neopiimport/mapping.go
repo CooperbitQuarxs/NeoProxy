@@ -81,6 +81,10 @@ var apiKeyRoutes = map[string]route{
 	"siliconflow":        {target: "siliconflow"},
 	"siliconflow-cn":     {target: "siliconflow-cn"},
 	"zenmux":             {target: "zenmux"},
+	"minimax":            {target: "minimax"},
+	"minimax-cn":         {target: "minimax-cn"},
+	"minimax-code":       {target: "minimax-code"},
+	"minimax-code-cn":    {target: "minimax-code-cn"},
 	// Local servers import at their default address (an administrator's
 	// action, as their address is editable).
 	"vllm":                  {target: "vllm"},
