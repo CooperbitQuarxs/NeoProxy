@@ -138,6 +138,9 @@ var oauthRoutes = map[string]route{
 	"kilo":              {kind: KindAPIKey, target: "kilo"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
 	"cursor":            {target: "cursor"},
+	// Factory's WorkOS device sign-in keeps its account scope (organization,
+	// residency, inference region) beside the tokens.
+	"factory-droid": {target: "factory-droid"},
 	// Snowflake's browser sign-in keeps the account it signed in at in
 	// enterpriseUrl.
 	"snowflake":      {target: "snowflake"},
@@ -416,6 +419,13 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["base_url"] = cursorwire.DefaultBaseURL
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
+	case "factory-droid":
+		meta["access_token"] = access
+		meta["auth_kind"] = "oauth"
+		for key, field := range map[string]string{"account_id": "accountId", "org_id": "orgId", "active_organization_id": "activeOrganizationId",
+			"region": "region", "inference_region": "inferenceRegion"} {
+			setNonEmpty(meta, key, str(c.data, field))
+		}
 	case "snowflake":
 		meta["access_token"] = access
 		meta["enterprise_url"] = str(c.data, "enterpriseUrl")
