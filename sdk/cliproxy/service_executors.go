@@ -301,6 +301,10 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			}
 		}
 	}
+	// NeoPi serves Ollama Cloud keys through its native Ollama chat provider.
+	if s.bindOllamaCloudExecutor(cfg, a, forceReplace) {
+		return
+	}
 	if providerKey, catalogProvider, ok := neoPiCompletionsIdentity(a); ok {
 		if !forceReplace {
 			if existing, ok := s.coreManager.Executor(providerKey); ok {
