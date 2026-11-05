@@ -28,6 +28,11 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	var profile neoPiProfile
 	profile.Reasoning = model.Reasoning
 	profile.MaxTokens = int64(model.MaxTokens)
+	if profile.MaxTokens <= 0 {
+		// A discovered row without an output cap: NeoPi's Anthropic provider
+		// allows 64000 (anthropic.ts maxAllowedTokens).
+		profile.MaxTokens = 64000
+	}
 	party := &neoPiThirdParty{images: false, modelID: model.ID}
 	for _, input := range model.Input {
 		party.images = party.images || input == "image"
@@ -168,43 +173,48 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
 }
 
-// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay: an
-// unsigned thinking block stays a thinking block with an empty signature
-// only when the turn has no signed thinking and the model replays unsigned
-// thinking; otherwise it is demoted to text (renderDemotedThinking), and a
-// blank one is dropped.
+// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay. In
+// a turn with signed thinking, or for a model that does not replay unsigned
+// thinking, an unsigned block is demoted to text (renderDemotedThinking) and
+// a blank one dropped. Otherwise every blank thinking block is dropped and an
+// unsigned one is replayed as a thinking block with an empty signature.
 func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json.RawMessage {
 	content := message.Get("content")
 	if !content.IsArray() {
 		return json.RawMessage(message.Raw)
 	}
 	unsigned := func(block gjson.Result) bool {
-		return block.Get("type").String() == "thinking" && strings.TrimSpace(block.Get("signature").String()) == ""
+		return strings.TrimSpace(block.Get("signature").String()) == ""
 	}
 	hasSigned := false
-	demote := !party.replayUnsigned
 	for _, block := range content.Array() {
 		if block.Get("type").String() == "thinking" && !unsigned(block) {
 			hasSigned = true
 		}
 	}
-	demote = demote || hasSigned
-	if !demote {
-		return json.RawMessage(message.Raw)
-	}
+	demote := hasSigned || !party.replayUnsigned
 	changed := false
 	blocks := make([]json.RawMessage, 0, len(content.Array()))
 	for _, block := range content.Array() {
-		if !unsigned(block) {
+		if block.Get("type").String() != "thinking" {
 			blocks = append(blocks, json.RawMessage(block.Raw))
 			continue
 		}
-		changed = true
 		thinking := block.Get("thinking").String()
-		if strings.TrimSpace(thinking) == "" {
-			continue
+		blank := strings.TrimSpace(thinking) == ""
+		switch {
+		case demote && !unsigned(block):
+			blocks = append(blocks, json.RawMessage(block.Raw))
+		case blank:
+			changed = true
+		case demote:
+			changed = true
+			blocks = append(blocks, neoPiTextBlock(neopidialect.RenderDemotedThinking(party.modelID, thinking)))
+		default:
+			wire := jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("thinking")}, jsjson.Field{Name: "thinking", Value: jsjson.Marshal(thinking)}, jsjson.Field{Name: "signature", Value: jsjson.Marshal("")})
+			changed = changed || string(wire) != block.Raw
+			blocks = append(blocks, wire)
 		}
-		blocks = append(blocks, neoPiTextBlock(neopidialect.RenderDemotedThinking(party.modelID, thinking)))
 	}
 	if !changed {
 		return json.RawMessage(message.Raw)

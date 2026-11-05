@@ -88,8 +88,13 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		}
 	}
 	timeout, idleTimeout := quotaRequestTimeout, quotaIdleTimeout
-	if a.Provider == "claude" {
+	switch {
+	case a.Provider == "claude":
 		key += ":claude"
+		timeout, idleTimeout = 0, 0
+	case umansauth.IsBaseURL(a.Attributes["base_url"]):
+		// NeoPi bounds Umans usage only by the caller's signal.
+		key += ":umans"
 		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()

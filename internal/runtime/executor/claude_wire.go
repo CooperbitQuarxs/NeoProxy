@@ -212,7 +212,9 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 					raw = neoPiSet(raw, "tool_use_id", toolIDs.result(block.Get("tool_use_id").String()))
 				}
 				if name := block.Get("name").String(); block.Get("type").String() == "tool_use" {
-					if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, false); wire != name {
+					// OAuth requests always reserialize the name, as NeoPi's
+					// fresh block does; API-key requests only when it changes.
+					if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, false); wire != name || !identity.APIKey {
 						raw = neoPiSet(raw, "name", wire)
 					}
 				}
@@ -378,6 +380,45 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 		off, enabled = !requested, requested
 	}
+	// partyBudget is the thinking budget streamSimple settles on for a
+	// third-party budget or budget-effort model (mapOptionsForApi), and
+	// maxTokens the output allowance it pairs with it. A budget the model cap
+	// cannot fit at 1024 or more turns thinking off and keeps the caller's
+	// own max_tokens.
+	partyBudget := int64(0)
+	if party != nil && enabled && profile.Thinking.Mode != "anthropic-adaptive" {
+		budget := thinking.Get("budget_tokens").Int()
+		if effort != "" {
+			budget = neoPiEffortBudgets[effort]
+		}
+		if budget <= 0 {
+			budget = 1024
+		}
+		caller := root.Get("max_tokens").Int()
+		requested := budget
+		if profile.MaxTokens < budget+4000 {
+			budget = profile.MaxTokens - 4000
+		}
+		allowance := maxTokens
+		if budget >= 1024 {
+			if caller > 0 {
+				allowance = min(caller+requested, profile.MaxTokens)
+			}
+		} else {
+			allowance = min(64000, profile.MaxTokens)
+			if caller > 0 {
+				allowance = min(caller+budget, profile.MaxTokens)
+			}
+			if allowance < budget+4000 {
+				budget = allowance - 4000
+			}
+		}
+		if budget < 1024 {
+			enabled, off, effort = false, true, ""
+		} else {
+			partyBudget, maxTokens = budget, allowance
+		}
+	}
 	var wireThinking json.RawMessage
 	if profile.Thinking.Mode == "anthropic-adaptive" {
 		if enabled {
@@ -406,20 +447,11 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 	} else if enabled {
 		budget := thinking.Get("budget_tokens").Int()
-		if party != nil && effort != "" {
-			budget = neoPiEffortBudgets[effort]
+		if party != nil {
+			budget = partyBudget
 		}
 		if budget <= 0 {
 			budget = 1024
-		}
-		if party != nil && root.Get("max_tokens").Int() > 0 {
-			// streamSimple treats the caller's max_tokens as the output it
-			// wants and gives thinking its budget on top, within the model cap
-			// (maxTokensWithThinkingBudget).
-			if profile.MaxTokens < budget+4000 {
-				budget = profile.MaxTokens - 4000
-			}
-			maxTokens = min(maxTokens+budget, profile.MaxTokens)
 		}
 		maxTokens = min(max(maxTokens, budget+4000), profile.MaxTokens)
 		budget = min(budget, maxTokens-4000)
@@ -505,7 +537,7 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if choice := root.Get("tool_choice"); choice.Exists() {
 		raw := []byte(choice.Raw)
 		if name := choice.Get("name").String(); choice.Get("type").String() == "tool" {
-			if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, true); wire != name {
+			if wire := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, true); wire != name || !identity.APIKey {
 				raw = neoPiSet(raw, "name", wire)
 			}
 		}

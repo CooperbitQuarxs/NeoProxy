@@ -9,6 +9,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -68,14 +69,21 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if provider.headers != nil {
 		profile.thirdParty.headers = provider.headers()
 	}
+	webSearch := ""
 	if provider.gatewayWebSearch != nil {
-		if value, gateway := provider.gatewayWebSearch(opts.Headers); value != "" {
-			profile.thirdParty.gatewayWebSearch = gateway
-			if profile.thirdParty.headers == nil {
-				profile.thirdParty.headers = make(http.Header)
-			}
-			profile.thirdParty.headers.Set("X-Umans-Websearch-Provider", value)
+		// NeoPi decides over model headers merged with the caller's, the
+		// caller's winning: here the account's configured headers, then the
+		// request's.
+		merged := make(http.Header)
+		if auth != nil {
+			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: merged}).WithContext(ctx), auth.Attributes, opts.Headers)
 		}
+		for name, values := range opts.Headers {
+			merged[name] = values
+		}
+		var gateway bool
+		webSearch, gateway = provider.gatewayWebSearch(merged)
+		profile.thirdParty.gatewayWebSearch = gateway
 	}
 	body, headers, err := projectNeoPiAnthropic(translated, model, base, "", identity, profile)
 	if err != nil {
@@ -85,5 +93,8 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
+	if webSearch != "" {
+		headers.Set("X-Umans-Websearch-Provider", webSearch)
+	}
 	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
 }

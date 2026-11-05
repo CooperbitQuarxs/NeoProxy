@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -108,6 +109,9 @@ type umansCapture struct {
 		RawBody           string            `json:"rawBody"`
 		Downstream        json.RawMessage   `json:"downstream"`
 		DownstreamHeaders map[string]string `json:"downstreamHeaders"`
+		// ConfiguredHeaders are NeoPi's model headers; the account carries
+		// them as configured header:* attributes.
+		ConfiguredHeaders map[string]string `json:"configuredHeaders"`
 	} `json:"fixtures"`
 }
 
@@ -160,7 +164,7 @@ func TestUmansExecutorReplaysNeoPiRequests(t *testing.T) {
 		models["discovered"][info.ID] = info
 	}
 	exec := NewUmansExecutor("openai-compatible-umans", &config.Config{})
-	auth := &cliproxyauth.Auth{ID: "umans-replay", Provider: "openai-compatible-umans", Attributes: map[string]string{"api_key": capture.APIKey, "base_url": umansauth.BaseURL}}
+	base := map[string]string{"api_key": capture.APIKey, "base_url": umansauth.BaseURL}
 	for _, fixture := range capture.Fixtures {
 		t.Run(fixture.Name, func(t *testing.T) {
 			info := models[fixture.Source][fixture.Model]
@@ -175,6 +179,11 @@ func TestUmansExecutorReplaysNeoPiRequests(t *testing.T) {
 			for name, value := range fixture.DownstreamHeaders {
 				headers.Set(name, value)
 			}
+			attrs := maps.Clone(base)
+			for name, value := range fixture.ConfiguredHeaders {
+				attrs["header:"+name] = value
+			}
+			auth := &cliproxyauth.Auth{ID: "umans-replay", Provider: "openai-compatible-umans", Attributes: attrs}
 			sent.body = nil
 			_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{
 				Model:    fixture.Model,

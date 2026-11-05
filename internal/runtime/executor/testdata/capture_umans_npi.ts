@@ -49,12 +49,21 @@ const webSearch = { name: "web_search", description: "Search the web.", paramete
 const usage = { input: 1, output: 1, totalTokens: 2, cost: { input: 0, output: 0, total: 0 } };
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
-type Turn = { kind: "user"; text?: string; blocks?: any[] } | { kind: "call"; tool?: string } | { kind: "result"; blocks: any[]; isError?: boolean; tool?: string };
+// A call turn's thinking is replayed as given: `thinking` overrides its text
+// and `unsigned` drops the signature field entirely.
+type Turn = { kind: "user"; text?: string; blocks?: any[] } | { kind: "call"; tool?: string; thinking?: string; unsigned?: boolean } | { kind: "result"; blocks: any[]; isError?: boolean; tool?: string };
 const toolArgs = (tool: string) => (tool === "web_search" ? { query: "a" } : { term: "a" });
 const claudeTurns = (turns: Turn[]) =>
 	turns.map(turn => {
 		if (turn.kind === "user") return { role: "user", content: turn.text ?? turn.blocks };
-		if (turn.kind === "call") return { role: "assistant", content: [{ type: "thinking", thinking: "Need a tool.", signature: "" }, { type: "tool_use", id: "call_capture_1", name: turn.tool ?? "lookup", input: toolArgs(turn.tool ?? "lookup") }] };
+		if (turn.kind === "call")
+			return {
+				role: "assistant",
+				content: [
+					{ type: "thinking", thinking: turn.thinking ?? "Need a tool.", ...(turn.unsigned ? {} : { signature: "" }) },
+					{ type: "tool_use", id: "call_capture_1", name: turn.tool ?? "lookup", input: toolArgs(turn.tool ?? "lookup") },
+				],
+			};
 		return { role: "user", content: [{ type: "tool_result", tool_use_id: "call_capture_1", content: turn.blocks, ...(turn.isError ? { is_error: true } : {}) }] };
 	});
 const neopiBlock = (b: any) => (b.type === "text" ? { type: "text", text: b.text } : { type: "image", data: b.source.data, mimeType: b.source.media_type });
@@ -65,7 +74,7 @@ const neopiTurns = (model: any, turns: Turn[]) =>
 			return {
 				role: "assistant",
 				content: [
-					{ type: "thinking", thinking: "Need a tool.", thinkingSignature: "" },
+					{ type: "thinking", thinking: turn.thinking ?? "Need a tool.", ...(turn.unsigned ? {} : { thinkingSignature: "" }) },
 					{ type: "toolCall", id: "call_capture_1", name: turn.tool ?? "lookup", arguments: toolArgs(turn.tool ?? "lookup") },
 				],
 				api: model.api,
@@ -79,7 +88,9 @@ const neopiTurns = (model: any, turns: Turn[]) =>
 	});
 
 const scenarios: any[] = [];
-type Extra = { system?: string; tools?: any[]; webSearchProvider?: string };
+// configuredHeaders are the model's own headers (NeoPi model.headers), which a
+// NeoProxy account carries as configured header:* attributes.
+type Extra = { system?: string; tools?: any[]; webSearchProvider?: string; configuredHeaders?: Record<string, string> };
 const add = (source: "bundled" | "discovered", id: string, name: string, turns: Turn[], options: any, extra: Extra = {}) => {
 	const model = row(source, id);
 	const context = { ...(extra.system ? { systemPrompt: [extra.system] } : {}), messages: neopiTurns(model, turns), ...(extra.tools ? { tools: extra.tools } : {}) };
@@ -93,11 +104,24 @@ const add = (source: "bundled" | "discovered", id: string, name: string, turns: 
 	if (options.toolChoice === "any") downstream.tool_choice = { type: "any" };
 	else if (options.toolChoice?.type === "tool") downstream.tool_choice = { type: "tool", name: options.toolChoice.name };
 	const headers = extra.webSearchProvider ? { "X-Umans-Websearch-Provider": extra.webSearchProvider } : undefined;
-	scenarios.push({ name: `${source}/${id}/${name}`, source, model: id, context, options: { ...options, ...(headers ? { headers } : {}) }, downstream, downstreamHeaders: headers ?? {} });
+	scenarios.push({
+		name: `${source}/${id}/${name}`,
+		source,
+		model: id,
+		context,
+		options: { ...options, ...(headers ? { headers } : {}) },
+		downstream,
+		downstreamHeaders: headers ?? {},
+		configuredHeaders: extra.configuredHeaders ?? {},
+	});
 };
 const hello: Turn[] = [{ kind: "user", text: "Say hello." }];
 const askTurns: Turn[] = [{ kind: "user", text: "Use a tool." }];
-const history = (blocks: any[], isError = false, tool = "lookup"): Turn[] => [{ kind: "user", text: "Use a tool." }, { kind: "call", tool }, { kind: "result", blocks, isError, tool }];
+const history = (blocks: any[], isError = false, tool = "lookup", call: { thinking?: string; unsigned?: boolean } = {}): Turn[] => [
+	{ kind: "user", text: "Use a tool." },
+	{ kind: "call", tool, ...call },
+	{ kind: "result", blocks, isError, tool },
+];
 const text = (value: string) => ({ type: "text", text: value });
 const image = { type: "image", source: { type: "base64", media_type: "image/png", data: png } };
 
@@ -135,13 +159,36 @@ for (const [source, id] of rows) {
 	add(source, id, "gateway-web-search", askTurns, { reasoning: first, toolChoice: { type: "tool", name: "web_search" } }, { tools: [lookup, webSearch], webSearchProvider: "exa" });
 	add(source, id, "gateway-web-search-history", history([text("Results.")], false, "web_search"), { reasoning: first }, { tools: [lookup, webSearch], webSearchProvider: " Native " });
 	add(source, id, "gateway-invalid-provider", askTurns, { reasoning: first }, { tools: [webSearch], webSearchProvider: "bing" });
+	add(source, id, "gateway-configured", askTurns, { reasoning: first, toolChoice: { type: "tool", name: "web_search" } }, { tools: [lookup, webSearch], configuredHeaders: { "X-Umans-Websearch-Provider": "Native" } });
+	add(source, id, "gateway-caller-over-configured", askTurns, { reasoning: first }, { tools: [webSearch], webSearchProvider: "bing", configuredHeaders: { "X-Umans-Websearch-Provider": "exa" } });
+	// Replayed thinking: blank text drops; a missing signature replays empty.
+	add(source, id, "blank-thinking-history", history([text("Found.")], false, "lookup", { thinking: "   " }), { reasoning: first }, { tools: [lookup] });
+	add(source, id, "unsigned-thinking-history", history([text("Found.")], false, "lookup", { unsigned: true }), { reasoning: first }, { tools: [lookup] });
+}
+// Rows whose limits stress streamSimple's budget decision: no output cap at
+// all, and caps that leave thinking less than its minimum.
+add("discovered", "umans-minimal", "plain", hello, {});
+add("discovered", "umans-minimal", "max-tokens", hello, { maxTokens: 1000 });
+for (const id of ["umans-tiny", "umans-tiny-4000"]) {
+	add("discovered", id, "plain", hello, {});
+	for (const effort of row("discovered", id).thinking?.efforts ?? []) {
+		add("discovered", id, `effort-${effort}`, hello, { reasoning: effort });
+		add("discovered", id, `max-tokens-${effort}`, hello, { reasoning: effort, maxTokens: 1000 });
+	}
+}
+// buildModel's mandatory-thinking backfill: the umans rule and a
+// thinking-variant id, each listed without can_disable.
+for (const id of ["umans-kimi-k2.7", "umans-r2-thinking"]) {
+	add("discovered", id, "plain", hello, {});
+	add("discovered", id, "off", hello, { disableReasoning: true });
 }
 
 const fixtures: any[] = [];
 try {
 	for (const scenario of scenarios) {
 		captured = [];
-		const model = row(scenario.source, scenario.model);
+		const base = row(scenario.source, scenario.model);
+		const model = Object.keys(scenario.configuredHeaders).length > 0 ? { ...base, headers: { ...base.headers, ...scenario.configuredHeaders } } : base;
 		let requestedURL = "";
 		const redirectFetch = (async (input: any, init: any) => {
 			requestedURL = input instanceof Request ? input.url : String(input);
@@ -162,6 +209,7 @@ try {
 			options: scenario.options,
 			downstream: scenario.downstream,
 			downstreamHeaders: scenario.downstreamHeaders,
+			configuredHeaders: scenario.configuredHeaders,
 			requestedURL,
 			...request,
 		});

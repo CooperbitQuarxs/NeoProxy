@@ -1,6 +1,7 @@
 package umans
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -123,5 +124,24 @@ func TestFetchUsageMatchesNeoPi(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A compressed answer is decoded as fetch's response.json() would, since the
+// request advertises Bun's encodings and Go's transport leaves it compressed.
+func TestFetchUsageDecodesCompressedAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		zw := gzip.NewWriter(w)
+		_, _ = zw.Write([]byte(`{"limits":{"requests":{"limit":100}},"usage":{"requests_in_window":75}}`))
+		_ = zw.Close()
+	}))
+	defer server.Close()
+	usage, err := FetchUsage(context.Background(), server.Client(), server.URL, "sk-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if usage == nil || len(usage.Limits) != 1 || usage.Limits[0].UsedFraction == nil || *usage.Limits[0].UsedFraction != 0.75 {
+		t.Fatalf("usage = %+v, want one row at 0.75", usage)
 	}
 }

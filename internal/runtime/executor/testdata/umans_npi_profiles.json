@@ -265,6 +265,59 @@
       }
     },
     {
+      "id": "umans-kimi-k2.7",
+      "name": "Kimi K2.7",
+      "api": "anthropic-messages",
+      "provider": "umans",
+      "baseUrl": "https://api.code.umans.ai",
+      "reasoning": true,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 262144,
+      "maxTokens": 0,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "mode": "budget",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": true,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    },
+    {
       "id": "umans-kimi-k3",
       "name": "Kimi K3",
       "api": "anthropic-messages",
@@ -397,6 +450,157 @@
         "requiresThinkingEnabled": false,
         "requiresThinkingPresence": false,
         "replayUnsignedThinking": false,
+        "escapeBuiltinToolNames": true,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    },
+    {
+      "id": "umans-r2-thinking",
+      "name": "umans-r2-thinking",
+      "api": "anthropic-messages",
+      "provider": "umans",
+      "baseUrl": "https://api.code.umans.ai",
+      "reasoning": true,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 0,
+      "maxTokens": 0,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh"
+        ],
+        "mode": "budget",
+        "requiresEffort": true
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": true,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    },
+    {
+      "id": "umans-tiny",
+      "name": "Tiny",
+      "api": "anthropic-messages",
+      "provider": "umans",
+      "baseUrl": "https://api.code.umans.ai",
+      "reasoning": true,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 0,
+      "maxTokens": 4500,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high"
+        ],
+        "mode": "budget"
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
+        "escapeBuiltinToolNames": true,
+        "injectClaudeCodeInstruction": true,
+        "stripImageInput": false
+      }
+    },
+    {
+      "id": "umans-tiny-4000",
+      "name": "umans-tiny-4000",
+      "api": "anthropic-messages",
+      "provider": "umans",
+      "baseUrl": "https://api.code.umans.ai",
+      "reasoning": true,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 0,
+      "maxTokens": 4000,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "high"
+        ],
+        "mode": "budget"
+      },
+      "anthropicCompat": {
+        "officialEndpoint": false,
+        "signingEndpoint": false,
+        "supportsContextManagement": true,
+        "supportsServerCompaction": false,
+        "firstPartyProvider": false,
+        "honorsClaudeCodeBetaKillSwitch": false,
+        "supportsOutputEffort": true,
+        "disableStrictTools": false,
+        "disableAdaptiveThinking": false,
+        "allowAnthropicHeaderOverrides": false,
+        "supportsEagerToolInputStreaming": false,
+        "supportsLongCacheRetention": false,
+        "supportsMidConversationSystem": false,
+        "supportsTurnScopedSystem": false,
+        "supportsMidConversationToolChanges": false,
+        "supportsPerMessageEffort": false,
+        "supportsThinkingBindingControls": false,
+        "supportsBetweenToolsThinking": false,
+        "supportsForcedToolChoice": true,
+        "supportsSamplingParams": true,
+        "requiresToolResultId": false,
+        "requiresThinkingEnabled": false,
+        "requiresThinkingPresence": false,
+        "replayUnsignedThinking": true,
         "escapeBuiltinToolNames": true,
         "injectClaudeCodeInstruction": true,
         "stripImageInput": false

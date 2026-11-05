@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/tidwall/gjson"
 )
 
@@ -82,7 +83,14 @@ func FetchUsage(ctx context.Context, client *http.Client, base, key string) (*Us
 		return nil, fmt.Errorf("umans usage: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// The request advertises Bun's encodings, so Go's transport leaves the
+	// body compressed; fetch's response.json() decodes it.
+	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
+	if err != nil {
+		return nil, fmt.Errorf("umans usage: %w", err)
+	}
+	defer func() { _ = decoded.Close() }()
+	data, err := io.ReadAll(io.LimitReader(decoded, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("umans usage: %w", err)
 	}

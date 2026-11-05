@@ -8,7 +8,18 @@
 			"context_window": 1048576,
 			"recommended_max_tokens": 131072,
 			"max_completion_tokens": 393215,
-			"reasoning": { "supported": true, "levels": ["minimal", "low", "medium", "high", "xhigh"], "can_disable": false, "default_level": "medium" }
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"minimal",
+					"low",
+					"medium",
+					"high",
+					"xhigh"
+				],
+				"can_disable": false,
+				"default_level": "medium"
+			}
 		}
 	},
 	"umans-glm-5.2": {
@@ -17,7 +28,14 @@
 			"supports_vision": "via-handoff",
 			"context_window": 202752,
 			"max_completion_tokens": 131072,
-			"reasoning": { "supported": true, "levels": ["high", "max"], "default_level": "max" }
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"high",
+					"max"
+				],
+				"default_level": "max"
+			}
 		}
 	},
 	"umans-glm-5.3": {
@@ -26,7 +44,17 @@
 			"supports_vision": false,
 			"context_window": 262144,
 			"recommended_max_tokens": 65536,
-			"reasoning": { "supported": true, "levels": ["low", "medium", "high", "max", "turbo"], "can_disable": true }
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"low",
+					"medium",
+					"high",
+					"max",
+					"turbo"
+				],
+				"can_disable": true
+			}
 		}
 	},
 	"umans-kimi-k3": {
@@ -40,7 +68,9 @@
 	"umans-flash": {
 		"capabilities": {
 			"supports_tools": false,
-			"reasoning": { "supported": false }
+			"reasoning": {
+				"supported": false
+			}
 		}
 	},
 	"umans-deepseek-v4-flash-0731": {
@@ -48,7 +78,13 @@
 		"capabilities": {
 			"context_window": 1048576,
 			"max_completion_tokens": 393215,
-			"reasoning": { "supported": true, "levels": ["unknown"], "default_level": "xhigh" }
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"unknown"
+				],
+				"default_level": "xhigh"
+			}
 		}
 	},
 	"umans-qwen-4-coder": {
@@ -61,5 +97,45 @@
 		}
 	},
 	"umans-not-an-object": "ignored",
-	"umans-minimal": {}
+	"umans-minimal": {},
+	"umans-tiny": {
+		"display_name": "Tiny",
+		"capabilities": {
+			"recommended_max_tokens": 4500,
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"low",
+					"high"
+				],
+				"can_disable": true
+			}
+		}
+	},
+	"umans-tiny-4000": {
+		"capabilities": {
+			"max_completion_tokens": 4000,
+			"reasoning": {
+				"supported": true,
+				"levels": [
+					"minimal",
+					"high"
+				]
+			}
+		}
+	},
+	"umans-kimi-k2.7": {
+		"display_name": "Kimi K2.7",
+		"capabilities": {
+			"context_window": 262144,
+			"reasoning": true
+		}
+	},
+	"umans-r2-thinking": {
+		"capabilities": {
+			"reasoning": {
+				"supported": true
+			}
+		}
+	}
 }

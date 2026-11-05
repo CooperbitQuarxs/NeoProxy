@@ -45,6 +45,10 @@ var umansAnthropicCompat = NeoPiAnthropicCompat{
 	SupportsForcedToolChoice:    true,
 }
 
+// umansMandatoryThinking is the umans rule's thinking-requires-effort models
+// (compat/rules/providers/umans.kdl).
+var umansMandatoryThinking = []string{"umans-coder", "umans-kimi-k2.7"}
+
 // UmansNeoPiModel is mapUmansModelInfo followed by buildModel: one
 // /v1/models/info entry over NeoPi's bundled row of the same id, if any.
 func UmansNeoPiModel(id string, raw gjson.Result, baseURL string) NeoPiModel {
@@ -63,6 +67,12 @@ func UmansNeoPiModel(id string, raw gjson.Result, baseURL string) NeoPiModel {
 	model.BaseURL = baseURL
 	model.Thinking = umansThinking(capabilities.Get("reasoning"))
 	model.Reasoning = model.Thinking != nil
+	if model.Thinking != nil && !model.Thinking.RequiresEffort {
+		// buildModel fills an absent requiresEffort (fillExplicitThinking):
+		// the umans rule's mandatory models, else a thinking-variant id
+		// (impliesMandatoryReasoning).
+		model.Thinking.RequiresEffort = slices.Contains(umansMandatoryThinking, id) || strings.Contains(strings.ToLower(id), "thinking")
+	}
 	model.Input = []string{"text"}
 	if capabilities.Get("supports_vision").Type == gjson.True {
 		model.Input = []string{"text", "image"}
@@ -145,6 +155,8 @@ func umansThinking(reasoning gjson.Result) *NeoPiThinking {
 		thinking.Mode = "anthropic-budget-effort"
 	}
 	if reasoning.IsObject() {
+		// Only an explicit can_disable:false sets it; buildModel backfills
+		// the absent flag.
 		thinking.RequiresEffort = reasoning.Get("can_disable").Type == gjson.False
 		if level := reasoning.Get("default_level"); level.Type == gjson.String && slices.Contains(efforts, level.String()) {
 			thinking.DefaultLevel = level.String()
