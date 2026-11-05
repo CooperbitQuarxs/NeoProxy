@@ -22,7 +22,7 @@ type neoPiStreamCaptureFile struct {
 	Scenarios []struct {
 		Name    string            `json:"name"`
 		Body    string            `json:"body"`
-		Compat  map[string]bool   `json:"compat"`
+		Compat  map[string]any    `json:"compat"`
 		Headers map[string]string `json:"headers"`
 		NeoPi   struct {
 			StopReason   string  `json:"stopReason"`
@@ -162,11 +162,14 @@ func TestNeoPiCompletionsStreamParity(t *testing.T) {
 	}
 	for _, scenario := range capture.Scenarios {
 		t.Run(scenario.Name, func(t *testing.T) {
+			flag := func(key string) bool { value, _ := scenario.Compat[key].(bool); return value }
+			pattern, _ := scenario.Compat["streamMarkupHealingPattern"].(string)
 			compat := &registry.NeoPiCompletionsCompat{
-				StripDeepseekSpecialTokens:      scenario.Compat["stripDeepseekSpecialTokens"],
-				ReasoningDeltasMayBeCumulative:  scenario.Compat["reasoningDeltasMayBeCumulative"],
-				EmptyLengthFinishIsContextError: scenario.Compat["emptyLengthFinishIsContextError"],
-				MistralReasoningContentParts:    scenario.Compat["mistralReasoningContentParts"],
+				StripDeepseekSpecialTokens:      flag("stripDeepseekSpecialTokens"),
+				ReasoningDeltasMayBeCumulative:  flag("reasoningDeltasMayBeCumulative"),
+				EmptyLengthFinishIsContextError: flag("emptyLengthFinishIsContextError"),
+				MistralReasoningContentParts:    flag("mistralReasoningContentParts"),
+				StreamMarkupHealingPattern:      pattern,
 			}
 			header := http.Header{}
 			for key, value := range scenario.Headers {
@@ -251,7 +254,9 @@ func TestNeoPiCompletionsStreamParity(t *testing.T) {
 				case scenario.Name == "tool-fresh-id-per-fragment":
 					// NeoPi renames the block to each fragment's id; a stream
 					// cannot retract the id it announced first.
-				case want.ID == "":
+				case want.ID == "" || pattern != "" && strings.HasPrefix(want.ID, "call_") && len(want.ID) == len("call_")+24 && !strings.Contains(scenario.Body, want.ID):
+					// NeoPi minted this id (an empty upstream one, or a healed
+					// call's random one); the port mints its own.
 					if !strings.HasPrefix(got.id, "call_") || len(got.id) != len("call_")+24 {
 						t.Errorf("call %d id = %q, want a minted id for NeoPi's empty one", position, got.id)
 					}

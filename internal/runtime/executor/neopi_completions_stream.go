@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopidialect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/tidwall/gjson"
@@ -32,13 +33,12 @@ import (
 // indexed `tool_calls`, one terminal finish_reason, one usage-only chunk and
 // `[DONE]`) that the OpenAI -> client translators already understand.
 //
-// Not ported, deliberately: StreamMarkupHealing (the `thinking`/`kimi`/`dsml`/
-// `qwen` dialect scanners in ai/src/dialect), LiteLLM/Gemini signature capture
-// (nothing on the replay side consumes them), parseJsonWithRepair of final tool
-// arguments, and withReplaySafeStreamRetry. NeoPi's first-event, idle and
-// post-finish watchdogs are not ported either: the repository allows no
-// deadline once the upstream connection is up (AGENTS.md), so a stream ends on
-// [DONE], EOF or the caller's cancellation.
+// Not ported, deliberately: LiteLLM/Gemini signature capture (nothing on the
+// replay side consumes them), parseJsonWithRepair of final tool arguments, and
+// withReplaySafeStreamRetry. NeoPi's first-event, idle and post-finish
+// watchdogs are not ported either: the repository allows no deadline once the
+// upstream connection is up (AGENTS.md), so a stream ends on [DONE], EOF or the
+// caller's cancellation.
 
 const (
 	// neoPiCompletionsEmptyLengthMessage is EMPTY_OLLAMA_LENGTH_COMPLETION_MESSAGE.
@@ -116,6 +116,9 @@ type neoPiCompletionsStreamSettings struct {
 	mistralContentParts bool
 	// cachedPromptTokensHeader is parseFireworksCachedPromptTokens(responseHeaders).
 	cachedPromptTokensHeader float64
+	// healingPattern is policy.stream.markupHealingPattern: the
+	// StreamMarkupHealing grammar run over the content channel ("" for none).
+	healingPattern string
 }
 
 // neoPiCompletionsStreamSettingsFor resolves the settings for one row. compat
@@ -135,6 +138,7 @@ func neoPiCompletionsStreamSettingsFor(provider string, compat *registry.NeoPiCo
 	settings.cumulativeReasoning = compat.ReasoningDeltasMayBeCumulative
 	settings.emptyLengthIsContextError = compat.EmptyLengthFinishIsContextError
 	settings.mistralContentParts = compat.MistralReasoningContentParts
+	settings.healingPattern = compat.StreamMarkupHealingPattern
 	return settings
 }
 
@@ -215,6 +219,11 @@ type neoPiCompletionsNormalizer struct {
 	cumulative  map[string]string
 	deepseekBuf string
 
+	// healer is the row's StreamMarkupHealing; suppressHealedThinking turns
+	// healed thinking off once the chunk carried a native reasoning channel.
+	healer                 *neopidialect.Healer
+	suppressHealedThinking bool
+
 	finished      bool
 	sawUsage      bool
 	awaitTrailing bool
@@ -230,13 +239,17 @@ func newNeoPiCompletionsNormalizer(settings neoPiCompletionsStreamSettings, now 
 	if now == nil {
 		now = time.Now
 	}
-	return &neoPiCompletionsNormalizer{
+	n := &neoPiCompletionsNormalizer{
 		settings:   settings,
 		now:        now,
 		byIndex:    map[int]*neoPiStreamCall{},
 		cumulative: map[string]string{},
 		stop:       "stop",
 	}
+	if settings.healingPattern != "" {
+		n.healer = neopidialect.NewHealer(settings.healingPattern)
+	}
+	return n
 }
 
 // take drains the chunk lines produced so far.
@@ -364,13 +377,16 @@ func (n *neoPiCompletionsNormalizer) delta(delta gjson.Result) {
 		for _, entry := range liteBlocks {
 			n.appendLiteLLMThinkingBlock(entry)
 		}
+		n.suppressHealedThinking = true
 	} else if reasoningField != "" && !hasTypedThinking {
 		source := "delta"
 		if n.settings.cumulativeReasoning {
 			source = "cumulative"
 		}
 		n.appendThinkingDelta(reasoningDelta, &reasoningField, source)
+		n.suppressHealedThinking = true
 	}
+	structuredCalls := delta.Get("tool_calls").IsArray() && len(delta.Get("tool_calls").Array()) > 0
 	if mistral {
 		for _, part := range mistralParts {
 			switch {
@@ -379,14 +395,15 @@ func (n *neoPiCompletionsNormalizer) delta(delta gjson.Result) {
 					if text := inner.Get("text"); inner.Get("type").String() == "text" && text.Type == gjson.String && text.String() != "" {
 						signature := neoPiMistralContentPartsSignature
 						n.appendThinkingDelta(text.String(), &signature, "delta")
+						n.suppressHealedThinking = true
 					}
 				}
 			case part.Get("type").String() == "text" && part.Get("text").Type == gjson.String:
-				n.appendProcessedText(part.Get("text").String())
+				n.appendContentText(part.Get("text").String(), structuredCalls)
 			}
 		}
 	} else if text := neoPiStreamingContentText(delta.Get("content")); text != "" {
-		n.appendProcessedText(text)
+		n.appendContentText(text, structuredCalls)
 	}
 	if calls := delta.Get("tool_calls"); calls.IsArray() && len(calls.Array()) > 0 {
 		n.toolCalls(calls.Array())
@@ -432,10 +449,55 @@ func neoPiStreamingContentText(content gjson.Result) string {
 	return ""
 }
 
+// appendContentText runs content-channel text through the row's
+// StreamMarkupHealing, when it has one: healed text, thinking and leaked
+// tool calls come out in stream order. A chunk that also carries structured
+// tool_calls keeps those as the only calls (feedEventsWithoutCalls).
+func (n *neoPiCompletionsNormalizer) appendContentText(text string, structuredCalls bool) {
+	if n.healer == nil {
+		n.appendProcessedText(text)
+		return
+	}
+	events := n.healer.Feed
+	if structuredCalls {
+		events = n.healer.FeedWithoutCalls
+	}
+	n.applyHealing(events(text))
+}
+
+// applyHealing is emitHealingEvent for each event.
+func (n *neoPiCompletionsNormalizer) applyHealing(events []neopidialect.HealEvent) {
+	for _, event := range events {
+		switch event.Kind {
+		case neopidialect.KindText:
+			n.appendProcessedText(event.Text)
+		case neopidialect.KindThinking:
+			if !n.suppressHealedThinking {
+				n.appendThinkingDelta(event.Text, nil, "delta")
+			}
+		case neopidialect.KindToolCall:
+			n.emitHealedToolCall(event)
+		}
+	}
+}
+
+// emitHealedToolCall is emitHealedToolCall: the open block ends and the
+// reconstructed call goes downstream whole, already finished.
+func (n *neoPiCompletionsNormalizer) emitHealedToolCall(event neopidialect.HealEvent) {
+	if n.current != nil && n.current.kind == neoPiBlockToolCall {
+		n.finishCall(n.current.call)
+	}
+	call := &neoPiStreamCall{id: event.ID, name: event.Name, outIndex: len(n.calls), partial: event.Arguments, finished: true}
+	call.block = &neoPiStreamBlock{kind: neoPiBlockToolCall, call: call}
+	call.pending.WriteString(event.Arguments)
+	n.calls = append(n.calls, call)
+	n.blocks++
+	n.startCall(call)
+	n.current = nil
+}
+
 // appendProcessedText is appendProcessedText: text from the content channel,
-// optionally cleaned of leaked DeepSeek template tokens. NeoPi runs
-// StreamMarkupHealing in front of this for rows with a healing pattern; that
-// scanner is not ported, so such text goes straight through.
+// optionally cleaned of leaked DeepSeek template tokens.
 func (n *neoPiCompletionsNormalizer) appendProcessedText(text string) {
 	if text == "" {
 		return
@@ -769,34 +831,46 @@ func (n *neoPiCompletionsNormalizer) callArguments(call *neoPiStreamCall, argume
 // (parseToolCallArguments("")) so downstream clients always hold valid JSON.
 func (n *neoPiCompletionsNormalizer) finishToolCalls() {
 	for _, call := range n.pending {
-		if call.finished {
-			continue
-		}
-		call.finished = true
-		if call.object != nil {
-			if !call.started {
-				call.pending.Reset()
-				n.startCall(call)
-			}
-			if call.emitted == 0 {
-				n.callArguments(call, string(call.object.stringify()))
-			}
-			continue
-		}
-		if !call.started {
-			n.startCall(call)
-		}
-		if strings.TrimFunc(call.partial, neoPiIsJSSpace) == "" {
-			n.callArguments(call, "{}")
-		}
+		n.finishCall(call)
 	}
 	n.pending = nil
 }
 
-// finish is everything after NeoPi's stream loop: the DeepSeek buffer flush,
-// the premature-close check, the block sweep, stop reason promotion and the
-// terminal classification. It emits the finish and usage chunks on success.
+// finishCall is finishToolCallBlock for one call: it is opened if it never
+// became ready, object-shaped arguments go out as one delta, and a call with
+// no argument text gets `{}`.
+func (n *neoPiCompletionsNormalizer) finishCall(call *neoPiStreamCall) {
+	if call.finished {
+		return
+	}
+	call.finished = true
+	if call.object != nil {
+		if !call.started {
+			call.pending.Reset()
+			n.startCall(call)
+		}
+		if call.emitted == 0 {
+			n.callArguments(call, string(call.object.stringify()))
+		}
+		return
+	}
+	if !call.started {
+		n.startCall(call)
+	}
+	if strings.TrimFunc(call.partial, neoPiIsJSSpace) == "" {
+		n.callArguments(call, "{}")
+	}
+}
+
+// finish is everything after NeoPi's stream loop: the healing flush, the
+// DeepSeek buffer flush, the premature-close check, the block sweep, stop
+// reason promotion and the terminal classification. It emits the finish and
+// usage chunks on success.
 func (n *neoPiCompletionsNormalizer) finish(sawDone bool) error {
+	if n.healer != nil {
+		// Healed calls promote a natural stop to toolUse with the rest below.
+		n.applyHealing(n.healer.Flush())
+	}
 	n.flushDeepseek(true)
 	if !n.finished && !sawDone && n.blocks > 0 {
 		return n.responseError(neoPiCompletionsIncompleteMessage)
