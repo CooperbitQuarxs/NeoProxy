@@ -209,6 +209,19 @@ func attachResolvedAPIKeyModelInfo(routing *apiKeyModelRoutingSnapshot, req clip
 	if !ok {
 		modelInfo, ok = lookupUnlistedCodexAPIKeyModelCapability(routing, auth, upstreamModel)
 	}
+	// A NeoPi key account executes the row its discovery registered for the
+	// upstream model; configured capabilities (thinking, compat flags) still
+	// apply on top of it.
+	if discovered := lookupNeoPiAPIKeyModelCapability(auth, upstreamModel); discovered != nil {
+		switch {
+		case !ok:
+			modelInfo, ok = discovered, true
+		case modelInfo != nil && modelInfo.NeoPi == nil:
+			configured := *modelInfo
+			configured.NeoPi = discovered.NeoPi
+			modelInfo = &configured
+		}
+	}
 	metadataKey := resolvedAPIKeyModelInfoMetadataKey
 	if !ok {
 		modelInfo, ok = lookupOAuthModelCapability(auth, upstreamModel)
@@ -297,6 +310,27 @@ func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.Mod
 		}
 	}
 	return nil, false
+}
+
+// lookupNeoPiAPIKeyModelCapability returns the model a NeoPi key account's
+// discovery registered for upstreamModel: its NeoPi row carries the
+// account's endpoint and NeoPi's built policy for an id the bundle lacks,
+// which the executor shapes requests from. It matches the row's own upstream
+// id, so a route prefix or alias the account registers the model under does
+// not hide it. Before discovery answers, the executor falls back to NeoPi's
+// bundled catalog itself.
+func lookupNeoPiAPIKeyModelCapability(auth *Auth, upstreamModel string) *registry.ModelInfo {
+	if auth == nil || auth.AuthKind() != AuthKindAPIKey {
+		return nil
+	}
+	models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
+	selected := strings.TrimSpace(thinking.ParseSuffix(strings.TrimSpace(upstreamModel)).ModelName)
+	for _, model := range models {
+		if model != nil && model.NeoPi != nil && strings.EqualFold(model.NeoPi.ID, selected) {
+			return model
+		}
+	}
+	return nil
 }
 
 func attachResolvedHomeModelInfo(req cliproxyexecutor.Request, auth *Auth, routeModel string, modelInfo *registry.ModelInfo, support *bool) cliproxyexecutor.Request {

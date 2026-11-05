@@ -31,6 +31,7 @@ var neoPiCompletionsProviders = []string{
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
+	"singularityapi-dev", "singularityapi-tech",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -220,6 +221,9 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 			base = bundleBase
 		}
 	}
+	if provider == "singularityapi-dev" || provider == "singularityapi-tech" {
+		return key, registry.NeoPiSingularityAPIBaseURL(provider, base), nil
+	}
 	if base == "" {
 		base = registry.NeoPiCompletionsListingBase(provider)
 	}
@@ -332,8 +336,9 @@ func fetchNeoPiXiaomiTokenPlanModels(ctx context.Context, cfg *config.Config, au
 		body, err := neoPiDiscoveryGet(ctx, cfg, auth, "xiaomi", base+"/models", key)
 		if err == nil {
 			var models []*ModelInfo
-			if models, err = registry.NeoPiCompletionsListing("xiaomi", base, body); err == nil {
-				return models, nil
+			models, err = registry.NeoPiCompletionsListing("xiaomi", base, body)
+			if empty := (*registry.NeoPiEmptyListing)(nil); err == nil || errors.As(err, &empty) {
+				return models, err
 			}
 		}
 		lastErr = fmt.Errorf("xiaomi models: %s: %w", base, err)
