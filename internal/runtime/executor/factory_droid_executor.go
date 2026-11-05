@@ -448,10 +448,12 @@ func (e *FactoryDroidExecutor) wireExecutor(a *factoryDroidAttempt) (factoryDroi
 		return e.messagesExecutor(a)
 	case factorydroid.WireCompletions:
 		return e.completionsExecutor(a)
+	case factorydroid.WireResponses:
+		return e.responsesExecutor(a)
 	case factorydroid.WireGoogle:
 		return &factoryDroidGemini{executor: e, attempt: a}, nil
 	default:
-		return nil, statusErr{code: http.StatusNotImplemented, msg: fmt.Sprintf("factory-droid: %s wire is not served", a.wire)}
+		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("factory-droid: unknown wire %s", a.wire)}
 	}
 }
 

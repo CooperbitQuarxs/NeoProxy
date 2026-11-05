@@ -37,6 +37,9 @@ type NeoPiModel struct {
 	thinkingRequiresEffortSet bool
 	// RequestModelID is the default wire id of a collapsed family row.
 	RequestModelID string `json:"requestModelId,omitempty"`
+	// OmitMaxOutputTokens is model.omitMaxOutputTokens: the request carries
+	// no output-token limit, the caller's included.
+	OmitMaxOutputTokens bool `json:"omitMaxOutputTokens,omitempty"`
 	// cost is the row's token tariff (USD per million). NeoProxy bills
 	// nothing from it; NeoPi's variant collapse keeps a thinking pair apart
 	// when both members are priced differently.

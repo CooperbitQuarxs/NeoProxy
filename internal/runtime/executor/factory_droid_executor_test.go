@@ -57,6 +57,7 @@ func TestFactoryDroidReplaysNeoPiRequests(t *testing.T) {
 		"anthropic-messages": sdktranslator.FormatClaude,
 		"openai-completions": sdktranslator.FormatOpenAI,
 		"google-generate":    sdktranslator.FormatGemini,
+		"openai-responses":   sdktranslator.FormatOpenAIResponse,
 	}
 	var sent struct {
 		method, path string
@@ -69,7 +70,7 @@ func TestFactoryDroidReplaysNeoPiRequests(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer server.Close()
-	for _, wire := range []string{"anthropic-messages", "openai-completions", "google-generate"} {
+	for _, wire := range []string{"anthropic-messages", "openai-completions", "google-generate", "openai-responses"} {
 		capture := loadFactoryDroidCapture(t, "testdata/neopi_factory_droid/"+wire+".json.gz")
 		t.Run(wire, func(t *testing.T) {
 			exec := NewFactoryDroidExecutor(&config.Config{})
@@ -91,7 +92,10 @@ func TestFactoryDroidReplaysNeoPiRequests(t *testing.T) {
 					// The account's row as discovery registers it, served from
 					// the capture server at the wire's path.
 					row := registry.BuildFactoryDroidModel(model, scope, capture.Identity.InferenceRegion, model.Policy.Rotation)
-					prefix := strings.TrimSuffix(strings.TrimSuffix(strings.TrimSuffix(requested.Path, "/v1/messages"), "/chat/completions"), "/generate")
+					prefix := requested.Path
+					for _, suffix := range []string{"/v1/messages", "/chat/completions", "/generate", "/responses"} {
+						prefix = strings.TrimSuffix(prefix, suffix)
+					}
 					row.BaseURL = server.URL + prefix
 					var downstream bytes.Buffer
 					if err := json.Compact(&downstream, fixture.Downstream); err != nil {

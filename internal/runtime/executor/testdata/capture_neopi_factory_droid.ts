@@ -19,6 +19,10 @@ const wires = (process.env.FACTORY_WIRES ?? "anthropic-messages,openai-completio
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { factoryDroidRegistry } = await import(root + "/pi-catalog/src/compat/factory-droid.ts");
 const { buildFactoryDroidModel } = await import(root + "/pi-catalog/src/discovery/factory-droid.ts");
+// A Responses client reaches NeoPi through its server boundary, which keeps
+// each user item's native form for replay; the other wires' clients map onto
+// NeoPi's own messages.
+const { parseRequest } = await import(root + "/pi-ai/src/providers/openai-responses-server.ts");
 
 const jwt = (payload: unknown) => "eyJhbGciOiJub25lIn0." + Buffer.from(JSON.stringify(payload)).toString("base64url") + ".fake";
 const apiKey = jwt({ sub: "user_fixture", external_org_id: "org-fixture", exp: 4102444800 });
@@ -206,8 +210,11 @@ try {
 			const model = buildFactoryDroidModel(entry, { ...identity, apiProviders: entry.policy.rotation });
 			const efforts: string[] = model.thinking?.efforts ?? [];
 		const add = (name: string, turns: Turn[], opts: any, extra: any = {}) => {
-			const context = { ...(extra.system ? { systemPrompt: [extra.system] } : {}), messages: neopiTurns(model, turns, wire === "anthropic-messages"), ...(extra.tools ? { tools: extra.tools } : {}) };
-			scenarios.push({ name: `${model.id}/${name}`, model, context, options: opts, downstream: downstreamFor(wire)(model, turns, opts, extra) });
+			const downstream = downstreamFor(wire)(model, turns, opts, extra);
+			const context = wire === "openai-responses"
+				? parseRequest(downstream).context
+				: { ...(extra.system ? { systemPrompt: [extra.system] } : {}), messages: neopiTurns(model, turns, wire === "anthropic-messages"), ...(extra.tools ? { tools: extra.tools } : {}) };
+			scenarios.push({ name: `${model.id}/${name}`, model, context, options: opts, downstream });
 		};
 		add("plain", hello, {});
 		for (const effort of efforts) add(`effort-${effort}`, hello, { reasoning: effort });
