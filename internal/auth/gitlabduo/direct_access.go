@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -118,15 +120,40 @@ func mintDirectAccess(ctx context.Context, client *http.Client, gitlabToken stri
 		return DirectAccess{}, &Error{Status: http.StatusBadGateway, Message: "GitLab Duo direct access response missing headers"}
 	}
 	minted := DirectAccess{Token: token.Str, Headers: http.Header{}, ExpiresAt: now().Add(directAccessTTL)}
+	// NeoPi spreads these into a Headers object: an array spreads its indices.
+	index := 0
 	headers.ForEach(func(name, value gjson.Result) bool {
-		if headers.IsObject() {
-			text := value.String()
-			if value.Type != gjson.String {
-				text = value.Raw
-			}
-			minted.Headers.Set(name.Str, text)
+		key := name.Str
+		if headers.IsArray() {
+			key = strconv.Itoa(index)
+			index++
 		}
+		minted.Headers.Set(key, jsString(value))
 		return true
 	})
 	return minted, nil
+}
+
+// jsString is JavaScript's String(value) for a JSON value: arrays join their
+// items with commas (null as empty), objects are "[object Object]".
+func jsString(value gjson.Result) string {
+	switch {
+	case value.Type == gjson.String:
+		return value.Str
+	case value.IsArray():
+		var parts []string
+		value.ForEach(func(_, item gjson.Result) bool {
+			if item.Type == gjson.Null {
+				parts = append(parts, "")
+			} else {
+				parts = append(parts, jsString(item))
+			}
+			return true
+		})
+		return strings.Join(parts, ",")
+	case value.IsObject():
+		return "[object Object]"
+	default:
+		return value.Raw
+	}
 }

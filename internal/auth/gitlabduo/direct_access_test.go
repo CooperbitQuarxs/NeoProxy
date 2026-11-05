@@ -97,3 +97,30 @@ func TestGitLabDuoReadsCompressedResponses(t *testing.T) {
 		t.Fatalf("direct access = %+v, %v", access, err)
 	}
 }
+
+// NeoPi spreads the minted headers into a Headers object, so values coerce
+// as JavaScript String does and an array container spreads its indices.
+func TestGitLabDuoMintedHeadersCoerceAsNeoPi(t *testing.T) {
+	for name, tc := range map[string]struct {
+		headers string
+		want    map[string]string
+	}{
+		"values":    {`{"object":{"a":1},"array":["a","b",null],"number":7,"flag":true,"none":null}`, map[string]string{"Object": "[object Object]", "Array": "a,b,", "Number": "7", "Flag": "true", "None": "null"}},
+		"container": {`["first","second"]`, map[string]string{"0": "first", "1": "second"}},
+	} {
+		ClearDirectAccessCache()
+		access, err := GetDirectAccess(context.Background(), &http.Client{Transport: gzipAnswer{`{"token":"direct","headers":` + tc.headers + `}`}}, "gitlab-"+name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if len(access.Headers) != len(tc.want) {
+			t.Fatalf("%s: headers = %v, NeoPi sends %v", name, access.Headers, tc.want)
+		}
+		for key, value := range tc.want {
+			if got := access.Headers.Get(key); got != value {
+				t.Fatalf("%s: header %s = %q, NeoPi sends %q", name, key, got, value)
+			}
+		}
+	}
+	ClearDirectAccessCache()
+}
