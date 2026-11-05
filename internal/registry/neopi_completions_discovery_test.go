@@ -126,11 +126,11 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				if row.BaseURL != want.BaseURL {
 					t.Errorf("%s: base URL %q, NeoPi %q", want.ID, row.BaseURL, want.BaseURL)
 				}
-				thinkingGap := neoPiRuleEngineThinkingGaps[result.Provider+"/"+want.ID]
-				if equal := reflect.DeepEqual(row.Thinking, want.Thinking); !equal && !thinkingGap {
+				gaps := neoPiRuleEngineGaps[result.Provider+"/"+want.ID]
+				if equal := reflect.DeepEqual(row.Thinking, want.Thinking); !equal && !gaps["thinking"] {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
-				} else if equal && thinkingGap {
-					t.Errorf("%s: thinking now matches NeoPi; drop it from neoPiRuleEngineThinkingGaps", want.ID)
+				} else if equal && gaps["thinking"] {
+					t.Errorf("%s: thinking now matches NeoPi; drop it from neoPiRuleEngineGaps", want.ID)
 				}
 				// A discovered non-reasoning id takes its compat from its nearest
 				// bundled sibling (see neoPiNewRow), which only approximates NeoPi's
@@ -140,8 +140,10 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 					if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
 						t.Fatal(err)
 					}
-					if !reflect.DeepEqual(row.CompletionsCompat, &wantCompat) {
+					if equal := reflect.DeepEqual(row.CompletionsCompat, &wantCompat); !equal && !gaps["compat"] {
 						t.Errorf("%s: compat differs from NeoPi's", want.ID)
+					} else if equal && gaps["compat"] {
+						t.Errorf("%s: compat now matches NeoPi; drop it from neoPiRuleEngineGaps", want.ID)
 					}
 				}
 			}
@@ -149,14 +151,15 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 	}
 }
 
-// neoPiRuleEngineThinkingGaps are unbundled reasoning ids whose effort
-// ladder NeoPi's catalog rule engine derives from a revision-scoped rule the
-// port cannot evaluate: a GLM past the newest bundled revision takes the
-// newest bundled GLM's ladder (5.3: low/high/max, effort required) where
-// NeoPi's 5.3-only rule no longer applies and the generic ladder does.
-var neoPiRuleEngineThinkingGaps = map[string]bool{
-	"zhipu-coding-plan/glm-5.4": true,
-	"wafer-serverless/GLM-5.4":  true,
+// neoPiRuleEngineGaps are unbundled reasoning ids whose fields NeoPi's
+// catalog rule engine derives from class rules the port cannot evaluate:
+// Wafer serves a Qwen-backed id with the qwen thinking format, whose disable
+// mode and ladder come from the qwen-format rules, and a GLM past the newest
+// bundled revision takes the GLM class's generic ladder (minimal..high)
+// rather than Wafer's provider-wide one (minimal..xhigh).
+var neoPiRuleEngineGaps = map[string]map[string]bool{
+	"wafer-serverless/zz-wafer-qwen": {"thinking": true, "compat": true},
+	"wafer-serverless/GLM-5.4":       {"thinking": true},
 }
 
 // TestNeoPiCompletionsCapturedCompat compares every resolved compat field in
@@ -254,24 +257,24 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		"alibaba-token-plan":    {4, 12, 6, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDeltasMayBeCumulative", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamMarkupHealingPattern", "StreamRevision", "StripImageInput", "ThinkingLoopGuard", "ToolSchemaFlavor"}},
 		"aiand":                 {0, 7, 6, nil},
 		"baseten":               {0, 6, 8, nil},
-		"coralbricks":           {0, 8, 2, nil},
+		"coralbricks":           {0, 9, 2, nil},
 		"deepinfra":             {0, 2, 2, nil},
 		"gmi-cloud":             {0, 4, 1, nil},
 		"helmcode":              {0, 5, 4, nil},
 		"inception":             {0, 1, 1, nil},
 		"novita":                {0, 1, 1, nil},
-		"qianfan":               {0, 4, 1, nil},
+		"qianfan":               {0, 5, 1, nil},
 		"qwen-portal":           {0, 4, 2, nil},
 		"sambanova":             {0, 4, 1, nil},
 		"stepfun":               {0, 5, 4, nil},
 		"synthetic":             {0, 8, 6, nil},
 		"venice":                {0, 4, 183, nil},
-		"wafer-serverless":      {0, 7, 22, nil},
+		"wafer-serverless":      {1, 10, 22, []string{"ReasoningDisableMode"}},
 		"xiaomi-token-plan-sgp": {0, 4, 6, nil},
 		"xiaomi-token-plan-ams": {0, 4, 6, nil},
 		"xiaomi-token-plan-cn":  {0, 4, 7, nil},
 		"yolo-auto":             {0, 6, 4, nil},
-		"zhipu-coding-plan":     {0, 7, 6, nil},
+		"zhipu-coding-plan":     {0, 8, 6, nil},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))

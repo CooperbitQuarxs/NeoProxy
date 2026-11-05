@@ -145,6 +145,8 @@ function entries(provider: string, bundled: string[]): unknown[] {
 		],
 		coralbricks: [
 			{ id: "zz-coral-off", supports_chat: false },
+			{ id: "zz-pair", supports_reasoning: false },
+			{ id: "zz-pair-thinking", supports_reasoning: true, reasoning: { supported_efforts: ["low", "high"], mandatory: true } },
 			{ id: "zz-coral-r", supports_reasoning: true, supports_image_input: true, context_length: 64000, reasoning: { supported_efforts: ["none", "low", "high"], default_effort: "high", mandatory: false, disable: { reasoning_effort: "none" } } },
 			{ id: "zz-coral-mandatory", supports_reasoning: true, reasoning: { supported_efforts: ["medium"], mandatory: true } },
 			{ id: "zz-coral-empty", supports_reasoning: true, reasoning: { supported_efforts: [], disable: null } },
@@ -173,6 +175,7 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-no-cap", endpoints: ["chat/completions"] },
 		],
 		sambanova: [{ id: "zz-Whisper-x" }, { id: "E5-Mistral-7B-Instruct" }, { id: "zz-clip-v" }],
+		qianfan: [{ id: "zz-pair" }, { id: "zz-pair-thinking" }],
 		synthetic: [
 			{ id: "zz-syn-none", reasoning_parameters: { efforts: ["none"] } },
 			{ id: "zz-syn-tiers", supported_features: ["reasoning", "tools"], reasoning_parameters: { efforts: ["low", "high"] }, input_modalities: ["text"], max_output_length: 32000 },
@@ -185,6 +188,9 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-wafer-r", wafer: { capabilities: { reasoning: true } } },
 			{ id: bundled[5], max_model_len: 32000, wafer: { capabilities: { reasoning: false } } },
 			{ id: "zz-wafer-big", wafer: { context_length: 1000000 } },
+			{ id: "zz-wafer-qwen", wafer: { capabilities: { reasoning: true }, provider: "Alibaba Qwen" } },
+			{ id: "zz-wafer-other", wafer: { capabilities: { reasoning: true }, provider: "deepseek" } },
+			{ id: "Kimi-K3.5", wafer: { capabilities: { reasoning: true } } },
 		],
 		stepfun: [
 			{ id: "stepaudio-2" }, { id: "Step-Image-Edit" },
@@ -200,6 +206,7 @@ function entries(provider: string, bundled: string[]): unknown[] {
 		],
 		"zhipu-coding-plan": [
 			{ id: "glm-5.4" }, { id: "glm-5.3-flash" }, { id: "glm-4.7-flash" }, { id: "glm-5v-turbo" }, { id: "glm-5.2-thinking" }, { id: "glm-4" },
+			{ id: "glm-7.1" },
 		],
 	};
 	list.push(...(shaped[provider] ?? []));
@@ -346,6 +353,10 @@ const derivedSource: Array<[string, string, string, string]> = [
 	["novita", "reasoning", "data envelope", "zz-nov"],
 	["deepinfra", "reasoning", "data envelope", "zz-di-space"],
 	["wafer-serverless", "reasoning", "data envelope", "zz-wafer-r"],
+	["zhipu-coding-plan", "reasoning", "data envelope", "glm-7.1"],
+	// Qianfan lists no reasoning flags, so its generic ladder shows only on a
+	// collapsed bare/thinking pair (derivePairThinkingSurface).
+	["qianfan", "reasoning", "data envelope", "zz-pair"],
 ];
 const derived: any[] = derivedSource.map(([provider, kind, scenario, id]) => {
 	const model = find(provider, scenario, id);

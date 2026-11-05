@@ -539,7 +539,9 @@ func StripThinkingVariantSuffix(model string) (string, bool) {
 				wordStart--
 			}
 			if preceding := lower[wordStart:index]; !followed && preceding != "non" && preceding != "no" {
-				stripped := model[:index] + model[end:]
+				// Offsets come from the lowered id, which can be longer than
+				// model (U+0130); JavaScript's slice clamps them, so does this.
+				stripped := model[:min(index, len(model))] + model[min(end, len(model)):]
 				return stripped, stripped != ""
 			}
 			searchFrom = index + 1

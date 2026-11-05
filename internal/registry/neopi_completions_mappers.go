@@ -55,7 +55,44 @@ func neoPiMapWafer(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	if spec.contextWindow > 0 {
 		spec.maxTokens = min(spec.contextWindow, neoPiWaferMaxTokensCap)
 	}
+	// Wafer passes the body through, so a reasoning row speaks its upstream
+	// backend's thinking control; every row refuses the developer role.
+	spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.SupportsDeveloperRole = false })
+	if spec.reasoning {
+		format := neoPiWaferThinkingFormat(defaults.id, wafer.Get("provider"))
+		spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) {
+			c.ReasoningContentField = "reasoning_content"
+			if format != "" {
+				c.ThinkingFormat = format
+			}
+		})
+	}
 	return spec
+}
+
+// neoPiWaferThinkingFormat is resolveWaferServerlessThinkingFormat: the
+// upstream named by wafer.provider selects zai (Zhipu, Moonshot/Kimi) or
+// qwen; without one, GLM 4.5+ and Kimi ids need zai and the rest resolve
+// from their id.
+func neoPiWaferThinkingFormat(id string, provider gjson.Result) string {
+	upstream := ""
+	if provider.Type == gjson.String {
+		upstream = strings.ToLower(strings.TrimSpace(provider.Str))
+	}
+	if upstream != "" {
+		switch {
+		case upstream == "zai" || upstream == "z.ai" || upstream == "z-ai" || strings.Contains(upstream, "zhipu") ||
+			strings.Contains(upstream, "moonshot") || strings.Contains(upstream, "kimi"):
+			return "zai"
+		case strings.Contains(upstream, "qwen") || strings.Contains(upstream, "alibaba") || strings.Contains(upstream, "dashscope"):
+			return "qwen"
+		}
+		return ""
+	}
+	if neoPiIsGlmReasoningIdentity("wafer-serverless", id, "4.5") || neopitaxonomy.Classify("wafer-serverless", id).Class == "kimi" {
+		return "zai"
+	}
+	return ""
 }
 
 // neoPiWireEfforts is EFFORT_BY_WIRE_VALUE.
@@ -364,9 +401,9 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 		disable := controls.Get("disable")
 		switch {
 		case controls.Get("mandatory").Type == gjson.True || disable.Type == gjson.Null && disable.Exists():
-			spec.reasoningDisableMode = "lowest-effort"
+			spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.ReasoningDisableMode = "lowest-effort" })
 		case disable.IsObject() && disable.Get("reasoning_effort").Str == "none" && disable.Get("reasoning_effort").Type == gjson.String:
-			spec.reasoningDisableMode = "none-effort"
+			spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.ReasoningDisableMode = "none-effort" })
 		}
 	}
 	switch entry.Get("supports_image_input").Type {
@@ -507,7 +544,7 @@ func neoPiMapDeepinfra(entry gjson.Result) (neoPiSpec, bool) {
 // usage chunk for listed models.
 func neoPiMapVenice(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel) neoPiSpec {
 	spec := neoPiMapWithBundledReference(entry, defaults, reference)
-	spec.noStreamingUsage = true
+	spec.compat = append(spec.compat, func(c *NeoPiCompletionsCompat) { c.SupportsUsageInStreaming = false })
 	return spec
 }
 

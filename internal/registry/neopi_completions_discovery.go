@@ -98,10 +98,9 @@ type neoPiSpec struct {
 	// ownThinking is compat trustExplicitThinkingOnly: the row keeps exactly
 	// thinking (possibly none), never the bundled or rule-derived ladder.
 	ownThinking bool
-	// reasoningDisableMode, when set, is the mapper's compat override.
-	reasoningDisableMode string
-	// noStreamingUsage is the mapper's supportsUsageInStreaming: false.
-	noStreamingUsage bool
+	// compat are the mapper's sparse compat overrides (its spec.compat),
+	// applied over the row's resolved compat.
+	compat []func(*NeoPiCompletionsCompat)
 }
 
 // NeoPiCompletionsListingBase is the discovery base URL a provider's NeoPi
@@ -723,7 +722,13 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 		}
 		added = append(added, neoPiNewRow(provider, baseURL, catalog, &specs[i]))
 	}
-	rows = neoPiCollapseThinkingPairs(provider, append(rows, added...))
+	authored := map[string]bool{}
+	for i := range specs {
+		if specs[i].thinking != nil {
+			authored[specs[i].id] = true
+		}
+	}
+	rows = neoPiCollapseThinkingPairs(provider, append(rows, added...), authored)
 	out := make([]*ModelInfo, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, NeoPiCompletionsModelInfo(row, provider))
@@ -767,7 +772,7 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 
 // neoPiApplySpecCompat applies a mapper's sparse compat overrides.
 func neoPiApplySpecCompat(row *NeoPiModel, spec *neoPiSpec) {
-	if !spec.ownThinking && spec.reasoningDisableMode == "" && !spec.noStreamingUsage {
+	if !spec.ownThinking && len(spec.compat) == 0 {
 		return
 	}
 	if row.CompletionsCompat == nil {
@@ -777,11 +782,8 @@ func neoPiApplySpecCompat(row *NeoPiModel, spec *neoPiSpec) {
 		trust := true
 		row.CompletionsCompat.TrustExplicitThinkingOnly = &trust
 	}
-	if spec.reasoningDisableMode != "" {
-		row.CompletionsCompat.ReasoningDisableMode = spec.reasoningDisableMode
-	}
-	if spec.noStreamingUsage {
-		row.CompletionsCompat.SupportsUsageInStreaming = false
+	for _, edit := range spec.compat {
+		edit(row.CompletionsCompat)
 	}
 }
 
@@ -829,7 +831,10 @@ func neoPiNewRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, spe
 // neoPiApplyDerived gives a row whose reasoning a mapper switched on the
 // effort ladder and compat NeoPi derives for its kind. Rows of the generic
 // kind take their nearest reasoning sibling's; the kind-specific rows (Kimi,
-// DeepSeek V4) take the captured derivation.
+// DeepSeek V4) take the captured derivation. NeoPi pins effort ladders to
+// exact revisions (glm.kdl's 5.2 and 5.3 ladders name those spellings), so a
+// sibling of another revision of the same line lends only its compat; the
+// ladder is the provider's generic one when that was captured.
 func neoPiApplyDerived(provider string, row *NeoPiModel, kind string) {
 	if kind == neoPiKindReasoning {
 		if sibling := neoPiNearestBundled(provider, row.ID, true); sibling != nil && sibling.Thinking != nil {
@@ -837,6 +842,9 @@ func neoPiApplyDerived(provider string, row *NeoPiModel, kind string) {
 			// Routing names the sibling's own variants.
 			row.Thinking.EffortRouting = nil
 			row.CompletionsCompat = sibling.CompletionsCompat.Clone()
+			if generic := neoPiDerivedFor(provider, neoPiKindReasoning); generic != nil && neoPiOtherRevision(provider, row.ID, sibling.ID) {
+				row.Thinking = generic.Thinking.Clone()
+			}
 			return
 		}
 	}
@@ -848,6 +856,14 @@ func neoPiApplyDerived(provider string, row *NeoPiModel, kind string) {
 	if derived.Compat != nil {
 		row.CompletionsCompat = derived.Compat.Clone()
 	}
+}
+
+// neoPiOtherRevision reports whether two ids are the same class and family
+// at different revisions.
+func neoPiOtherRevision(provider, id, other string) bool {
+	a, b := neopitaxonomy.Classify(provider, id), neopitaxonomy.Classify(provider, other)
+	return a.Class != "unknown" && a.Class == b.Class && a.Family == b.Family &&
+		a.HasRevision && b.HasRevision && a.Revision != b.Revision
 }
 
 // neoPiNearestBundled is the bundled row of the provider sharing the longest
@@ -899,13 +915,17 @@ func neoPiNearestBundled(provider, id string, reasoning bool) *NeoPiModel {
 	return best
 }
 
+// neoPiDefaultPairEfforts is DEFAULT_PAIR_EFFORTS.
+var neoPiDefaultPairEfforts = []string{"minimal", "low", "medium", "high"}
+
 // neoPiCollapseThinkingPairs is the model manager's collapseBuiltVariants
 // for the completions providers (none has a reviewed collapse table): each
 // "<id>-thinking" style row whose base id is also listed folds into the
 // base, which then routes every effort of the pair's thinking surface to
-// the variant and "off" to itself. NeoPi derives a surface neither row
-// carries from its rule engine; such a pair is left uncollapsed here.
-func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiModel {
+// the variant and "off" to itself. authored names the rows whose ladder the
+// listing itself supplied. The collapsed row keeps a reasoning member's
+// compat where NeoPi re-derives it for the now-reasoning base.
+func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel, authored map[string]bool) []*NeoPiModel {
 	byID := make(map[string]*NeoPiModel, len(rows))
 	for _, row := range rows {
 		if _, ok := byID[row.ID]; !ok {
@@ -929,14 +949,29 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 			dropped[row.ID] = true
 			continue
 		}
-		surface := row.Thinking
+		// derivePairThinkingSurface: the variant's ladder, else the base's,
+		// else what the rule engine derives for the variant as a reasoning
+		// row, else NeoPi's default pair ladder.
+		surface, source := row.Thinking, row.ID
 		if surface == nil || len(surface.Efforts) == 0 {
-			surface = base.Thinking
+			surface, source = base.Thinking, base.ID
 		}
 		if surface == nil || len(surface.Efforts) == 0 {
-			continue
+			derived := row.Clone()
+			derived.Reasoning, derived.Thinking = true, nil
+			neoPiApplyDerived(provider, derived, neoPiKindReasoning)
+			surface, source = derived.Thinking, ""
+		}
+		if surface == nil || len(surface.Efforts) == 0 {
+			surface = &NeoPiThinking{Mode: "budget", Efforts: slices.Clone(neoPiDefaultPairEfforts)}
 		}
 		thinking := surface.Clone()
+		if authored[source] {
+			// The surface drops a listing-authored mandatory/suppress flag;
+			// only the rule engine's own (kept on derived rows) survives
+			// the rebuild.
+			thinking.RequiresEffort, thinking.SuppressWhenOff = false, false
+		}
 		thinking.EffortRouting = map[string]string{"off": base.ID}
 		for _, effort := range thinking.Efforts {
 			thinking.EffortRouting[effort] = row.ID
