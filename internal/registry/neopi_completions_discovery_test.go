@@ -146,6 +146,16 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 // the public-origin capture, including bundled and newly discovered IDs.
 func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 	capture := loadNeoPiDiscoveryCapture(t)
+	// Fail if the capture contains a compat field the Go representation would
+	// otherwise silently discard before comparison.
+	for i, raw := range capture.Compats {
+		var compat NeoPiCompletionsCompat
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&compat); err != nil {
+			t.Fatalf("captured compat %d: %v", i, err)
+		}
+	}
 	type counts struct {
 		seen          map[string]bool
 		mismatches    map[string]bool
