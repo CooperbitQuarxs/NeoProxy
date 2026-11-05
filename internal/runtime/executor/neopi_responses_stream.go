@@ -225,6 +225,15 @@ func (s *neoPiResponsesStream) publish(failure error) {
 	}
 }
 
+// observeFailure records usage carried by an in-band failed response even
+// though the transport does not relay that terminal frame to the client.
+func (s *neoPiResponsesStream) observeFailure(err error) {
+	event := openaiwire.FailureEvent(err)
+	if gjson.GetBytes(event, "type").String() == "response.failed" {
+		s.usage.Observe(neoPiResponsesUsage(event))
+	}
+}
+
 // translate turns one upstream event into client chunks; completed carries
 // the patched terminal event for non-streaming callers.
 func (s *neoPiResponsesStream) translate(event []byte) (chunks [][]byte, completed []byte, err error) {
@@ -235,6 +244,17 @@ func (s *neoPiResponsesStream) translate(event []byte) (chunks [][]byte, complet
 	switch gjson.GetBytes(event, "type").String() {
 	case "response.completed", "response.incomplete", "response.done":
 		s.usage.Observe(neoPiResponsesUsage(event))
+	}
+	// The Codex translators understand completed/incomplete, but NeoPi also
+	// accepts response.done as the same successful terminal event.
+	if gjson.GetBytes(event, "type").String() == "response.done" {
+		kind := "response.completed"
+		if gjson.GetBytes(event, "response.status").String() == "incomplete" {
+			kind = "response.incomplete"
+		}
+		if normalized, errSet := sjson.SetBytes(event, "type", kind); errSet == nil {
+			event = normalized
+		}
 	}
 	bridgeErr := statusErr{code: http.StatusBadGateway, msg: helps.ApplyPatchUpstreamErrorMessage}
 	var lines [][]byte
@@ -303,6 +323,7 @@ func (e *NeoPiResponsesExecutor) executeNeoPi(ctx context.Context, auth *cliprox
 		stream.publish(failure)
 		return cliproxyexecutor.Response{}, failure
 	}
+	stream.observeFailure(errRun)
 	if errRun != nil && !openaiwire.IsIncompleteStream(errRun) {
 		mapped := e.neoPiResponsesError(errRun)
 		helps.RecordAPIResponseError(ctx, e.cfg, mapped)
@@ -396,6 +417,7 @@ func (e *NeoPiResponsesExecutor) streamNeoPi(ctx context.Context, auth *cliproxy
 			start(nil)
 			return
 		}
+		stream.observeFailure(errRun)
 		mapped := e.neoPiResponsesError(errRun)
 		helps.RecordAPIResponseError(ctx, e.cfg, mapped)
 		stream.publish(mapped)

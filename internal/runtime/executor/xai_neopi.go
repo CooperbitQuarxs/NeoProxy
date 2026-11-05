@@ -144,6 +144,15 @@ type xaiNeoPiNotFoundError struct{ error }
 func (e xaiNeoPiNotFoundError) Unwrap() error                { return e.error }
 func (e xaiNeoPiNotFoundError) NeoPiResponsesNotFound() bool { return true }
 
+// xaiNeoPiStreamError retains the transport frame and classification while
+// exposing the proxy's status contract.
+type xaiNeoPiStreamError struct {
+	statusErr
+	cause error
+}
+
+func (e xaiNeoPiStreamError) Unwrap() error { return e.cause }
+
 // xaiNeoPiError maps a transport failure onto the proxy's credential-aware errors.
 func xaiNeoPiError(err error) error {
 	var httpErr *openaiwire.HTTPError
@@ -154,12 +163,16 @@ func xaiNeoPiError(err error) error {
 		}
 		return mapped
 	}
+	var inBand *openaiwire.InBandError
+	if errors.As(err, &inBand) {
+		return xaiNeoPiStreamError{statusErr: statusErr{code: inBand.Status, msg: inBand.Message}, cause: err}
+	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
 		if len(streamErr.Event) > 0 {
-			return statusErr{code: http.StatusBadGateway, msg: string(streamErr.Event)}
+			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: string(streamErr.Event)}, cause: err}
 		}
-		return statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}
+		return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}, cause: err}
 	}
 	return err
 }

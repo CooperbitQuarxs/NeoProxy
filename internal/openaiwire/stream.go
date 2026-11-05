@@ -66,6 +66,20 @@ func IsIncompleteStream(err error) bool {
 	return errors.As(err, &streamErr) && streamErr.incomplete
 }
 
+// FailureEvent returns the upstream terminal failure frame, including through
+// wrapped errors. Text-only failures and incomplete streams have no frame.
+func FailureEvent(err error) []byte {
+	var inBand *InBandError
+	if errors.As(err, &inBand) {
+		return inBand.Event
+	}
+	var streamErr *StreamError
+	if errors.As(err, &streamErr) {
+		return streamErr.Event
+	}
+	return nil
+}
+
 // Turn sends one shaped request with NeoPi's transport policy.
 type Turn struct {
 	Request *Request
@@ -112,8 +126,9 @@ func (t *Turn) Run(ctx context.Context, emit func([]byte) error) error {
 	for attempt := 0; ; attempt++ {
 		live, err := t.attempt(ctx, body, emit)
 		var streamErr *StreamError
+		var inBand *InBandError
 		retryable := err != nil && !live && attempt < maxTransientStreamRetries && ctx.Err() == nil &&
-			(errors.As(err, &streamErr) && streamErr.incomplete || isTransportFailure(err))
+			(errors.As(err, &streamErr) && streamErr.incomplete || errors.As(err, &inBand) || isTransportFailure(err))
 		if !retryable {
 			return err
 		}
@@ -126,7 +141,8 @@ func (t *Turn) Run(ctx context.Context, emit func([]byte) error) error {
 func isTransportFailure(err error) bool {
 	var httpErr *HTTPError
 	var streamErr *StreamError
-	return !errors.As(err, &httpErr) && !errors.As(err, &streamErr) && !errors.Is(err, context.Canceled)
+	var inBand *InBandError
+	return !errors.As(err, &httpErr) && !errors.As(err, &streamErr) && !errors.As(err, &inBand) && !errors.Is(err, context.Canceled)
 }
 
 // attempt opens the stream and relays it; live reports whether any event was
@@ -209,12 +225,16 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 		}
 		event := gjson.ParseBytes(frame)
 		kind := event.Get("type").String()
-		if kind == "error" || kind == "response.failed" {
-			if errFlush := flush(); errFlush != nil {
-				return errFlush
+		if inBand := classifyInBandFrame(frame); inBand != nil {
+			return inBand
+		}
+		if kind == "error" || kind == "response.failed" || event.Get("error").Exists() ||
+			event.Get("code").Exists() || event.Get("message").Exists() ||
+			readInBandStatus(event.Get("status")) != 0 || inBandNonRetryableCode.MatchString(normalizeInBandCode(event.Get("type"))) {
+			message := event.Get("error.message").String()
+			if message == "" {
+				message = event.Get("message").String()
 			}
-			live = true
-			message := event.Get("message").String()
 			if message == "" {
 				message = event.Get("response.error.message").String()
 			}
@@ -231,7 +251,12 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 		}
 		held = append(held, frame)
 		if live {
-			return flush()
+			if errFlush := flush(); errFlush != nil {
+				return errFlush
+			}
+			if sawTerminal {
+				return io.EOF
+			}
 		}
 		return nil
 	}
