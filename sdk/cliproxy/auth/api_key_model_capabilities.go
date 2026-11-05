@@ -300,6 +300,9 @@ func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.Mod
 		if len(models) == 0 {
 			models = registry.DevinBundledModels()
 		}
+	// The account's roster only: before discovery answers, the Factory Droid
+	// executor builds NeoPi's registry row for the credential's scope.
+	case "factory-droid":
 	default:
 		return nil, false
 	}
