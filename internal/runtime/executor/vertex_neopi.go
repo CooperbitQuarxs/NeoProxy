@@ -14,6 +14,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -45,8 +46,9 @@ func NewVertexExecutor(cfg *config.Config) *VertexExecutor {
 		}),
 		garden: NewNeoPiCompletionsExecutor("vertex", cfg, NeoPiCompletionsProfile{
 			Provider: vertexNeoPiProvider,
+			// The same suffix-free id modelGarden dispatched on.
 			Row: func(_, model string) *registry.NeoPiModel {
-				return registry.VertexNeoPiModelFor(model)
+				return registry.VertexNeoPiModelFor(thinking.ParseSuffix(model).ModelName)
 			},
 		}),
 	}
@@ -90,6 +92,48 @@ func (e *VertexExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 		return e.garden.CountTokens(ctx, auth, req, opts)
 	}
 	return e.NeoPiGoogleExecutor.CountTokens(ctx, auth, req, opts)
+}
+
+// vertexAuthenticatedURL is isGoogleVertexAuthenticatedModel over a request
+// URL: a Model Garden endpoint (isVertexExpressOpenAIUrl) or a Claude
+// rawPredict one (isVertexRawPredictUrl), which always carry the ADC bearer.
+func vertexAuthenticatedURL(target string) bool {
+	return strings.Contains(target, "/endpoints/openapi") || neoPiVertexRawPredictURL(target)
+}
+
+// PrepareRequest injects the credential the target's transport carries: the
+// ADC bearer for a Model Garden or rawPredict URL, else the Gemini
+// credential.
+func (e *VertexExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
+	if req == nil || req.URL == nil || !vertexAuthenticatedURL(req.URL.String()) {
+		return e.NeoPiGoogleExecutor.PrepareRequest(req, auth)
+	}
+	token, _, err := vertexAuthenticatedRequest(req.Context(), e.cfg, auth)
+	if err != nil {
+		return err
+	}
+	req.Header.Del("x-goog-api-key")
+	if auth != nil {
+		util.ApplyCustomHeadersFromAttrs(req, auth.Attributes)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	return nil
+}
+
+// HttpRequest sends an arbitrary request with the credential its target's
+// transport carries.
+func (e *VertexExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil || !vertexAuthenticatedURL(req.URL.String()) {
+		return e.NeoPiGoogleExecutor.HttpRequest(ctx, auth, req)
+	}
+	if ctx == nil {
+		ctx = req.Context()
+	}
+	httpReq := req.WithContext(ctx)
+	if err := e.PrepareRequest(httpReq, auth); err != nil {
+		return nil, err
+	}
+	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(httpReq)
 }
 
 // vertexNeoPiRow is the NeoPi record the account's registration produced for

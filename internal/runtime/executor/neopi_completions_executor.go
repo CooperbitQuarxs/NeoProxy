@@ -86,6 +86,8 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 			return e.row(auth, req)
 		},
 		credential: e.credential,
+		// Vertex's authenticated fetch sets the ADC bearer last.
+		enforceBearer: e.profile.Provider == vertexNeoPiProvider,
 	}
 	if e.profile.Provider == cloudflare.Provider {
 		e.messages.thirdParty.gatewayAuthHeader = cloudflareAuthHeader

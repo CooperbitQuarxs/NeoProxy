@@ -68,6 +68,10 @@ type neoPiThirdPartyProvider struct {
 	// sends, whether it sends one at all (an explicit empty value counts),
 	// and whether it turns Umans' gateway web search on.
 	gatewayWebSearch func(incoming http.Header) (value string, set, gateway bool)
+	// enforceBearer sets Authorization from the credential after every
+	// configured header, as Vertex's authenticated fetch does on the finished
+	// request.
+	enforceBearer bool
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {

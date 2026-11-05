@@ -128,6 +128,9 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
+	if provider.enforceBearer {
+		headers.Set("Authorization", "Bearer "+bearer)
+	}
 	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
 	}

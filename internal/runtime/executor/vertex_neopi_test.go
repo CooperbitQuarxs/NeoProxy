@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
@@ -161,3 +162,93 @@ func TestVertexNeoPiRequestParity(t *testing.T) {
 		})
 	}
 }
+
+// vertexModelGardenEnv is a process ADC environment for Model Garden rows:
+// the explicit access token NeoPi's getVertexAccessToken reads first.
+func vertexModelGardenEnv(t *testing.T) {
+	t.Helper()
+	for name, value := range map[string]string{
+		"GOOGLE_CLOUD_PROJECT": "review-project", "GCP_PROJECT": "", "GCLOUD_PROJECT": "",
+		"GOOGLE_CLOUD_LOCATION": "us-central1", "GOOGLE_VERTEX_LOCATION": "", "VERTEX_LOCATION": "",
+		"GOOGLE_CLOUD_ACCESS_TOKEN": "review-adc-token", "GOOGLE_CLOUD_API_KEY": "",
+	} {
+		t.Setenv(name, value)
+	}
+}
+
+// vertexClaudeRow is a bundled Claude rawPredict row id.
+func vertexClaudeRow(t *testing.T) string {
+	t.Helper()
+	for _, info := range registry.VertexBundledModels() {
+		if info.NeoPi.API == "anthropic-messages" {
+			return info.ID
+		}
+	}
+	t.Fatal("no bundled Claude row")
+	return ""
+}
+
+// A thinking suffix names the same row in both dispatch layers: a Claude
+// request without registered NeoPi metadata stays on Anthropic Messages.
+func TestVertexModelGardenSuffixedModelKeepsItsRow(t *testing.T) {
+	vertexModelGardenEnv(t)
+	e := NewVertexExecutor(&config.Config{})
+	req := cliproxyexecutor.Request{Model: vertexClaudeRow(t) + "(high)", Payload: []byte(`{"messages":[{"role":"user","content":"hello"}],"max_tokens":100}`)}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude}
+	if got := e.RequestToFormat(req, opts); got != sdktranslator.FormatClaude {
+		t.Fatalf("format = %s, want claude", got)
+	}
+	if row := e.garden.row(nil, req); row == nil || row.API != "anthropic-messages" {
+		t.Fatalf("garden row = %+v, want the Claude row", row)
+	}
+}
+
+// NeoPi's Vertex fetch sets the ADC bearer on the finished request, so an
+// account's configured Authorization header never reaches rawPredict.
+func TestVertexRawPredictBearerOverridesConfiguredAuthorization(t *testing.T) {
+	vertexModelGardenEnv(t)
+	e := NewVertexExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "review-account-key", "header:Authorization": "Bearer stale-account-header"}}
+	prepared, err := e.garden.messages.prepareThirdParty(context.Background(), auth, cliproxyexecutor.Request{Model: vertexClaudeRow(t), Payload: []byte(`{"messages":[{"role":"user","content":"hello"}],"max_tokens":100}`)}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := prepared.headers.Get("Authorization"); got != "Bearer review-adc-token" {
+		t.Fatalf("Authorization = %q, want the ADC bearer", got)
+	}
+}
+
+// An arbitrary request to a Model Garden endpoint carries the ADC bearer, not
+// the Gemini API key.
+func TestVertexHttpRequestModelGardenUsesADC(t *testing.T) {
+	vertexModelGardenEnv(t)
+	e := NewVertexExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "review-account-key"}}
+	for _, target := range []string{
+		"https://us-central1-aiplatform.googleapis.com/v1/projects/review-project/locations/us-central1/endpoints/openapi/chat/completions",
+		"https://us-central1-aiplatform.googleapis.com/v1/projects/review-project/locations/us-central1/publishers/anthropic/models/claude:streamRawPredict",
+	} {
+		var headers http.Header
+		transport := vertexRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+			headers = r.Header.Clone()
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("{}")), Request: r}, nil
+		})
+		ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", transport)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, target, strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := e.HttpRequest(ctx, auth, req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close()
+		if got, key := headers.Get("Authorization"), headers.Get("X-Goog-Api-Key"); got != "Bearer review-adc-token" || key != "" {
+			t.Errorf("%s: Authorization = %q, X-Goog-Api-Key = %q; want the ADC bearer alone", target, got, key)
+		}
+	}
+}
+
+type vertexRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f vertexRoundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
