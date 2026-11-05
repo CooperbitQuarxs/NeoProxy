@@ -7,9 +7,11 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
@@ -147,6 +149,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	if xaiIsSpeechRequest(opts) {
 		return e.executeSpeech(ctx, auth, req, opts)
 	}
+	if err = e.snowflakeReady(auth, req); err != nil {
+		return result, err
+	}
 	if e.anthropicRow(auth, req) {
 		return e.messages.Execute(ctx, auth, req, opts)
 	}
@@ -201,6 +206,9 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	}
 	if xaiIsSpeechRequest(opts) {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: speech synthesis does not stream", e.provider)}
+	}
+	if err = e.snowflakeReady(auth, req); err != nil {
+		return nil, err
 	}
 	if e.anthropicRow(auth, req) {
 		return e.messages.ExecuteStream(ctx, auth, req, opts)
@@ -415,10 +423,18 @@ func neoPiCompletionsDefaultRetryDelay(attempt int) time.Duration {
 
 func (e *NeoPiCompletionsExecutor) now() time.Time { return time.Now() }
 
-// apiKey reads the account's bearer credential.
+// apiKey reads the account's bearer credential (for Snowflake, the token of
+// its PAT or structured OAuth credential).
 func (e *NeoPiCompletionsExecutor) apiKey(auth *cliproxyauth.Auth) string {
 	if e.profile.APIKey != nil {
 		return strings.TrimSpace(e.profile.APIKey(auth))
+	}
+	if e.profile.Provider == snowflake.Provider {
+		credential, ok, err := e.snowflakeCredential(auth)
+		if err != nil || !ok {
+			return ""
+		}
+		return credential.Token
 	}
 	return neoPiCompletionsAPIKey(auth)
 }
@@ -461,6 +477,9 @@ func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *regi
 		return row
 	}
 	provider := e.profile.Provider
+	if provider == snowflake.Provider {
+		return e.snowflakeRow(auth, row)
+	}
 	base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"])
 	if base == "" || base == row.BaseURL {
 		return row
@@ -480,4 +499,55 @@ func (e *NeoPiCompletionsExecutor) url(row *registry.NeoPiModel) string {
 		return e.profile.URL(row)
 	}
 	return strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
+}
+
+// snowflakeCredential is the account's Snowflake key (a PAT, or the
+// structured OAuth credential naming its account); an account without one
+// falls back to SNOWFLAKE_PAT, as NeoPi's transport does.
+func (e *NeoPiCompletionsExecutor) snowflakeCredential(auth *cliproxyauth.Auth) (snowflake.Credential, bool, error) {
+	raw := neoPiCompletionsAPIKey(auth)
+	if raw == "" {
+		raw = os.Getenv("SNOWFLAKE_PAT")
+	}
+	return snowflake.ParseCredential(raw)
+}
+
+// snowflakeRow is snowflakeTransport.prepareRequest's endpoint rewrite: a row
+// on the account placeholder moves to the credential's account, else
+// SNOWFLAKE_ACCOUNT's. A row that cannot be placed keeps the placeholder,
+// which snowflakeReady refuses before any request.
+func (e *NeoPiCompletionsExecutor) snowflakeRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
+	credential, ok, err := e.snowflakeCredential(auth)
+	if err != nil || !ok {
+		return row
+	}
+	base, err := snowflake.BaseURL(row.BaseURL, credential, os.Getenv("SNOWFLAKE_ACCOUNT"))
+	if err != nil || base == row.BaseURL {
+		return row
+	}
+	row = row.Clone()
+	row.BaseURL = base
+	return row
+}
+
+// snowflakeReady reports the configuration error NeoPi's Snowflake transport
+// raises for the request (a malformed credential, no account, an OAuth
+// account that does not own the endpoint) before anything is sent.
+func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
+	if e.profile.Provider != snowflake.Provider {
+		return nil
+	}
+	credential, ok, err := e.snowflakeCredential(auth)
+	if err != nil {
+		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": " + err.Error()}
+	}
+	if !ok {
+		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no credential"}
+	}
+	if row := e.row(nil, req); row != nil {
+		if _, err = snowflake.BaseURL(row.BaseURL, credential, os.Getenv("SNOWFLAKE_ACCOUNT")); err != nil {
+			return statusErr{code: http.StatusBadRequest, msg: e.provider + ": " + err.Error()}
+		}
+	}
+	return nil
 }

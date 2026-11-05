@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -28,6 +29,9 @@ type neoPiCompletionsCapture struct {
 	// ModelsDev is the models.dev catalog the manager hydrated the listing
 	// from (SiliconFlow).
 	ModelsDev string `json:"modelsDev"`
+	// Env is the environment NeoPi's provider transport read while capturing
+	// (Snowflake's SNOWFLAKE_ACCOUNT).
+	Env map[string]string `json:"env"`
 	// LmStudioV0 and LmStudioV1 are LM Studio's native metadata answers.
 	LmStudioV0 string `json:"lmStudioV0"`
 	LmStudioV1 string `json:"lmStudioV1"`
@@ -59,7 +63,11 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 		capture := readNeoPiCompletionsCapture(t, file)
 		provider := capture.Provider
 		t.Run(provider, func(t *testing.T) {
+			for name, value := range capture.Env {
+				t.Setenv(name, value)
+			}
 			auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": capture.APIKey}}
+			exec := NewNeoPiCompletionsExecutor(provider, &config.Config{}, NeoPiCompletionsProfile{})
 			discovered := neoPiCapturedListingRows(t, capture)
 			for _, fixture := range capture.Fixtures {
 				if fixture.Error != "" {
@@ -85,7 +93,9 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					url := strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
+					// The endpoint the provider's transport sends to (Snowflake's
+					// account in place of the catalog placeholder).
+					url := strings.TrimRight(exec.accountRow(auth, row).BaseURL, "/") + "/chat/completions"
 					if url != fixture.RequestedURL {
 						t.Errorf("url = %s, want %s", url, fixture.RequestedURL)
 					}
