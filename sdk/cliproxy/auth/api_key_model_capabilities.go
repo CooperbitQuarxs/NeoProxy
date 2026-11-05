@@ -312,6 +312,13 @@ func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.Mod
 			return model, true
 		}
 	}
+	// An OAuth alias or a forced prefix renames the registered row; its
+	// canonical identity still names the upstream model.
+	for _, model := range models {
+		if model != nil && model.NeoPi != nil && strings.EqualFold(model.NeoPi.ID, selected) {
+			return model, true
+		}
+	}
 	return nil, false
 }
 
