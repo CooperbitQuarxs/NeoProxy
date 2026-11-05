@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -292,6 +293,9 @@ type APIKeyRequest struct {
 	// provider (administrators only). It is chosen explicitly because it
 	// changes the key check even when BaseURL names a region.
 	CustomBaseURL bool `json:"customBaseUrl"`
+	// Account names the provider account a key belongs to, for a provider
+	// with an account prompt (Snowflake).
+	Account string `json:"account"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -406,6 +410,16 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	}
 	if len(key) > 16384 || strings.ContainsAny(key, " \r\n\t") {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "The key contains spaces or line breaks. Paste only the key itself.")
+	}
+	if info.Account != nil && info.ID == snowflake.Provider {
+		// A Snowflake PAT is bound to its account as NeoPi's structured
+		// credential, so requests go to that account's host.
+		accountURL, accountErr := snowflake.NormalizeAccountURL(req.Account)
+		if accountErr != nil {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "%s", accountErr.Error())
+		}
+		structured, _ := json.Marshal(map[string]string{"token": key, "enterpriseUrl": accountURL})
+		key = string(structured)
 	}
 	if req.PlanID != "" && !validPlanID(info.ID, req.PlanID) {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "planId %q is not a plan of %s.", req.PlanID, info.Name)

@@ -85,6 +85,8 @@ var apiKeyRoutes = map[string]route{
 	"minimax-cn":         {target: "minimax-cn"},
 	"minimax-code":       {target: "minimax-code"},
 	"minimax-code-cn":    {target: "minimax-code-cn"},
+	// A Snowflake PAT, or NeoPi's structured key that names its account.
+	"snowflake": {target: "snowflake"},
 	// Local servers import at their default address (an administrator's
 	// action, as their address is editable).
 	"vllm":                  {target: "vllm"},
@@ -131,7 +133,10 @@ var oauthRoutes = map[string]route{
 	"kilo":              {kind: KindAPIKey, target: "kilo"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
 	"cursor":            {target: "cursor"},
-	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
+	// Snowflake's browser sign-in keeps the account it signed in at in
+	// enterpriseUrl.
+	"snowflake":      {target: "snowflake"},
+	"github-copilot": {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
 func routeFor(c Credential) route {
@@ -384,6 +389,9 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["base_url"] = cursorwire.DefaultBaseURL
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
+	case "snowflake":
+		meta["access_token"] = access
+		meta["enterprise_url"] = str(c.data, "enterpriseUrl")
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}

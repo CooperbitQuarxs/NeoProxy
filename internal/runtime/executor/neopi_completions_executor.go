@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,7 +23,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"golang.org/x/sync/singleflight"
 )
+
+// snowflakeRefreshGroup runs one refresh per Snowflake refresh token at a time.
+var snowflakeRefreshGroup singleflight.Group
 
 // NeoPiCompletionsProfile adapts the shared NeoPi Chat Completions port to one
 // host: where its models come from, how its key is read, and any provider
@@ -117,9 +122,42 @@ func (e *NeoPiCompletionsExecutor) RequestToFormat(req cliproxyexecutor.Request,
 	return sdktranslator.FormatOpenAI
 }
 
-// Refresh is a no-op: these providers take long-lived API keys.
-func (e *NeoPiCompletionsExecutor) Refresh(_ context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
-	return auth, nil
+// Refresh renews a signed-in Snowflake account's tokens
+// (refreshSnowflakeToken); every other provider here takes long-lived keys.
+func (e *NeoPiCompletionsExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+	if e.profile.Provider != snowflake.Provider || auth == nil {
+		return auth, nil
+	}
+	tokens, account, ok := snowflake.RecordTokens(auth.Metadata)
+	if !ok {
+		return auth, nil
+	}
+	if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, e.cfg, auth); handled {
+		return refreshed, err
+	}
+	if cliproxyauth.IsRefreshLocked(auth) {
+		return nil, cliproxyauth.ErrRefreshLocked
+	}
+	result, err, _ := snowflakeRefreshGroup.Do(account+"\x00"+tokens.Refresh, func() (any, error) {
+		return snowflake.Refresh(ctx, helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0), account, tokens)
+	})
+	if err != nil {
+		var oauthErr *snowflake.OAuthError
+		if errors.As(err, &oauthErr) && (oauthErr.Status == 0 || oauthErr.Status == http.StatusBadRequest || oauthErr.Status == http.StatusUnauthorized) {
+			return nil, statusErr{code: http.StatusUnauthorized, msg: err.Error()}
+		}
+		return nil, err
+	}
+	renewed := result.(snowflake.Tokens)
+	if renewed == tokens {
+		return auth, nil
+	}
+	updated := auth.Clone()
+	for key, value := range snowflake.Metadata(renewed, account) {
+		updated.Metadata[key] = value
+	}
+	updated.Metadata["last_refresh"] = time.Now().UTC().Format(time.RFC3339)
+	return updated, nil
 }
 
 // HttpRequest sends an arbitrary request with the account's bearer key.
@@ -501,10 +539,16 @@ func (e *NeoPiCompletionsExecutor) url(row *registry.NeoPiModel) string {
 	return strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
 }
 
-// snowflakeCredential is the account's Snowflake key (a PAT, or the
-// structured OAuth credential naming its account); an account without one
-// falls back to SNOWFLAKE_PAT, as NeoPi's transport does.
+// snowflakeCredential is the account's Snowflake credential: a signed-in
+// account's OAuth token bound to its account, else its key (a PAT, or a
+// structured OAuth credential naming its account), else SNOWFLAKE_PAT, as
+// NeoPi's transport falls back to.
 func (e *NeoPiCompletionsExecutor) snowflakeCredential(auth *cliproxyauth.Auth) (snowflake.Credential, bool, error) {
+	if auth != nil {
+		if credential, ok, err := snowflake.RecordCredential(auth.Metadata); ok || err != nil {
+			return credential, ok, err
+		}
+	}
 	raw := neoPiCompletionsAPIKey(auth)
 	if raw == "" {
 		raw = os.Getenv("SNOWFLAKE_PAT")

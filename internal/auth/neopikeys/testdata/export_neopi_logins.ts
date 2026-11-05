@@ -16,7 +16,7 @@ const served = [
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
-	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn",
+	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 // NeoPi names no auth rule for MiniMax China's pay-as-you-go platform; the
