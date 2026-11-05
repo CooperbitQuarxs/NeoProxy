@@ -28,8 +28,11 @@ type neoPiDiscoveryResult struct {
 	// APIKey is the scenario's own key, when not the capture's: a Xiaomi
 	// Token Plan key walks the regional clusters.
 	APIKey string `json:"apiKey"`
-	Source string `json:"source"`
-	Models []struct {
+	// Keyless scenarios build the manager without a key: only a public
+	// listing still fetches.
+	Keyless bool   `json:"keyless"`
+	Source  string `json:"source"`
+	Models  []struct {
 		ID            string         `json:"id"`
 		API           string         `json:"api"`
 		Name          string         `json:"name"`
@@ -41,6 +44,7 @@ type neoPiDiscoveryResult struct {
 		CompatIndex   int            `json:"compatIndex"`
 		Thinking      *NeoPiThinking `json:"thinking"`
 		Kind          string         `json:"kind"`
+		Cost          NeoPiCost      `json:"cost"`
 	} `json:"models"`
 }
 
@@ -143,6 +147,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				if !reflect.DeepEqual(row.Thinking, want.Thinking) {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
 				}
+				if row.cost != want.Cost {
+					t.Errorf("%s: cost %+v, NeoPi %+v", want.ID, row.cost, want.Cost)
+				}
 				if want.API != "openai-completions" {
 					continue
 				}
@@ -183,6 +190,8 @@ func neoPiCaptureLimit(limit *int) int {
 // discovery client does for its provider.
 func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelInfo, error) {
 	switch {
+	case result.Keyless && !NeoPiCompletionsDiscoversWithoutKey(result.Provider):
+		return nil, ErrNeoPiListing
 	case result.Provider == "fireworks":
 		return neoPiReplayFireworks(baseURL, result.Replies)
 	case result.Provider == "xiaomi" && (strings.HasPrefix(result.APIKey, "tp-") || strings.HasPrefix(result.APIKey, "ttp-")):

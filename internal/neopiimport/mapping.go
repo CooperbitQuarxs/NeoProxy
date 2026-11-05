@@ -115,9 +115,12 @@ var oauthRoutes = map[string]route{
 	// The Coding Plan sign-in stores the pasted key in access and the
 	// endpoint it chose (International, China or custom) in enterpriseUrl.
 	"alibaba-coding-plan": {kind: KindAPIKey, target: "alibaba-coding-plan"},
-	"google-gemini-cli":   {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
-	"cursor":              {target: "cursor"},
-	"github-copilot":      {reason: "NeoProxy has no GitHub Copilot engine."},
+	// Kilo's device sign-in stores the gateway's bearer token in access and
+	// nothing to refresh; it imports as the account's key.
+	"kilo":              {kind: KindAPIKey, target: "kilo"},
+	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
+	"cursor":            {target: "cursor"},
+	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
 func routeFor(c Credential) route {
