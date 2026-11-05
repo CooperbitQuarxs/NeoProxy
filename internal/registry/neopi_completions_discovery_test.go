@@ -100,12 +100,13 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				byID[info.ID] = info.NeoPi
 			}
 			// The port serves NeoPi's chat rows over Chat Completions and its
-			// image rows over openai-images. Speech runners, and rows a rule
+			// image and speech rows over their runner transports. Rows a rule
 			// classifies as a runner kind while they stay on the completions
-			// transport (which NeoPi keeps out of chat), are not served.
+			// transport (which NeoPi keeps out of chat) are not served.
 			want := result.Models[:0:0]
 			for _, model := range result.Models {
-				if model.API == "openai-images" || model.API == "openai-completions" && (model.Kind == "" || model.Kind == "chat") {
+				runner := model.API == "openai-images" || model.API == "openai-speech"
+				if runner || model.API == "openai-completions" && (model.Kind == "" || model.Kind == "chat") {
 					want = append(want, model)
 				}
 			}
@@ -142,7 +143,7 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				if !reflect.DeepEqual(row.Thinking, want.Thinking) {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
 				}
-				if want.API == "openai-images" {
+				if want.API != "openai-completions" {
 					continue
 				}
 				var wantCompat NeoPiCompletionsCompat

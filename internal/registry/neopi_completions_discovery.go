@@ -402,7 +402,7 @@ func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
 		contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens, thinking: reference.Thinking.Clone(),
 		compat: maps.Clone(reference.CompatConfig), requestModelID: reference.RequestModelID,
 		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind}
-	if reference.API == "openai-images" {
+	if neoPiRunnerAPI(reference.API) {
 		spec.api = reference.API
 	}
 	return spec

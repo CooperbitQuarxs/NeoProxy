@@ -129,6 +129,43 @@ func TestSpeechEndpointsRouteSpeechOnlyModelsToExecutor(t *testing.T) {
 	}
 }
 
+// neoPiSpeechCaptureExecutor stands in for a NeoPi provider's executor.
+type neoPiSpeechCaptureExecutor struct{ speechCaptureExecutor }
+
+func (e *neoPiSpeechCaptureExecutor) Identifier() string { return "deepinfra" }
+
+// A model a NeoPi provider registered as a speech model runs on that
+// provider, not xAI, and its audio is labelled with the requested format.
+func TestAudioSpeechRoutesNeoPiSpeechModelToItsProvider(t *testing.T) {
+	xai := &speechCaptureExecutor{}
+	handler, _ := newSpeechRoutingTestHandlers(t, xai)
+	neopi := &neoPiSpeechCaptureExecutor{}
+	manager := handler.AuthManager
+	manager.RegisterExecutor(neopi)
+	auth := &coreauth.Auth{ID: "neopi-speech-auth", Provider: "deepinfra", Status: coreauth.StatusActive}
+	if _, err := manager.Register(context.Background(), auth); err != nil {
+		t.Fatalf("manager.Register: %v", err)
+	}
+	registry.GetGlobalRegistry().RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: "hexgrad/Kokoro-82M", Type: registry.OpenAISpeechModelType}})
+	manager.RefreshSchedulerEntry(auth.ID)
+	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(auth.ID) })
+
+	resp := performSpeechRoutingRequest(t, "/v1/audio/speech", `{"model":"hexgrad/Kokoro-82M","input":"hello","response_format":"wav"}`, handler.AudioSpeech)
+	if resp.Code != http.StatusOK || resp.Body.String() != "ID3audio" {
+		t.Fatalf("status = %d, body = %q", resp.Code, resp.Body.String())
+	}
+	if got := resp.Header().Get("Content-Type"); got != "audio/wav" {
+		t.Errorf("content type = %q, want audio/wav", got)
+	}
+	models, sources := neopi.calls()
+	if len(models) != 1 || models[0] != "hexgrad/Kokoro-82M" || sources[0] != xaiSpeechHandlerType {
+		t.Errorf("provider calls = %v %v, want one openai-speech call for the Kokoro model", models, sources)
+	}
+	if xaiModels, _ := xai.calls(); len(xaiModels) != 0 {
+		t.Errorf("xAI executor ran %v", xaiModels)
+	}
+}
+
 func TestChatAndResponsesRejectSpeechOnlyModels(t *testing.T) {
 	executor := &speechCaptureExecutor{}
 	chat, responses := newSpeechRoutingTestHandlers(t, executor)

@@ -89,9 +89,9 @@ func loadNeoPiCompletionsCatalogs() {
 		providerRows := make([]*NeoPiModel, 0, len(catalog.Models))
 		for i := range catalog.Models {
 			row := catalog.Models[i]
-			// An openai-images row carries no completions compat.
+			// A runner row (image, speech) carries no completions compat.
 			var compat *NeoPiCompletionsCompat
-			if row.API != "openai-images" {
+			if !neoPiRunnerAPI(row.API) {
 				if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
 					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
 					return
@@ -195,14 +195,19 @@ func NeoPiCompletionsModel(provider, id string) *NeoPiModel {
 
 // NeoPiCompletionsModelInfo materializes a NeoPi record as a registered
 // model: an openai-images row registers as an image model served through
-// /v1/images, every other row as a chat model.
+// /v1/images, an openai-speech row as a speech model served through
+// /v1/audio/speech, every other row as a chat model.
 func NeoPiCompletionsModelInfo(row *NeoPiModel, ownedBy string) *ModelInfo {
 	model := row.Clone()
 	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: ownedBy, Type: "openai-compatibility",
 		DisplayName: model.Name, ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
 		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model}
-	if model.API == "openai-images" {
+	switch model.API {
+	case "openai-images":
 		info.Type = OpenAIImageModelType
+		return info
+	case "openai-speech":
+		info.Type = OpenAISpeechModelType
 		return info
 	}
 	if model.Reasoning && model.Thinking != nil {
@@ -211,12 +216,19 @@ func NeoPiCompletionsModelInfo(row *NeoPiModel, ownedBy string) *ModelInfo {
 	return info
 }
 
+// neoPiRunnerAPI reports whether api is a runner transport NeoProxy serves
+// for NeoPi rows: image generation or speech synthesis.
+func neoPiRunnerAPI(api string) bool {
+	return api == "openai-images" || api == "openai-speech"
+}
+
 // neoPiServed reports whether NeoProxy serves a NeoPi row: a chat row over
-// Chat Completions, or an image row over openai-images. NeoPi keeps rows of
-// other kinds (a rule-classified image or embedding id still on the
-// completions transport) out of chat, and no runner serves them here.
+// Chat Completions, or an image or speech row over its runner transport.
+// NeoPi keeps rows of other kinds (a rule-classified image or embedding id
+// still on the completions transport) out of chat, and no runner serves them
+// here.
 func neoPiServed(row *NeoPiModel) bool {
-	if row.API == "openai-images" {
+	if neoPiRunnerAPI(row.API) {
 		return true
 	}
 	return row.Kind == "" || row.Kind == "chat"
