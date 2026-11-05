@@ -127,10 +127,15 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)
 	shaped.Body = helps.FinalizePayload(ctx, shaped.Body)
+	// NeoPi sets X-Stainless-Timeout over every other header it sends.
+	timeout := shaped.Header.Get("X-Stainless-Timeout")
 	if e.binding != nil {
 		e.binding.headers(ctx, auth, shaped.Header, opts.Headers)
 	} else {
 		e.applyTransportHeaders(shaped.Header, auth, model, opts.Headers)
+	}
+	if timeout != "" {
+		shaped.Header.Set("X-Stainless-Timeout", timeout)
 	}
 	return ctx, &neoPiResponsesTurn{
 		request:         shaped,

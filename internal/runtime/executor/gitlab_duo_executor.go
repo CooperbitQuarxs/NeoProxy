@@ -124,8 +124,15 @@ func (e *GitLabDuoExecutor) wire(a *gitlabDuoAttempt, req cliproxyexecutor.Reque
 			Provider: gitlabduo.Provider,
 			Row:      func(string, string) *registry.NeoPiModel { return row },
 			APIKey:   func(*cliproxyauth.Auth) string { return a.direct.Token },
-			Headers: func(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, _ string, _ *registry.NeoPiModel, headers http.Header, _ string) {
+			// streamGitLabDuo passes {...minted, ...configured} as the caller's
+			// headers, which win over the OpenAI client's Accept, Content-Type
+			// and Authorization; only the computed timeout is set after them.
+			Headers: func(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, _ string, row *registry.NeoPiModel, headers http.Header, _ string) {
 				a.underConfigured(ctx, auth, incoming, headers)
+				util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), gitlabDuoAttrs(auth), incoming)
+				if timeout := neoPiCompletionsTimeoutHeader(row); timeout != "" {
+					headers.Set("X-Stainless-Timeout", timeout)
+				}
 			},
 		}
 		return &exec, nil

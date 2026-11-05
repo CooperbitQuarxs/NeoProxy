@@ -7,7 +7,8 @@
 // the model request, beside the downstream request a client sends NeoProxy in
 // the routed wire's format (Responses through NeoPi's own server boundary).
 // Also records the direct-access edge cases: rejected and malformed mints,
-// cache reuse, TTL expiry, and caller headers over the minted ones.
+// cache reuse, TTL expiry, caller headers over the minted ones, and caller
+// headers naming the transport's own (which win, which are enforced).
 // Writes testdata/neopi_gitlab_duo.json.gz.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
@@ -252,6 +253,8 @@ try {
 		await edge("missing-token", () => Response.json({ headers: directAccessHeaders }));
 		await edge("missing-headers", () => Response.json({ token: directAccessToken }));
 		await edge("caller-headers", () => Response.json({ token: directAccessToken, headers: directAccessHeaders }), { headers: { "x-gitlab-realm": "caller-realm", "X-Caller": "present" } });
+		// Caller headers naming what each route's client sends itself: which win and which it enforces.
+		await edge("configured-transport", () => Response.json({ token: directAccessToken, headers: directAccessHeaders }), { headers: { Authorization: "Bearer configured-auth", Accept: "application/custom", "Content-Type": "application/custom", "X-Stainless-Timeout": "12" } });
 		mint = () => Response.json({ token: directAccessToken, headers: directAccessHeaders });
 		// Cache: a second stream within the TTL reuses the token; after it, re-mints.
 		clearGitLabDuoDirectAccessCache();
