@@ -47,12 +47,15 @@ type NeoPiCompletionsProfile struct {
 
 // NeoPiCompletionsExecutor serves a NeoPi openai-completions provider: the
 // request built by NeoPi's own buildParams, sent with NeoPi's headers and retry
-// policy, relayed as NeoPi's stream.
+// policy, relayed as NeoPi's stream. A row NeoPi routes over Anthropic
+// Messages (ZenMux's Claude models) goes to NeoPi's Anthropic Messages port
+// on that row's endpoint instead.
 type NeoPiCompletionsExecutor struct {
 	provider string
 	profile  NeoPiCompletionsProfile
 	cfg      *config.Config
 	counter  *OpenAICompatExecutor
+	messages *ClaudeExecutor
 	wait     func(context.Context, time.Duration) error
 }
 
@@ -61,13 +64,29 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 	if profile.Provider == "" {
 		profile.Provider = provider
 	}
-	return &NeoPiCompletionsExecutor{
+	e := &NeoPiCompletionsExecutor{
 		provider: provider,
 		profile:  profile,
 		cfg:      cfg,
 		counter:  NewOpenAICompatExecutor(provider, cfg),
 		wait:     neoPiWait,
 	}
+	e.messages = NewClaudeExecutor(cfg)
+	e.messages.provider = provider
+	e.messages.thirdParty = &neoPiThirdPartyProvider{
+		catalog: func(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, _ string) *registry.NeoPiModel {
+			return e.row(auth, req)
+		},
+		bearer: e.apiKey,
+	}
+	return e
+}
+
+// anthropicRow reports whether NeoPi serves the request's model over
+// Anthropic Messages.
+func (e *NeoPiCompletionsExecutor) anthropicRow(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) bool {
+	row := e.row(auth, req)
+	return row != nil && row.API == "anthropic-messages"
 }
 
 // Identifier is the engine provider key this executor is registered under.
@@ -83,11 +102,15 @@ func (e *NeoPiCompletionsExecutor) SupportsNativeToolSearch(*cliproxyauth.Auth, 
 	return false
 }
 
-// RequestToFormat reports Chat Completions for chat requests; an image or
-// speech request keeps its own media format.
-func (e *NeoPiCompletionsExecutor) RequestToFormat(_ cliproxyexecutor.Request, opts cliproxyexecutor.Options) sdktranslator.Format {
+// RequestToFormat reports Chat Completions for chat requests, Claude Messages
+// for a row served over Anthropic Messages; an image or speech request keeps
+// its own media format.
+func (e *NeoPiCompletionsExecutor) RequestToFormat(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) sdktranslator.Format {
 	if openAICompatImageEndpointPath(opts) != "" || xaiIsSpeechRequest(opts) {
 		return opts.SourceFormat
+	}
+	if e.anthropicRow(nil, req) {
+		return sdktranslator.FormatClaude
 	}
 	return sdktranslator.FormatOpenAI
 }
@@ -123,6 +146,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	}
 	if xaiIsSpeechRequest(opts) {
 		return e.executeSpeech(ctx, auth, req, opts)
+	}
+	if e.anthropicRow(auth, req) {
+		return e.messages.Execute(ctx, auth, req, opts)
 	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
@@ -175,6 +201,9 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	}
 	if xaiIsSpeechRequest(opts) {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: speech synthesis does not stream", e.provider)}
+	}
+	if e.anthropicRow(auth, req) {
+		return e.messages.ExecuteStream(ctx, auth, req, opts)
 	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
@@ -410,7 +439,8 @@ func neoPiCompletionsAPIKey(auth *cliproxyauth.Auth) string {
 // account's discovery registered, else NeoPi's bundled or built row, on the
 // account's configured endpoint.
 func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) *registry.NeoPiModel {
-	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == "openai-completions" {
+	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil &&
+		(info.NeoPi.API == "openai-completions" || info.NeoPi.API == "anthropic-messages") {
 		return e.accountRow(auth, info.NeoPi)
 	}
 	resolve := e.profile.Row
@@ -420,19 +450,23 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 	return e.accountRow(auth, resolve(e.profile.Provider, req.Model))
 }
 
-// accountRow moves a row still on the provider's catalog endpoint onto the
-// account's configured one, as NeoPi's provider baseUrl override does. A row
-// discovery already placed elsewhere (a Xiaomi Token Plan cluster) keeps its
+// accountRow applies NeoPi's provider baseUrl override: an endpoint the
+// account names itself (not the catalog's own) replaces the endpoint of every
+// row still on one of the provider's bundled endpoints, whatever its
+// transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
+// cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
 	if row == nil || auth == nil {
 		return row
 	}
-	base := registry.NeoPiAccountBaseURL(e.profile.Provider, auth.Attributes["base_url"])
+	provider := e.profile.Provider
+	base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"])
 	if base == "" || base == row.BaseURL {
 		return row
 	}
-	if e.profile.Provider != "alibaba-token-plan" && row.BaseURL != registry.NeoPiCompletionsListingBase(e.profile.Provider) {
+	if provider != "alibaba-token-plan" &&
+		(base == registry.NeoPiCompletionsListingBase(provider) || !registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL)) {
 		return row
 	}
 	row = row.Clone()

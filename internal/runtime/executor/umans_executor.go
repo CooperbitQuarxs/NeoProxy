@@ -32,7 +32,9 @@ func NewUmansExecutor(provider string, cfg *config.Config) *UmansExecutor {
 	messages := NewClaudeExecutor(cfg)
 	messages.provider = provider
 	messages.thirdParty = &neoPiThirdPartyProvider{
-		catalog:          umansDiscoveredModel,
+		catalog: func(_ *cliproxyauth.Auth, req cliproxyexecutor.Request, model string) *registry.NeoPiModel {
+			return umansDiscoveredModel(req, model)
+		},
 		bearer:           umansAPIKey,
 		apiKeyHeader:     true,
 		gatewayWebSearch: umansauth.WebSearch,

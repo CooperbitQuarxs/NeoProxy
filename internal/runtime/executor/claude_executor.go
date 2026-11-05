@@ -43,10 +43,11 @@ type ClaudeExecutor struct {
 }
 
 // neoPiThirdPartyProvider is what prepareThirdParty needs from a provider:
-// the NeoPi record of the requested model, the bearer the account
-// authenticates with, and any identity headers NeoPi adds for it.
+// the NeoPi record of the requested model for the account (which may move it
+// onto the account's endpoint), the bearer the account authenticates with,
+// and any identity headers NeoPi adds for it.
 type neoPiThirdPartyProvider struct {
-	catalog func(req cliproxyexecutor.Request, model string) *registry.NeoPiModel
+	catalog func(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, model string) *registry.NeoPiModel
 	bearer  func(auth *cliproxyauth.Auth) string
 	headers func() http.Header
 	// apiKeyHeader authenticates with X-Api-Key instead of Authorization:

@@ -12,6 +12,12 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 )
 
+// The NeoPi APIs whose model policy this package resolves.
+const (
+	APIOpenAICompletions = "openai-completions"
+	APIAnthropicMessages = "anthropic-messages"
+)
+
 // Spec is the part of a NeoPi ModelSpec the policy resolves from. Thinking
 // and Compat are the spec's own (sparse, JSON-shaped) authored values: a key
 // present with a nil value is an explicit JSON null, and NeoPi's undefined is
@@ -40,13 +46,13 @@ type Policy struct {
 	Reasoning bool
 }
 
-// Resolve is resolveModelPolicy for an openai-completions spec, plus
-// buildModel's reasoning materialization.
+// Resolve is resolveModelPolicy for an openai-completions or
+// anthropic-messages spec, plus buildModel's reasoning materialization.
 func Resolve(spec Spec) (Policy, error) {
 	if err := load(); err != nil {
 		return Policy{}, err
 	}
-	if spec.API != "openai-completions" {
+	if spec.API != APIOpenAICompletions && spec.API != APIAnthropicMessages {
 		return Policy{}, fmt.Errorf("neopicompat: api %q is not ported", spec.API)
 	}
 	// withoutUnverifiedThinking: an unverified ladder was derived, not authored.
@@ -66,7 +72,12 @@ func Resolve(spec Spec) (Policy, error) {
 	if err != nil {
 		return Policy{}, err
 	}
-	compat := resolveCompletionsPolicy(spec, facts, resolved)
+	var compat map[string]any
+	if spec.API == APIAnthropicMessages {
+		compat = resolveAnthropicPolicy(spec, facts, resolved)
+	} else {
+		compat = resolveCompletionsPolicy(spec, facts, resolved)
+	}
 	thinking, err := resolveThinkingPolicy(spec, facts, resolved, compat)
 	if err != nil {
 		return Policy{}, err
@@ -89,6 +100,28 @@ func (f identityFacts) revGte(floor string) bool {
 	}
 	bound, ok := parseRevision(floor)
 	return ok && f.identity.Revision.Compare(bound) >= 0
+}
+
+// kimiMandatoryThinking: Kimi families whose API rejects disabled thinking.
+func (f identityFacts) kimiMandatoryThinking() bool {
+	return f.is("kimi") && f.family("k2.7-code", "k3")
+}
+
+// anthropicAdaptiveGenAtLeast is the adaptive-thinking Claude generation floor
+// (Opus >= opusMin; Sonnet/Fable/Mythos >= 5; Haiku >= 5.5).
+func (f identityFacts) anthropicAdaptiveGenAtLeast(opusMin string) bool {
+	if !f.is("anthropic") {
+		return false
+	}
+	switch {
+	case f.family("opus"):
+		return f.revGte(opusMin)
+	case f.family("sonnet", "fable", "mythos"):
+		return f.revGte("5")
+	case f.family("haiku"):
+		return f.revGte("5.5")
+	}
+	return false
 }
 
 // hostMatchesURL is hosts.ts hostMatchesUrl: a case-insensitive substring
@@ -496,10 +529,11 @@ func detectStreamMarkupHealing(provider string, facts identityFacts, baseURL str
 	return "thinking"
 }
 
-// applyWireAxes assigns the resolved wire axes the completions record takes.
-func applyWireAxes(compat map[string]any, wire map[string]any) {
+// applyWireAxes assigns the resolved wire axes the API's compat record takes.
+func applyWireAxes(compat map[string]any, wire map[string]any, api string) {
+	keys := wireKeys[api]
 	for key, value := range wire {
-		if wireKeys[key] {
+		if keys[key] {
 			compat[key] = cloneValue(value)
 		}
 	}
@@ -533,7 +567,7 @@ func resolveCompletionsPolicy(spec Spec, facts identityFacts, a axes) map[string
 	reasoningCapable := compatReasoning(spec, a)
 	d := detectOpenAI(spec, facts, reasoningCapable)
 	compat := detectOpenAICompat(spec, d, facts, reasoningCapable)
-	applyWireAxes(compat, a.wire)
+	applyWireAxes(compat, a.wire, APIOpenAICompletions)
 	applyCompatOverrides(compat, spec.Compat)
 	// overlayEffortMapAxis: spec effort keys overlay the cascade's map.
 	if axisMap := effortRecord(a.wire["reasoningEffortMap"]); axisMap != nil {
@@ -549,6 +583,114 @@ func resolveCompletionsPolicy(spec Spec, facts identityFacts, a axes) map[string
 		}
 	}
 	fixupOpenAICompat(spec, compat, d, a)
+	return compat
+}
+
+// officialAnthropicURL is compat/anthropic.ts OFFICIAL_ANTHROPIC_URL.
+const officialAnthropicURL = "https://api.anthropic.com"
+
+var (
+	cloudflareAnthropicGatewayMarker = regexp.MustCompile(`(?i)gateway\.ai\.cloudflare\.com/.+/anthropic(?:/|$)`)
+	vertexAnthropicMarker            = regexp.MustCompile(`(?i)aiplatform\.googleapis\.com/.+/publishers/anthropic/`)
+	bedrockAnthropicMarker           = regexp.MustCompile(`(?i)(?:^|//|\.)bedrock-runtime\.[a-z0-9-]+\.amazonaws\.com`)
+	azureAnthropicMarker             = regexp.MustCompile(`(?i)(?:^|//|\.)[a-z0-9-]+\.(?:inference|services)\.ai\.azure\.com`)
+	bedrockPublicHost                = regexp.MustCompile(`^(?:bedrock-runtime(?:-fips)?\.[a-z0-9-]+\.amazonaws\.com|bedrock-mantle\.(?:[a-z0-9-]+|\{region\})\.api\.aws)$`)
+	bedrockPrivateLinkHost           = regexp.MustCompile(`^vpce-[a-z0-9-]+\.(?:bedrock-runtime(?:-fips)?|bedrock-mantle)\.[a-z0-9-]+\.vpce\.amazonaws\.com$`)
+)
+
+// isOfficialAnthropicAPIURL is isOfficialAnthropicApiUrl: no base URL, or
+// the first-party API origin.
+func isOfficialAnthropicAPIURL(baseURL string) bool {
+	if baseURL == "" {
+		return true
+	}
+	lower := strings.ToLower(baseURL)
+	return lower == officialAnthropicURL || strings.HasPrefix(lower, officialAnthropicURL+"/")
+}
+
+// isBedrockAnthropicRoute is isBedrockRouteUrl(baseUrl, "anthropic"): an
+// https Bedrock runtime/mantle (or PrivateLink) host under /anthropic.
+func isBedrockAnthropicRoute(baseURL string) bool {
+	if baseURL == "" {
+		return false
+	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil || !strings.EqualFold(parsed.Scheme, "https") {
+		return false
+	}
+	hostname, ok := urlHostname(baseURL)
+	if !ok || !(bedrockPublicHost.MatchString(hostname) || bedrockPrivateLinkHost.MatchString(hostname)) {
+		return false
+	}
+	path := parsed.EscapedPath()
+	return path == "/anthropic" || strings.HasPrefix(path, "/anthropic/")
+}
+
+// isAzureAnthropicRoute is isAzureAnthropicRoute: Azure AI Inference / Foundry.
+func isAzureAnthropicRoute(baseURL string) bool {
+	return baseURL != "" && azureAnthropicMarker.MatchString(baseURL)
+}
+
+// isAnthropicSigningProxyURL is isAnthropicSigningProxyUrl: non-official URLs
+// that enforce Anthropic thinking signatures on replay.
+func isAnthropicSigningProxyURL(baseURL string) bool {
+	return hostMatchesURL(baseURL, "githubCopilot") || hostMatchesURL(baseURL, "zenmux") ||
+		(baseURL != "" && (cloudflareAnthropicGatewayMarker.MatchString(baseURL) ||
+			vertexAnthropicMarker.MatchString(baseURL) || bedrockAnthropicMarker.MatchString(baseURL))) ||
+		isBedrockAnthropicRoute(baseURL) || isAzureAnthropicRoute(baseURL)
+}
+
+// resolveAnthropicPolicy is resolveAnthropicPolicy: the anthropic-messages
+// compat record, then wire axes and the spec's own overrides.
+func resolveAnthropicPolicy(spec Spec, facts identityFacts, a axes) map[string]any {
+	provider, baseURL := spec.Provider, spec.BaseURL
+	official := isOfficialAnthropicAPIURL(baseURL)
+	isCopilot := modelMatchesHost(provider, baseURL, "githubCopilot")
+	isZenmux := modelMatchesHost(provider, baseURL, "zenmux")
+	requiresThinkingEnabled := modelMatchesHost(provider, baseURL, "moonshotNative") && facts.kimiMandatoryThinking()
+	bedrockMessagesAPI := isBedrockAnthropicRoute(baseURL)
+	// Both routes reject the top-level tool `strict` field.
+	rejectsStrictTools := isAzureAnthropicRoute(baseURL) || bedrockMessagesAPI
+	signingEndpoint := official || isCopilot || isZenmux || isAnthropicSigningProxyURL(baseURL)
+	compat := map[string]any{
+		"officialEndpoint":                   official,
+		"signingEndpoint":                    signingEndpoint,
+		"supportsContextManagement":          true,
+		"supportsServerCompaction":           false,
+		"firstPartyProvider":                 false,
+		"honorsClaudeCodeBetaKillSwitch":     false,
+		"supportsOutputEffort":               true,
+		"disableStrictTools":                 rejectsStrictTools,
+		"bedrockMessagesApi":                 orNil(bedrockMessagesAPI, true),
+		"disableAdaptiveThinking":            false,
+		"allowAnthropicHeaderOverrides":      false,
+		"supportsEagerToolInputStreaming":    official,
+		"supportsLongCacheRetention":         official,
+		"supportsMidConversationSystem":      official && !facts.family("sonnet") && facts.anthropicAdaptiveGenAtLeast("4.8"),
+		"supportsTurnScopedSystem":           false,
+		"supportsMidConversationToolChanges": false,
+		"supportsPerMessageEffort":           false,
+		"supportsThinkingBindingControls":    false,
+		"supportsBetweenToolsThinking":       false,
+		"supportsForcedToolChoice":           !requiresThinkingEnabled && !facts.family("fable", "mythos"),
+		"supportsSamplingParams":             true,
+		"requiresToolResultId":               false,
+		"requiresThinkingEnabled":            requiresThinkingEnabled,
+		"requiresThinkingPresence":           false,
+		"replayUnsignedThinking": !signingEndpoint &&
+			(compatReasoning(spec, a) || modelMatchesHost(provider, baseURL, "deepseekFamily")),
+		"escapeBuiltinToolNames":      false,
+		"injectClaudeCodeInstruction": true,
+		"stripImageInput":             false,
+		"maxImageDimension":           nil,
+		"maxImagePayloadBytes":        nil,
+		"thinkingLoopGuard":           nil,
+		"stripThinkingHistory":        nil,
+		"fastMode":                    nil,
+		"streamIdleTimeoutMs":         cloneValue(spec.Compat["streamIdleTimeoutMs"]),
+	}
+	applyWireAxes(compat, a.wire, APIAnthropicMessages)
+	applyCompatOverrides(compat, spec.Compat)
 	return compat
 }
 

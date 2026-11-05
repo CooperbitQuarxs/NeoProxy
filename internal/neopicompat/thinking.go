@@ -119,19 +119,59 @@ func impliesMandatoryReasoning(facts identityFacts, modelID string) bool {
 	return ok
 }
 
-// fallbackEfforts is fallbackEfforts for an openai-completions record.
-func fallbackEfforts(compat map[string]any) []string {
+// fallbackEfforts is fallbackEfforts for the ported APIs.
+func fallbackEfforts(spec Spec, compat map[string]any) []string {
+	if spec.API == APIAnthropicMessages {
+		return defaultReasoningEffortsWithXHigh
+	}
 	if compat["thinkingFormat"] == "openai" && compat["supportsReasoningEffort"] == true {
 		return defaultReasoningEffortsWithXHigh
 	}
 	return defaultReasoningEfforts
 }
 
-// mergeEffortMap is mergeEffortMap: the Fireworks host default, the rule
-// map, then the configured map, filtered to the ladder.
+// defaultThinkingMode is defaultThinkingMode for the ported APIs; thinking-mode
+// rules override it.
+func defaultThinkingMode(spec Spec, facts identityFacts) string {
+	if spec.API != APIAnthropicMessages {
+		return "effort"
+	}
+	if facts.is("anthropic") {
+		// Haiku stays on budget thinking until 5.5, its first adaptive generation.
+		floor := "4.6"
+		if facts.family("haiku") {
+			floor = "5.5"
+		}
+		if facts.revGte(floor) {
+			return "anthropic-adaptive"
+		}
+		if facts.family("opus") && facts.revGte("4.5") {
+			return "anthropic-budget-effort"
+		}
+	}
+	return "budget"
+}
+
+// defaultSupportsDisplay is defaultSupportsDisplay: an Anthropic-wire lineage
+// fact, false on openai-completions.
+func defaultSupportsDisplay(spec Spec, facts identityFacts) bool {
+	return spec.API == APIAnthropicMessages && facts.anthropicAdaptiveGenAtLeast("4.7")
+}
+
+// ruleSupportsDisplay is `rule.supportsDisplay ?? defaultSupportsDisplay(...)`.
+func ruleSupportsDisplay(spec Spec, facts identityFacts, rule ruleThinking) bool {
+	if rule.supportsDisplay != nil {
+		return *rule.supportsDisplay
+	}
+	return defaultSupportsDisplay(spec, facts)
+}
+
+// mergeEffortMap is mergeEffortMap: the Fireworks host default (a Chat
+// Completions wire value), the rule map, then the configured map, filtered to
+// the ladder.
 func mergeEffortMap(spec Spec, ruleMap map[string]any, compat map[string]any, efforts []string) map[string]any {
 	var detected map[string]any
-	if modelMatchesHost(spec.Provider, spec.BaseURL, "fireworks") {
+	if spec.API == APIOpenAICompletions && modelMatchesHost(spec.Provider, spec.BaseURL, "fireworks") {
 		detected = fireworksThinkingEffortMap
 	}
 	configured, _ := compat["reasoningEffortMap"].(map[string]any)
@@ -189,11 +229,11 @@ func resolveThinkingPolicy(spec Spec, facts identityFacts, a axes, compat map[st
 	}
 	mode := rule.mode
 	if mode == "" {
-		mode = "effort"
+		mode = defaultThinkingMode(spec, facts)
 	}
 	efforts := rule.efforts
 	if !rule.effortsSet {
-		efforts = fallbackEfforts(compat)
+		efforts = fallbackEfforts(spec, compat)
 	}
 	if len(efforts) == 0 {
 		return nil, fmt.Errorf("model %s/%s resolved to an empty thinking range", spec.Provider, spec.ID)
@@ -212,8 +252,7 @@ func resolveThinkingPolicy(spec Spec, facts identityFacts, a axes, compat map[st
 	if rule.effortBudgets != nil {
 		config["effortBudgets"] = rule.effortBudgets
 	}
-	// defaultSupportsDisplay is an Anthropic-wire lineage fact; never true here.
-	if rule.supportsDisplay != nil && *rule.supportsDisplay {
+	if ruleSupportsDisplay(spec, facts, rule) {
 		config["supportsDisplay"] = true
 	}
 	if rule.prefixBinding {
@@ -240,7 +279,7 @@ func fillExplicitThinking(spec Spec, facts identityFacts, compat map[string]any,
 		effortMap = mergeEffortMap(spec, rule.effortMap, compat, efforts)
 	}
 	_, hasDisplay := thinking["supportsDisplay"]
-	needsDisplay := !hasDisplay && rule.supportsDisplay != nil && *rule.supportsDisplay
+	needsDisplay := !hasDisplay && ruleSupportsDisplay(spec, facts, rule)
 	_, hasRequires := thinking["requiresEffort"]
 	requires := impliesMandatoryReasoning(facts, spec.ID) || compat["qwenTemplateReasoningEffort"] == true
 	if rule.requiresEffort != nil {

@@ -101,7 +101,10 @@ type NeoPiThinking struct {
 // NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
 // provider reads for a non-Anthropic model (ResolvedAnthropicCompat).
 type NeoPiAnthropicCompat struct {
-	OfficialEndpoint            bool `json:"officialEndpoint"`
+	OfficialEndpoint bool `json:"officialEndpoint"`
+	// SigningEndpoint marks an endpoint that enforces Anthropic thinking
+	// signatures on replay (ZenMux, Copilot, Bedrock, ...).
+	SigningEndpoint             bool `json:"signingEndpoint"`
 	FirstPartyProvider          bool `json:"firstPartyProvider"`
 	InjectClaudeCodeInstruction bool `json:"injectClaudeCodeInstruction"`
 	ReplayUnsignedThinking      bool `json:"replayUnsignedThinking"`
