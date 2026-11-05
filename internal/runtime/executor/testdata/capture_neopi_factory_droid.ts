@@ -4,18 +4,18 @@
 // can reach Factory. Each scenario is recorded beside the downstream request
 // a client sends NeoProxy for it, in the format the model's wire takes:
 // Claude Messages for anthropic-messages, Chat Completions for
-// openai-completions, Gemini generateContent for google-generate. Writes
-// testdata/neopi_factory_droid/<wire>.json.gz.
+// openai-completions, Gemini generateContent for google-generate, Responses
+// for openai-responses. Writes testdata/neopi_factory_droid/<wire>.json.gz.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
-//     FACTORY_WIRES=anthropic-messages,openai-completions,google-generate \
+//     FACTORY_WIRES=anthropic-messages,openai-completions,google-generate,openai-responses \
 //     bun --preserve-symlinks capture_neopi_factory_droid.ts
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.env.NEOPI_SOURCE_MODULES;
 if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
-const wires = (process.env.FACTORY_WIRES ?? "anthropic-messages,openai-completions,google-generate").split(",").filter(Boolean);
+const wires = (process.env.FACTORY_WIRES ?? "anthropic-messages,openai-completions,google-generate,openai-responses").split(",").filter(Boolean);
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { factoryDroidRegistry } = await import(root + "/pi-catalog/src/compat/factory-droid.ts");
 const { buildFactoryDroidModel } = await import(root + "/pi-catalog/src/discovery/factory-droid.ts");
@@ -39,7 +39,18 @@ const completionsSse =
 	`data: ${JSON.stringify({ id: "capture", object: "chat.completion.chunk", model: "capture", choices: [{ index: 0, delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 } })}\n\n` +
 	"data: [DONE]\n\n";
 const googleSse = `data: ${JSON.stringify({ candidates: [{ content: { role: "model", parts: [{ text: "Captured." }] }, finishReason: "STOP" }], usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 1, totalTokenCount: 4 } })}\n\n`;
-const sseFor = (wire: string) => (wire === "anthropic-messages" ? anthropicSse : wire === "google-generate" ? googleSse : completionsSse);
+const responsesMessage = { id: "msg_capture", type: "message", role: "assistant", status: "completed", content: [{ type: "output_text", text: "Captured.", annotations: [] }] };
+const responsesSse = [
+	{ type: "response.created", response: { id: "resp_capture", status: "in_progress", output: [] } },
+	{ type: "response.output_item.added", output_index: 0, item: { ...responsesMessage, status: "in_progress", content: [] } },
+	{ type: "response.content_part.added", item_id: "msg_capture", output_index: 0, content_index: 0, part: { type: "output_text", text: "", annotations: [] } },
+	{ type: "response.output_text.delta", item_id: "msg_capture", output_index: 0, content_index: 0, delta: "Captured." },
+	{ type: "response.output_text.done", item_id: "msg_capture", output_index: 0, content_index: 0, text: "Captured." },
+	{ type: "response.output_item.done", output_index: 0, item: responsesMessage },
+	{ type: "response.completed", response: { id: "resp_capture", status: "completed", output: [responsesMessage], usage: { input_tokens: 3, output_tokens: 1, total_tokens: 4 } } },
+].map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join("");
+const sseFor = (wire: string) =>
+	wire === "anthropic-messages" ? anthropicSse : wire === "google-generate" ? googleSse : wire === "openai-responses" ? responsesSse : completionsSse;
 
 let captured: any[] = [];
 let currentWire = "";
@@ -162,7 +173,27 @@ const geminiDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 	if (Object.keys(generationConfig).length) body.generationConfig = generationConfig;
 	return body;
 };
-const downstreamFor = (wire: string) => (wire === "anthropic-messages" ? claudeDownstream : wire === "google-generate" ? geminiDownstream : chatDownstream);
+const responsesDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
+	const input: any[] = [];
+	for (const turn of turns) {
+		if (turn.kind === "user")
+			input.push({ role: "user", content: turn.image ? [{ type: "input_text", text: turn.text }, { type: "input_image", image_url: `data:image/png;base64,${png}` }] : [{ type: "input_text", text: turn.text }] });
+		else if (turn.kind === "call") input.push({ type: "function_call", call_id: "call_capture_1", name: turn.tool ?? "lookup", arguments: JSON.stringify(toolArgs(turn.tool ?? "lookup")) });
+		else input.push({ type: "function_call_output", call_id: "call_capture_1", output: turn.text });
+	}
+	const body: any = { model: model.id, input, stream: true };
+	if (extra.system) body.instructions = extra.system;
+	if (extra.tools) body.tools = extra.tools.map((tool: any) => ({ type: "function", name: tool.name, description: tool.description, parameters: tool.parameters }));
+	if (opts.maxTokens) body.max_output_tokens = opts.maxTokens;
+	if (opts.temperature !== undefined) body.temperature = opts.temperature;
+	if (opts.disableReasoning) body.reasoning = { effort: "none" };
+	else if (opts.reasoning) body.reasoning = { effort: opts.reasoning };
+	if (opts.textVerbosity) body.text = { verbosity: opts.textVerbosity };
+	if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice;
+	return body;
+};
+const downstreamFor = (wire: string) =>
+	wire === "anthropic-messages" ? claudeDownstream : wire === "google-generate" ? geminiDownstream : wire === "openai-responses" ? responsesDownstream : chatDownstream;
 
 const outDir = join(import.meta.dir, "neopi_factory_droid");
 mkdirSync(outDir, { recursive: true });
@@ -195,6 +226,10 @@ try {
 		if (wire === "openai-completions") {
 			add("long-tool-name", historyOf({ tool: dottedName }), { reasoning: efforts[0] }, { tools: [lookup, dotted] });
 			add("forced-named", ask, { reasoning: efforts[0], toolChoice: { type: "function", function: { name: "lookup" } } }, { tools: [lookup] });
+		}
+		if (wire === "openai-responses") {
+			add("verbosity", hello, { reasoning: efforts[0], textVerbosity: "low" });
+			add("forced-named", ask, { reasoning: efforts[0], toolChoice: { type: "function", name: "lookup" } }, { tools: [lookup] });
 		}
 		if (model.input.includes("image")) add("user-image", describe, { reasoning: efforts[0] });
 		}
