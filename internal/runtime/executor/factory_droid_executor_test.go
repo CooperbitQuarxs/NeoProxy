@@ -66,7 +66,7 @@ func TestFactoryDroidReplaysNeoPiRequests(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer server.Close()
-	for _, wire := range []string{"anthropic-messages"} {
+	for _, wire := range []string{"anthropic-messages", "openai-completions"} {
 		capture := loadFactoryDroidCapture(t, "testdata/neopi_factory_droid/"+wire+".json.gz")
 		t.Run(wire, func(t *testing.T) {
 			exec := NewFactoryDroidExecutor(&config.Config{})

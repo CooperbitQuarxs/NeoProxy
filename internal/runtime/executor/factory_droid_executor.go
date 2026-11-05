@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	"github.com/tidwall/gjson"
@@ -31,11 +33,15 @@ type FactoryDroidExecutor struct {
 	cfg *config.Config
 	// newID mints a request's x-assistant-message-id (crypto.randomUUID).
 	newID func() string
+	// completions is the shared Chat Completions port each attempt copies
+	// with its own route hooks.
+	completions *NeoPiCompletionsExecutor
 }
 
 // NewFactoryDroidExecutor builds the Factory Droid executor.
 func NewFactoryDroidExecutor(cfg *config.Config) *FactoryDroidExecutor {
-	return &FactoryDroidExecutor{cfg: cfg, newID: uuid.NewString}
+	return &FactoryDroidExecutor{cfg: cfg, newID: uuid.NewString,
+		completions: NewNeoPiCompletionsExecutor(factorydroid.Provider, cfg, NeoPiCompletionsProfile{})}
 }
 
 // Identifier is the provider key.
@@ -288,23 +294,175 @@ func factoryDroidMessagesSystem(payload []byte) []byte {
 	return neoPiSetRaw(payload, "system", jsjson.Marshal(blocks))
 }
 
+// completionsRow is the shared transport's openai-completions model for the
+// attempt's route, its compat carrying the route dialect's reasoning fields
+// as extraBody.
+func (a *factoryDroidAttempt) completionsRow() (*registry.NeoPiModel, error) {
+	var compat registry.NeoPiCompletionsCompat
+	if err := json.Unmarshal(a.route.Compat, &compat); err != nil {
+		return nil, fmt.Errorf("factory-droid: route compat for %s: %w", a.model.ID, err)
+	}
+	return &registry.NeoPiModel{ID: a.model.ID, Name: a.model.Name, API: "openai-completions", Provider: factorydroid.Provider, BaseURL: a.baseURL,
+		Reasoning: a.route.Reasoning, Input: slices.Clone(a.model.Input), ContextWindow: a.contextWindow, MaxTokens: a.maxTokens,
+		Thinking: a.route.Thinking.Clone(), CompletionsCompat: &compat}, nil
+}
+
+// completionsExecutor is the shared Chat Completions port bound to one
+// attempt (streamCompletionsWire): the route dialect owns every reasoning
+// field, temperature defaults to droid's 1, tool names over the route's
+// bound go out in the CLI's capped form and come back under the caller's.
+func (e *FactoryDroidExecutor) completionsExecutor(a *factoryDroidAttempt) (*NeoPiCompletionsExecutor, error) {
+	row, err := a.completionsRow()
+	if err != nil {
+		return nil, err
+	}
+	maxLength := 64
+	if bound, ok := a.route.Catalog["toolCallNameMaxLength"].(float64); ok {
+		maxLength = int(bound)
+	}
+	encode := func(name string) string { return helps.FactoryDroidCompletionsToolName(name, maxLength) }
+	var byWire map[string]string
+	served := false
+	exec := *e.completions
+	exec.profile = NeoPiCompletionsProfile{
+		Provider: factorydroid.Provider,
+		Row:      func(string, string) *registry.NeoPiModel { return row },
+		APIKey:   func(*cliproxyauth.Auth) string { return a.token },
+		URL: func(row *registry.NeoPiModel) string {
+			return strings.TrimRight(row.BaseURL, "/") + "/chat/completions"
+		},
+		Request: func(_ context.Context, _ *cliproxyauth.Auth, row *registry.NeoPiModel, translated []byte) ([]byte, error) {
+			effort, off := a.effort(translated, "openai")
+			extra := map[string]any{}
+			if reasoning := helps.FactoryDroidCompletionsReasoning(a.policyString("completionsReasoningMode"), a.policyString("completionsReasoningHistory"), effort, off); len(reasoning) > 0 {
+				if errExtra := json.Unmarshal(reasoning, &extra); errExtra != nil {
+					return nil, errExtra
+				}
+			}
+			row.CompletionsCompat.ExtraBody = extra
+			var names []string
+			for _, tool := range gjson.GetBytes(translated, "tools").Array() {
+				names = append(names, tool.Get("function.name").String())
+			}
+			var errNames error
+			if byWire, errNames = helps.FactoryDroidToolNamesByWire(names, encode); errNames != nil {
+				return nil, statusErr{code: http.StatusBadRequest, msg: errNames.Error()}
+			}
+			for _, message := range gjson.GetBytes(translated, "messages").Array() {
+				served = served || message.Get("role").String() == "assistant"
+			}
+			return factoryDroidCompletionsRequest(translated, encode), nil
+		},
+		SessionID: func(cliproxyexecutor.Request, cliproxyexecutor.Options) string { return a.session },
+		Headers: func(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, _ string, _ *registry.NeoPiModel, headers http.Header, _ string) {
+			factoryDroidApplyIdentity(ctx, auth, incoming, headers, a.identityHeaders(served))
+		},
+		Line: func(line []byte) []byte { return factoryDroidDecodeToolNames(line, byWire) },
+	}
+	return &exec, nil
+}
+
+// factoryDroidCompletionsRequest is what streamCompletionsWire hands the
+// shared builder: the Droid prefix ahead of the system prompt, the route
+// dialect's reasoning in place of the caller's, droid's temperature unless
+// the caller set one, and tool names in their wire form.
+func factoryDroidCompletionsRequest(translated []byte, encode func(string) string) []byte {
+	for _, name := range []string{"reasoning_effort", "reasoning"} {
+		translated = neoPiDelete(translated, name)
+	}
+	if !gjson.GetBytes(translated, "temperature").Exists() {
+		translated = neoPiSetRaw(translated, "temperature", jsjson.Marshal(helps.FactoryDroidCompletionsTemperature))
+	}
+	messages := []json.RawMessage{jsjson.Object(jsjson.Field{Name: "role", Value: jsjson.Marshal("system")}, jsjson.Field{Name: "content", Value: jsjson.Marshal(helps.FactoryDroidSystemPrefix)})}
+	for _, message := range gjson.GetBytes(translated, "messages").Array() {
+		raw := []byte(message.Raw)
+		for index, call := range message.Get("tool_calls").Array() {
+			raw = neoPiSet(raw, fmt.Sprintf("tool_calls.%d.function.name", index), encode(call.Get("function.name").String()))
+		}
+		messages = append(messages, raw)
+	}
+	translated = neoPiSetRaw(translated, "messages", jsjson.Marshal(messages))
+	for index, tool := range gjson.GetBytes(translated, "tools").Array() {
+		translated = neoPiSet(translated, fmt.Sprintf("tools.%d.function.name", index), encode(tool.Get("function.name").String()))
+	}
+	if name := gjson.GetBytes(translated, "tool_choice.function.name"); name.Exists() {
+		translated = neoPiSet(translated, "tool_choice.function.name", encode(name.String()))
+	} else if name := gjson.GetBytes(translated, "tool_choice.name"); name.Exists() {
+		translated = neoPiSet(translated, "tool_choice.name", encode(name.String()))
+	}
+	return translated
+}
+
+// factoryDroidDecodeToolNames returns streamed tool calls under the caller's
+// declared name.
+func factoryDroidDecodeToolNames(line []byte, byWire map[string]string) []byte {
+	payload, framed := bytes.CutPrefix(line, []byte("data: "))
+	if !framed || !gjson.ValidBytes(payload) {
+		return line
+	}
+	changed := false
+	for choice, entry := range gjson.GetBytes(payload, "choices").Array() {
+		for call, toolCall := range entry.Get("delta.tool_calls").Array() {
+			name := toolCall.Get("function.name")
+			if caller, ok := byWire[name.String()]; ok && name.Exists() && caller != name.String() {
+				payload = neoPiSet(payload, fmt.Sprintf("choices.%d.delta.tool_calls.%d.function.name", choice, call), caller)
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return line
+	}
+	return append([]byte("data: "), payload...)
+}
+
+// factoryDroidApplyIdentity puts droid's identity headers on a request: NeoPi
+// spreads the caller's headers over the identity set, so the account's
+// configured headers win where they name the same header.
+func factoryDroidApplyIdentity(ctx context.Context, auth *cliproxyauth.Auth, incoming, headers, identity http.Header) {
+	configured := make(http.Header)
+	if auth != nil {
+		util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, incoming)
+	}
+	for name, values := range identity {
+		if value := configured.Get(name); value != "" {
+			headers.Set(name, value)
+			continue
+		}
+		headers[name] = values
+	}
+}
+
+// factoryDroidWireExecutor is the shared transport one route's wire runs on.
+type factoryDroidWireExecutor interface {
+	Execute(context.Context, *cliproxyauth.Auth, cliproxyexecutor.Request, cliproxyexecutor.Options) (cliproxyexecutor.Response, error)
+	ExecuteStream(context.Context, *cliproxyauth.Auth, cliproxyexecutor.Request, cliproxyexecutor.Options) (*cliproxyexecutor.StreamResult, error)
+}
+
+// wireExecutor is streamWire: the attempt's wire on its shared transport.
+func (e *FactoryDroidExecutor) wireExecutor(a *factoryDroidAttempt) (factoryDroidWireExecutor, error) {
+	switch a.wire {
+	case factorydroid.WireMessages:
+		return e.messagesExecutor(a)
+	case factorydroid.WireCompletions:
+		return e.completionsExecutor(a)
+	default:
+		return nil, statusErr{code: http.StatusNotImplemented, msg: fmt.Sprintf("factory-droid: %s wire is not served", a.wire)}
+	}
+}
+
 // Execute runs one non-streaming request.
 func (e *FactoryDroidExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
 	a, err := e.attempt(auth, req, opts)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
-	switch a.wire {
-	case factorydroid.WireMessages:
-		messages, errMessages := e.messagesExecutor(a)
-		if errMessages != nil {
-			return cliproxyexecutor.Response{}, errMessages
-		}
-		response, errExecute := messages.Execute(ctx, auth, req, opts)
-		return response, factoryDroidRegionError(a.model.ID, errExecute)
-	default:
-		return cliproxyexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: fmt.Sprintf("factory-droid: %s wire is not served", a.wire)}
+	wire, err := e.wireExecutor(a)
+	if err != nil {
+		return cliproxyexecutor.Response{}, err
 	}
+	response, err := wire.Execute(ctx, auth, req, opts)
+	return response, factoryDroidRegionError(a.model.ID, err)
 }
 
 // ExecuteStream relays the upstream stream in the client's format.
@@ -313,20 +471,15 @@ func (e *FactoryDroidExecutor) ExecuteStream(ctx context.Context, auth *cliproxy
 	if err != nil {
 		return nil, err
 	}
-	switch a.wire {
-	case factorydroid.WireMessages:
-		messages, errMessages := e.messagesExecutor(a)
-		if errMessages != nil {
-			return nil, errMessages
-		}
-		result, errStream := messages.ExecuteStream(ctx, auth, req, opts)
-		if errStream != nil {
-			return nil, factoryDroidRegionError(a.model.ID, errStream)
-		}
-		return factoryDroidRegionStream(a.model.ID, result), nil
-	default:
-		return nil, statusErr{code: http.StatusNotImplemented, msg: fmt.Sprintf("factory-droid: %s wire is not served", a.wire)}
+	wire, err := e.wireExecutor(a)
+	if err != nil {
+		return nil, err
 	}
+	result, err := wire.ExecuteStream(ctx, auth, req, opts)
+	if err != nil {
+		return nil, factoryDroidRegionError(a.model.ID, err)
+	}
+	return factoryDroidRegionStream(a.model.ID, result), nil
 }
 
 // factoryDroidRegionError is asRegionUnavailableError: a region rejection
