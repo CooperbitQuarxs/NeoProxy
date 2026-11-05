@@ -43,7 +43,12 @@ const captureFetch = Object.assign(
 );
 
 const key = "fixture-key-0123456789abcdef";
-const providers = ["cerebras", "deepseek", "fireworks", "huggingface", "moonshot", "nanogpt", "nvidia", "together"];
+const providers = [
+	"cerebras", "deepseek", "fireworks", "huggingface", "moonshot", "nanogpt", "nvidia", "together",
+	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
+	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
+	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan",
+];
 const statuses = [
 	{ name: "ok" },
 	{ name: "http-401", status: 401, body: { error: { message: "Incorrect API key provided", code: "invalid_api_key" } } },
