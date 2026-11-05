@@ -61,7 +61,7 @@ func TestNeoPiResponsesExecutorServesMetaKeyAsNeoPi(t *testing.T) {
 	if got := recorded.headers.Get("Authorization"); got != "Bearer LLM|payg" {
 		t.Errorf("Authorization %q", got)
 	}
-	if got := recorded.headers.Get("User-Agent"); got != "Bun/1.3.14" {
+	if got := recorded.headers.Get("User-Agent"); got != "npi/18.14.0" {
 		t.Errorf("User-Agent %q", got)
 	}
 	if recorded.headers.Get("x-api-version") != "" {

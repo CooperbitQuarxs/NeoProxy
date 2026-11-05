@@ -9,11 +9,14 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 )
 
-// NeoPiUserAgent is USER_AGENT of the NeoPi build these ports follow.
+// NeoPiUserAgent is USER_AGENT of the NeoPi build these ports follow. NeoPi's
+// transportFetch (withInferenceUserAgent) sets it on every inference request
+// that names no User-Agent of its own.
 const NeoPiUserAgent = "npi/" + neopiversion.Version
 
-// BunUserAgent is the User-Agent Bun's fetch sends when NeoPi's request names
-// none: every Responses host but xAI (which sets USER_AGENT itself) sees it.
+// BunUserAgent is the User-Agent Bun's fetch sends when a request names none
+// and does not go through NeoPi's inference transport: discovery, key
+// validation and other side requests.
 const BunUserAgent = "Bun/1.3.14"
 
 // firstEventTimeoutSeconds preserves NeoPi's X-Stainless-Timeout header.
@@ -43,11 +46,7 @@ func ShapeResponses(model *registry.NeoPiModel, ctx Context, opts Options, acces
 			header.Set(name, key)
 		}
 	}
-	if model.Provider == "xai" || model.Provider == "xai-oauth" {
-		header.Set("User-Agent", NeoPiUserAgent)
-	} else {
-		header.Set("User-Agent", BunUserAgent)
-	}
+	header.Set("User-Agent", NeoPiUserAgent)
 	header.Set("Authorization", "Bearer "+accessToken)
 	header.Set("X-Stainless-Timeout", firstEventTimeoutSeconds)
 	return &Request{URL: baseURL + "/responses", Header: header, Body: BuildResponses(model, ctx, opts)}
