@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -20,6 +21,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
@@ -103,9 +105,10 @@ func ResolveCallback() (Callback, error) {
 			return Callback{}, fmt.Errorf("Invalid redirect URI override: %s", override)
 		}
 	}
+	// URL.pathname: a URL without a path returns to "/".
 	path := parsed.EscapedPath()
 	if path == "" {
-		path = CallbackPath
+		path = "/"
 	}
 	callback := Callback{Host: CallbackHost, Port: 0, Path: path, RedirectURI: override}
 	if loopback {
@@ -115,7 +118,8 @@ func ResolveCallback() (Callback, error) {
 }
 
 // Listen binds the callback. localhost binds both loopback families on one
-// port, as NeoPi does, so a browser resolving ::1 first still reaches it; a
+// port, as NeoPi does, so a browser resolving ::1 first still reaches it. A
+// port another process holds on ::1 is in use like one held on 127.0.0.1; a
 // host without IPv6 serves on IPv4 alone. The returned redirect URI is the
 // one to advertise.
 func (c Callback) Listen() ([]net.Listener, string, error) {
@@ -127,16 +131,25 @@ func (c Callback) Listen() ([]net.Listener, string, error) {
 			}
 			return []net.Listener{listener}, nil
 		}
-		primary, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
-		if err != nil {
-			return nil, err
+		for attempt := 0; ; attempt++ {
+			primary, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+			if err != nil {
+				return nil, err
+			}
+			bound := primary.Addr().(*net.TCPAddr).Port
+			companion, errSix := net.Listen("tcp", net.JoinHostPort("::1", strconv.Itoa(bound)))
+			if errSix == nil {
+				return []net.Listener{primary, companion}, nil
+			}
+			if !addressInUse(errSix) {
+				return []net.Listener{primary}, nil
+			}
+			_ = primary.Close()
+			// A chosen port has no alternative; a free one is drawn again.
+			if port != 0 || attempt >= ipv6CompanionAttempts {
+				return nil, errSix
+			}
 		}
-		listeners := []net.Listener{primary}
-		bound := primary.Addr().(*net.TCPAddr).Port
-		if companion, errSix := net.Listen("tcp", net.JoinHostPort("::1", strconv.Itoa(bound))); errSix == nil {
-			listeners = append(listeners, companion)
-		}
-		return listeners, nil
 	}
 	listeners, err := listen(c.Port)
 	if err != nil {
@@ -155,6 +168,17 @@ func (c Callback) Listen() ([]net.Listener, string, error) {
 	}
 	port := listeners[0].Addr().(*net.TCPAddr).Port
 	return listeners, fmt.Sprintf("http://%s:%d%s", c.Host, port, c.Path), nil
+}
+
+// ipv6CompanionAttempts is IPV6_COMPANION_ATTEMPTS: how often a free port
+// whose ::1 twin is taken is drawn again.
+const ipv6CompanionAttempts = 4
+
+// addressInUse reports a bind that failed because another socket holds the
+// address (EADDRINUSE, or WSAEADDRINUSE on Windows).
+func addressInUse(err error) bool {
+	var errno syscall.Errno
+	return errors.As(err, &errno) && (errno == syscall.EADDRINUSE || errno == 10048)
 }
 
 // Session is one sign-in (DeclarativeOAuthCodeFlow): the client, CSRF state,

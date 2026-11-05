@@ -3,7 +3,9 @@ package gitlabduo
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -214,5 +216,56 @@ func TestGitLabDuoRefreshMatchesNeoPi(t *testing.T) {
 			assertGitLabDuoRequests(t, transport.seen, refresh.Requests)
 			assertGitLabDuoOutcome(t, credential, err, refresh.Credentials, refresh.Error)
 		})
+	}
+}
+
+// NeoPi's localhost callback (OAuthCallbackFlow#createServer) serves both
+// loopback families on one port. A port another process holds on ::1 is in
+// use: an unpinned sign-in moves to a free port, a pinned one fails, and
+// neither advertises a localhost URL ::1 would hand to that process.
+func TestGitLabDuoCallbackTreatsIPv6CollisionAsInUse(t *testing.T) {
+	held, err := net.Listen("tcp", "[::1]:0")
+	if err != nil {
+		t.Skipf("no IPv6 loopback: %v", err)
+	}
+	defer func() { _ = held.Close() }()
+	port := held.Addr().(*net.TCPAddr).Port
+	closeAll := func(listeners []net.Listener) {
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
+	}
+
+	listeners, redirectURI, err := Callback{Host: "localhost", Port: port, Path: "/callback", PortFallback: true}.Listen()
+	if err != nil {
+		t.Fatalf("fallback sign-in: %v", err)
+	}
+	closeAll(listeners)
+	if bound := listeners[0].Addr().(*net.TCPAddr).Port; bound == port || len(listeners) != 2 {
+		t.Fatalf("fallback bound port %d with %d listeners (%s); ::1 holds %d", bound, len(listeners), redirectURI, port)
+	}
+
+	for name, callback := range map[string]Callback{
+		"no fallback": {Host: "localhost", Port: port, Path: "/callback"},
+		"pinned":      {Host: "localhost", Port: port, Path: "/callback", RedirectURI: fmt.Sprintf("http://localhost:%d/callback", port)},
+	} {
+		listeners, _, err := callback.Listen()
+		closeAll(listeners)
+		if err == nil {
+			t.Fatalf("%s: listened beside the ::1 holder of port %d", name, port)
+		}
+	}
+}
+
+// A redirect override names its path as WHATWG URL.pathname does: a URL
+// without one returns to "/".
+func TestGitLabDuoRedirectOverrideWithoutPathReturnsToRoot(t *testing.T) {
+	t.Setenv("GITLAB_REDIRECT_URI", "http://127.0.0.1:9123")
+	callback, err := ResolveCallback()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if callback.Path != "/" {
+		t.Fatalf("callback path = %q, NeoPi serves %q", callback.Path, "/")
 	}
 }
