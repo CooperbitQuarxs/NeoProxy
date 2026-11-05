@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 )
 
 // Provider is NeoPi's provider id.
@@ -250,7 +251,14 @@ func tokenRequest(ctx context.Context, client *http.Client, operation string, fo
 		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	// The request advertises encodings, so Go leaves decoding to us; NeoPi's
+	// fetch decodes them before reading the text.
+	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
+	if err != nil {
+		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
+	}
+	defer func() { _ = decoded.Close() }()
+	data, err := io.ReadAll(io.LimitReader(decoded, 1<<20))
 	if err != nil {
 		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
 	}

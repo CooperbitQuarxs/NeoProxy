@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopiversion"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/tidwall/gjson"
 )
 
@@ -87,7 +88,14 @@ func mintDirectAccess(ctx context.Context, client *http.Client, gitlabToken stri
 		return DirectAccess{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	// The request advertises encodings, so Go leaves decoding to us; NeoPi's
+	// fetch decodes them before parsing the JSON.
+	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
+	if err != nil {
+		return DirectAccess{}, err
+	}
+	defer func() { _ = decoded.Close() }()
+	data, err := io.ReadAll(decoded)
 	if err != nil {
 		return DirectAccess{}, err
 	}
