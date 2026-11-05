@@ -364,25 +364,13 @@ func TestFactoryDroidRejectsUnsupportedEffort(t *testing.T) {
 			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
 		{"gemini-snake-thinking-container", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinking_config":{"thinkingLevel":"minimal"}}}`,
 			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
+		{"gemini-level-lowercased", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generation_config":{"thinking_config":{"thinking_level":"MINIMAL"}}}`,
+			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
 		{"non-reasoning", "gpt-image-2.5-sunburst", `{"model":"gpt-image-2.5-sunburst","input":"hi","reasoning":{"effort":"high"}}`,
 			"Model factory-droid/gpt-image-2.5-sunburst does not support thinking", sdktranslator.FormatOpenAIResponse},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			sent := false
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				sent = true
-				w.WriteHeader(http.StatusBadRequest)
-			}))
-			defer server.Close()
-			entry := registry.FactoryDroidModelFor(tc.model)
-			if entry == nil {
-				t.Fatalf("no registry model %s", tc.model)
-			}
-			row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
-			row.BaseURL = server.URL + "/api"
-			auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
-			req := cliproxyexecutor.Request{Model: tc.model, Payload: []byte(tc.payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
-			_, err := NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: tc.format, OriginalRequest: []byte(tc.payload)})
+			sent, err := factoryDroidEffortAttempt(t, tc.model, tc.format, tc.payload)
 			var coded interface{ StatusCode() int }
 			if err == nil || err.Error() != tc.want || !errors.As(err, &coded) || coded.StatusCode() != http.StatusBadRequest {
 				t.Errorf("err = %v, want a 400 %q", err, tc.want)
@@ -392,6 +380,52 @@ func TestFactoryDroidRejectsUnsupportedEffort(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A Gemini request names an effort only as the native request reader reads
+// one: the first existing container and level of either spelling, and only
+// a string level. A level of another type (shadowing a string one under the
+// other spelling included) or a budget names none, and the request is sent.
+func TestFactoryDroidSendsGeminiWithoutNamedEffort(t *testing.T) {
+	contents := `"contents":[{"role":"user","parts":[{"text":"hi"}]}]`
+	for _, tc := range []struct{ name, thinking string }{
+		{"numeric level", `"generation_config":{"thinking_config":{"thinkingLevel":1}}`},
+		{"boolean level with budget", `"generationConfig":{"thinking_config":{"thinkingLevel":false,"thinking_budget":4096}}`},
+		{"object level", `"generation_config":{"thinking_config":{"thinking_level":{}}}`},
+		{"numeric level shadows string level", `"generation_config":{"thinkingConfig":{"thinkingLevel":1,"thinking_level":"minimal"}}`},
+		{"budget under snake containers", `"generation_config":{"thinking_config":{"thinking_budget":4096}}`},
+		{"budget under camel containers", `"generationConfig":{"thinkingConfig":{"thinkingBudget":4096}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sent, err := factoryDroidEffortAttempt(t, "garnet-07-15", sdktranslator.FormatGemini, `{`+contents+`,`+tc.thinking+`}`)
+			if !sent {
+				t.Errorf("the request was refused before the upstream: %v", err)
+			}
+		})
+	}
+}
+
+// factoryDroidEffortAttempt executes payload on a Factory row against a
+// loopback upstream answering 400, reporting whether anything was sent and
+// the error.
+func factoryDroidEffortAttempt(t *testing.T, model string, format sdktranslator.Format, payload string) (bool, error) {
+	t.Helper()
+	sent := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = true
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+	entry := registry.FactoryDroidModelFor(model)
+	if entry == nil {
+		t.Fatalf("no registry model %s", model)
+	}
+	row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
+	row.BaseURL = server.URL + "/api"
+	auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
+	req := cliproxyexecutor.Request{Model: model, Payload: []byte(payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
+	_, err := NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: format, OriginalRequest: []byte(payload)})
+	return sent, err
 }
 
 // A region rejection explains itself without excluding the model, keeping
