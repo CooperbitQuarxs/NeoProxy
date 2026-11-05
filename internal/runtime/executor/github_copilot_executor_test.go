@@ -236,6 +236,49 @@ func TestGitHubCopilotIdentityFallback(t *testing.T) {
 	}
 }
 
+// Headers the account configures are NeoPi's caller headers on every
+// Copilot API: they reach the upstream over the model's own headers (a
+// configured X-GitHub-Api-Version included), and their X-Initiator decides
+// the turn's initiator and interaction type over the inferred one, as
+// NeoPi's own streamSimple sends with options.headers set.
+func TestGitHubCopilotConfiguredHeaders(t *testing.T) {
+	t.Setenv("COPILOT_INTEGRATION_ID", "")
+	var sent http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = r.Header.Clone()
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+	for _, wire := range []struct {
+		api, payload string
+		format       sdktranslator.Format
+	}{
+		{"anthropic-messages", `{"max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatClaude},
+		{"openai-completions", `{"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatOpenAI},
+		{"openai-responses", `{"input":"hi"}`, sdktranslator.FormatOpenAIResponse},
+	} {
+		t.Run(wire.api, func(t *testing.T) {
+			sent = nil
+			row := githubCopilotRowOnAPI(t, wire.api)
+			row.BaseURL = server.URL
+			auth := &cliproxyauth.Auth{ID: "copilot-configured", Provider: "github-copilot",
+				Metadata:   map[string]any{"type": "github-copilot", "access_token": "ghu_configured_" + wire.api},
+				Attributes: map[string]string{"header:X-Initiator": "agent", "header:X-Configured": "present", "header:X-GitHub-Api-Version": "2099-01-01"}}
+			payload := []byte(`{"model":"` + row.ID + `",` + wire.payload[1:])
+			_, _ = NewGitHubCopilotExecutor(&config.Config{}).Execute(context.Background(), auth, cliproxyexecutor.Request{Model: row.ID, Payload: payload,
+				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.GitHubCopilotModelInfo(row)}},
+				cliproxyexecutor.Options{SourceFormat: wire.format, OriginalRequest: payload})
+			if sent == nil {
+				t.Fatal("no upstream request")
+			}
+			got := []string{sent.Get("X-Initiator"), sent.Get("X-Interaction-Type"), sent.Get("X-Configured"), sent.Get("X-GitHub-Api-Version")}
+			if want := []string{"agent", "conversation-agent", "present", "2099-01-01"}; !reflect.DeepEqual(got, want) {
+				t.Fatalf("X-Initiator, X-Interaction-Type, X-Configured, X-GitHub-Api-Version = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func githubCopilotRowOnAPI(t *testing.T, api string) *registry.NeoPiModel {
 	t.Helper()
 	bundled, err := registry.GitHubCopilotBundledModels()

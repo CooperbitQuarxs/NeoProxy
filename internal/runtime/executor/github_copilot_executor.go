@@ -46,6 +46,9 @@ type githubCopilotAttempt struct {
 	// cached is that identity as the request's headers are built from it,
 	// the snapshot the fallback decides a reverse retry on.
 	cacheKey, cached string
+	// attrs carries the headers the account configured: NeoPi's caller
+	// headers, whose X-Initiator overrides the inferred initiator.
+	attrs map[string]string
 }
 
 // identityFallback scopes NeoPi's Copilot identity fallback to every client
@@ -83,9 +86,11 @@ func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexe
 	}
 	row.BaseURL = githubcopilot.ResolveBaseURL(row.BaseURL, credential)
 	explicit := ""
+	var attrs map[string]string
 	if auth != nil {
+		attrs = auth.Attributes
 		configured := make(http.Header)
-		util.ApplyCustomHeadersFromAttrs(&http.Request{Header: configured}, auth.Attributes)
+		util.ApplyCustomHeadersFromAttrs(&http.Request{Header: configured}, attrs)
 		explicit = configured.Get("Copilot-Integration-Id")
 	}
 	if githubcopilot.NormalizeIntegrationID(explicit) == "" {
@@ -93,17 +98,28 @@ func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexe
 	}
 	cacheKey := helps.GitHubCopilotIntegrationCacheKey(credential, row.BaseURL)
 	return &githubCopilotAttempt{row: row, credential: credential, explicit: explicit, cacheKey: cacheKey,
-		cached: helps.GitHubCopilotCachedIntegrationID(cacheKey)}, nil
+		cached: helps.GitHubCopilotCachedIntegrationID(cacheKey), attrs: attrs}, nil
 }
 
-// dynamicHeaders is the turn's Copilot identity over headers, NeoPi's
-// model headers first, the dynamic set over them.
+// dynamicHeaders is the turn's Copilot identity over headers. NeoPi's model
+// headers sit under the configured (caller) ones, so they only fill names the
+// account did not configure, and the dynamic set lands over both
+// (resolveOpenAIRequestSetup; the Anthropic branch reapplies the caller's
+// headers after). The initiator is the client's X-Initiator, else the
+// configured one (buildCopilotDynamicHeaders reads the merged model and
+// caller headers), else the inferred one.
 func (a *githubCopilotAttempt) dynamicHeaders(headers, incoming http.Header, initiator string, hasImages bool) {
+	configured := make(http.Header)
+	util.ApplyCustomHeadersFromAttrs(&http.Request{Header: configured}, a.attrs, incoming)
 	if override := helps.GitHubCopilotInitiatorOverride(incoming); override != "" {
+		initiator = override
+	} else if override := helps.GitHubCopilotInitiatorOverride(configured); override != "" {
 		initiator = override
 	}
 	for name, values := range githubcopilot.APIHeaders() {
-		headers[name] = values
+		if _, set := configured[name]; !set {
+			headers[name] = values
+		}
 	}
 	for name, values := range helps.GitHubCopilotDynamicHeaders(initiator, hasImages, a.explicit, a.cached, a.credential.EnterpriseURL != "") {
 		headers[name] = values
@@ -165,8 +181,11 @@ func (e *GitHubCopilotExecutor) wire(a *githubCopilotAttempt, req cliproxyexecut
 			},
 			// NeoPi's Responses server boundary keeps a user turn's content as
 			// its native item (parseRequest), so its messages carry no image
-			// content and the Responses route never asks for vision.
-			headers: func(_ context.Context, _ *cliproxyauth.Auth, header, clientHeaders http.Header) {
+			// content and the Responses route never asks for vision. The
+			// configured headers land first and the dynamic set over them, as
+			// resolveOpenAIRequestSetup merges options.headers.
+			headers: func(ctx context.Context, _ *cliproxyauth.Auth, header, clientHeaders http.Header) {
+				util.ApplyCustomHeadersFromAttrs((&http.Request{Header: header}).WithContext(ctx), a.attrs, clientHeaders)
 				a.dynamicHeaders(header, clientHeaders, initiator, false)
 			}}
 		return exec, nil
