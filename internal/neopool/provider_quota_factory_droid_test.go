@@ -1,11 +1,13 @@
 package neopool
 
 import (
+	"net/http"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
+	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
 // Factory Droid's billing limits become pool windows scoped to the models
@@ -50,5 +52,18 @@ func TestFactoryDroidUsageWindows(t *testing.T) {
 		if !slices.Contains(w.Models, tc.gates) || slices.Contains(w.Models, tc.free) {
 			t.Errorf("window %d gates %v; want %s gated and %s free", tc.index, w.Models, tc.gates, tc.free)
 		}
+	}
+}
+
+// NeoPi bounds the Factory billing read only by the caller's signal; once
+// connected, the probe carries no request or idle deadline (AGENTS.md).
+func TestFactoryDroidUsageProbeHasNoDeadline(t *testing.T) {
+	clients := &quotaClients{clients: map[string]*http.Client{}}
+	client := clients.client(&coreauth.Auth{ID: "factory", Provider: factorydroid.Provider})
+	if client.Timeout != 0 {
+		t.Errorf("client timeout = %v, want none", client.Timeout)
+	}
+	if transport, ok := client.Transport.(*http.Transport); !ok || transport.IdleConnTimeout != 0 {
+		t.Errorf("transport idle timeout = %v, want none", transport.IdleConnTimeout)
 	}
 }

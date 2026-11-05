@@ -108,6 +108,10 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		// NeoPi bounds Token Plan usage only by the caller's signal.
 		key += ":alibaba-token-plan"
 		timeout, idleTimeout = 0, 0
+	case a.Provider == factorydroid.Provider:
+		// NeoPi bounds Factory billing reads only by the caller's signal.
+		key += ":factory-droid"
+		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
