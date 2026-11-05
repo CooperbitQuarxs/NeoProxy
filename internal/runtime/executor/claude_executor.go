@@ -80,6 +80,15 @@ type neoPiThirdPartyProvider struct {
 	// Anthropic proxy, which takes NeoPi's Copilot header set rather than
 	// the SDK's (no Stainless fingerprint, no x-api-key, caller betas only).
 	copilot func(translated []byte, headers, incoming http.Header)
+	// oauth sends NeoPi's Claude Code OAuth shape (isOAuth): the
+	// installation identity, the signed body, Claude Code's betas and system
+	// block, prefixed tool names, ?beta=true, and the bearer under NeoPi's
+	// OAuth header policy. GitLab Duo's Anthropic proxy takes it.
+	oauth bool
+	// callerHeaders are headers NeoPi's caller passes under the account's
+	// configured ones (GitLab Duo's minted direct-access headers); they go
+	// through the same enforced-key policy.
+	callerHeaders http.Header
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {
@@ -215,7 +224,7 @@ func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, r
 	if oauth {
 		body = neoPiSignBody(body)
 	}
-	neoPiApplyHeaders(headers, auth, opts.Headers, credential, base, ctx)
+	neoPiApplyHeaders(headers, auth, opts.Headers, nil, credential, base, ctx)
 	path := "/v1/messages"
 	if oauth {
 		path += "?beta=true"
@@ -229,7 +238,7 @@ func (e *ClaudeExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Aut
 		return nil, err
 	}
 	request = request.Clone(ctx)
-	neoPiApplyHeaders(request.Header, auth, nil, credential, neoPiBaseURL(auth), ctx)
+	neoPiApplyHeaders(request.Header, auth, nil, nil, credential, neoPiBaseURL(auth), ctx)
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
 }
 

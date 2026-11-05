@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopiid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -91,6 +92,25 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		session = helps.ProviderSessionUUID(e.Identifier(), req.Metadata, opts.Metadata)
 	}
 	identity := neoPiWireIdentity{SessionID: session, APIKey: true}
+	if provider.oauth {
+		// isOAuth: the installation's device identity, with the account id
+		// the request's metadata names.
+		authDir := ""
+		if e.cfg != nil {
+			authDir = e.cfg.AuthDir
+		}
+		installID, errInstall := neopiid.InstallID(authDir)
+		if errInstall != nil {
+			return nil, errInstall
+		}
+		identity.APIKey, identity.InstallID = false, installID
+		for _, name := range []string{"account_uuid", "accountId", "account_id"} {
+			if value := gjson.GetBytes(translated, "metadata."+name); value.Type == gjson.String && value.String() != "" {
+				identity.AccountID = value.String()
+				break
+			}
+		}
+	}
 	// normalizeAnthropicBaseUrl: an endpoint named with its version (an
 	// account's .../v1) drops it before /v1/messages is appended.
 	base := strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(row.BaseURL), "/"), "/v1")
@@ -132,13 +152,24 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if row.RequestModelID != "" {
 		wireModel = row.RequestModelID
 	}
-	body, headers, err := projectNeoPiAnthropic(translated, wireModel, base, "", identity, profile)
+	version := ""
+	if provider.oauth {
+		version = anthropicnpi.WireVersion()
+	}
+	body, headers, err := projectNeoPiAnthropic(translated, wireModel, base, version, identity, profile)
 	if err != nil {
 		return nil, err
 	}
 	finalize := helps.NewPayloadFinalizer(e.cfg, e.Identifier(), model, "claude", "", originalTranslated, req, opts)
 	body = finalize(body)
-	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
+	credential := &anthropicnpi.Credential{APIKey: bearer}
+	path := "/v1/messages"
+	if provider.oauth {
+		body = neoPiSignBody(body)
+		credential = &anthropicnpi.Credential{AccessToken: bearer}
+		path += "?beta=true"
+	}
+	neoPiApplyHeaders(headers, auth, opts.Headers, provider.callerHeaders, credential, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
 	if factoryHeaders != nil {
 		// NeoPi spreads the caller's headers over the identity set: the
@@ -195,5 +226,5 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
 	}
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: place(base + "/v1/messages"), model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
+	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: place(base + path), model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames || provider.oauth, finalize: finalize}, nil
 }
