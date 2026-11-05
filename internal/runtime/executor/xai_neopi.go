@@ -96,6 +96,9 @@ func (e *XAIExecutor) shapeXaiNeoPi(ctx context.Context, auth *cliproxyauth.Auth
 	ctx = helps.WithPayloadFinalizer(ctx, helps.NewPayloadFinalizer(e.cfg, e.Identifier(), baseModel, to.String(), "", originalTranslated, req, opts))
 	token, _ := xaiCreds(auth)
 	conversation, options := openaiwire.FromResponses(body, model)
+	restoreNeoPiSourceIntent(from, originalPayload, &conversation, &options)
+	conversation.ReconstructAssistantHistory = true
+	conversation.NativeUserHistory = from == sdktranslator.FormatOpenAIResponse
 	options.SessionID = xaiNeoPiSessionID(req, opts)
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)
@@ -134,18 +137,42 @@ func (e *XAIExecutor) runXaiNeoPi(ctx context.Context, auth *cliproxyauth.Auth, 
 	return runner.Run(ctx, emit)
 }
 
+// xaiNeoPiNotFoundError marks the actual transport selected for this attempt;
+// the same xAI credential can also serve legacy or non-Responses requests.
+type xaiNeoPiNotFoundError struct{ error }
+
+func (e xaiNeoPiNotFoundError) Unwrap() error                { return e.error }
+func (e xaiNeoPiNotFoundError) NeoPiResponsesNotFound() bool { return true }
+
+// xaiNeoPiStreamError retains the transport frame and classification while
+// exposing the proxy's status contract.
+type xaiNeoPiStreamError struct {
+	statusErr
+	cause error
+}
+
+func (e xaiNeoPiStreamError) Unwrap() error { return e.cause }
+
 // xaiNeoPiError maps a transport failure onto the proxy's credential-aware errors.
 func xaiNeoPiError(err error) error {
 	var httpErr *openaiwire.HTTPError
 	if errors.As(err, &httpErr) {
-		return xaiStatusErr(httpErr.Status, httpErr.Body)
+		mapped := xaiStatusErr(httpErr.Status, httpErr.Body)
+		if httpErr.Status == http.StatusNotFound {
+			return xaiNeoPiNotFoundError{error: mapped}
+		}
+		return mapped
+	}
+	var inBand *openaiwire.InBandError
+	if errors.As(err, &inBand) {
+		return xaiNeoPiStreamError{statusErr: statusErr{code: inBand.Status, msg: inBand.Message, responseBody: inBand.Event}, cause: err}
 	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
 		if len(streamErr.Event) > 0 {
-			return statusErr{code: http.StatusBadGateway, msg: string(streamErr.Event)}
+			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: streamErr.Message, responseBody: streamErr.Event}, cause: err}
 		}
-		return statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}
+		return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}, cause: err}
 	}
 	return err
 }

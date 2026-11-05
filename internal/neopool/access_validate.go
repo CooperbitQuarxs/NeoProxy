@@ -15,6 +15,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -168,6 +169,9 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 // (see modelRoutes). Providers NeoProxy serves through NeoPi's own provider
 // check their keys the way NeoPi's sign-in does (see validateNeoPiKey).
 func validateCatalogKey(ctx context.Context, info ProviderInfo, base string, preferred regionChoice, key string) (string, []string, map[string]modelRoute, error) {
+	if registry.ResponsesProviderForBaseURL(base) != "" {
+		return base, nil, nil, validateResponsesKey(ctx, base, key)
+	}
 	if info.ID == "zai" {
 		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
 	}

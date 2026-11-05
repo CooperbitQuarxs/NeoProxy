@@ -72,6 +72,25 @@ func HTTPStatusFromErrorOr(err error, fallback int) int {
 	return fallback
 }
 
+// ErrorBody returns machine-readable upstream details when err implements
+// ResponseBody() []byte, including through wrappers. Error() remains the fallback
+// for legacy errors and failures without an upstream body.
+func ErrorBody(err error) string {
+	if err == nil {
+		return ""
+	}
+	type responseBodyProvider interface {
+		ResponseBody() []byte
+	}
+	var carrier responseBodyProvider
+	if errors.As(err, &carrier) && carrier != nil {
+		if body := carrier.ResponseBody(); len(body) > 0 {
+			return strings.TrimSpace(string(body))
+		}
+	}
+	return strings.TrimSpace(err.Error())
+}
+
 // IsRequestFault reports whether an upstream failure is caused by the request
 // and therefore must not rotate or penalize credentials.
 func IsRequestFault(status int, err error) bool {
@@ -145,14 +164,7 @@ func IsClaudeThreadNotFound(status int, err error) bool {
 	if status != http.StatusNotFound || err == nil {
 		return false
 	}
-	body := strings.TrimSpace(err.Error())
-	type responseBodyProvider interface {
-		ResponseBody() []byte
-	}
-	var responseBody responseBodyProvider
-	if errors.As(err, &responseBody) && responseBody != nil && len(responseBody.ResponseBody()) > 0 {
-		body = strings.TrimSpace(string(responseBody.ResponseBody()))
-	}
+	body := ErrorBody(err)
 	if body == "" {
 		return false
 	}
@@ -169,7 +181,7 @@ func hasModelNotFoundErrorBody(err error) bool {
 	if err == nil {
 		return false
 	}
-	body := strings.TrimSpace(err.Error())
+	body := ErrorBody(err)
 	if body == "" || !json.Valid([]byte(body)) {
 		return false
 	}
@@ -186,7 +198,7 @@ func hasAuthenticationErrorBody(err error) bool {
 	if err == nil {
 		return false
 	}
-	body := strings.TrimSpace(err.Error())
+	body := ErrorBody(err)
 	if body == "" || !json.Valid([]byte(body)) {
 		return false
 	}
@@ -202,7 +214,7 @@ func hasRequestFaultBody(err error) bool {
 	if err == nil {
 		return false
 	}
-	body := strings.TrimSpace(err.Error())
+	body := ErrorBody(err)
 	if body == "" || !json.Valid([]byte(body)) {
 		return false
 	}

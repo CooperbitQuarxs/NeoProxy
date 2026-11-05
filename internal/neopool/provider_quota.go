@@ -2,11 +2,13 @@ package neopool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -18,11 +20,14 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
+	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
@@ -49,10 +54,11 @@ const (
 )
 
 type quotaEntry struct {
-	windows []Window // last good reading
-	goodAt  time.Time
-	failing bool
-	gen     uint64 // request generation that produced this entry
+	windows   []Window        // last good reading
+	metaUsage *metaauth.Usage // accepted Muse report for idle-window carry-over
+	goodAt    time.Time
+	failing   bool
+	gen       uint64 // request generation that produced this entry
 }
 
 // quotaProber caches provider-reported windows by engine auth ID.
@@ -102,6 +108,10 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 	case tokenPlanCookie(a) != "":
 		// NeoPi bounds Token Plan usage only by the caller's signal.
 		key += ":alibaba-token-plan"
+		timeout, idleTimeout = 0, 0
+	case a.Provider == factorydroid.Provider:
+		// NeoPi bounds Factory billing reads only by the caller's signal.
+		key += ":factory-droid"
 		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
@@ -160,8 +170,12 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "kimi"
 	case "devin":
 		return "devin"
+	case "meta":
+		return "meta"
 	case "cursor":
 		return "cursor"
+	case factorydroid.Provider:
+		return factorydroid.Provider
 	}
 	return ""
 }
@@ -178,6 +192,10 @@ func tokenPlanCookie(a *coreauth.Auth) string {
 func quotaAccessToken(a *coreauth.Auth) string {
 	if a == nil {
 		return ""
+	}
+	if a.Provider == "meta" {
+		// A Muse sign-in is read with its account token, not the minted key.
+		return metaDeviceToken(a)
 	}
 	// The Token Plan usage report authenticates with the console session, not
 	// the inference key.
@@ -555,7 +573,56 @@ func cursorUsageWindows(usage *cursorauth.Usage) []Window {
 	return out
 }
 
-// fetch asks the provider for the account's current windows.
+// factoryDroidUsageWindows adapts NeoPi's Factory Droid report the way its
+// ranking strategy gates on it: each subscription pool (Standard credits,
+// Droid Core) gates only the models it bills (quota-tiers), so every pool
+// window is scoped to that pool's models, under every inventory id the
+// account registered them as (an OAuth alias or forced prefix renames one).
+// The extra usage balance is not a gate (a funded balance does not establish
+// permission to use it).
+func factoryDroidUsageWindows(a *coreauth.Auth, usage *factorydroid.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	registered := registry.GetGlobalRegistry().GetModelsForClient(a.ID)
+	kinds := map[string]string{"5h": "5h", "weekly": "week", "monthly": "month"}
+	for _, pool := range []string{"standard", "core"} {
+		billed := registry.FactoryDroidPoolModels(pool)
+		var models []string
+		for _, id := range billed {
+			models = append(models, inventoryModelID(a.Provider, id))
+		}
+		for _, info := range registered {
+			if info == nil || info.NeoPi == nil || !slices.Contains(billed, info.NeoPi.ID) {
+				continue
+			}
+			if id := inventoryModelID(a.Provider, info.ID); !slices.Contains(models, id) {
+				models = append(models, id)
+			}
+		}
+		for _, limit := range usage.Limits {
+			if limit.Window == nil || !strings.HasPrefix(limit.ID, "factory-droid:"+pool+":") {
+				continue
+			}
+			kind := kinds[strings.TrimPrefix(limit.ID, "factory-droid:"+pool+":")]
+			if kind == "" {
+				continue
+			}
+			var starts, resets time.Time
+			if limit.Window.ResetsAt != nil {
+				resets = time.UnixMilli(int64(*limit.Window.ResetsAt))
+				starts = resets.Add(-time.Duration(limit.Window.DurationMs) * time.Millisecond)
+			}
+			w := percentWindow(kind, limit.Amount.UsedFraction*100, starts, resets)
+			w.Models = models
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+// fetch asks stateless providers for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
 	if token == "" {
@@ -652,19 +719,41 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, fmt.Errorf("cursor usage: no usage endpoint answered")
 		}
 		return cursorUsageWindows(usage), nil
+	case factorydroid.Provider:
+		credential, ok := factorydroid.RecordCredential(a.Metadata)
+		if !ok {
+			return nil, fmt.Errorf("factory-droid usage: sign-in has no access token")
+		}
+		usage, err := factorydroid.FetchUsage(ctx, client, credential, now)
+		if err != nil {
+			return nil, err
+		}
+		return factoryDroidUsageWindows(a, usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
 
-// refresh fetches and caches one account. A failure keeps the last good reading.
+// refresh fetches and caches one account. Transient failures keep the last good
+// reading; definitive Muse auth/subscription failures invalidate it.
 // A result older than the stored one (a slow poll overtaken by a manual refresh)
-// is dropped, so a newer reading is never overwritten.
+// is dropped, so neither its windows nor its carry-over report can be published.
 func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Time) error {
 	q.mu.Lock()
 	q.gen++
 	gen := q.gen
+	previousMetaUsage := q.entries[a.ID].metaUsage
 	q.mu.Unlock()
-	windows, err := q.fetch(ctx, a, now)
+	var windows []Window
+	var metaUsage *metaauth.Usage
+	var err error
+	if quotaProvider(a) == "meta" {
+		metaUsage, err = fetchMetaUsage(ctx, q.clientFor(a), a, previousMetaUsage, now)
+		if err == nil {
+			windows = metaUsageWindows(metaUsage)
+		}
+	} else {
+		windows, err = q.fetch(ctx, a, now)
+	}
 	q.mu.Lock()
 	entry := q.entries[a.ID]
 	if entry.gen > gen {
@@ -673,13 +762,18 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 	}
 	wasFailing := entry.failing
 	if err == nil {
-		entry = quotaEntry{windows: windows, goodAt: now, gen: gen}
+		entry = quotaEntry{windows: windows, metaUsage: metaUsage, goodAt: now, gen: gen}
 	} else {
+		if isDefinitiveMetaUsageError(err) {
+			entry = quotaEntry{}
+		}
 		entry.failing = true
 		entry.gen = gen
-		if quotaProvider(a) == "alibaba-token-plan" {
+		var lostAccess *factorydroid.Error
+		if quotaProvider(a) == "alibaba-token-plan" || errors.As(err, &lostAccess) && (lostAccess.Status == http.StatusUnauthorized || lostAccess.Status == http.StatusForbidden) {
 			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
 			// an expired cookie or refused report makes the windows unknown.
+			// A Factory credential that lost access drops its cached quota.
 			entry.goodAt = time.Time{}
 		}
 	}

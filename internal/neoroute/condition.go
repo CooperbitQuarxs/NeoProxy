@@ -450,7 +450,7 @@ func (x *conditionScope) inScope(a neopool.Account) bool {
 
 // usage is the account's stage-semantics used fraction of its meter of kind.
 func (x *conditionScope) usage(a neopool.Account, kind string) (float64, bool) {
-	w, provider, metered := windowFor(a, kind, x.state.at)
+	w, provider, metered := windowFor(a, kind, x.model.ID, x.state.at)
 	if !metered {
 		return 0, false
 	}
@@ -534,7 +534,7 @@ func (x *conditionScope) lookup(field string) (any, bool) {
 	case "account.state":
 		return a.State, true
 	case "account.metered":
-		_, _, metered := windowFor(*a, x.stage.Window, x.state.at)
+		_, _, metered := windowFor(*a, x.stage.Window, x.model.ID, x.state.at)
 		return metered, true
 	case "account.usage":
 		return x.usage(*a, x.stage.Window)

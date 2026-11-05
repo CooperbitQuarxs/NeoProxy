@@ -51,6 +51,15 @@ type NeoPiCompletionsProfile struct {
 	Body func(ctx context.Context, auth *cliproxyauth.Auth, row *registry.NeoPiModel, body []byte) ([]byte, error)
 	// ModelID transforms the model id already resolved by NeoPi's compat rules.
 	ModelID func(ctx context.Context, auth *cliproxyauth.Auth, row *registry.NeoPiModel, modelID string) string
+	// Request runs on the validated Chat Completions request before NeoPi's
+	// shaping, for providers that pass the shared builder their own context
+	// and options (Factory Droid's system prefix and tool-name encoding).
+	Request func(ctx context.Context, auth *cliproxyauth.Auth, row *registry.NeoPiModel, translated []byte) ([]byte, error)
+	// SessionID replaces the options.sessionId the shared builder receives.
+	SessionID func(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string
+	// Line rewrites each normalized upstream stream line before usage and
+	// translation see it (Factory Droid's returned tool names).
+	Line func(line []byte) []byte
 }
 
 // NeoPiCompletionsExecutor serves a NeoPi openai-completions provider: the
@@ -245,6 +254,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	var usage helps.StreamUsageBuffer
 	var lines [][]byte
 	err = neoPiScanNormalizedCompletions(ctx, e.cfg, e.provider, row.CompletionsCompat, response.Header, response.Body, func(line []byte) error {
+		if e.profile.Line != nil {
+			line = e.profile.Line(line)
+		}
 		usage.ObserveOpenAIStream(line)
 		reporter.ObserveResponseModel(line)
 		lines = append(lines, line)
@@ -317,6 +329,9 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 			}
 		}
 		consumeErr := neoPiScanNormalizedCompletions(ctx, e.cfg, e.provider, row.CompletionsCompat, response.Header, response.Body, func(line []byte) error {
+			if e.profile.Line != nil {
+				line = e.profile.Line(line)
+			}
 			usage.ObserveOpenAIStream(line)
 			reporter.ObserveResponseModel(line)
 			for _, chunk := range sdktranslator.TranslateStream(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, prepared.body, line, &state) {
@@ -379,6 +394,11 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 	if translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "openai", e.provider); err != nil {
 		return nil, err
 	}
+	if e.profile.Request != nil {
+		if translated, err = e.profile.Request(ctx, auth, row, translated); err != nil {
+			return nil, err
+		}
+	}
 	sessionID := e.sessionID(req, opts)
 	body, err := neoPiCompletionsRequest(translated, row, neoPiCompletionsCall{SessionID: sessionID})
 	if err != nil {
@@ -435,6 +455,9 @@ func (e *NeoPiCompletionsExecutor) requestHeaders(ctx context.Context, auth *cli
 // sessionID is NeoPi's options.sessionId for a downstream request: the
 // client's prompt cache identity, else a stable per-conversation id.
 func (e *NeoPiCompletionsExecutor) sessionID(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
+	if e.profile.SessionID != nil {
+		return e.profile.SessionID(req, opts)
+	}
 	for _, payload := range [][]byte{opts.OriginalRequest, req.Payload} {
 		if key := strings.TrimSpace(gjson.GetBytes(payload, "prompt_cache_key").String()); key != "" {
 			return key

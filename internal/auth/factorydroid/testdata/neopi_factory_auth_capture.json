@@ -1,0 +1,1043 @@
+{
+  "source": "NeoPi OWN createDeviceCodeLogin/createRefresh (factory-droid) with the factory-droid-region hook",
+  "stored": {
+    "access": "old-access",
+    "refresh": "workos-refresh-stored",
+    "expires": 0,
+    "email": "stored@example.test",
+    "accountId": "user_fake",
+    "orgId": "org-factory-fake",
+    "activeOrganizationId": "org_workos_fake",
+    "region": "eu",
+    "inferenceRegion": "eu"
+  },
+  "normalizations": [
+    "synthetic credentials only",
+    "Bun.sleep records requested waits without sleeping",
+    "x-capture-origin names the host the request was addressed to"
+  ],
+  "scenarios": [
+    {
+      "kind": "login",
+      "name": "pending-slow-down-then-authorized",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "authorization_pending"
+          }
+        },
+        {
+          "status": 400,
+          "body": {
+            "error": "slow_down"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-fake",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            },
+            "organization_id": "org_workos_fake"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 200,
+          "body": {
+            "orgId": "org-factory-fake",
+            "region": "global",
+            "inferenceRegion": "us"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+        "refresh": "workos-refresh-fake",
+        "expires": 4102444800000,
+        "email": "body@example.test",
+        "accountId": "user_fake",
+        "orgId": "org-factory-fake",
+        "activeOrganizationId": "org_workos_fake",
+        "region": "global",
+        "inferenceRegion": "us"
+      },
+      "before": 1793887010004,
+      "after": 1793887010137,
+      "waits": [
+        5000,
+        10000
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-fake"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "whoami-eu-residency",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-fake",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            },
+            "organization_id": "org_workos_fake"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 200,
+          "body": {
+            "orgId": "org-factory-fake",
+            "region": "eu"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+        "refresh": "workos-refresh-fake",
+        "expires": 4102444800000,
+        "email": "body@example.test",
+        "accountId": "user_fake",
+        "orgId": "org-factory-fake",
+        "activeOrganizationId": "org_workos_fake",
+        "region": "eu",
+        "inferenceRegion": "eu"
+      },
+      "before": 1793887010137,
+      "after": 1793887010138,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-fake"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "whoami-rejected",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-fake",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            },
+            "organization_id": "org_workos_fake"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 403,
+          "body": {
+            "error": "forbidden"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "Factory identity check failed (403): {\"error\":\"forbidden\"}",
+      "before": 1793887010138,
+      "after": 1793887010140,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-fake"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "no-org-scopes-to-workos-org",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-bare",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            }
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+          "status": 200,
+          "body": {}
+        },
+        {
+          "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+          "status": 200,
+          "body": {
+            "orgId": "org-factory-scoped",
+            "region": "global"
+          }
+        }
+      ],
+      "org": {
+        "status": 200,
+        "body": {
+          "workosOrgIds": [
+            "org_workos_scoped"
+          ]
+        }
+      },
+      "refreshes": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+            "refresh_token": "workos-refresh-scoped"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+        "refresh": "workos-refresh-scoped",
+        "expires": 4102444900000,
+        "accountId": "user_fake",
+        "orgId": "org-factory-scoped",
+        "activeOrganizationId": "org_workos_scoped",
+        "region": "global",
+        "inferenceRegion": "global",
+        "email": "body@example.test"
+      },
+      "before": 1793887010140,
+      "after": 1793887010143,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/org",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "136",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&refresh_token=workos-refresh-bare&organization_id=org_workos_scoped"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-scoped"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-scoped"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "no-org-unresolved",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "r",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            }
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 200,
+          "body": {}
+        }
+      ],
+      "org": {
+        "status": 404
+      },
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "Factory login did not resolve an organization",
+      "before": 1793887010143,
+      "after": 1793887010145,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/org",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "missing-refresh-token",
+      "polls": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "user": {
+              "id": "user_fake",
+              "email": "body@example.test"
+            }
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "Factory token response missing refresh token",
+      "before": 1793887010145,
+      "after": 1793887010145,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "access-denied",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "access_denied"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "factory-droid device authorization was denied",
+      "before": 1793887010145,
+      "after": 1793887010146,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "expired-token",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "expired_token"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "factory-droid device code expired; restart the login",
+      "before": 1793887010146,
+      "after": 1793887010146,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "unknown-error",
+      "polls": [
+        {
+          "status": 400,
+          "body": {
+            "error": "invalid_client",
+            "error_description": "Client is not allowed"
+          }
+        }
+      ],
+      "auth": {
+        "url": "https://auth.factory.ai/device?user_code=FAKE-CODE",
+        "userCode": "FAKE-CODE",
+        "instructions": "Enter code: FAKE-CODE"
+      },
+      "error": "factory-droid device token request failed: 400 Client is not allowed",
+      "before": 1793887010146,
+      "after": 1793887010147,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        },
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "138",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&device_code=device-code-fake"
+        }
+      ]
+    },
+    {
+      "kind": "login",
+      "name": "device-rejected",
+      "deviceStatus": 400,
+      "device": {
+        "error": "invalid_client"
+      },
+      "polls": [],
+      "error": "factory-droid device authorization failed: 400 {\"error\":\"invalid_client\"}",
+      "before": 1793887010147,
+      "after": 1793887010147,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authorize/device",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "43",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "client_id=client_01HNM792M5G5G1A2THWPXKFMXB"
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-same-org",
+      "refreshes": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-rotated",
+            "organization_id": "org_workos_fake"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 200,
+          "body": {
+            "orgId": "org-factory-fake"
+          }
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+        "refresh": "workos-refresh-rotated",
+        "expires": 4102444800000,
+        "email": "claim@example.test",
+        "accountId": "user_fake",
+        "orgId": "org-factory-fake",
+        "activeOrganizationId": "org_workos_fake",
+        "region": "eu",
+        "inferenceRegion": "eu"
+      },
+      "before": 1793887010147,
+      "after": 1793887010147,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "136",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&refresh_token=workos-refresh-stored&organization_id=org_workos_fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.eu.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.eu.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-fake"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-whoami-fails-keeps-scope",
+      "refreshes": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "refresh_token": "workos-refresh-rotated"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 500,
+          "body": {}
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+        "refresh": "workos-refresh-rotated",
+        "expires": 4102444800000,
+        "email": "claim@example.test",
+        "accountId": "user_fake",
+        "orgId": "org-factory-fake",
+        "activeOrganizationId": "org_workos_fake",
+        "region": "eu",
+        "inferenceRegion": "eu"
+      },
+      "before": 1793887010147,
+      "after": 1793887010148,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "136",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&refresh_token=workos-refresh-stored&organization_id=org_workos_fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.eu.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJlbWFpbCI6ImNsYWltQGV4YW1wbGUudGVzdCIsImV4dGVybmFsX29yZ19pZCI6Im9yZy1mYWN0b3J5LWZha2UiLCJleHAiOjQxMDI0NDQ4MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.eu.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-fake"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-org-changed",
+      "refreshes": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+            "refresh_token": "workos-refresh-rotated",
+            "organization_id": "org_workos_other"
+          }
+        }
+      ],
+      "whoami": [
+        {
+          "status": 200,
+          "body": {}
+        }
+      ],
+      "credential": {
+        "access": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+        "refresh": "workos-refresh-rotated",
+        "expires": 4102444900000,
+        "accountId": "user_fake",
+        "orgId": "org-factory-scoped",
+        "activeOrganizationId": "org_workos_other",
+        "inferenceRegion": "global"
+      },
+      "before": 1793887010148,
+      "after": 1793887010149,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "136",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&refresh_token=workos-refresh-stored&organization_id=org_workos_fake"
+        },
+        {
+          "method": "GET",
+          "url": "https://api.factory.ai/api/cli/whoami",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyX2Zha2UiLCJleHRlcm5hbF9vcmdfaWQiOiJvcmctZmFjdG9yeS1zY29wZWQiLCJleHAiOjQxMDI0NDQ5MDB9.fake",
+            "connection": "keep-alive",
+            "host": "api.factory.ai",
+            "user-agent": "Bun/1.3.14",
+            "x-factory-org-id": "org-factory-scoped"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "kind": "refresh",
+      "name": "refresh-rejected",
+      "refreshes": [
+        {
+          "status": 401,
+          "body": {
+            "error": "invalid_grant",
+            "error_description": "Refresh token revoked"
+          }
+        }
+      ],
+      "error": "factory-droid token refresh failed: 401 {\"error\":\"invalid_grant\",\"error_description\":\"Refresh token revoked\"}",
+      "before": 1793887010149,
+      "after": 1793887010149,
+      "waits": [],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.workos.com/user_management/authenticate",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "136",
+            "content-type": "application/x-www-form-urlencoded",
+            "host": "api.workos.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=client_01HNM792M5G5G1A2THWPXKFMXB&refresh_token=workos-refresh-stored&organization_id=org_workos_fake"
+        }
+      ]
+    }
+  ]
+}

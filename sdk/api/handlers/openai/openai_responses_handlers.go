@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -197,7 +196,7 @@ func (f *responsesSSEFramer) repairFrame(frame []byte) []byte {
 
 	if responsesSSEErrorEvent(payloadType) || responsesSSEPayloadHasError(payload) {
 		if payloadType != "" {
-			f.lastEvent = sanitizeResponsesStreamEventName(payloadType)
+			f.lastEvent = handlers.SanitizeUpstreamErrorField(payloadType)
 		}
 		return f.repairErrorPayload(payload)
 	}
@@ -208,7 +207,7 @@ func (f *responsesSSEFramer) repairFrame(frame []byte) []byte {
 		eventType = streamEvent
 	}
 	if eventType != "" {
-		f.lastEvent = sanitizeResponsesStreamEventName(eventType)
+		f.lastEvent = handlers.SanitizeUpstreamErrorField(eventType)
 	}
 	if responsesSSEErrorEvent(eventType) {
 		return f.repairErrorPayload(payload)
@@ -948,74 +947,6 @@ func isCodexResponsesClientRequest(c *gin.Context) bool {
 	}
 }
 
-const (
-	responsesStreamErrorMessageLimit = 2048
-	responsesStreamErrorFieldLimit   = 256
-)
-
-var (
-	responsesStreamSensitiveValuePattern = regexp.MustCompile(`(?i)((?:"?(?:api[_-]?key|access[_-]?token|token|authorization|secret)"?)\s*[=:]\s*"?)([^\s"&,;}]+)`)
-	responsesStreamBearerPattern         = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+`)
-)
-
-func truncateResponsesStreamErrorText(text string, limit int) string {
-	runes := []rune(text)
-	if len(runes) <= limit {
-		return text
-	}
-	return string(runes[:limit]) + "…"
-}
-
-func redactResponsesStreamErrorText(text string) string {
-	text = responsesStreamSensitiveValuePattern.ReplaceAllString(text, `${1}[REDACTED]`)
-	return responsesStreamBearerPattern.ReplaceAllString(text, "Bearer [REDACTED]")
-}
-
-func sanitizeResponsesStreamEventName(eventName string) string {
-	return truncateResponsesStreamErrorText(redactResponsesStreamErrorText(strings.TrimSpace(eventName)), responsesStreamErrorFieldLimit)
-}
-
-func isResponsesStreamSensitiveKey(key string) bool {
-	k := strings.ToLower(strings.TrimSpace(key))
-	k = strings.ReplaceAll(k, "-", "_")
-	if strings.Contains(k, "tokens") || strings.Contains(k, "token_count") || strings.Contains(k, "token_limit") || strings.Contains(k, "token_usage") {
-		return false
-	}
-	switch k {
-	case "authorization", "secret", "password", "passwd", "api_key", "apikey", "token", "access_token", "refresh_token", "id_token", "auth_token", "session_token", "api_token", "client_secret", "client_key":
-		return true
-	}
-	return strings.HasSuffix(k, "_secret") ||
-		strings.HasSuffix(k, "_password") ||
-		strings.HasSuffix(k, "_api_key") ||
-		strings.HasSuffix(k, "_token")
-}
-
-func sanitizeResponsesStreamErrorNode(val any) any {
-	switch v := val.(type) {
-	case string:
-		return truncateResponsesStreamErrorText(redactResponsesStreamErrorText(v), responsesStreamErrorMessageLimit)
-	case map[string]any:
-		cleaned := make(map[string]any, len(v))
-		for k, item := range v {
-			if isResponsesStreamSensitiveKey(k) {
-				cleaned[k] = "[REDACTED]"
-				continue
-			}
-			cleaned[k] = sanitizeResponsesStreamErrorNode(item)
-		}
-		return cleaned
-	case []any:
-		cleaned := make([]any, len(v))
-		for i, item := range v {
-			cleaned[i] = sanitizeResponsesStreamErrorNode(item)
-		}
-		return cleaned
-	default:
-		return val
-	}
-}
-
 func responsesStreamErrorText(errMsg *interfaces.ErrorMessage, status int) string {
 	text := http.StatusText(status)
 	if errMsg != nil && errMsg.Error != nil && strings.TrimSpace(errMsg.Error.Error()) != "" {
@@ -1023,14 +954,14 @@ func responsesStreamErrorText(errMsg *interfaces.ErrorMessage, status int) strin
 	}
 	trimmed := strings.TrimSpace(text)
 	if !json.Valid([]byte(trimmed)) {
-		return truncateResponsesStreamErrorText(redactResponsesStreamErrorText(trimmed), responsesStreamErrorMessageLimit)
+		return handlers.SanitizeUpstreamErrorText(trimmed)
 	}
 
 	var root map[string]any
 	dec := json.NewDecoder(bytes.NewReader([]byte(trimmed)))
 	dec.UseNumber()
 	if errUnmarshal := dec.Decode(&root); errUnmarshal != nil {
-		return truncateResponsesStreamErrorText(redactResponsesStreamErrorText(trimmed), responsesStreamErrorMessageLimit)
+		return handlers.SanitizeUpstreamErrorText(trimmed)
 	}
 
 	errorNode, hasError := root["error"].(map[string]any)
@@ -1041,7 +972,7 @@ func responsesStreamErrorText(errMsg *interfaces.ErrorMessage, status int) strin
 	}
 
 	if hasError {
-		cleanedError := sanitizeResponsesStreamErrorNode(errorNode)
+		cleanedError := handlers.SanitizeUpstreamErrorNode(errorNode)
 		out := map[string]any{
 			"error": cleanedError,
 		}
@@ -1054,7 +985,7 @@ func responsesStreamErrorText(errMsg *interfaces.ErrorMessage, status int) strin
 		}
 	}
 
-	cleanedRoot := sanitizeResponsesStreamErrorNode(root)
+	cleanedRoot := handlers.SanitizeUpstreamErrorNode(root)
 	data, errMarshal := json.Marshal(cleanedRoot)
 	if errMarshal == nil {
 		return string(data)

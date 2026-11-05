@@ -101,6 +101,8 @@ func fixture(t *testing.T) (string, map[string]Credential) {
 		{"nvidia", "api_key", map[string]any{"key": "nvapi-fixturekey1717"}, ""},
 		{"vercel-ai-gateway", "api_key", map[string]any{"key": "vck_fixturekey1818"}, ""},
 		{"marineris", "api_key", map[string]any{"key": "mrn_fixturekey1919"}, ""},
+		{"factory-droid", "oauth", map[string]any{"access": "factory-fixture-access", "refresh": "fixture-refresh-factory", "expires": hour, "email": "factory@example.test",
+			"accountId": "user_fixture", "orgId": "org-fixture", "activeOrganizationId": "org_workos_fixture", "region": "eu", "inferenceRegion": "eu"}, ""},
 	}
 	dir, _ := newProfile(t, rows)
 	// NeoPi's Marineris extension keeps the gateway address beside the profile,
@@ -152,6 +154,7 @@ func TestDescribeMapsEveryProvider(t *testing.T) {
 		{"17", "nvidia", KindAPIKey, "nvidia", "…1717", "", true, ""},
 		{"18", "vercel-ai-gateway", KindAPIKey, "vercel-ai-gateway", "…1818", "", true, ""},
 		{"19", "marineris", KindAPIKey, "marineris", "…1919", "", true, ""},
+		{"20", "factory-droid", KindSubscription, "factory-droid", "factory@example.test", "", true, ""},
 	}
 	for _, w := range want {
 		got := Describe(creds[w.id], now)
@@ -217,6 +220,13 @@ func TestBuildAuthFileNativeFormatsAreRefreshLocked(t *testing.T) {
 		{"6", "cursor", func(m map[string]any) string {
 			if m["access_token"] == nil || m["user_id"] != "user_fixture" || m["base_url"] != "https://api2.cursor.sh" || m["email"] != "cursor@example.test" {
 				return "cursor token/user/base URL missing"
+			}
+			return ""
+		}},
+		{"20", "factory-droid", func(m map[string]any) string {
+			if m["access_token"] != "factory-fixture-access" || m["auth_kind"] != "oauth" || m["account_id"] != "user_fixture" || m["org_id"] != "org-fixture" ||
+				m["active_organization_id"] != "org_workos_fixture" || m["region"] != "eu" || m["inference_region"] != "eu" || m["email"] != "factory@example.test" {
+				return "factory token or account scope missing"
 			}
 			return ""
 		}},
