@@ -2,6 +2,7 @@ package cliproxy
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"runtime"
 	"testing"
@@ -95,5 +96,42 @@ func TestFactoryDroidDiscoveryFollowsAccountScope(t *testing.T) {
 		if model.ID == "global-only" {
 			t.Errorf("EU account served the global listing: %v", models)
 		}
+	}
+}
+
+// The account a listing belongs to is the credential's own identity, as in
+// NeoPi's model-cache namespace: the JWT's external organization and user,
+// else the opaque bearer. A record replaced by another user's sign-in under
+// the same file and organization does not inherit the previous roster.
+func TestFactoryDroidDiscoveryFollowsCredentialIdentity(t *testing.T) {
+	jwt := func(sub string) string {
+		payload := base64.RawURLEncoding.EncodeToString([]byte(`{"external_org_id":"org-ext","sub":"` + sub + `"}`))
+		return "eyJhbGciOiJub25lIn0." + payload + ".sig"
+	}
+	for _, tc := range []struct{ name, first, second string }{
+		{"jwt users", jwt("user-a"), jwt("user-b")},
+		{"opaque bearers", "opaque-a", "opaque-b"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			account := func(token string) *coreauth.Auth {
+				return &coreauth.Auth{ID: "factory-identity", Provider: "factory-droid", Metadata: map[string]any{
+					"type": "factory-droid", "access_token": token, "org_id": "org-1", "region": "global"}}
+			}
+			d := factoryDroidDiscovery
+			t.Cleanup(func() { forgetNeoPiDiscovery("factory-identity") })
+			now := time.Now()
+			d.mu.Lock()
+			d.entries["factory-identity"] = &neoPiDiscoveryEntry{models: []*ModelInfo{{ID: "first-user-only"}}, fetchedAt: now, scope: d.scopeOf(account(tc.first))}
+			d.mu.Unlock()
+			models, stale := d.models(account(tc.second), now)
+			if !stale {
+				t.Error("another user's listing is not due for refetch")
+			}
+			for _, model := range models {
+				if model.ID == "first-user-only" {
+					t.Errorf("second user served the first user's listing: %v", models)
+				}
+			}
+		})
 	}
 }

@@ -109,13 +109,14 @@ var (
 )
 
 // factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory
-// listing by: the account, its organization, residency and inference region.
+// listing by (factoryDroidModelCacheProviderId): the credential's account,
+// its organization, residency and inference region.
 func factoryDroidDiscoveryScope(a *coreauth.Auth) string {
 	credential, ok := factorydroid.RecordCredential(a.Metadata)
 	if !ok {
 		return ""
 	}
-	return strings.Join([]string{credential.AccountID, credential.OrgID, credential.Region, credential.InferenceRegion}, "\x00")
+	return factorydroid.ModelCacheScope(credential)
 }
 
 // newResponsesDiscovery is the discovery of one NeoPi Responses provider: the
