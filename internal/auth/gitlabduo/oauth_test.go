@@ -56,6 +56,15 @@ type gitlabDuoAuthCapture struct {
 		Credentials *gitlabDuoCapturedCred     `json:"credentials"`
 		Error       *string                    `json:"error"`
 	} `json:"refreshes"`
+	// Pastes are parseCallbackInput's readings of pasted callback input
+	// (gitlab_duo_agent_auth.json only).
+	Pastes []struct {
+		Input  string `json:"input"`
+		Parsed struct {
+			Code  string `json:"code"`
+			State string `json:"state"`
+		} `json:"parsed"`
+	} `json:"pastes"`
 }
 
 type gitlabDuoCapturedRequest struct {
@@ -92,9 +101,9 @@ func (t *gitlabDuoTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return http.DefaultTransport.RoundTrip(forward)
 }
 
-func loadGitLabDuoAuthCapture(t *testing.T) gitlabDuoAuthCapture {
+func loadGitLabDuoAuthCapture(t *testing.T, name string) gitlabDuoAuthCapture {
 	t.Helper()
-	data, err := os.ReadFile("testdata/gitlab_duo_auth.json")
+	data, err := os.ReadFile("testdata/" + name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +164,7 @@ func assertGitLabDuoOutcome(t *testing.T, credential Credential, err error, want
 // GITLAB_CLIENT_ID / GITLAB_REDIRECT_URI overrides), the authorize URL, the
 // token exchange on the wire, and the projected credential or failure.
 func TestGitLabDuoLoginMatchesNeoPi(t *testing.T) {
-	capture := loadGitLabDuoAuthCapture(t)
+	capture := loadGitLabDuoAuthCapture(t, "gitlab_duo_auth.json")
 	defer func(restore func() time.Time) { now = restore }(now)
 	now = func() time.Time { return time.UnixMilli(capture.Now) }
 	for _, login := range capture.Logins {
@@ -178,7 +187,7 @@ func TestGitLabDuoLoginMatchesNeoPi(t *testing.T) {
 			if redirectURI != login.RedirectURI {
 				t.Fatalf("redirect URI = %q, NeoPi advertised %q", redirectURI, login.RedirectURI)
 			}
-			session := newSession(ClientID(), redirectURI, capture.State, gitlabDuoPinnedVerifier())
+			session := Duo.newSession(redirectURI, capture.State, gitlabDuoPinnedVerifier())
 			if got := session.AuthURL(); got != login.Authorize.URL {
 				t.Fatalf("authorize URL\n got %s\nwant %s", got, login.Authorize.URL)
 			}
@@ -199,7 +208,7 @@ func TestGitLabDuoLoginMatchesNeoPi(t *testing.T) {
 // Every captured refresh: the grant on the wire and the projected credential,
 // an unrotated answer keeping the stored refresh token.
 func TestGitLabDuoRefreshMatchesNeoPi(t *testing.T) {
-	capture := loadGitLabDuoAuthCapture(t)
+	capture := loadGitLabDuoAuthCapture(t, "gitlab_duo_auth.json")
 	defer func(restore func() time.Time) { now = restore }(now)
 	now = func() time.Time { return time.UnixMilli(capture.Now) }
 	t.Setenv("GITLAB_CLIENT_ID", "")
@@ -212,10 +221,74 @@ func TestGitLabDuoRefreshMatchesNeoPi(t *testing.T) {
 			}))
 			defer server.Close()
 			transport := &gitlabDuoTransport{server: server}
-			credential, err := Refresh(context.Background(), &http.Client{Transport: transport}, refresh.Stored.Refresh)
+			credential, err := Duo.Refresh(context.Background(), &http.Client{Transport: transport}, refresh.Stored.Refresh)
 			assertGitLabDuoRequests(t, transport.seen, refresh.Requests)
 			assertGitLabDuoOutcome(t, credential, err, refresh.Credentials, refresh.Error)
 		})
+	}
+}
+
+// Every captured GitLab Duo Agent sign-in: the VS Code client and redirect
+// NeoPi advertises with no listener, the authorize URL, the token exchange on
+// the wire, and the projected credential or failure under the agent's id.
+func TestGitLabDuoAgentLoginMatchesNeoPi(t *testing.T) {
+	capture := loadGitLabDuoAuthCapture(t, "gitlab_duo_agent_auth.json")
+	defer func(restore func() time.Time) { now = restore }(now)
+	now = func() time.Time { return time.UnixMilli(capture.Now) }
+	t.Setenv("GITLAB_CLIENT_ID", "an-override-the-agent-rule-ignores")
+	for _, login := range capture.Logins {
+		t.Run(login.Name, func(t *testing.T) {
+			if Agent.RedirectURI() != login.RedirectURI || login.Callback.RedirectURI != login.RedirectURI {
+				t.Fatalf("redirect URI = %q, NeoPi advertised %q", Agent.RedirectURI(), login.RedirectURI)
+			}
+			session := Agent.newSession(Agent.RedirectURI(), capture.State, gitlabDuoPinnedVerifier())
+			if got := session.AuthURL(); got != login.Authorize.URL {
+				t.Fatalf("authorize URL\n got %s\nwant %s", got, login.Authorize.URL)
+			}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(login.Response.Status)
+				_, _ = io.WriteString(w, login.Response.Body)
+			}))
+			defer server.Close()
+			transport := &gitlabDuoTransport{server: server}
+			credential, err := session.Exchange(context.Background(), &http.Client{Transport: transport}, "auth-code")
+			assertGitLabDuoRequests(t, transport.seen, login.Requests)
+			assertGitLabDuoOutcome(t, credential, err, login.Credentials, login.Error)
+		})
+	}
+}
+
+// Every captured GitLab Duo Agent refresh: the grant with the VS Code
+// redirect on the wire, and the projected credential.
+func TestGitLabDuoAgentRefreshMatchesNeoPi(t *testing.T) {
+	capture := loadGitLabDuoAuthCapture(t, "gitlab_duo_agent_auth.json")
+	defer func(restore func() time.Time) { now = restore }(now)
+	now = func() time.Time { return time.UnixMilli(capture.Now) }
+	for _, refresh := range capture.Refreshes {
+		t.Run(refresh.Name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(refresh.Response.Status)
+				_, _ = io.WriteString(w, refresh.Response.Body)
+			}))
+			defer server.Close()
+			transport := &gitlabDuoTransport{server: server}
+			credential, err := Agent.Refresh(context.Background(), &http.Client{Transport: transport}, refresh.Stored.Refresh)
+			assertGitLabDuoRequests(t, transport.seen, refresh.Requests)
+			assertGitLabDuoOutcome(t, credential, err, refresh.Credentials, refresh.Error)
+		})
+	}
+}
+
+// What a user pastes back from the manual-only sign-in reads as NeoPi's
+// parseCallbackInput reads it.
+func TestParseCallbackInputMatchesNeoPi(t *testing.T) {
+	for _, paste := range loadGitLabDuoAuthCapture(t, "gitlab_duo_agent_auth.json").Pastes {
+		code, state := ParseCallbackInput(paste.Input)
+		if code != paste.Parsed.Code || state != paste.Parsed.State {
+			t.Fatalf("ParseCallbackInput(%q) = %q, %q; NeoPi read %q, %q", paste.Input, code, state, paste.Parsed.Code, paste.Parsed.State)
+		}
 	}
 }
 

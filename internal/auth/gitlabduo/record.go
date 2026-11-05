@@ -7,26 +7,27 @@ import (
 	"time"
 )
 
-// Metadata is the record fields a sign-in is stored under: NeoPi's OAuth
-// credential, its expiry as an RFC 3339 instant.
-func Metadata(credential Credential) map[string]any {
+// Metadata is the record fields a sign-in under the rule is stored under:
+// NeoPi's OAuth credential, its expiry as an RFC 3339 instant.
+func (r Rule) Metadata(credential Credential) map[string]any {
 	return map[string]any{
-		"type":          Provider,
+		"type":          r.Provider,
 		"access_token":  credential.Access,
 		"refresh_token": credential.Refresh,
 		"expired":       credential.Expires.UTC().Format(time.RFC3339Nano),
 	}
 }
 
-// FileName names a sign-in's record after a digest of its refresh token (its
-// access token when it has none): GitLab's token answer names no account.
-func FileName(credential Credential) string {
+// FileName names a sign-in's record after its provider and a digest of its
+// refresh token (its access token when it has none): GitLab's token answer
+// names no account.
+func (r Rule) FileName(credential Credential) string {
 	seed := credential.Refresh
 	if seed == "" {
 		seed = credential.Access
 	}
 	digest := sha256.Sum256([]byte(seed))
-	return fmt.Sprintf("%s-%x.json", Provider, digest[:8])
+	return fmt.Sprintf("%s-%x.json", r.Provider, digest[:8])
 }
 
 // RecordCredential reads a stored sign-in back from record metadata.

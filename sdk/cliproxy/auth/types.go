@@ -549,6 +549,8 @@ func (a *Auth) indexSeed() string {
 			apiPrefix = "claude-api-key"
 		case strings.EqualFold(provider, "meta"):
 			apiPrefix = "meta-api-key"
+		case strings.EqualFold(provider, "gitlab-duo-agent"):
+			apiPrefix = "gitlab-duo-agent-api-key"
 		}
 	}
 	if apiPrefix != "" {
