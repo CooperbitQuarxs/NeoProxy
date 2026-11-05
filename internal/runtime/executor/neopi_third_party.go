@@ -43,7 +43,7 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no credential"}
 	}
 	model := thinking.ParseSuffix(req.Model).ModelName
-	row := provider.catalog(req, model)
+	row := provider.catalog(auth, req, model)
 	if row == nil || row.API != "anthropic-messages" {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: model %s is not served over Anthropic Messages", e.Identifier(), model)}
 	}
@@ -64,7 +64,9 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		session = helps.ProviderSessionUUID(e.Identifier(), req.Metadata, opts.Metadata)
 	}
 	identity := neoPiWireIdentity{SessionID: session, APIKey: true}
-	base := strings.TrimRight(row.BaseURL, "/")
+	// normalizeAnthropicBaseUrl: an endpoint named with its version (an
+	// account's .../v1) drops it before /v1/messages is appended.
+	base := strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(row.BaseURL), "/"), "/v1")
 	profile := neoPiThirdPartyProfile(row)
 	if provider.headers != nil {
 		profile.thirdParty.headers = provider.headers()

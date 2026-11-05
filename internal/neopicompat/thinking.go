@@ -166,11 +166,12 @@ func ruleSupportsDisplay(spec Spec, facts identityFacts, rule ruleThinking) bool
 	return defaultSupportsDisplay(spec, facts)
 }
 
-// mergeEffortMap is mergeEffortMap: the Fireworks host default, the rule
-// map, then the configured map, filtered to the ladder.
+// mergeEffortMap is mergeEffortMap: the Fireworks host default (a Chat
+// Completions wire value), the rule map, then the configured map, filtered to
+// the ladder.
 func mergeEffortMap(spec Spec, ruleMap map[string]any, compat map[string]any, efforts []string) map[string]any {
 	var detected map[string]any
-	if modelMatchesHost(spec.Provider, spec.BaseURL, "fireworks") {
+	if spec.API == APIOpenAICompletions && modelMatchesHost(spec.Provider, spec.BaseURL, "fireworks") {
 		detected = fireworksThinkingEffortMap
 	}
 	configured, _ := compat["reasoningEffortMap"].(map[string]any)

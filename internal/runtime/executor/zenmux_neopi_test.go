@@ -147,3 +147,65 @@ func TestZenMuxAnthropicRowsReplayNeoPiRequests(t *testing.T) {
 		})
 	}
 }
+
+// zenmuxSend runs one Messages request for model through the ZenMux executor
+// for auth and reports the path and body the upstream received.
+func zenmuxSend(t *testing.T, auth *cliproxyauth.Auth, model string, payload string) (string, []byte) {
+	t.Helper()
+	var path string
+	var body []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		body, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	t.Cleanup(server.Close)
+	auth.Attributes["base_url"] = strings.ReplaceAll(auth.Attributes["base_url"], "{server}", server.URL)
+	exec := NewNeoPiCompletionsExecutor("zenmux", &config.Config{}, NeoPiCompletionsProfile{})
+	_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: model, Payload: []byte(payload)},
+		cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude, OriginalRequest: []byte(payload)})
+	return path, body
+}
+
+// An endpoint the account names itself is NeoPi's provider baseUrl override:
+// every row still on a bundled endpoint follows it, Claude rows included, and
+// an Anthropic endpoint named with its /v1 drops it before /v1/messages.
+func TestZenMuxAccountEndpointOverridesBundledRows(t *testing.T) {
+	payload := `{"model":"%s","max_tokens":64,"messages":[{"role":"user","content":"hi"}],"stream":true}`
+	for _, c := range []struct{ model, base, path string }{
+		{"anthropic/claude-haiku-5.5", "{server}/api/v1", "/api/v1/messages"},
+		{"anthropic/claude-haiku-5.5", "{server}/gateway/", "/gateway/v1/messages"},
+		{"openai/chat-latest", "{server}/api/v1", "/api/v1/chat/completions"},
+	} {
+		auth := &cliproxyauth.Auth{ID: "zenmux-account", Provider: "zenmux", Attributes: map[string]string{"api_key": "sk-zenmux", "base_url": c.base}}
+		if path, _ := zenmuxSend(t, auth, c.model, strings.Replace(payload, "%s", c.model, 1)); path != c.path {
+			t.Errorf("%s at %s: path = %q, want %q", c.model, c.base, path, c.path)
+		}
+	}
+}
+
+// A replayed assistant turn whose only blocks are unsigned thinking is
+// emptied on ZenMux's signing route and, as in NeoPi, left out.
+func TestZenMuxDropsAssistantTurnEmptiedBySigningReplay(t *testing.T) {
+	for name, assistant := range map[string]string{
+		"unsigned":          `[{"type":"thinking","thinking":"unfinished reasoning","signature":""}]`,
+		"unsigned-redacted": `[{"type":"thinking","thinking":"unfinished reasoning"},{"type":"redacted_thinking","data":"opaque"}]`,
+	} {
+		auth := &cliproxyauth.Auth{ID: "zenmux-account", Provider: "zenmux", Attributes: map[string]string{"api_key": "sk-zenmux", "base_url": "{server}/api/v1"}}
+		payload := `{"model":"anthropic/claude-haiku-5.5","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"First prompt"},{"role":"assistant","content":` + assistant + `},{"role":"user","content":"Continue"}]}`
+		_, body := zenmuxSend(t, auth, "anthropic/claude-haiku-5.5", payload)
+		var sent struct {
+			Messages []struct {
+				Role string `json:"role"`
+			} `json:"messages"`
+		}
+		if err := json.Unmarshal(body, &sent); err != nil {
+			t.Fatalf("%s: %v (%s)", name, err, body)
+		}
+		for _, message := range sent.Messages {
+			if message.Role == "assistant" {
+				t.Errorf("%s: upstream received the emptied assistant turn: %s", name, body)
+			}
+		}
+	}
+}

@@ -196,6 +196,23 @@ func NeoPiCompletionsProviders() []string {
 	return out
 }
 
+// NeoPiCompletionsBundledEndpoint reports whether base is an endpoint the
+// provider's bundled rows are served from: a row still there is the catalog's,
+// which an account's own endpoint replaces (NeoPi's provider baseUrl
+// override); a row a mapper or discovery placed elsewhere keeps its endpoint.
+func NeoPiCompletionsBundledEndpoint(provider, base string) bool {
+	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
+	if catalog, ok := neopiCompletionsCatalog[provider]; ok && catalog.BaseURL == base {
+		return true
+	}
+	for _, row := range neopiCompletionsRows[provider] {
+		if row.BaseURL == base {
+			return true
+		}
+	}
+	return false
+}
+
 // NeoPiCompletionsBundledModels is the provider's bundled roster as registry
 // models, each carrying the NeoPi record its executor shapes requests from.
 func NeoPiCompletionsBundledModels(provider, ownedBy string) []*ModelInfo {

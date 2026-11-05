@@ -76,6 +76,14 @@ for (const provider of getBundledProviders()) {
 		run("namespaced", { ...base, id: `zz-lab/${model.id}` });
 		const bumped = bumpRevision(model.id);
 		if (bumped) run("next-revision", { ...base, id: bumped });
+		// A gateway path that names a host class (here Fireworks, whose effort
+		// default is Chat Completions only) on every API.
+		const gateway = { ...base, baseUrl: "http://127.0.0.1:8080/fireworks.ai/api/v1" };
+		run("fireworks-path", gateway);
+		if (model.thinking?.efforts?.length) {
+			const { effortRouting: _routing, ...thinking } = model.thinking;
+			run("fireworks-path-explicit-thinking", { ...gateway, thinking });
+		}
 	}
 }
 

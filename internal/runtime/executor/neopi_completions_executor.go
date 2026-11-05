@@ -74,8 +74,10 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 	e.messages = NewClaudeExecutor(cfg)
 	e.messages.provider = provider
 	e.messages.thirdParty = &neoPiThirdPartyProvider{
-		catalog: func(req cliproxyexecutor.Request, _ string) *registry.NeoPiModel { return e.row(nil, req) },
-		bearer:  e.apiKey,
+		catalog: func(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, _ string) *registry.NeoPiModel {
+			return e.row(auth, req)
+		},
+		bearer: e.apiKey,
 	}
 	return e
 }
@@ -448,19 +450,23 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 	return e.accountRow(auth, resolve(e.profile.Provider, req.Model))
 }
 
-// accountRow moves a row still on the provider's catalog endpoint onto the
-// account's configured one, as NeoPi's provider baseUrl override does. A row
-// discovery already placed elsewhere (a Xiaomi Token Plan cluster) keeps its
+// accountRow applies NeoPi's provider baseUrl override: an endpoint the
+// account names itself (not the catalog's own) replaces the endpoint of every
+// row still on one of the provider's bundled endpoints, whatever its
+// transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
+// cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
 	if row == nil || auth == nil {
 		return row
 	}
-	base := registry.NeoPiAccountBaseURL(e.profile.Provider, auth.Attributes["base_url"])
+	provider := e.profile.Provider
+	base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"])
 	if base == "" || base == row.BaseURL {
 		return row
 	}
-	if e.profile.Provider != "alibaba-token-plan" && row.BaseURL != registry.NeoPiCompletionsListingBase(e.profile.Provider) {
+	if provider != "alibaba-token-plan" &&
+		(base == registry.NeoPiCompletionsListingBase(provider) || !registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL)) {
 		return row
 	}
 	row = row.Clone()

@@ -123,8 +123,9 @@ func neoPiForcedToolChoice(body []byte) bool {
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a
 // non-Anthropic model to downstream Messages turns: blank user turns drop,
 // user and tool_result content is rebuilt for the model's input modalities,
-// a tool_result carries the `id` alias the provider requires, and unsigned
-// assistant thinking the model cannot replay is demoted to text.
+// a tool_result carries the `id` alias the provider requires, unsigned
+// assistant thinking the model cannot replay is demoted to text (or dropped),
+// and an assistant turn left with no blocks is skipped.
 func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	root := gjson.ParseBytes(input)
 	messages := root.Get("messages")
@@ -134,7 +135,11 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	out := make([]json.RawMessage, 0, len(messages.Array()))
 	for _, message := range messages.Array() {
 		if message.Get("role").String() == "assistant" {
-			out = append(out, neoPiThirdPartyAssistant(message, party))
+			converted := neoPiThirdPartyAssistant(message, party)
+			if content := gjson.GetBytes(converted, "content"); content.IsArray() && len(content.Array()) == 0 {
+				continue
+			}
+			out = append(out, converted)
 			continue
 		}
 		if message.Get("role").String() != "user" {
