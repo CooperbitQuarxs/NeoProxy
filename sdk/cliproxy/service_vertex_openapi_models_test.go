@@ -62,8 +62,8 @@ func TestRegisterModelsForAuth_VertexServiceAccount_OpenAPIModelsAndAliases(t *t
 	if !GlobalModelRegistry().ClientSupportsModel(auth.ID, "qwen/qwen3-coder-480b-a35b-instruct-maas") {
 		t.Fatalf("expected Vertex SA auth to support openapi_models entry 'qwen/qwen3-coder-480b-a35b-instruct-maas'")
 	}
-	if !GlobalModelRegistry().ClientSupportsModel(auth.ID, "gemini-2.5-pro") {
-		t.Fatalf("expected Vertex SA auth to retain native Gemini model 'gemini-2.5-pro'")
+	if !GlobalModelRegistry().ClientSupportsModel(auth.ID, "gemini-3.5-flash") {
+		t.Fatalf("expected Vertex SA auth to serve NeoPi's bundled Gemini model 'gemini-3.5-flash'")
 	}
 	if gotUpstream := service.coreManager.ResolveExecutionModel(registered, "deepseek-flash"); gotUpstream != "deepseek-ai/deepseek-v4.1-flash-maas" {
 		t.Fatalf("ResolveExecutionModel(deepseek-flash) = %q, want deepseek-ai/deepseek-v4.1-flash-maas", gotUpstream)

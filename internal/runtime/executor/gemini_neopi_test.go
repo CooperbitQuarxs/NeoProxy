@@ -433,7 +433,7 @@ func geminiPrepareError(t *testing.T, source sdktranslator.Format, model, payloa
 	t.Helper()
 	exec := NewGeminiExecutor(&config.Config{})
 	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest"}}
-	_, err := exec.prepare(context.Background(), auth, cliproxyexecutor.Request{Model: model, Payload: []byte(payload)}, cliproxyexecutor.Options{SourceFormat: source}, false)
+	_, err := exec.prepare(context.Background(), auth, cliproxyexecutor.Request{Model: model, Payload: []byte(payload)}, cliproxyexecutor.Options{SourceFormat: source}, false, false)
 	return err
 }
 

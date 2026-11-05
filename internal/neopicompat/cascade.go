@@ -73,6 +73,7 @@ type compiledData struct {
 	Hosts               map[string]hostSpec `json:"hosts"`
 	CompletionsWireKeys []string            `json:"completionsWireKeys"`
 	AnthropicWireKeys   []string            `json:"anthropicWireKeys"`
+	GoogleWireKeys      []string            `json:"googleWireKeys"`
 }
 
 type ruleIndex struct {
@@ -113,6 +114,7 @@ func load() error {
 		wireKeys = map[string]map[string]bool{
 			APIOpenAICompletions: keySet(data.CompletionsWireKeys),
 			APIAnthropicMessages: keySet(data.AnthropicWireKeys),
+			APIGoogleVertex:      keySet(data.GoogleWireKeys),
 		}
 		index, dataError = buildIndex(data.Cascade)
 	})
