@@ -52,20 +52,55 @@ const discoveredRosters: Record<string, any[]> = {
 		{ id: "kimi-k3", capabilities: { vision: true }, reasoning: { effort_levels: [{ value: "minimal" }, { value: "xhigh" }, { value: "max" }] } },
 		{ id: "zz-hyper-plain" },
 	],
+	// SiliconFlow lists bare ids: models.dev hydrates the ids it knows, NeoPi's
+	// bundled reference index the rest; embeddings and generators drop by id.
+	siliconflow: ["zai-org/GLM-5.1", "deepseek-ai/DeepSeek-V4-Pro", "moonshotai/Kimi-K3", "Qwen/Qwen3-235B-A22B-Instruct-2507", "openai/gpt-oss-120b", "BAAI/bge-m3", "black-forest-labs/FLUX.1-schnell", "zz-silicon-new"].map(id => ({ id })),
+	"siliconflow-cn": ["deepseek-ai/DeepSeek-V4-Pro", "Pro/zai-org/GLM-5.1", "Qwen/Qwen3-235B-A22B-Instruct-2507", "FunAudioLLM/SenseVoiceSmall", "zz-silicon-cn-new"].map(id => ({ id })),
 };
 
-async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string }> {
+// The models.dev catalog (catalog.stencil.so) a manager consults for
+// reference metadata, keyed by the provider whose discovery fetches it.
+const modelsDevPayloads: Record<string, any> = {
+	siliconflow: {
+		siliconflow: {
+			models: {
+				"zai-org/GLM-5.1": { name: "GLM-5.1", reasoning: true, tool_call: true, modalities: { input: ["text"] }, cost: { input: 1, output: 3.2, cache_read: 0.2 }, limit: { context: 202752, output: 131072 } },
+				"deepseek-ai/DeepSeek-V4-Pro": { name: "DeepSeek V4 Pro", reasoning: true, tool_call: true, modalities: { input: ["text"] }, cost: { input: 0.55, output: 2.19 }, limit: { context: 1048576, output: 65536 } },
+				"moonshotai/Kimi-K3": { name: "Kimi K3", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, limit: { context: 262144, output: 32768 } },
+				"BAAI/bge-m3": { name: "BGE M3", kind: "embedding", modalities: { input: ["text"] }, limit: { context: 8192 } },
+				"zz-models-dev-only": { name: "Not Listed", tool_call: true, limit: { context: 4096, output: 1024 } },
+			},
+		},
+	},
+	"siliconflow-cn": {
+		"siliconflow-cn": {
+			models: {
+				"deepseek-ai/DeepSeek-V4-Pro": { name: "DeepSeek V4 Pro", reasoning: true, tool_call: false, modalities: { input: ["text"] }, cost: { input: 4, output: 16 }, limit: { context: 1048576, output: 65536 } },
+				"Pro/zai-org/GLM-5.1": { name: "  ", reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: "202752", output: 0 } },
+			},
+		},
+	},
+};
+
+async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string; modelsDev?: string }> {
 	const entries = discoveredRosters[provider];
 	if (!entries) return { models: [] };
 	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
 	const listing = JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
+	const modelsDev = modelsDevPayloads[provider] ? JSON.stringify(modelsDevPayloads[provider]) : undefined;
 	const options = descriptor.createModelManagerOptions({
 		apiKey,
-		fetch: async () => new Response(listing, { status: 200, headers: { "content-type": "application/json" } }),
+		fetch: async (input: any) => {
+			const host = new URL(typeof input === "string" ? input : input.url).hostname;
+			if (host === "catalog.stencil.so") {
+				return modelsDev ? new Response(modelsDev, { status: 200, headers: { "content-type": "application/json" } }) : new Response("unavailable", { status: 503 });
+			}
+			return new Response(listing, { status: 200, headers: { "content-type": "application/json" } });
+		},
 	});
 	options.cacheDbPath = join(cacheDir, `${provider}.db`);
 	const resolved = await resolveProviderModels(options, "online");
-	return { models: resolved.models, listing };
+	return { models: resolved.models, listing, modelsDev };
 }
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
@@ -356,6 +391,7 @@ for (const provider of providers) {
 				apiKey,
 				sessionId,
 				...(discovered.listing ? { listing: discovered.listing } : {}),
+				...(discovered.modelsDev ? { modelsDev: discovered.modelsDev } : {}),
 				fixtures,
 			}),
 		),

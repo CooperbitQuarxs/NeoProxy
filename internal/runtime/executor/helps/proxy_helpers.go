@@ -28,36 +28,55 @@ import (
 //
 // Returns:
 //   - *http.Client: An HTTP client with configured proxy or transport
-func NewProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth, timeout time.Duration) (clientOut *http.Client) {
-	defer func() { clientOut = httptransport.Decorate(ctx, clientOut) }()
-	httpClient := &http.Client{}
-	if timeout > 0 {
-		httpClient.Timeout = timeout
-	}
+func NewProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth, timeout time.Duration) *http.Client {
+	return SelectTransport(ctx, cfg, auth).Client(ctx, timeout)
+}
 
-	// Priority: request override, then auth.ProxyURL, then cfg.ProxyURL.
-	proxyURL := effectiveProxyURL(ctx, cfg, auth)
+// TransportSelection is the network NewProxyAwareHTTPClient chooses for a
+// request context.
+type TransportSelection struct {
+	// ProxyURL is the configured proxy in use; empty when none is configured
+	// or its transport could not be built.
+	ProxyURL string
+	// Transport is the proxy transport, else the context's RoundTripper;
+	// nil selects the default transport.
+	Transport http.RoundTripper
+}
 
-	// If we have a proxy URL configured, set up the transport
-	if proxyURL != "" {
-		transport := buildProxyTransport(proxyURL)
-		if transport != nil {
-			httpClient.Transport = transport
-			return httpClient
+// SelectTransport makes NewProxyAwareHTTPClient's choice: the execution-scoped
+// request proxy, then auth.ProxyURL, then cfg.ProxyURL, and when none is set
+// or its transport cannot be built, the context's RoundTripper.
+func SelectTransport(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) TransportSelection {
+	if proxyURL := EffectiveProxyURL(ctx, cfg, auth); proxyURL != "" {
+		if transport := buildProxyTransport(proxyURL); transport != nil {
+			return TransportSelection{ProxyURL: proxyURL, Transport: transport}
 		}
 		// If proxy setup failed, log and fall through to context RoundTripper
 		log.Debugf("failed to setup proxy from URL: %s, falling back to context transport", proxyutil.Redact(proxyURL))
 	}
-
-	// Priority 3: Use RoundTripper from context (typically from RoundTripperFor)
-	if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
-		httpClient.Transport = rt
-	}
-
-	return httpClient
+	return TransportSelection{Transport: ContextRoundTripper(ctx)}
 }
 
-func effectiveProxyURL(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) string {
+// Client is an HTTP client over the selected transport (timeout 0 means no
+// timeout), decorated for the context.
+func (s TransportSelection) Client(ctx context.Context, timeout time.Duration) *http.Client {
+	httpClient := &http.Client{Transport: s.Transport}
+	if timeout > 0 {
+		httpClient.Timeout = timeout
+	}
+	return httptransport.Decorate(ctx, httpClient)
+}
+
+// ContextRoundTripper is the RoundTripper a context carries for clients
+// without a configured proxy (typically from RoundTripperFor), nil when none.
+func ContextRoundTripper(ctx context.Context) http.RoundTripper {
+	if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+		return rt
+	}
+	return nil
+}
+
+func EffectiveProxyURL(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) string {
 	if proxyURL := cliproxyexecutor.RequestProxyURL(ctx); proxyURL != "" {
 		return proxyURL
 	}

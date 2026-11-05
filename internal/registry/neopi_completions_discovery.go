@@ -173,6 +173,17 @@ func NeoPiCompletionsDiscoversWithoutKey(provider string) bool {
 // with the listing's ids and limits merged in. An unusable body is an error;
 // NeoPi then serves the bundled roster.
 func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInfo, error) {
+	return neoPiCompletionsListing(provider, baseURL, body, nil)
+}
+
+// NeoPiSiliconFlowListing is NeoPiCompletionsListing for SiliconFlow, whose
+// manager hydrates the listing from the models.dev catalog it fetched first
+// (modelsDev; nil when that fetch failed).
+func NeoPiSiliconFlowListing(provider, baseURL string, body, modelsDev []byte) ([]*ModelInfo, error) {
+	return neoPiCompletionsListing(provider, baseURL, body, neoPiModelsDevReferences(provider, neoPiNormalizeBase(baseURL), modelsDev))
+}
+
+func neoPiCompletionsListing(provider, baseURL string, body []byte, modelsDev map[string]*NeoPiModel) ([]*ModelInfo, error) {
 	if !NeoPiCompletionsDiscovers(provider) || provider == "fireworks" || provider == neoPiClinePassProvider {
 		return nil, ErrNeoPiListing
 	}
@@ -195,7 +206,7 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 		}
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
-	specs, authoritative := neoPiListingSpecs(provider, entries)
+	specs, authoritative := neoPiListingSpecs(provider, entries, modelsDev)
 	// A listing that names no models comes back as NeoPiEmptyListing with
 	// the bundled rows the merge keeps (runner rows, for an authoritative
 	// provider), which the discovery cache retries after its short interval.
@@ -508,7 +519,7 @@ func neoPiIsGlmReasoningIdentity(provider, id, floor string) bool {
 
 // neoPiListingSpecs maps the listing's entries with the provider's mapper and
 // filter, deduplicating by id (the last entry wins).
-func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSpec, authoritative bool) {
+func neoPiListingSpecs(provider string, entries []gjson.Result, modelsDev map[string]*NeoPiModel) (specs []neoPiSpec, authoritative bool) {
 	if catalog, ok := NeoPiCompletionsProvider(provider); ok {
 		authoritative = catalog.Discovery.ModelsAuthoritative
 	}
@@ -625,6 +636,13 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			// kiloModelManagerOptions: the defaults plus the per-token tariff.
 			spec = defaults
 			spec.cost = neoPiPerTokenPricingCost(entry.Get("pricing"))
+		case "siliconflow", "siliconflow-cn":
+			// isLikelySiliconFlowChatModelId: both regions share SiliconFlow's
+			// exclusion rules for embeddings and generators.
+			if normalized := strings.ToLower(strings.TrimSpace(defaults.id)); normalized == "" || neoPiExcludedModel("siliconflow", normalized) {
+				continue
+			}
+			spec = neoPiMapSiliconFlow(entry, defaults, modelsDev)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

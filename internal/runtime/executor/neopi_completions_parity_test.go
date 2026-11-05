@@ -24,8 +24,11 @@ type neoPiCompletionsCapture struct {
 	SessionID string `json:"sessionId"`
 	// Listing is the /models answer NeoPi's manager discovered the captured
 	// rows from, for a provider NeoPi bundles no rows for.
-	Listing  string `json:"listing"`
-	Fixtures []struct {
+	Listing string `json:"listing"`
+	// ModelsDev is the models.dev catalog the manager hydrated the listing
+	// from (SiliconFlow).
+	ModelsDev string `json:"modelsDev"`
+	Fixtures  []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`
 		RequestedURL string            `json:"requestedURL"`
@@ -54,16 +57,7 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 		provider := capture.Provider
 		t.Run(provider, func(t *testing.T) {
 			auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": capture.APIKey}}
-			discovered := map[string]*registry.NeoPiModel{}
-			if capture.Listing != "" {
-				infos, err := registry.NeoPiCompletionsListing(provider, registry.NeoPiCompletionsListingBase(provider), []byte(capture.Listing))
-				if err != nil {
-					t.Fatalf("listing: %v", err)
-				}
-				for _, info := range infos {
-					discovered[info.ID] = info.NeoPi
-				}
-			}
+			discovered := neoPiCapturedListingRows(t, capture)
 			for _, fixture := range capture.Fixtures {
 				if fixture.Error != "" {
 					t.Errorf("%s: NeoPi capture failed: %s", fixture.Name, fixture.Error)
@@ -123,6 +117,29 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 		total += len(capture.Fixtures)
 	}
 	t.Logf("%d captured requests replayed", total)
+}
+
+// neoPiCapturedListingRows builds the rows NeoPi's manager discovered for a
+// capture of a provider it bundles no rows for, from the recorded listing
+// (and the models.dev catalog it hydrated from).
+func neoPiCapturedListingRows(t *testing.T, capture neoPiCompletionsCapture) map[string]*registry.NeoPiModel {
+	t.Helper()
+	discovered := map[string]*registry.NeoPiModel{}
+	if capture.Listing == "" {
+		return discovered
+	}
+	base := registry.NeoPiCompletionsListingBase(capture.Provider)
+	infos, err := registry.NeoPiCompletionsListing(capture.Provider, base, []byte(capture.Listing))
+	if capture.ModelsDev != "" {
+		infos, err = registry.NeoPiSiliconFlowListing(capture.Provider, base, []byte(capture.Listing), []byte(capture.ModelsDev))
+	}
+	if err != nil {
+		t.Fatalf("listing: %v", err)
+	}
+	for _, info := range infos {
+		discovered[info.ID] = info.NeoPi
+	}
+	return discovered
 }
 
 func readNeoPiCompletionsCapture(t *testing.T, path string) neoPiCompletionsCapture {
