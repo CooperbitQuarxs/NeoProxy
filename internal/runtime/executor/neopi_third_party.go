@@ -186,6 +186,11 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		if auth != nil {
 			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), auth.Attributes, opts.Headers)
 		}
+		// applyInferenceHeaders runs over the merged set: the authoritative
+		// conversation id wins over a caller's session header.
+		if identity.SessionID != "" {
+			headers.Set("X-Claude-Code-Session-Id", identity.SessionID)
+		}
 	}
 	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
