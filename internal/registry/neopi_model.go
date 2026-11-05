@@ -3,6 +3,8 @@ package registry
 import (
 	"maps"
 	"slices"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicatalog"
 )
 
 // NeoPiModel is a model as NeoPi's catalog resolves it (pi-catalog buildModel):
@@ -29,6 +31,19 @@ type NeoPiModel struct {
 	RequestModelID string `json:"requestModelId,omitempty"`
 	// DevinCompat is the compat NeoPi resolves for a devin-agent row.
 	DevinCompat *NeoPiDevinCompat `json:"devinCompat,omitempty"`
+	// Cursor is the cursor-agent routing NeoPi's discovery resolves.
+	Cursor *NeoPiCursor `json:"cursor,omitempty"`
+}
+
+// NeoPiCursor is a cursor-agent row's routing: its max-mode markers, fixed
+// parameters, the rich route each wire id stands for, and whether its MCP
+// tool schemas need Cursor's projection.
+type NeoPiCursor struct {
+	MaxMode                      *bool                               `json:"maxMode,omitempty"`
+	MaxModeRoutes                map[string]bool                     `json:"maxModeRoutes,omitempty"`
+	ModelParameters              []neopicatalog.ModelParameter       `json:"modelParameters,omitempty"`
+	ModelRoutes                  map[string]neopicatalog.CursorRoute `json:"modelRoutes,omitempty"`
+	RequiresToolSchemaProjection bool                                `json:"requiresToolSchemaProjection,omitempty"`
 }
 
 // NeoPiDevinCompat is DevinCompat: whether the row is an AssignModel router
@@ -168,6 +183,12 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 	if m.DevinCompat != nil {
 		compat := *m.DevinCompat
 		out.DevinCompat = &compat
+	}
+	if m.Cursor != nil {
+		spec := (&neopicatalog.Spec{CursorMaxMode: m.Cursor.MaxMode, CursorMaxModeRoutes: m.Cursor.MaxModeRoutes,
+			CursorModelParameters: m.Cursor.ModelParameters, CursorModelRoutes: m.Cursor.ModelRoutes}).Clone()
+		out.Cursor = &NeoPiCursor{MaxMode: spec.CursorMaxMode, MaxModeRoutes: spec.CursorMaxModeRoutes, ModelParameters: spec.CursorModelParameters,
+			ModelRoutes: spec.CursorModelRoutes, RequiresToolSchemaProjection: m.Cursor.RequiresToolSchemaProjection}
 	}
 	return &out
 }
