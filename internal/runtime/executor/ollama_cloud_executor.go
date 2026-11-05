@@ -45,18 +45,28 @@ var ollamaCloudRetryDelays = []time.Duration{2 * time.Second, 5 * time.Second, 1
 // as NDJSON. A request is read as an OpenAI chat, as NeoPi's gateway reads
 // it, and answered as one.
 type OllamaCloudExecutor struct {
-	cfg  *config.Config
-	wait func(context.Context, time.Duration) error
-	now  func() time.Time
+	provider string
+	cfg      *config.Config
+	wait     func(context.Context, time.Duration) error
+	now      func() time.Time
 }
 
-// NewOllamaCloudExecutor builds the Ollama Cloud executor.
-func NewOllamaCloudExecutor(cfg *config.Config) *OllamaCloudExecutor {
-	return &OllamaCloudExecutor{cfg: cfg, wait: neoPiWait, now: time.Now}
+// NewOllamaCloudExecutor builds the Ollama Cloud executor for the account's
+// runtime provider key ("ollama-cloud" when blank).
+func NewOllamaCloudExecutor(provider string, cfg *config.Config) *OllamaCloudExecutor {
+	if strings.TrimSpace(provider) == "" {
+		provider = registry.OllamaCloudProvider
+	}
+	return &OllamaCloudExecutor{provider: provider, cfg: cfg, wait: neoPiWait, now: time.Now}
 }
 
 // Identifier is the provider key.
-func (e *OllamaCloudExecutor) Identifier() string { return registry.OllamaCloudProvider }
+func (e *OllamaCloudExecutor) Identifier() string { return e.provider }
+
+// UsesConfig reports whether the executor was built for cfg.
+func (e *OllamaCloudExecutor) UsesConfig(cfg *config.Config) bool {
+	return e != nil && e.cfg == cfg
+}
 
 type ollamaCloudPrepared struct {
 	url, modelID  string

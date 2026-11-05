@@ -125,7 +125,7 @@ func TestOllamaCloudRequestsMatchNeoPi(t *testing.T) {
 	for _, tc := range capture.Scenarios {
 		t.Run(tc.Name, func(t *testing.T) {
 			server, recorded := ollamaCloudServer(t, tc.Replies)
-			exec := NewOllamaCloudExecutor(&config.Config{})
+			exec := NewOllamaCloudExecutor("", &config.Config{})
 			exec.wait = func(context.Context, time.Duration) error { return nil }
 			auth := &cliproxyauth.Auth{ID: "ollama-cloud-test", Provider: "ollama-cloud", Attributes: map[string]string{"api_key": capture.APIKey, "base_url": server.URL}}
 			errRun := runOllamaCloud(t, exec, auth, gjson.Get(tc.Body, "model").String(), tc.Body)
@@ -173,7 +173,7 @@ func TestOllamaCloudPayloadRulesApplyLast(t *testing.T) {
 		Models: []config.PayloadModelRule{{Name: "gpt-oss:120b", Protocol: "ollama"}},
 		Params: map[string]any{"think": "low", "options.num_ctx": 8192},
 	}}}}
-	exec := NewOllamaCloudExecutor(cfg)
+	exec := NewOllamaCloudExecutor("", cfg)
 	exec.wait = func(context.Context, time.Duration) error { return nil }
 	auth := &cliproxyauth.Auth{ID: "ollama-cloud-test", Provider: "ollama-cloud", Attributes: map[string]string{"api_key": "key", "base_url": server.URL}}
 	body := `{"model":"gpt-oss:120b","messages":[{"role":"user","content":"Hi"}],"reasoning_effort":"high"}`

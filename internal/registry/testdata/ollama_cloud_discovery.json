@@ -1,0 +1,7766 @@
+{
+	"source": "NeoPi OWN resolveProviderModels(ollamaCloudModelManagerOptions) against a scripted Ollama",
+	"scenarios": [
+		{
+			"name": "mixed-listing",
+			"apiKey": "ollama-discovery-key",
+			"tags": {
+				"status": 200,
+				"body": {
+					"models": [
+						{
+							"name": "gpt-oss:120b",
+							"model": "gpt-oss:120b"
+						},
+						{
+							"name": "Shiny New",
+							"model": "shiny-new:7b"
+						},
+						{
+							"name": "deepseek-v4-pro:next"
+						},
+						{
+							"model": "qwen3-coder:480b"
+						},
+						{
+							"model": "",
+							"name": "blank-model"
+						},
+						{
+							"name": "glm-4.6"
+						},
+						{
+							"model": "kimi-k2"
+						},
+						{
+							"model": "kimi-k2-thinking"
+						},
+						{
+							"model": "llama3.3:70b"
+						},
+						{
+							"model": "gpt-oss:120b"
+						},
+						{
+							"model": "mistral-large-3:675b"
+						},
+						{
+							"model": "gemma3:4b"
+						}
+					]
+				}
+			},
+			"shows": {
+				"gpt-oss:120b": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"completion",
+							"tools",
+							"thinking"
+						],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 131072
+						}
+					}
+				},
+				"shiny-new:7b": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"completion",
+							"vision"
+						],
+						"model_info": {
+							"a.num_ctx": "x",
+							"b.num_ctx": 32768,
+							"c.context_length": 4096
+						}
+					}
+				},
+				"deepseek-v4-pro:next": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"completion",
+							"thinking"
+						],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 1048576
+						}
+					}
+				},
+				"qwen3-coder:480b": {
+					"status": 500,
+					"body": {
+						"error": "boom"
+					}
+				},
+				"glm-4.6": {
+					"status": 200,
+					"body": {
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 200000
+						}
+					}
+				},
+				"kimi-k2": {
+					"status": 200,
+					"body": {
+						"capabilities": [],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 262144
+						}
+					}
+				},
+				"kimi-k2-thinking": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"thinking"
+						],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 262144
+						}
+					}
+				},
+				"llama3.3:70b": {
+					"status": 200,
+					"body": "not json"
+				},
+				"mistral-large-3:675b": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"vision"
+						]
+					}
+				},
+				"gemma3:4b": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"completion"
+						],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 131072
+						}
+					}
+				}
+			},
+			"requests": [
+				{
+					"method": "GET",
+					"path": "/api/tags",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": ""
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "24",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "24",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"shiny-new:7b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "32",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"deepseek-v4-pro:next\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "28",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"qwen3-coder:480b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "19",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"glm-4.6\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "19",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"kimi-k2\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "28",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"kimi-k2-thinking\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "24",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"llama3.3:70b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "24",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "32",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"mistral-large-3:675b\"}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "21",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"gemma3:4b\"}"
+				}
+			],
+			"source": "provider",
+			"stale": false,
+			"models": [
+				{
+					"id": "beam",
+					"name": "Beam 1.0 501B A23B",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "clef:27b",
+					"name": "clef:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 65536,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "cogito-2.1:671b",
+					"name": "cogito-2.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 32000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.1:671b",
+					"name": "deepseek-v3.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 163840,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.2",
+					"name": "DeepSeek V3.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:0731",
+					"name": "DeepSeek V4 Flash 0731",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:preview",
+					"name": "deepseek-v4-flash:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "deepseek-v4-pro",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:0813",
+					"name": "DeepSeek V4 Pro 0813",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:preview",
+					"name": "deepseek-v4-pro:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 524288,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash:1017",
+					"name": "DeepSeek V4.1 Flash 1017",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-2:123b",
+					"name": "devstral-2:123b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-small-2:24b",
+					"name": "devstral-small-2:24b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"name": "Gemini 3 Flash Preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:12b",
+					"name": "gemma3:12b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:27b",
+					"name": "gemma3:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:4b",
+					"name": "gemma3:4b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma4:31b",
+					"name": "gemma4:31b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.6",
+					"name": "GLM-4.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 200000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.7",
+					"name": "GLM-4.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5",
+					"name": "GLM-5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.1",
+					"name": "GLM-5.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.2",
+					"name": "GLM-5.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 976000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": false
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3",
+					"name": "GLM-5.3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3-flash",
+					"name": "GLM-5.3-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:120b",
+					"name": "gpt-oss:120b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"mode": "effort",
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						]
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:20b",
+					"name": "gpt-oss:20b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2",
+					"name": "Kimi K2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"mode": "effort",
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"effortRouting": {
+							"off": "kimi-k2",
+							"minimal": "kimi-k2-thinking",
+							"low": "kimi-k2-thinking",
+							"medium": "kimi-k2-thinking",
+							"high": "kimi-k2-thinking"
+						},
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.5",
+					"name": "Kimi K2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.6",
+					"name": "kimi-k2.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.7-code",
+					"name": "kimi-k2.7-code",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2:1t",
+					"name": "kimi-k2:1t",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k3",
+					"name": "kimi-k3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2",
+					"name": "minimax-m2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.1",
+					"name": "minimax-m2.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.5",
+					"name": "MiniMax-M2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.7",
+					"name": "minimax-m2.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 196608,
+					"maxTokens": 196608,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3",
+					"name": "minimax-m3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 512000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3.1-flash",
+					"name": "MiniMax-M3.1-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 512000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:14b",
+					"name": "ministral-3:14b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:3b",
+					"name": "ministral-3:3b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:8b",
+					"name": "ministral-3:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-3:675b",
+					"name": "mistral-large-3:675b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 128000,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-4",
+					"name": "Mistral Large 4",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "muse-spark-open",
+					"name": "Muse Spark Open",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-nano:30b",
+					"name": "nemotron-3-nano:30b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-super",
+					"name": "nemotron-3-super",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-ultra",
+					"name": "nemotron-3-ultra",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder-next",
+					"name": "Qwen3 Coder Next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder:480b",
+					"name": "qwen3-coder:480b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 128000,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-next:80b",
+					"name": "qwen3-next:80b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b",
+					"name": "qwen3-vl:235b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b-instruct",
+					"name": "qwen3-vl:235b-instruct",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 131072,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3.5:397b",
+					"name": "qwen3.5:397b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "rnj-1:8b",
+					"name": "rnj-1:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 4096,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:next",
+					"name": "deepseek-v4-pro:next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"mode": "effort",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						]
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "llama3.3:70b",
+					"name": "llama3.3:70b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 128000,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "shiny-new:7b",
+					"name": "Shiny New",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				}
+			]
+		},
+		{
+			"name": "configured-api-base",
+			"apiKey": "ollama-discovery-key",
+			"baseUrl": "https://ollama.com/api/",
+			"tags": {
+				"status": 200,
+				"body": {
+					"models": [
+						{
+							"model": "glm-5.2"
+						}
+					]
+				}
+			},
+			"shows": {
+				"glm-5.2": {
+					"status": 200,
+					"body": {
+						"capabilities": [
+							"thinking"
+						],
+						"model_info": {
+							"general.architecture": "x",
+							"x.context_length": 202752
+						}
+					}
+				}
+			},
+			"requests": [
+				{
+					"method": "GET",
+					"path": "/api/tags",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": ""
+				},
+				{
+					"method": "POST",
+					"path": "/api/show",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"content-length": "19",
+						"content-type": "application/json",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": "{\"model\":\"glm-5.2\"}"
+				}
+			],
+			"source": "provider",
+			"stale": false,
+			"models": [
+				{
+					"id": "beam",
+					"name": "Beam 1.0 501B A23B",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "clef:27b",
+					"name": "clef:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 65536,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "cogito-2.1:671b",
+					"name": "cogito-2.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 32000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.1:671b",
+					"name": "deepseek-v3.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 163840,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.2",
+					"name": "DeepSeek V3.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:0731",
+					"name": "DeepSeek V4 Flash 0731",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:preview",
+					"name": "deepseek-v4-flash:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "deepseek-v4-pro",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:0813",
+					"name": "DeepSeek V4 Pro 0813",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:preview",
+					"name": "deepseek-v4-pro:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 524288,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash:1017",
+					"name": "DeepSeek V4.1 Flash 1017",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-2:123b",
+					"name": "devstral-2:123b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-small-2:24b",
+					"name": "devstral-small-2:24b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"name": "Gemini 3 Flash Preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:12b",
+					"name": "gemma3:12b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:27b",
+					"name": "gemma3:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:4b",
+					"name": "gemma3:4b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma4:31b",
+					"name": "gemma4:31b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.6",
+					"name": "GLM-4.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.7",
+					"name": "GLM-4.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5",
+					"name": "GLM-5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.1",
+					"name": "GLM-5.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.2",
+					"name": "GLM-5.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"mode": "effort",
+						"efforts": [
+							"high",
+							"max"
+						]
+					},
+					"compat": {
+						"stripThinkingHistory": false
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3",
+					"name": "GLM-5.3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3-flash",
+					"name": "GLM-5.3-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:120b",
+					"name": "gpt-oss:120b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:20b",
+					"name": "gpt-oss:20b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2-thinking",
+					"name": "Kimi K2 Thinking",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.5",
+					"name": "Kimi K2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.6",
+					"name": "kimi-k2.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.7-code",
+					"name": "kimi-k2.7-code",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2:1t",
+					"name": "kimi-k2:1t",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k3",
+					"name": "kimi-k3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2",
+					"name": "minimax-m2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.1",
+					"name": "minimax-m2.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.5",
+					"name": "MiniMax-M2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.7",
+					"name": "minimax-m2.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 196608,
+					"maxTokens": 196608,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3",
+					"name": "minimax-m3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 512000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3.1-flash",
+					"name": "MiniMax-M3.1-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 512000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:14b",
+					"name": "ministral-3:14b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:3b",
+					"name": "ministral-3:3b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:8b",
+					"name": "ministral-3:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-3:675b",
+					"name": "mistral-large-3:675b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-4",
+					"name": "Mistral Large 4",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "muse-spark-open",
+					"name": "Muse Spark Open",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-nano:30b",
+					"name": "nemotron-3-nano:30b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-super",
+					"name": "nemotron-3-super",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-ultra",
+					"name": "nemotron-3-ultra",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder-next",
+					"name": "Qwen3 Coder Next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder:480b",
+					"name": "qwen3-coder:480b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-next:80b",
+					"name": "qwen3-next:80b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b",
+					"name": "qwen3-vl:235b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b-instruct",
+					"name": "qwen3-vl:235b-instruct",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 131072,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3.5:397b",
+					"name": "qwen3.5:397b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "rnj-1:8b",
+					"name": "rnj-1:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 4096,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				}
+			]
+		},
+		{
+			"name": "empty-listing",
+			"apiKey": "ollama-discovery-key",
+			"tags": {
+				"status": 200,
+				"body": {
+					"models": []
+				}
+			},
+			"shows": {},
+			"requests": [
+				{
+					"method": "GET",
+					"path": "/api/tags",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": ""
+				}
+			],
+			"source": "provider",
+			"stale": false,
+			"models": [
+				{
+					"id": "beam",
+					"name": "Beam 1.0 501B A23B",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "clef:27b",
+					"name": "clef:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 65536,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "cogito-2.1:671b",
+					"name": "cogito-2.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 32000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.1:671b",
+					"name": "deepseek-v3.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 163840,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.2",
+					"name": "DeepSeek V3.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:0731",
+					"name": "DeepSeek V4 Flash 0731",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:preview",
+					"name": "deepseek-v4-flash:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "deepseek-v4-pro",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:0813",
+					"name": "DeepSeek V4 Pro 0813",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:preview",
+					"name": "deepseek-v4-pro:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 524288,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash:1017",
+					"name": "DeepSeek V4.1 Flash 1017",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-2:123b",
+					"name": "devstral-2:123b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-small-2:24b",
+					"name": "devstral-small-2:24b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"name": "Gemini 3 Flash Preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:12b",
+					"name": "gemma3:12b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:27b",
+					"name": "gemma3:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:4b",
+					"name": "gemma3:4b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma4:31b",
+					"name": "gemma4:31b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.6",
+					"name": "GLM-4.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.7",
+					"name": "GLM-4.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5",
+					"name": "GLM-5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.1",
+					"name": "GLM-5.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.2",
+					"name": "GLM-5.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 976000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": false
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3",
+					"name": "GLM-5.3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3-flash",
+					"name": "GLM-5.3-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:120b",
+					"name": "gpt-oss:120b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:20b",
+					"name": "gpt-oss:20b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2-thinking",
+					"name": "Kimi K2 Thinking",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.5",
+					"name": "Kimi K2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.6",
+					"name": "kimi-k2.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.7-code",
+					"name": "kimi-k2.7-code",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2:1t",
+					"name": "kimi-k2:1t",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k3",
+					"name": "kimi-k3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2",
+					"name": "minimax-m2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.1",
+					"name": "minimax-m2.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.5",
+					"name": "MiniMax-M2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.7",
+					"name": "minimax-m2.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 196608,
+					"maxTokens": 196608,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3",
+					"name": "minimax-m3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 512000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3.1-flash",
+					"name": "MiniMax-M3.1-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 512000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:14b",
+					"name": "ministral-3:14b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:3b",
+					"name": "ministral-3:3b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:8b",
+					"name": "ministral-3:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-3:675b",
+					"name": "mistral-large-3:675b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-4",
+					"name": "Mistral Large 4",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "muse-spark-open",
+					"name": "Muse Spark Open",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-nano:30b",
+					"name": "nemotron-3-nano:30b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-super",
+					"name": "nemotron-3-super",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-ultra",
+					"name": "nemotron-3-ultra",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder-next",
+					"name": "Qwen3 Coder Next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder:480b",
+					"name": "qwen3-coder:480b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-next:80b",
+					"name": "qwen3-next:80b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b",
+					"name": "qwen3-vl:235b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b-instruct",
+					"name": "qwen3-vl:235b-instruct",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 131072,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3.5:397b",
+					"name": "qwen3.5:397b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "rnj-1:8b",
+					"name": "rnj-1:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 4096,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				}
+			]
+		},
+		{
+			"name": "no-models-key",
+			"apiKey": "ollama-discovery-key",
+			"tags": {
+				"status": 200,
+				"body": {}
+			},
+			"shows": {},
+			"requests": [
+				{
+					"method": "GET",
+					"path": "/api/tags",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": ""
+				}
+			],
+			"source": "provider",
+			"stale": false,
+			"models": [
+				{
+					"id": "beam",
+					"name": "Beam 1.0 501B A23B",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "clef:27b",
+					"name": "clef:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 65536,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "cogito-2.1:671b",
+					"name": "cogito-2.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 32000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.1:671b",
+					"name": "deepseek-v3.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 163840,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.2",
+					"name": "DeepSeek V3.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:0731",
+					"name": "DeepSeek V4 Flash 0731",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:preview",
+					"name": "deepseek-v4-flash:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "deepseek-v4-pro",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:0813",
+					"name": "DeepSeek V4 Pro 0813",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:preview",
+					"name": "deepseek-v4-pro:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 524288,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash:1017",
+					"name": "DeepSeek V4.1 Flash 1017",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-2:123b",
+					"name": "devstral-2:123b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-small-2:24b",
+					"name": "devstral-small-2:24b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"name": "Gemini 3 Flash Preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:12b",
+					"name": "gemma3:12b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:27b",
+					"name": "gemma3:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:4b",
+					"name": "gemma3:4b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma4:31b",
+					"name": "gemma4:31b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.6",
+					"name": "GLM-4.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.7",
+					"name": "GLM-4.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5",
+					"name": "GLM-5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.1",
+					"name": "GLM-5.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.2",
+					"name": "GLM-5.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 976000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": false
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3",
+					"name": "GLM-5.3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3-flash",
+					"name": "GLM-5.3-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:120b",
+					"name": "gpt-oss:120b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:20b",
+					"name": "gpt-oss:20b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2-thinking",
+					"name": "Kimi K2 Thinking",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.5",
+					"name": "Kimi K2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.6",
+					"name": "kimi-k2.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.7-code",
+					"name": "kimi-k2.7-code",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2:1t",
+					"name": "kimi-k2:1t",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k3",
+					"name": "kimi-k3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2",
+					"name": "minimax-m2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.1",
+					"name": "minimax-m2.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.5",
+					"name": "MiniMax-M2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.7",
+					"name": "minimax-m2.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 196608,
+					"maxTokens": 196608,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3",
+					"name": "minimax-m3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 512000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3.1-flash",
+					"name": "MiniMax-M3.1-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 512000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:14b",
+					"name": "ministral-3:14b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:3b",
+					"name": "ministral-3:3b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:8b",
+					"name": "ministral-3:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-3:675b",
+					"name": "mistral-large-3:675b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-4",
+					"name": "Mistral Large 4",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "muse-spark-open",
+					"name": "Muse Spark Open",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-nano:30b",
+					"name": "nemotron-3-nano:30b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-super",
+					"name": "nemotron-3-super",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-ultra",
+					"name": "nemotron-3-ultra",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder-next",
+					"name": "Qwen3 Coder Next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder:480b",
+					"name": "qwen3-coder:480b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-next:80b",
+					"name": "qwen3-next:80b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b",
+					"name": "qwen3-vl:235b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b-instruct",
+					"name": "qwen3-vl:235b-instruct",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 131072,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3.5:397b",
+					"name": "qwen3.5:397b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "rnj-1:8b",
+					"name": "rnj-1:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 4096,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				}
+			]
+		},
+		{
+			"name": "tags-refused",
+			"apiKey": "ollama-discovery-key",
+			"tags": {
+				"status": 401,
+				"body": {
+					"error": "unauthorized"
+				}
+			},
+			"shows": {},
+			"requests": [
+				{
+					"method": "GET",
+					"path": "/api/tags",
+					"headers": {
+						"accept": "application/json",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-discovery-key",
+						"connection": "keep-alive",
+						"host": "127.0.0.1:44099",
+						"user-agent": "Bun/1.3.14"
+					},
+					"body": ""
+				}
+			],
+			"source": "bundled",
+			"stale": true,
+			"models": [
+				{
+					"id": "beam",
+					"name": "Beam 1.0 501B A23B",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "clef:27b",
+					"name": "clef:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 65536,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "cogito-2.1:671b",
+					"name": "cogito-2.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 32000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.1:671b",
+					"name": "deepseek-v3.1:671b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 163840,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v3.2",
+					"name": "DeepSeek V3.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 163840,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash",
+					"name": "DeepSeek V4 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:0731",
+					"name": "DeepSeek V4 Flash 0731",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-flash:preview",
+					"name": "deepseek-v4-flash:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"name": "deepseek-v4-pro",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:0813",
+					"name": "DeepSeek V4 Pro 0813",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4-pro:preview",
+					"name": "deepseek-v4-pro:preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 524288,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash",
+					"name": "DeepSeek V4.1 Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "deepseek-v4.1-flash:1017",
+					"name": "DeepSeek V4.1 Flash 1017",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 384000,
+					"thinking": {
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-2:123b",
+					"name": "devstral-2:123b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "devstral-small-2:24b",
+					"name": "devstral-small-2:24b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"name": "Gemini 3 Flash Preview",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:12b",
+					"name": "gemma3:12b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:27b",
+					"name": "gemma3:27b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma3:4b",
+					"name": "gemma3:4b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 8192,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gemma4:31b",
+					"name": "gemma4:31b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.6",
+					"name": "GLM-4.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-4.7",
+					"name": "GLM-4.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5",
+					"name": "GLM-5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.1",
+					"name": "GLM-5.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 202752,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.2",
+					"name": "GLM-5.2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 976000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"high",
+							"max"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": false
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3",
+					"name": "GLM-5.3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "glm-5.3-flash",
+					"name": "GLM-5.3-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:120b",
+					"name": "gpt-oss:120b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "gpt-oss:20b",
+					"name": "gpt-oss:20b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 131072,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2-thinking",
+					"name": "Kimi K2 Thinking",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.5",
+					"name": "Kimi K2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.6",
+					"name": "kimi-k2.6",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2.7-code",
+					"name": "kimi-k2.7-code",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k2:1t",
+					"name": "kimi-k2:1t",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "kimi-k3",
+					"name": "kimi-k3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"defaultLevel": "max",
+						"efforts": [
+							"low",
+							"high",
+							"max"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2",
+					"name": "minimax-m2",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.1",
+					"name": "minimax-m2.1",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.5",
+					"name": "MiniMax-M2.5",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 204800,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m2.7",
+					"name": "minimax-m2.7",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 196608,
+					"maxTokens": 196608,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort",
+						"requiresEffort": true
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3",
+					"name": "minimax-m3",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 512000,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "minimax-m3.1-flash",
+					"name": "MiniMax-M3.1-Flash",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1000000,
+					"maxTokens": 512000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:14b",
+					"name": "ministral-3:14b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:3b",
+					"name": "ministral-3:3b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "ministral-3:8b",
+					"name": "ministral-3:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-3:675b",
+					"name": "mistral-large-3:675b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 262144,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "mistral-large-4",
+					"name": "Mistral Large 4",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 262144,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "muse-spark-open",
+					"name": "Muse Spark Open",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-nano:30b",
+					"name": "nemotron-3-nano:30b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 1048576,
+					"maxTokens": 131072,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-super",
+					"name": "nemotron-3-super",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "nemotron-3-ultra",
+					"name": "nemotron-3-ultra",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 128000,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder-next",
+					"name": "Qwen3 Coder Next",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-coder:480b",
+					"name": "qwen3-coder:480b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-next:80b",
+					"name": "qwen3-next:80b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b",
+					"name": "qwen3-vl:235b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 32768,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3-vl:235b-instruct",
+					"name": "qwen3-vl:235b-instruct",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 131072,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "qwen3.5:397b",
+					"name": "qwen3.5:397b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": true,
+					"input": [
+						"text",
+						"image"
+					],
+					"contextWindow": 262144,
+					"maxTokens": 65536,
+					"thinking": {
+						"efforts": [
+							"minimal",
+							"low",
+							"medium",
+							"high"
+						],
+						"mode": "effort"
+					},
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				},
+				{
+					"id": "rnj-1:8b",
+					"name": "rnj-1:8b",
+					"api": "ollama-chat",
+					"provider": "ollama-cloud",
+					"baseUrl": "https://ollama.com",
+					"reasoning": false,
+					"input": [
+						"text"
+					],
+					"contextWindow": 32768,
+					"maxTokens": 4096,
+					"thinking": null,
+					"compat": {
+						"stripThinkingHistory": true
+					},
+					"omitMaxOutputTokens": true,
+					"requestModelId": null
+				}
+			]
+		}
+	]
+}

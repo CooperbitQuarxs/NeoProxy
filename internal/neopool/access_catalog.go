@@ -412,6 +412,10 @@ var providerCatalog = []ProviderInfo{
 	// identity route and rejects it only on a 401.
 	{ID: "commandcode", Name: "Command Code", Vendor: "Command Code", Hue: 170, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.commandcode.ai/provider/v1", "user_...", "https://commandcode.ai/studio"), Plans: []ProviderPlan{}},
+	// An Ollama Cloud API key reaches Ollama's native /api/chat; NeoPi adds it
+	// without checking it.
+	{ID: "ollama-cloud", Name: "Ollama Cloud", Vendor: "Ollama", Hue: 0, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://ollama.com", "Ollama Cloud API key (not checked before it is added)", "https://ollama.com/settings/keys"), Plans: []ProviderPlan{}},
 	// The Coding Plan sign-in picks the International or China endpoint (or,
 	// for an administrator, a custom one) and checks the key there.
 	{ID: "alibaba-coding-plan", Name: "Alibaba Coding Plan", Vendor: "Alibaba Cloud", Hue: 25, Chroma: providerChroma, Methods: []string{"apiKey"},

@@ -127,6 +127,8 @@ type neoPiSpec struct {
 	baseURL string
 	// cost is the spec's token tariff (zero for a bare listing row).
 	cost NeoPiCost
+	// omitMaxOutputTokens is the spec's omitMaxOutputTokens (ollama-chat).
+	omitMaxOutputTokens bool
 }
 
 // withCompat sets one authored compat override.
@@ -981,6 +983,8 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 		CacheRead:  neoPiPreferDiscoveryCost(dynamic.cost.CacheRead, static.cost.CacheRead, costAuthoritative),
 		CacheWrite: neoPiPreferDiscoveryCost(dynamic.cost.CacheWrite, static.cost.CacheWrite, costAuthoritative),
 	}
+	// {...existing, ...dynamic}: the built discovered row's flag wins.
+	merged.omitMaxOutputTokens = dynamic.OmitMaxOutputTokens
 	return neoPiBuildRow(provider, baseURL, &merged)
 }
 
@@ -1021,6 +1025,8 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 	}
 	dropped := map[string]bool{}
 	rebuilt := map[string]*NeoPiModel{}
+	// familyBase maps a folded variant to the base its family collapsed into.
+	familyBase := map[string]string{}
 	for _, row := range rows {
 		baseID, ok := "", false
 		if logical, thinking := neopitaxonomy.CollapseVariant(provider, row.ID); thinking {
@@ -1074,18 +1080,27 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		if built, err := neoPiBuildRow(provider, base.BaseURL, &collapsed); err == nil {
 			rebuilt[base.ID] = built
 			byID[base.ID] = built
+			familyBase[row.ID] = base.ID
 		}
 		dropped[row.ID] = true
 	}
 	if len(dropped) == 0 {
 		return rows
 	}
+	// collapseWithTable: the logical row takes its family's first position.
 	out := rows[:0:0]
+	emitted := map[string]bool{}
 	for _, row := range rows {
-		if dropped[row.ID] {
+		if baseID, ok := familyBase[row.ID]; ok && !emitted[baseID] {
+			emitted[baseID] = true
+			out = append(out, rebuilt[baseID])
+			continue
+		}
+		if dropped[row.ID] || emitted[row.ID] {
 			continue
 		}
 		if built, ok := rebuilt[row.ID]; ok {
+			emitted[row.ID] = true
 			row = built
 		}
 		out = append(out, row)

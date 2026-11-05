@@ -87,6 +87,10 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	if ctx.Err() != nil {
 		return true
 	}
+	// NeoPi's Ollama Cloud resolves its roster by its own discovery too.
+	if runtimeKey, ok := ollamaCloudIdentity(a); ok {
+		return s.registerOllamaCloudModels(ctx, cfg, a, fence, provider, authKind, runtimeKey, excluded)
+	}
 	// NeoPi's Chat Completions providers resolve their roster by NeoPi's own
 	// discovery and register under the account's runtime key, which differs
 	// from the catalog provider for an OpenAI-compatibility account.
