@@ -205,7 +205,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "cursor":
-		models = applyExcludedModels(s.cursorModelsForAuth(a), excluded)
+		models = applyExcludedModels(s.registerNeoPiDiscovered(cursorDiscovery, a), excluded)
 	default:
 		// Handle OpenAI-compatibility providers by name using config
 		if cfg != nil {
