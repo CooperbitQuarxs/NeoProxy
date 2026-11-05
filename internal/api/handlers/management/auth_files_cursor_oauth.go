@@ -31,8 +31,7 @@ func (h *Handler) RequestCursorToken(c *gin.Context) {
 		defer cancel()
 		go watchOAuthSessionCancel(pollCtx, cancel, state, "cursor")
 
-		svc := cursorauth.NewAuth(h.cfg)
-		tokens, errWait := svc.WaitForLogin(pollCtx, session)
+		credential, errWait := cursorauth.NewAuth(h.cfg).Login(pollCtx, session)
 		if errWait != nil {
 			if IsOAuthSessionPending(state, "cursor") {
 				log.Errorf("Cursor sign-in failed: %v", errWait)
@@ -43,7 +42,7 @@ func (h *Handler) RequestCursorToken(c *gin.Context) {
 		if !IsOAuthSessionPending(state, "cursor") {
 			return
 		}
-		record := sdkAuth.BuildCursorAuthRecord(ctx, svc, tokens)
+		record := sdkAuth.BuildCursorAuthRecord(credential)
 		if errGuard := guardOAuthSessionPendingForSave(state, "cursor"); errGuard != nil {
 			return
 		}
