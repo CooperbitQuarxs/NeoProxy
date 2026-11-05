@@ -677,11 +677,35 @@ func ExplicitReasoningEffort(body []byte, provider, model string) string {
 		}
 		return reasoningEffortFromSuffix(suffix)
 	}
+	if provider == "gemini" {
+		return geminiNamedEffort(body)
+	}
 	config := extractThinkingConfigForUsage(body, provider)
 	if !hasThinkingConfig(config) && (provider == "openai-response" || provider == "openai") {
 		config = extractCodexUsageConfig(body)
 	}
 	return named(config)
+}
+
+// geminiNamedEffort is the effort a Gemini request names as the native
+// request reader (googlewire.FromGemini) reads it: the first existing of each
+// camelCase/snake_case container and level, and only a string level, which is
+// lowercased. A budget, or a level of any other type, names none.
+func geminiNamedEffort(body []byte) string {
+	first := func(value gjson.Result, names ...string) gjson.Result {
+		for _, name := range names {
+			if found := value.Get(name); found.Exists() {
+				return found
+			}
+		}
+		return gjson.Result{}
+	}
+	generation := first(gjson.ParseBytes(body), "generationConfig", "generation_config")
+	level := first(first(generation, "thinkingConfig", "thinking_config"), "thinkingLevel", "thinking_level")
+	if level.Type != gjson.String {
+		return ""
+	}
+	return strings.ToLower(level.Str)
 }
 
 // ExtractTranslatedReasoningEffort returns the final provider payload's thinking
