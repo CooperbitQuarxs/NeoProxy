@@ -79,6 +79,9 @@ type Login struct {
 	Normalize string `json:"normalize"`
 	// Probe is nil for providers without a validation probe.
 	Probe *Validation `json:"validate"`
+	// EmptyFallback is the key an empty answer stands for (local servers
+	// without auth); nil when a key is required.
+	EmptyFallback *string `json:"emptyFallback"`
 }
 
 // loginsJSON is NeoPi's compiled `login "api-key"` rules for the providers
@@ -157,6 +160,9 @@ func (l Login) NormalizeKey(raw string) (string, error) {
 		}
 	}
 	if key == "" {
+		if l.EmptyFallback != nil {
+			return *l.EmptyFallback, nil
+		}
 		return "", ErrKeyRequired
 	}
 	return key, nil

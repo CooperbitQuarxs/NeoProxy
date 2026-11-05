@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -85,15 +86,23 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			call := 0
+			var mu sync.Mutex
 			var got []neoPiCapturedRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				query := map[string]string{}
 				for name, values := range r.URL.Query() {
 					query[name] = values[0]
 				}
+				mu.Lock()
+				defer mu.Unlock()
 				got = append(got, neoPiCapturedRequest{Method: r.Method, Path: r.URL.Path, Query: query, Headers: map[string]string{
 					"accept": r.Header.Get("Accept"), "authorization": r.Header.Get("Authorization"),
 				}})
+				// LM Studio's native metadata answered 404 in these scenarios.
+				if result.Provider == "lm-studio" && (r.URL.Path == "/api/v0/models" || r.URL.Path == "/api/v1/models") {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
 				reply := result.Replies[min(call, len(result.Replies)-1)]
 				call++
 				w.WriteHeader(reply.Status)
@@ -114,6 +123,14 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			}
 			if len(got) != len(result.Requests) {
 				t.Fatalf("requests: port sent %d, NeoPi %d", len(got), len(result.Requests))
+			}
+			if result.Provider == "lm-studio" {
+				// The native metadata and the listing go out concurrently.
+				byPath := func(requests []neoPiCapturedRequest) {
+					sort.Slice(requests, func(i, j int) bool { return requests[i].Path < requests[j].Path })
+				}
+				byPath(got)
+				byPath(result.Requests)
 			}
 			for i, want := range result.Requests {
 				want.Headers = map[string]string{"accept": want.Headers["accept"], "authorization": want.Headers["authorization"]}

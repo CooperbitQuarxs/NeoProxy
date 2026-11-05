@@ -56,6 +56,26 @@ const discoveredRosters: Record<string, any[]> = {
 	// bundled reference index the rest; embeddings and generators drop by id.
 	siliconflow: ["zai-org/GLM-5.1", "deepseek-ai/DeepSeek-V4-Pro", "moonshotai/Kimi-K3", "Qwen/Qwen3-235B-A22B-Instruct-2507", "openai/gpt-oss-120b", "BAAI/bge-m3", "black-forest-labs/FLUX.1-schnell", "zz-silicon-new"].map(id => ({ id })),
 	"siliconflow-cn": ["deepseek-ai/DeepSeek-V4-Pro", "Pro/zai-org/GLM-5.1", "Qwen/Qwen3-235B-A22B-Instruct-2507", "FunAudioLLM/SenseVoiceSmall", "zz-silicon-cn-new"].map(id => ({ id })),
+	// Local servers list what they serve; vLLM reports its served context.
+	vllm: [
+		{ id: "Qwen/Qwen3.8-32B", max_model_len: 32768 },
+		{ id: "Qwen/Qwen3-32B", max_model_len: 40960 },
+		{ id: "meta-llama/Llama-4-Scout-17B-16E-Instruct" },
+		{ id: "zz-vllm-new", max_model_len: "8192" },
+	],
+	// LM Studio's native metadata marks VLMs, served windows and judges.
+	"lm-studio": ["qwen/qwen3.8-vl-8b", "google/gemma-4-12b", "lm-judge", "lm-judge:2", "zz-lms-new"].map(id => ({ id })),
+};
+
+// LM Studio's native answers (GET /api/v0/models and /api/v1/models).
+const lmStudioNative = {
+	v0: {
+		data: [
+			{ id: "qwen/qwen3.8-vl-8b", type: "vlm", max_context_length: 131072 },
+			{ id: "google/gemma-4-12b", type: "llm", state: "loaded", loaded_context_length: 8192, max_context_length: 131072, capabilities: ["tool_use"] },
+		],
+	},
+	v1: { models: [{ key: "lm-judge", type: "decision", has_vision_adapter: true, max_context_length: 4096, loaded_instances: [{ id: "lm-judge:2", config: { context_length: 2048 } }] }] },
 };
 
 // The models.dev catalog (catalog.stencil.so) a manager consults for
@@ -82,25 +102,28 @@ const modelsDevPayloads: Record<string, any> = {
 	},
 };
 
-async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string; modelsDev?: string }> {
+async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string; modelsDev?: string; lmStudioV0?: string; lmStudioV1?: string }> {
 	const entries = discoveredRosters[provider];
 	if (!entries) return { models: [] };
 	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
 	const listing = JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
 	const modelsDev = modelsDevPayloads[provider] ? JSON.stringify(modelsDevPayloads[provider]) : undefined;
+	const native = provider === "lm-studio" ? { v0: JSON.stringify(lmStudioNative.v0), v1: JSON.stringify(lmStudioNative.v1) } : undefined;
 	const options = descriptor.createModelManagerOptions({
 		apiKey,
 		fetch: async (input: any) => {
-			const host = new URL(typeof input === "string" ? input : input.url).hostname;
-			if (host === "catalog.stencil.so") {
+			const url = new URL(typeof input === "string" ? input : input.url);
+			if (url.hostname === "catalog.stencil.so") {
 				return modelsDev ? new Response(modelsDev, { status: 200, headers: { "content-type": "application/json" } }) : new Response("unavailable", { status: 503 });
 			}
+			if (native && url.pathname === "/api/v0/models") return new Response(native.v0, { status: 200, headers: { "content-type": "application/json" } });
+			if (native && url.pathname === "/api/v1/models") return new Response(native.v1, { status: 200, headers: { "content-type": "application/json" } });
 			return new Response(listing, { status: 200, headers: { "content-type": "application/json" } });
 		},
 	});
 	options.cacheDbPath = join(cacheDir, `${provider}.db`);
 	const resolved = await resolveProviderModels(options, "online");
-	return { models: resolved.models, listing, modelsDev };
+	return { models: resolved.models, listing, modelsDev, lmStudioV0: native?.v0, lmStudioV1: native?.v1 };
 }
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
@@ -392,6 +415,7 @@ for (const provider of providers) {
 				sessionId,
 				...(discovered.listing ? { listing: discovered.listing } : {}),
 				...(discovered.modelsDev ? { modelsDev: discovered.modelsDev } : {}),
+				...(discovered.lmStudioV0 ? { lmStudioV0: discovered.lmStudioV0, lmStudioV1: discovered.lmStudioV1 } : {}),
 				fixtures,
 			}),
 		),

@@ -135,6 +135,12 @@ try {
 	await run("deepseek", "bearer-only", {}, "Bearer", ["Bearer"]);
 	await run("cerebras", "bearer-prefix-kept", {}, "Bearer " + key, ["Bearer " + key]);
 	await run("cerebras", "empty-key", {}, "", [""]);
+	// Local servers: an empty answer stands for their no-auth placeholder key.
+	for (const local of ["vllm", "lm-studio"]) {
+		await run(local, "pasted", {}, key, [key]);
+		await run(local, "empty-fallback", {}, "", [""]);
+		await run(local, "blank-fallback", {}, "   ", ["   "]);
+	}
 	await run("moonshot", "base-url-env", { env: "https://proxy.example.invalid/moon/v1/" }, key, [key]);
 	// Token Plan: region prompt, key prompt, optional console cookie.
 	const tokenKey = "sk-sp-fixture0123456789";
