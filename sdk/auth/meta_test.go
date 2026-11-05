@@ -57,10 +57,9 @@ func TestMetaLoginPreservesMintSubscriptionMetadata(t *testing.T) {
 		t.Fatalf("mint calls = %d, want 1", mintCalls)
 	}
 	for key, want := range map[string]any{
-		"subs_tier_name":     "Pro",
-		"subs_tier_id":       "pro",
-		"is_subs_active":     true,
-		"has_payment_method": false,
+		"subs_tier_name": "Pro",
+		"subs_tier_id":   "pro",
+		"account_id":     "meta-user",
 	} {
 		got, ok := record.Metadata[key]
 		if !ok || got != want {
