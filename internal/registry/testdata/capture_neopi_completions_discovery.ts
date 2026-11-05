@@ -59,6 +59,8 @@ const managers: Record<string, (config: any) => any> = {
 	xiaomi: m.xiaomiModelManagerOptions,
 	"singularityapi-dev": m.singularityApiDevModelManagerOptions,
 	"singularityapi-tech": m.singularityApiTechModelManagerOptions,
+	"charm-hyper": m.charmHyperModelManagerOptions,
+	"alibaba-coding-plan": m.alibabaCodingPlanModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -254,6 +256,23 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "deepseek-v4-flash-0731" },
 			{ id: "deepseek-v4.1-flash", name: "  Alias  " },
 			{ id: "zz-lane-new" },
+		],
+		// The advertised effort vocabulary is the ladder; none is the off switch.
+		"charm-hyper": [
+			{
+				id: "glm-5.3",
+				display_name: "GLM 5.3",
+				context_window: 200000,
+				max_output_tokens: 131072,
+				capabilities: { vision: false },
+				pricing: { input: "0.6", output: 2.2, cache_hit: 0, cache_create: 0 },
+				reasoning: { effort_levels: [{ value: "none" }, { value: "low" }, { value: "medium" }, { value: "high" }, { value: "low" }], default_effort_level: "medium" },
+			},
+			{ id: "glm-5.1", context_window: "200000", max_output_tokens: 131072, reasoning: { effort_levels: [{ value: "low" }, { value: "high" }], default_effort_level: "max" } },
+			{ id: "minimax-m2.7", context_window: 196608, max_output_tokens: 131072 },
+			{ id: "kimi-k3", capabilities: { vision: true }, reasoning: { effort_levels: [{ value: "minimal" }, "bogus", { value: 3 }, { value: "xhigh" }, { value: "max" }] } },
+			{ id: "zz-hyper-none-only", reasoning: { effort_levels: [{ value: "none" }] } },
+			{ id: "zz-hyper-junk", display_name: "  ", context_window: -1, capabilities: "x", reasoning: "x" },
 		],
 	};
 	list.push(...(shaped[provider] ?? []));

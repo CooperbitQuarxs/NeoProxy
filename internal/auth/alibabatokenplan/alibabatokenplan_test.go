@@ -211,8 +211,10 @@ type keyEntryCapture struct {
 		Status   int             `json:"status"`
 		RawBody  json.RawMessage `json:"body"`
 		Result   struct {
-			Value string `json:"value"`
-			Error string `json:"error"`
+			// Value is the stored key bundle (a string) for the Token Plan;
+			// other sign-ins in the capture return credential objects.
+			Value json.RawMessage `json:"value"`
+			Error string          `json:"error"`
 		} `json:"result"`
 		Requests []capturedRequest `json:"requests"`
 	} `json:"scenarios"`
@@ -236,6 +238,12 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 		}
 		checked++
 		t.Run(scenario.Label, func(t *testing.T) {
+			var value string
+			if len(scenario.Result.Value) > 0 {
+				if err := json.Unmarshal(scenario.Result.Value, &value); err != nil {
+					t.Fatalf("Token Plan result value: %v", err)
+				}
+			}
 			// answers: region choice, [custom URL,] key, cookie.
 			baseURL, next := InternationalBaseURL, 1
 			switch strings.TrimSpace(scenario.Answers[0]) {
@@ -253,7 +261,7 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 			var seen []capturedRequest
 			validateErr := ValidateKey(context.Background(), &http.Client{Transport: redirect{target: target, seen: &seen}}, baseURL, key)
 			compareRequests(t, seen, scenario.Requests)
-			if scenario.Result.Value == "" && validateErr != nil {
+			if value == "" && validateErr != nil {
 				var httpErr *neopikeys.HTTPError
 				if !errors.As(validateErr, &httpErr) || httpErr.Error() != scenario.Result.Error {
 					t.Fatalf("ValidateKey() = %v, want %q", validateErr, scenario.Result.Error)
@@ -264,7 +272,7 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 				t.Fatalf("ValidateKey() = %v", validateErr)
 			}
 			normalized, cookieErr := NormalizeCookie(cookie, baseURL)
-			if scenario.Result.Value == "" {
+			if value == "" {
 				if cookieErr == nil || cookieErr.Error() != scenario.Result.Error {
 					t.Fatalf("NormalizeCookie() = %q, %v, want %q", normalized, cookieErr, scenario.Result.Error)
 				}
@@ -273,7 +281,7 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 			if cookieErr != nil {
 				t.Fatalf("NormalizeCookie() = %v", cookieErr)
 			}
-			stored, ok := Parse(scenario.Result.Value)
+			stored, ok := Parse(value)
 			wantBase := ""
 			if baseURL != InternationalBaseURL {
 				wantBase = baseURL

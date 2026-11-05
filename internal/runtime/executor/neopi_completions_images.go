@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -86,7 +87,9 @@ func (e *NeoPiCompletionsExecutor) executeImage(ctx context.Context, auth *clipr
 		return resp, err
 	}
 	if status < 200 || status >= 300 {
-		return resp, statusErr{code: status, msg: fmt.Sprintf("%s/%s image request failed (%d): %s", row.Provider, row.ID, status, neoPiImageErrorMessage(body))}
+		// The reply's headers ride along so its Retry-After reaches scheduling.
+		message := fmt.Sprintf("%s/%s image request failed (%d): %s", row.Provider, row.ID, status, neoPiImageErrorMessage(body))
+		return resp, &neoPiUpstreamError{code: status, body: message, headers: header}
 	}
 	if !json.Valid(body) {
 		return resp, statusErr{code: http.StatusBadGateway, msg: "Image API returned malformed JSON"}
@@ -165,13 +168,7 @@ func neoPiImagePayload(row *registry.NeoPiModel, request neoPiImageRequest, edit
 			body.InputReferences = append(body.InputReferences, neoPiImageReference{Type: "image_url", URL: image})
 		}
 	}
-	var out bytes.Buffer
-	encoder := json.NewEncoder(&out)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(body); err != nil {
-		return nil, err
-	}
-	return bytes.TrimSuffix(out.Bytes(), []byte("\n")), nil
+	return jsjson.Marshal(body), nil
 }
 
 // parseNeoPiImageRequest reads an OpenAI images request, JSON or multipart.

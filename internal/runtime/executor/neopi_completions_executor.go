@@ -83,8 +83,12 @@ func (e *NeoPiCompletionsExecutor) SupportsNativeToolSearch(*cliproxyauth.Auth, 
 	return false
 }
 
-// RequestToFormat reports that every request is shaped in Chat Completions.
-func (e *NeoPiCompletionsExecutor) RequestToFormat(cliproxyexecutor.Request, cliproxyexecutor.Options) sdktranslator.Format {
+// RequestToFormat reports Chat Completions for chat requests; an image or
+// speech request keeps its own media format.
+func (e *NeoPiCompletionsExecutor) RequestToFormat(_ cliproxyexecutor.Request, opts cliproxyexecutor.Options) sdktranslator.Format {
+	if openAICompatImageEndpointPath(opts) != "" || xaiIsSpeechRequest(opts) {
+		return opts.SourceFormat
+	}
 	return sdktranslator.FormatOpenAI
 }
 
@@ -116,6 +120,9 @@ func (e *NeoPiCompletionsExecutor) CountTokens(ctx context.Context, auth *clipro
 func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (result cliproxyexecutor.Response, err error) {
 	if endpointPath := openAICompatImageEndpointPath(opts); endpointPath != "" {
 		return e.executeImage(ctx, auth, req, opts, endpointPath)
+	}
+	if xaiIsSpeechRequest(opts) {
+		return e.executeSpeech(ctx, auth, req, opts)
 	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
@@ -165,6 +172,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
 	if openAICompatImageEndpointPath(opts) != "" {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: image generation does not stream; send the request without stream", e.provider)}
+	}
+	if xaiIsSpeechRequest(opts) {
+		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: speech synthesis does not stream", e.provider)}
 	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
