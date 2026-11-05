@@ -30,6 +30,14 @@ type neoPiCapturedRequest struct {
 // TestNeoPiCompletionsDiscoveryRequests replays NeoPi's own discovery against
 // a loopback server and compares the requests the port sends.
 func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
+	// NeoPi's capture answered the models.dev catalog with 503 off the record.
+	unavailable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer unavailable.Close()
+	previousModelsDev := neoPiModelsDevURL
+	neoPiModelsDevURL = unavailable.URL
+	defer func() { neoPiModelsDevURL = previousModelsDev }()
 	raw, err := os.ReadFile("../../internal/registry/testdata/neopi_completions_discovery.json.gz")
 	if err != nil {
 		t.Fatal(err)

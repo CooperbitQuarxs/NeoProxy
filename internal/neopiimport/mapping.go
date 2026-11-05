@@ -78,6 +78,8 @@ var apiKeyRoutes = map[string]route{
 	"sambanova":             {target: "sambanova"},
 	"stepfun":               {target: "stepfun"},
 	"synthetic":             {target: "synthetic"},
+	"siliconflow":           {target: "siliconflow"},
+	"siliconflow-cn":        {target: "siliconflow-cn"},
 	"venice":                {target: "venice"},
 	"wafer-serverless":      {target: "wafer-serverless"},
 	"xiaomi-token-plan-sgp": {target: "xiaomi-token-plan-sgp"},

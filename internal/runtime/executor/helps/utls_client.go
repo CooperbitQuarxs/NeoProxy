@@ -437,7 +437,7 @@ func NewUtlsHTTPClient(ctx context.Context, cfg *config.Config, auth *cliproxyau
 			clientOut.Transport = &tlsHandshakeTimeoutRoundTripper{base: clientOut.Transport, timeout: handshakeTimeout}
 		}
 	}()
-	proxyURL := effectiveProxyURL(ctx, cfg, auth)
+	proxyURL := EffectiveProxyURL(ctx, cfg, auth)
 
 	var ctxRoundTripper http.RoundTripper
 	if ctx != nil {
