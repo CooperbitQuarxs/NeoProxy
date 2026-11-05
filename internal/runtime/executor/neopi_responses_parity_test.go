@@ -16,6 +16,7 @@ import (
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -66,8 +67,51 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 	if err = json.Unmarshal(raw, &capture); err != nil {
 		t.Fatal(err)
 	}
-	if len(capture.Fixtures) < 90 {
-		t.Fatalf("only %d fixtures", len(capture.Fixtures))
+	if len(capture.Fixtures) < 114 {
+		t.Fatalf("only %d fixtures; expected expanded native-input coverage", len(capture.Fixtures))
+	}
+	seen := make(map[string]bool)
+	for _, fixture := range capture.Fixtures {
+		seen[fixture.Name] = true
+		if len(fixture.Requests) != 1 {
+			t.Fatalf("%s captured %d requests; expected one loopback request", fixture.Name, len(fixture.Requests))
+		}
+		body := fixture.Requests[0].RawBody
+		switch {
+		case strings.HasSuffix(fixture.Name, "-explicit-encrypted-include"):
+			if got := gjson.Get(body, "include").Raw; got != `["reasoning.encrypted_content"]` {
+				t.Errorf("%s explicit include = %s", fixture.Name, got)
+			}
+		case strings.HasSuffix(fixture.Name, "-summary-none"):
+			if got := gjson.Get(body, "reasoning.summary"); got.Exists() {
+				t.Errorf("%s summary = %s; want omitted after server normalization", fixture.Name, got.Raw)
+			}
+		case strings.HasSuffix(fixture.Name, "-image-original"):
+			if gjson.GetBytes(fixture.Scenario.Downstream, "input.0.type").String() != "message" || gjson.Get(body, "input.0.type").String() != "message" {
+				t.Errorf("%s must preserve explicitly typed native user message", fixture.Name)
+			}
+			if got := gjson.GetBytes(fixture.Scenario.Downstream, "input.0.content.1.detail").String(); got != "original" {
+				t.Errorf("%s downstream detail = %q; want original", fixture.Name, got)
+			}
+			if got := gjson.Get(body, "input.0.content.1.detail").String(); got != "original" {
+				t.Errorf("%s native image detail = %q; want original", fixture.Name, got)
+			}
+		case strings.HasSuffix(fixture.Name, "-reconstructed-assistant-history"):
+			if gjson.Get(body, "input.1.id").Exists() || gjson.Get(body, "input.2.id").Exists() {
+				t.Errorf("%s reconstructed history unexpectedly preserves native item IDs", fixture.Name)
+			}
+			if gjson.Get(body, "input.1.status").String() != "completed" || gjson.Get(body, "input.1.content.0.annotations").Raw != "[]" ||
+				gjson.Get(body, "input.2.call_id").String() != "call_1" || gjson.Get(body, "input.3.call_id").String() != "call_1" {
+				t.Errorf("%s incomplete reconstructed message/tool history: %s", fixture.Name, body)
+			}
+		}
+	}
+	for _, provider := range []string{"meta", "muse-code", "sakana", "abliteration"} {
+		for _, suffix := range []string{"explicit-encrypted-include", "image-original", "summary-none", "reconstructed-assistant-history"} {
+			if name := provider + "-" + suffix; !seen[name] {
+				t.Errorf("missing source capture %s", name)
+			}
+		}
 	}
 	framing := map[string]bool{"host": true, "content-length": true, "accept-encoding": true, "connection": true}
 	for _, fixture := range capture.Fixtures {
@@ -78,6 +122,7 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 				t.Fatalf("model %s/%s missing from the catalog", provider, fixture.Scenario.Model)
 			}
 			ctx, opts := openaiwire.FromResponses(fixture.Scenario.Downstream, model)
+			ctx.ReconstructAssistantHistory = strings.HasSuffix(fixture.Name, "-reconstructed-assistant-history")
 			opts.SessionID = capture.SessionID
 			request := openaiwire.ShapeResponses(model, ctx, opts, bearerFor(provider, capture.Credentials[provider]))
 			(&NeoPiResponsesExecutor{identifier: "meta"}).applyTransportHeaders(request.Header, nil, model, nil)

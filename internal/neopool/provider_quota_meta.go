@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
@@ -14,10 +13,6 @@ import (
 
 // errNoMetaUsage is a key response that reports no limits.
 var errNoMetaUsage = errors.New("muse-code usage: the key response reports no limits")
-
-// metaUsageMemory keeps the last Muse Code report of each account: an idle
-// response carries its weekly figure forward (usage/muse-code.ts previousReport).
-var metaUsageMemory sync.Map // auth ID -> *metaauth.Usage
 
 // metaDeviceToken is the Meta account token a Muse sign-in keeps beside its
 // minted key; the usage endpoint reads the subscription with it.
@@ -62,22 +57,30 @@ func metaUsageWindows(usage *metaauth.Usage) []Window {
 	return out
 }
 
-// fetchMetaUsage reads a Muse sign-in's windows. A response with nothing to
-// report (NeoPi's null) leaves the cached reading in place by failing the poll.
-func fetchMetaUsage(ctx context.Context, client *http.Client, a *coreauth.Auth, now time.Time) ([]Window, error) {
-	var previous *metaauth.Usage
-	if value, ok := metaUsageMemory.Load(a.ID); ok {
-		previous, _ = value.(*metaauth.Usage)
+// fetchMetaUsage reads a Muse sign-in's report without publishing it. The caller
+// supplies the accepted previous generation and commits this report with its
+// windows only after the refresh generation is accepted. A response with nothing
+// to report (NeoPi's null) leaves the cached reading in place by failing the poll.
+func fetchMetaUsage(ctx context.Context, client *http.Client, a *coreauth.Auth, previous *metaauth.Usage, now time.Time) (*metaauth.Usage, error) {
+	token := metaDeviceToken(a)
+	if token == "" {
+		return nil, errors.New("sign-in has no access token")
 	}
 	email, _ := a.Metadata["email"].(string)
 	accountID, _ := a.Metadata["account_id"].(string)
-	usage, err := metaauth.NewMetaAuthWithClient(client).FetchUsage(ctx, metaDeviceToken(a), previous, strings.TrimSpace(email), strings.TrimSpace(accountID), now)
+	usage, err := metaauth.NewMetaAuthWithClient(client).FetchUsage(ctx, token, previous, strings.TrimSpace(email), strings.TrimSpace(accountID), now)
 	if err != nil {
 		return nil, err
 	}
 	if usage == nil {
 		return nil, errNoMetaUsage
 	}
-	metaUsageMemory.Store(a.ID, usage)
-	return metaUsageWindows(usage), nil
+	return usage, nil
+}
+
+// NeoPi's auth/usage.ts purges the previous report and last-good reading when a
+// provider returns 401 or 403, including Muse's inactive-subscription response.
+func isDefinitiveMetaUsageError(err error) bool {
+	var usageErr *metaauth.UsageError
+	return errors.As(err, &usageErr) && (usageErr.Status == http.StatusUnauthorized || usageErr.Status == http.StatusForbidden)
 }

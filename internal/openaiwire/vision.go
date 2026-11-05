@@ -67,10 +67,10 @@ func withoutImages(content gjson.Result) (json.RawMessage, bool) {
 	return jsjson.Marshal(kept), true
 }
 
-// plainUserMessages drops the `type: "message"` a translator adds to user
-// input items: NeoPi builds user turns as `{role, content}` and only replays
-// output items (which carry an id) with a type.
-func plainUserMessages(items []json.RawMessage) []json.RawMessage {
+// NormalizeConstructedUserMessages removes the message type introduced by
+// protocol translation for constructed user turns. Native Responses history
+// must not pass through this conversion.
+func NormalizeConstructedUserMessages(items []json.RawMessage) []json.RawMessage {
 	out := make([]json.RawMessage, len(items))
 	for i, item := range items {
 		out[i] = item

@@ -21,11 +21,15 @@ import (
 const openAIMaxOutputTokens = 64000
 
 // Context is the conversation a downstream Responses request carries: its
-// instructions, its input items (replayed as native history) and its tools.
+// instructions, input items and tools.
 type Context struct {
 	SystemPrompts []string
 	Input         []json.RawMessage
 	Tools         []json.RawMessage
+	// ReconstructAssistantHistory selects the Responses server boundary, whose
+	// assistant messages become completed output_text items rather than native
+	// replay. Set after FromResponses; false preserves native replay semantics.
+	ReconstructAssistantHistory bool
 }
 
 // Options are the OpenAIResponsesOptions NeoProxy derives from a downstream body.
@@ -72,7 +76,7 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 			)})},
 		)}
 	}
-	ctx.Input = plainUserMessages(omitUnsupportedImages(ctx.Input, model))
+	ctx.Input = omitUnsupportedImages(ctx.Input, model)
 	for _, tool := range root.Get("tools").Array() {
 		ctx.Tools = append(ctx.Tools, json.RawMessage(tool.Raw))
 	}
@@ -90,6 +94,8 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 	}
 	switch summary := reasoning.Get("summary"); {
 	case summary.Type == gjson.Null && summary.Exists():
+		opts.SummarySet = true
+	case summary.Type == gjson.String && summary.String() == "none":
 		opts.SummarySet = true
 	case summary.Type == gjson.String:
 		opts.ReasoningSummary, opts.SummarySet = summary.String(), true
@@ -112,9 +118,7 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 		opts.ToolChoice = json.RawMessage(choice.Raw)
 	}
 	for _, value := range root.Get("include").Array() {
-		// The Codex-shaped body always asks for encrypted reasoning; NeoPi
-		// asks only when the model's compat does, and BuildResponses adds it then.
-		if value.Type == gjson.String && value.String() != "reasoning.encrypted_content" {
+		if value.Type == gjson.String {
 			opts.Include = append(opts.Include, value.String())
 		}
 	}
@@ -244,7 +248,7 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 // body NeoPi streams for model.
 func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.RawMessage {
 	compat := model.Compat
-	input := buildInput(ctx.Input, compat)
+	input := buildInput(ctx.Input, compat, ctx.ReconstructAssistantHistory)
 	var instructions string
 	if len(ctx.SystemPrompts) > 0 {
 		if model.Reasoning && compat.SupportsDeveloperRole {

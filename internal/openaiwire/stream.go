@@ -150,6 +150,11 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 	}, neopiretry.Options{
 		MaxAttempts: maxAttempts,
 		Wait:        t.Wait,
+		OnResponse: func(*http.Response) {
+			// Any headers establish the connection, including retryable errors.
+			// Body reads and retry backoff must not retain the watchdog.
+			watchdog.Stop()
+		},
 		ShouldRetry: func(response *http.Response, text string) bool {
 			if strings.TrimSpace(response.Header.Get("rate_limit_type")) == "max_parallel_requests" || concurrencyAdmissionBody.MatchString(text) {
 				return false
@@ -161,8 +166,6 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 		return false, err
 	}
 	defer func() { _ = response.Body.Close() }()
-	// Connected: no deadline applies to the stream from here on.
-	watchdog.Stop()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		data, _ := io.ReadAll(response.Body)
 		return false, &HTTPError{Status: response.StatusCode, Header: response.Header, Body: data}
@@ -211,7 +214,6 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 			}
 			return nil
 		}
-		watchdog.Stop()
 		event := gjson.ParseBytes(frame)
 		kind := event.Get("type").String()
 		if kind == "error" || kind == "response.failed" {

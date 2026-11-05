@@ -3,6 +3,7 @@ package openaiwire
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"unicode/utf16"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
@@ -16,13 +17,10 @@ const (
 	orphanToolCallPlaceholder = "[No tool output recorded: the tool call was interrupted before it produced a result.]"
 )
 
-// buildInput is buildResponsesInput for a downstream transcript. The proxy
-// holds no NeoPi message objects, so every downstream item is native history
-// for this provider: NeoPi replays such items through
-// sanitizeOpenAIResponsesHistoryItemsForReplay and
-// adaptResponsesReplayItemsForModel, then repairs orphan outputs and calls and
-// hoists messages wedged inside tool batches.
-func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat) []json.RawMessage {
+// buildInput replays native history, or reconstructs assistant text at the
+// Responses server boundary, before repairing orphan tools and hoisting
+// messages wedged inside tool batches.
+func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat, reconstructAssistantHistory bool) []json.RawMessage {
 	if compat.FilterReasoningHistory {
 		filtered := raw[:0:0]
 		for _, item := range raw {
@@ -33,10 +31,65 @@ func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat) []json.RawM
 		raw = filtered
 	}
 	items := codexwire.SanitizeHistoryReplay(raw, compat.SupportsImageDetailOriginal)
+	if reconstructAssistantHistory {
+		items = reconstructAssistantMessages(items)
+	}
 	items = adaptReplayItems(items)
 	items = repairOrphanToolOutputs(items)
 	items = repairOrphanToolCalls(items)
 	return hoistInterleavedToolBatchMessages(items)
+}
+
+// reconstructAssistantMessages is the Responses server's outputTextOf followed
+// by convertResponsesAssistantMessage. Native replay has already sanitized the
+// other input items; only reconstructed assistant text receives output status.
+func reconstructAssistantMessages(items []json.RawMessage) []json.RawMessage {
+	out := make([]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		message := gjson.ParseBytes(item)
+		kind := message.Get("type")
+		if message.Get("role").String() != "assistant" ||
+			(kind.Exists() && kind.Type != gjson.Null && kind.String() != "message") {
+			out = append(out, item)
+			continue
+		}
+		var text strings.Builder
+		content := message.Get("content")
+		if content.Type == gjson.String {
+			text.WriteString(content.String())
+		} else {
+			for _, part := range content.Array() {
+				switch part.Get("type").String() {
+				case "output_text", "text":
+					text.WriteString(part.Get("text").String())
+				case "refusal":
+					text.WriteString("[refusal: ")
+					text.WriteString(part.Get("refusal").String())
+					text.WriteByte(']')
+				}
+			}
+		}
+		if text.Len() == 0 {
+			continue
+		}
+		fields := []jsjson.Field{
+			{Name: "type", Value: jsjson.Marshal("message")},
+			{Name: "role", Value: jsjson.Marshal("assistant")},
+			{Name: "content", Value: jsjson.Marshal([]json.RawMessage{jsjson.Object(
+				jsjson.Field{Name: "type", Value: jsjson.Marshal("output_text")},
+				jsjson.Field{Name: "text", Value: jsjson.Marshal(strings.ToValidUTF8(text.String(), "\uFFFD"))},
+				jsjson.Field{Name: "annotations", Value: json.RawMessage("[]")},
+			)})},
+			{Name: "status", Value: jsjson.Marshal("completed")},
+		}
+		// outputTextOf carries a signature for these two phases even without an
+		// incoming id. The converter drops unpaired message ids, not the phase.
+		if phase := message.Get("phase").String(); phase == "commentary" || phase == "final_answer" {
+			fields = append(fields, jsjson.Field{Name: "phase", Value: jsjson.Marshal(phase)})
+		}
+		out = append(out, jsjson.Object(fields...))
+	}
+	return out
 }
 
 func toolCallKind(itemType string) string {

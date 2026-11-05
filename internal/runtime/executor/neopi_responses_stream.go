@@ -107,6 +107,8 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 	ctx = helps.WithPayloadFinalizer(ctx, helps.NewPayloadFinalizer(e.cfg, e.Identifier(), baseModel, to.String(), "", originalTranslated, req, opts))
 	_, token := e.neoPiResponsesCreds(auth)
 	conversation, options := openaiwire.FromResponses(body, model)
+	restoreNeoPiSourceIntent(from, originalPayload, &conversation, &options)
+	conversation.ReconstructAssistantHistory = true
 	options.SessionID = neoPiResponsesSessionID(e.Identifier(), req, opts)
 	if e.StreamSimple {
 		if options.MaxTokens == nil && model.MaxTokens > 0 {

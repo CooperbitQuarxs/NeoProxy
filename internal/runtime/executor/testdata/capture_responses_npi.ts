@@ -127,6 +127,26 @@ for (const provider of ["meta", "muse-code", "sakana", "abliteration"]) {
 		downstream: { model, input: [userText("Quiet.")], reasoning: { effort: "high", summary: null } },
 	});
 	scenarios.push({
+		// The Responses server maps summary:"none" to hideThinkingSummary;
+		// stream.ts normalizes that flag to reasoningSummary:null.
+		name: `${provider}-summary-none`, provider, model, options: { reasoning: "high", reasoningSummary: null }, messages: [{ role: "user", content: "Quiet." }],
+		downstream: { model, input: [userText("Quiet.")], reasoning: { effort: "high", summary: "none" } },
+	});
+	scenarios.push({
+		name: `${provider}-explicit-encrypted-include`, provider, model, options: { include: ["reasoning.encrypted_content"] }, messages: [{ role: "user", content: "Think." }],
+		downstream: { model, input: [userText("Think.")], include: ["reasoning.encrypted_content"] },
+	});
+	scenarios.push({
+		name: `${provider}-reconstructed-assistant-history`, provider, model, options: {}, tools: [lookup],
+		messages: [
+			{ role: "user", content: "Use lookup." },
+			{ role: "assistant", content: [{ type: "text", text: "Looking." }, { type: "toolCall", id: "call_1|fc_capture", name: "lookup", arguments: { term: "a" } }], api: "openai-responses", provider, model, usage, stopReason: "toolUse", timestamp: 1 },
+			{ role: "toolResult", toolCallId: "call_1|fc_capture", toolName: "lookup", content: [{ type: "text", text: "Found." }], isError: false, timestamp: 2 },
+			{ role: "user", content: "Continue." },
+		],
+		downstream: { model, input: [userText("Use lookup."), { role: "assistant", content: [{ type: "output_text", text: "Looking." }] }, callItem, { type: "function_call_output", call_id: "call_1", output: "Found." }, userText("Continue.")], tools: [lookupWire] },
+	});
+	scenarios.push({
 		name: `${provider}-reasoning-none`, provider, model, options: { disableReasoning: true }, messages: [{ role: "user", content: "Fast." }],
 		downstream: { model, input: [userText("Fast.")], reasoning: { effort: "none" } },
 	});
@@ -134,6 +154,12 @@ for (const provider of ["meta", "muse-code", "sakana", "abliteration"]) {
 		name: `${provider}-image-input`, provider, model, options: {}, messages: [{ role: "user", content: [{ type: "text", text: "Describe." }, { type: "image", mimeType: "image/png", data: imageB64 }] }],
 		downstream: { model, input: [{ role: "user", content: [{ type: "input_text", text: "Describe." }, { type: "input_image", detail: "auto", image_url: `data:image/png;base64,${imageB64}` }] }] },
 	});
+	scenarios.push({
+		name: `${provider}-image-original`, provider, model, options: {}, messages: [{ role: "user", content: [{ type: "text", text: "Describe." }, { type: "image", mimeType: "image/png", data: imageB64, detail: "original" }] }],
+		downstream: { model, input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Describe." }, { type: "input_image", detail: "original", image_url: `data:image/png;base64,${imageB64}` }] }] },
+	});
+	const nativeImage = scenarios[scenarios.length - 1];
+	nativeImage.messages[0].providerPayload = { type: "openaiResponsesHistory", items: structuredClone(nativeImage.downstream.input), dt: true };
 }
 // Discovered ids with no seed row: NeoPi's mapped defaults decide the wire.
 scenarios.push({ ...plain("meta", "muse-spark-1.4", "xhigh"), name: "meta-lineage-muse-spark-1.4-xhigh" });

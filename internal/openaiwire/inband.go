@@ -12,7 +12,7 @@ import (
 // JSON-encoded string. NeoPi classifies it as a retryable provider error
 // (createInBandProviderErrorFromText, body-error.ts).
 type InBandError struct {
-	// Status is the HTTP status the text names, 429 when it names none.
+	// Status is the retryable HTTP status the text names, or 0 when unknown.
 	Status  int
 	Message string
 }
@@ -55,5 +55,5 @@ func classifyInBandText(text string) *InBandError {
 		}
 		return &InBandError{Status: status, Message: message}
 	}
-	return &InBandError{Status: 429, Message: detail}
+	return &InBandError{Message: detail}
 }

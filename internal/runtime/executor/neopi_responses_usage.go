@@ -3,8 +3,10 @@ package executor
 import (
 	"math"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
+	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -62,9 +64,38 @@ func restoreResponsesSourceFields(source, body []byte) []byte {
 		}
 	}
 	if summary := root.Get("reasoning.summary"); summary.Exists() && (summary.Type == gjson.Null || summary.Type == gjson.String) {
-		if next, err := sjson.SetRawBytes(body, "reasoning.summary", []byte(summary.Raw)); err == nil {
+		raw := []byte(summary.Raw)
+		if summary.Type == gjson.String && summary.String() == "none" {
+			raw = []byte("null")
+		}
+		if next, err := sjson.SetRawBytes(body, "reasoning.summary", raw); err == nil {
 			body = next
 		}
 	}
 	return body
+}
+
+// restoreNeoPiSourceIntent removes translator-only defaults while retaining
+// fields and native user history explicitly supplied by a Responses client.
+func restoreNeoPiSourceIntent(from sdktranslator.Format, source []byte, conversation *openaiwire.Context, options *openaiwire.Options) {
+	if from == sdktranslator.FormatOpenAIResponse {
+		options.Include = nil
+		for _, value := range gjson.GetBytes(source, "include").Array() {
+			if value.Type == gjson.String {
+				options.Include = append(options.Include, value.String())
+			}
+		}
+		if gjson.GetBytes(source, "input").Type != gjson.String {
+			return
+		}
+	} else {
+		kept := options.Include[:0]
+		for _, value := range options.Include {
+			if value != "reasoning.encrypted_content" {
+				kept = append(kept, value)
+			}
+		}
+		options.Include = kept
+	}
+	conversation.Input = openaiwire.NormalizeConstructedUserMessages(conversation.Input)
 }
