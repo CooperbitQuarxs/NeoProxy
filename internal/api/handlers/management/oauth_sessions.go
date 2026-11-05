@@ -381,6 +381,8 @@ func NormalizeOAuthProvider(provider string) (string, error) {
 		return "zai", nil
 	case "snowflake":
 		return "snowflake", nil
+	case "gitlab-duo", "gitlab":
+		return "gitlab-duo", nil
 	default:
 		return "", errUnsupportedOAuthFlow
 	}

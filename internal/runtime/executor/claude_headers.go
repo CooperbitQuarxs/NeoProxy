@@ -12,9 +12,14 @@ import (
 
 // neoPiApplyHeaders merges configured model headers using NeoPi's enforced-key
 // policy. Inbound proxy authentication is never forwarded to the provider.
-func neoPiApplyHeaders(headers http.Header, auth *cliproxyauth.Auth, incoming http.Header, credential *anthropicnpi.Credential, base string, ctx context.Context) {
+// caller holds headers NeoPi's caller passes beside them (GitLab Duo's minted
+// set); the account's configured headers win where both name one.
+func neoPiApplyHeaders(headers http.Header, auth *cliproxyauth.Auth, incoming, caller http.Header, credential *anthropicnpi.Credential, base string, ctx context.Context) {
 	oauth := credential.APIKey == ""
-	configured := make(http.Header)
+	configured := caller.Clone()
+	if configured == nil {
+		configured = make(http.Header)
+	}
 	if auth != nil {
 		request := (&http.Request{Header: configured}).WithContext(ctx)
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes, incoming)

@@ -81,7 +81,7 @@ func TestResolvePlanDefaultsAndOverrides(t *testing.T) {
 }
 
 func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
-	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "grok-build": true, "kimi": true, "devin": true, "meta": true, "zai": true, "cursor": true, "nous-portal": true, "kilo": true, "snowflake": true, "factory-droid": true, "github-copilot": true}
+	working := map[string]bool{"codex": true, "claude": true, "antigravity": true, "xai": true, "grok-build": true, "kimi": true, "devin": true, "meta": true, "zai": true, "cursor": true, "nous-portal": true, "kilo": true, "snowflake": true, "factory-droid": true, "github-copilot": true, "gitlab-duo": true}
 	for _, p := range providerCatalog {
 		hasSub := p.Subscription != nil
 		if hasSub != working[p.ID] {
@@ -110,6 +110,8 @@ func TestCatalogOnlyOffersWorkingSignIns(t *testing.T) {
 		{compat("custom-90ab", "https://router.huggingface.co/v1/"), "imported", "huggingface"},
 		{compat("nvidia", "https://integrate.api.nvidia.com/v1"), "apiKey", "nvidia"},
 		{compat("marineris-2", "http://127.0.0.1:18801/v1"), "apiKey", "marineris"},
+		// A GitLab personal access token is GitLab Duo's key.
+		{compat("gitlab-duo", "https://gitlab.com"), "apiKey", "gitlab-duo"},
 		// An editable address never identifies a provider by URL alone.
 		{compat("custom-gateway", "http://192.168.50.50:8801/v1"), "apiKey", "custom"},
 		{compat("custom-office", "http://10.0.0.5/v1"), "apiKey", "custom"},

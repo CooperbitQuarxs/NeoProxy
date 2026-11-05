@@ -111,6 +111,8 @@ var apiKeyRoutes = map[string]route{
 	"singularityapi-dev":    {target: "singularityapi-dev"},
 	"singularityapi-tech":   {target: "singularityapi-tech"},
 	"charm-hyper":           {target: "charm-hyper"},
+	// A GitLab personal access token (GITLAB_TOKEN) is the account's key.
+	"gitlab-duo": {target: "gitlab-duo"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -151,6 +153,9 @@ var oauthRoutes = map[string]route{
 	// Copilot's device sign-in keeps the GitHub token (its access and refresh
 	// alike) beside its Enterprise domain and plan endpoint.
 	"github-copilot": {target: "github-copilot"},
+	// GitLab Duo's browser sign-in: GitLab rotates its refresh token, so
+	// NeoProxy never refreshes NeoPi's (imported refresh-locked as usual).
+	"gitlab-duo": {target: "gitlab-duo"},
 }
 
 func routeFor(c Credential) route {
@@ -455,6 +460,8 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["access_token"] = access
 		setNonEmpty(meta, "enterprise_url", str(c.data, "enterpriseUrl"))
 		setNonEmpty(meta, "api_endpoint", str(c.data, "apiEndpoint"))
+	case "gitlab-duo":
+		meta["access_token"] = access
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xiaomi"
@@ -58,6 +59,11 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base string, prefe
 		// loginKilo mints the token through the device sign-in and never
 		// checks it; an imported token is kept as is, at the gateway.
 		return kilo.BaseURL, true, nil
+	}
+	if info.ID == gitlabduo.Provider {
+		// NeoPi reads a GitLab personal access token from GITLAB_TOKEN and
+		// never checks it; each request mints direct access with it.
+		return gitlabduo.BaseURL, true, nil
 	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {
