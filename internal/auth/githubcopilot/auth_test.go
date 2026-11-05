@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 )
 
 // copilotAuthCapture is testdata/neopi_github_copilot_auth.json: every
@@ -168,5 +170,21 @@ func TestGitHubCopilotSignInMatchesNeoPi(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The models the sign-in enables are NeoPi's: each bundled row's wire id,
+// once, in bundle order, as loginGitHubCopilot derived them.
+func TestGitHubCopilotPolicyModelsMatchNeoPi(t *testing.T) {
+	data, err := os.ReadFile("testdata/neopi_github_copilot_auth.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture copilotAuthCapture
+	if err = json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	if got := registry.GitHubCopilotPolicyModelIDs(); !reflect.DeepEqual(got, capture.ModelIDs) {
+		t.Errorf("policy models = %v,\nNeoPi enabled %v", got, capture.ModelIDs)
 	}
 }
