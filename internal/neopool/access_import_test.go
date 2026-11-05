@@ -63,7 +63,7 @@ func TestNeoPiImportListsImportsAndLocksRefresh(t *testing.T) {
 	profile, _ := neoPiVault(t,
 		[3]any{"openai-codex", "oauth", map[string]any{"access": access, "refresh": neoPiRefreshSecret, "expires": time.Now().Add(time.Hour).UnixMilli(), "email": "codex@example.test", "accountId": "acct-neopi"}},
 		[3]any{"openrouter", "api_key", map[string]any{"key": routerKey}},
-		[3]any{"github-copilot", "oauth", map[string]any{"access": "copilot-token", "refresh": "x", "expires": time.Now().Add(time.Hour).UnixMilli()}},
+		[3]any{"google-gemini-cli", "oauth", map[string]any{"access": "gemini-cli-token", "refresh": "x", "expires": time.Now().Add(time.Hour).UnixMilli()}},
 	)
 	listPath := "/v8/neo/access/import/neopi?profile=" + profile
 
@@ -82,15 +82,15 @@ func TestNeoPiImportListsImportsAndLocksRefresh(t *testing.T) {
 	if listed.Profile != profile || len(listed.Credentials) != 3 {
 		t.Fatalf("list = %s", raw)
 	}
-	codex, router, copilot := listed.Credentials[0], listed.Credentials[1], listed.Credentials[2]
+	codex, router, geminiCLI := listed.Credentials[0], listed.Credentials[1], listed.Credentials[2]
 	if codex.Kind != "subscription" || *codex.NeoProxyProvider != "codex" || *codex.Plan != "pro" || codex.Label != "codex@example.test" || !codex.Importable || codex.AlreadyImported != nil {
 		t.Fatalf("codex candidate = %+v", codex)
 	}
 	if router.Kind != "apiKey" || *router.NeoProxyProvider != "openrouter" || router.Label != "…0002" || !router.Importable {
 		t.Fatalf("openrouter candidate = %+v", router)
 	}
-	if copilot.Importable || copilot.Reason == "" || copilot.NeoProxyProvider != nil {
-		t.Fatalf("github-copilot candidate = %+v", copilot)
+	if geminiCLI.Importable || geminiCLI.Reason == "" || geminiCLI.NeoProxyProvider != nil {
+		t.Fatalf("google-gemini-cli candidate = %+v", geminiCLI)
 	}
 
 	f.json("owner-a", "POST", "/v8/neo/access/import/neopi", `{"profile":"`+profile+`","credentialIds":["1"]}`, 403)
@@ -106,7 +106,7 @@ func TestNeoPiImportListsImportsAndLocksRefresh(t *testing.T) {
 	if err := json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Items) != 2 || len(result.Failed) != 1 || result.Failed[0].CredentialID != "3" || !strings.Contains(result.Failed[0].Error, "Copilot") {
+	if len(result.Items) != 2 || len(result.Failed) != 1 || result.Failed[0].CredentialID != "3" || !strings.Contains(result.Failed[0].Error, "Gemini CLI") {
 		t.Fatalf("import result = %s", raw)
 	}
 	sub, key := result.Items[0], result.Items[1]
