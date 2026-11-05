@@ -290,6 +290,58 @@ func TestGitLabDuoAgentExecutorFailsAResumeTheSocketRefuses(t *testing.T) {
 	}
 }
 
+// TestGitLabDuoAgentExecutorQueuedTurnLeavesOnCancel lets a turn waiting
+// behind its session's running turn leave when its request ends, leaving
+// the running turn's workflow alone.
+func TestGitLabDuoAgentExecutorQueuedTurnLeavesOnCancel(t *testing.T) {
+	// The workflow never answers, so the first turn runs until cancelled.
+	gitlabURL, opened, _ := duoAgentFakes(t, nil)
+	exec := NewGitLabDuoAgentExecutor(&config.Config{})
+	auth := &cliproxyauth.Auth{ID: "gitlab-duo-agent-test", Provider: "gitlab-duo-agent", Attributes: map[string]string{"api_key": "glpat-test"}}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI}
+	ask := duoAgentAsk[:len(duoAgentAsk)-1] + `,"prompt_cache_key":"shared"}`
+	running, stopRunning := context.WithCancel(context.Background())
+	defer stopRunning()
+	first := make(chan error, 1)
+	go func() {
+		_, err := exec.Execute(running, auth, duoAgentRequest(gitlabURL, ask), opts)
+		first <- err
+	}()
+	// The bounds only keep a regression from hanging the suite.
+	deadline := time.Now().Add(10 * time.Second)
+	for sockets := opened(); len(sockets) == 0 || len(sockets[0].frames()) == 0; sockets = opened() {
+		if time.Now().After(deadline) {
+			t.Fatal("the first turn never started its workflow")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	queued, leave := context.WithCancel(context.Background())
+	second := make(chan error, 1)
+	go func() {
+		_, err := exec.Execute(queued, auth, duoAgentRequest(gitlabURL, ask), opts)
+		second <- err
+	}()
+	leave()
+	select {
+	case err := <-second:
+		if err == nil {
+			t.Fatal("the cancelled turn succeeded")
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the cancelled turn kept waiting for the running one")
+	}
+	if frames := opened()[0].frames(); len(opened()) != 1 || len(frames) != 1 {
+		t.Fatalf("the cancelled turn touched the workflow: %d sockets, frames %v", len(opened()), frames)
+	}
+	select {
+	case err := <-first:
+		t.Fatalf("the running turn ended early: %v", err)
+	default:
+	}
+	stopRunning()
+	<-first
+}
+
 // TestGitLabDuoAgentExecutorUsesTheConfiguredInstance keeps a key
 // configured for a GitLab instance on that instance: its discovery, and a
 // turn on the seed row the account serves before discovery answers.

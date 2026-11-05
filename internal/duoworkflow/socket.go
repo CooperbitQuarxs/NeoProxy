@@ -98,14 +98,16 @@ func WebSocketDialer(dialer *websocket.Dialer) Dialer {
 }
 
 // gorillaConn is a WebSocket whose frames a writer goroutine sends in
-// order, so no caller waits on GitLab reading them.
+// order, so no caller waits on GitLab reading them. writeErr is a frame's
+// failed write, which the reader reports as the socket's error.
 type gorillaConn struct {
-	mu      sync.Mutex
-	conn    *websocket.Conn
-	closed  bool
-	writing bool
-	queue   []string
-	wake    chan struct{}
+	mu       sync.Mutex
+	conn     *websocket.Conn
+	closed   bool
+	writing  bool
+	queue    []string
+	writeErr error
+	wake     chan struct{}
 }
 
 func (c *gorillaConn) run(dialer *websocket.Dialer, url string, headers map[string]string, deliver func(SocketEvent)) {
@@ -136,10 +138,17 @@ func (c *gorillaConn) run(dialer *websocket.Dialer, url string, headers map[stri
 	for {
 		_, data, errRead := conn.ReadMessage()
 		if errRead != nil {
+			// The connection ends with its reader, which also releases a
+			// write GitLab stopped taking.
 			c.mu.Lock()
 			c.closed = true
+			writeErr := c.writeErr
 			c.mu.Unlock()
+			_ = conn.Close()
 			c.signal()
+			if writeErr != nil {
+				deliver(SocketEvent{Type: "error", Err: writeErr})
+			}
 			event := SocketEvent{Type: "close", Code: websocket.CloseAbnormalClosure}
 			var closeErr *websocket.CloseError
 			if errors.As(errRead, &closeErr) {
@@ -183,6 +192,11 @@ func (c *gorillaConn) write(conn *websocket.Conn) {
 		err := conn.WriteMessage(websocket.TextMessage, []byte(data))
 		c.mu.Lock()
 		c.writing = false
+		if err != nil && !c.closed {
+			// A frame that did not go out fails the socket, unless its
+			// close already dropped the connection under it.
+			c.writeErr, c.closed = err, true
+		}
 		c.mu.Unlock()
 		if err != nil {
 			_ = conn.Close()

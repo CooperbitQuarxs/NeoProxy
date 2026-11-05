@@ -141,9 +141,9 @@ type sessionEntry struct {
 // session is GitLabDuoWorkflowProviderSessionState. Its lock is the event
 // loop: a turn holds it except while it awaits GitLab, and socket handlers
 // take it to run. turn admits one turn at a time, as an agent session runs
-// its turns in order; it stays held across the turn's awaits.
+// its turns in order; its slot stays taken across the turn's awaits.
 type session struct {
-	turn   sync.Mutex
+	turn   chan struct{}
 	mu     sync.Mutex
 	active *activeSession
 }
@@ -193,7 +193,7 @@ func (rt *Runtime) session(baseURL, scope, modelID, sessionID string) *session {
 		rt.lru.MoveToFront(element)
 		return element.Value.(*sessionEntry).session
 	}
-	created := &session{}
+	created := &session{turn: make(chan struct{}, 1)}
 	rt.sessions[key] = rt.lru.PushFront(&sessionEntry{key: key, session: created})
 	for rt.lru.Len() > maxSessions {
 		oldest := rt.lru.Back()
@@ -240,12 +240,17 @@ func (rt *Runtime) markSettingsEnsured(apiKey, baseURL string) {
 }
 
 // Stream runs one turn: its events go to the request's sink, and the
-// finished message is returned.
+// finished message is returned. A turn waits for the session's previous one;
+// a request that ends meanwhile leaves without touching the session.
 func (rt *Runtime) Stream(ctx context.Context, req *Request) *Output {
 	baseURL := trimTrailingSlashes(req.BaseURL)
 	sess := rt.session(baseURL, req.Scope, req.ModelID, req.SessionID)
-	sess.turn.Lock()
-	defer sess.turn.Unlock()
+	select {
+	case sess.turn <- struct{}{}:
+	case <-ctx.Done():
+		return &Output{Content: []*cursorwire.OutBlock{}, StopReason: "error", ErrorMessage: "GitLab Duo Workflow request aborted"}
+	}
+	defer func() { <-sess.turn }()
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 	t := newTurn(req.Sink)
