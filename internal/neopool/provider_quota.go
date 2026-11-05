@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
@@ -134,6 +135,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "kimi"
 	case "devin":
 		return "devin"
+	case "cursor":
+		return "cursor"
 	}
 	return ""
 }
@@ -385,6 +388,49 @@ func devinUsageWindows(usage *devinauth.Usage) []Window {
 	return out
 }
 
+// cursorUsageWindows adapts NeoPi's Cursor report to account windows. NeoPi
+// gates a request on the pool its model bills to; an account-wide view keeps
+// the included Cursor Models pool (weekly on the X Subscription, monthly
+// otherwise) and a combined plan or overall bucket. Third-party, prepaid,
+// on-demand and request-count meters are model or billing scoped and stay out.
+func cursorUsageWindows(usage *cursorauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	seen := map[string]bool{}
+	for _, limit := range usage.Limits {
+		switch limit.ID {
+		case "cursor:usd:individual-auto", "cursor:usd:individual-plan", "cursor:usd:individual-overall":
+		default:
+			continue
+		}
+		kind := "month"
+		if limit.Window.ID == "weekly" {
+			kind = "week"
+		}
+		if seen[kind] {
+			continue
+		}
+		seen[kind] = true
+		if limit.Amount.UsedFraction == nil {
+			out = append(out, Window{Kind: kind, Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+			continue
+		}
+		resets, starts := time.Time{}, time.Time{}
+		if limit.Window.ResetsAt > 0 {
+			resets = time.UnixMilli(int64(limit.Window.ResetsAt))
+			if limit.Window.DurationMs > 0 {
+				starts = resets.Add(-time.Duration(limit.Window.DurationMs) * time.Millisecond)
+			} else {
+				starts = resets.AddDate(0, -1, 0)
+			}
+		}
+		out = append(out, percentWindow(kind, *limit.Amount.UsedFraction*100, starts, resets))
+	}
+	return out
+}
+
 // fetch asks the provider for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -453,6 +499,17 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return devinUsageWindows(usage), nil
+	case "cursor":
+		baseURL := a.Attributes["base_url"]
+		if baseURL == "" {
+			baseURL, _ = a.Metadata["base_url"].(string)
+		}
+		email, _ := a.Metadata["email"].(string)
+		usage := cursorauth.FetchUsage(ctx, client, baseURL, token, "", email)
+		if usage == nil {
+			return nil, fmt.Errorf("cursor usage: no usage endpoint answered")
+		}
+		return cursorUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }

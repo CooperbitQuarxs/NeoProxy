@@ -47,8 +47,13 @@ var (
 	// 2h cache TTL and its 15s discovery bound.
 	devinDiscovery = &neoPiDiscovery{provider: "devin", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
 		bundled: registry.DevinBundledModels, fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
+	// cursorDiscovery calls GetUsableModels, AvailableModels and
+	// GetDefaultModelForCli: the model manager's default 2h cache TTL; each
+	// RPC carries its own 5s (AvailableModels 2s) deadline inside the bound.
+	cursorDiscovery = &neoPiDiscovery{provider: "cursor", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
+		bundled: registry.CursorBundledModels, fetch: executor.FetchCursorModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery}
 )
 
 // models returns the models to register for a and whether its cached listing
