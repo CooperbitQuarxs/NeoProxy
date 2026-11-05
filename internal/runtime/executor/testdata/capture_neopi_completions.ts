@@ -8,8 +8,7 @@
 //                                Chat Completions body NeoProxy receives for them
 //   and, into CATALOG_DIR (default: internal/registry/models/neopi_completions):
 //   <provider>.json.gz           NeoPi's bundled rows with resolved compat
-//                                (deduplicated), plus the compat NeoPi resolves
-//                                for a discovered id that is not bundled.
+//                                (deduplicated) and authored compatConfig.
 //
 // Run from the NeoPi env directory:
 //   HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
@@ -27,7 +26,6 @@ mkdirSync(catalogDir, { recursive: true });
 
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
-const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
 const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
@@ -153,18 +151,6 @@ for (const provider of providers) {
 		return compatIndex.get(key)!;
 	};
 	const baseUrl = completions[0]?.baseUrl;
-	const unknownRow = buildModel({
-		id: "zz-unknown-model-1",
-		name: "zz-unknown-model-1",
-		api: "openai-completions",
-		provider,
-		baseUrl,
-		reasoning: false,
-		input: ["text"],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		contextWindow: null,
-		maxTokens: null,
-	} as any);
 	const rows = completions.map((model: any) => ({
 		id: model.id,
 		name: model.name,
@@ -177,6 +163,8 @@ for (const provider of providers) {
 		maxTokens: model.maxTokens ?? 0,
 		...(model.thinking ? { thinking: model.thinking } : {}),
 		...(model.headers ? { headers: model.headers } : {}),
+		// The authored sparse compat a discovery merge rebuilds from.
+		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
 		completionsCompatIndex: indexOf(model.compat),
 	}));
 	// The model manager's authority flags decide how a listing replaces the
@@ -186,7 +174,7 @@ for (const provider of providers) {
 	// parses its key (Token Plan) still wires its listing.
 	const manager = descriptor?.createModelManagerOptions({ apiKey: apiKeyFor(provider) });
 	const catalog = {
-		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)}) with buildModel for a non-bundled id`,
+		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)})`,
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
@@ -201,7 +189,6 @@ for (const provider of providers) {
 			costAuthoritative: !!manager?.dynamicCostAuthoritative,
 		},
 		compats,
-		unknownCompatIndex: indexOf(unknownRow.compat),
 		models: rows,
 	};
 	await Bun.write(join(catalogDir, `${provider}.json.gz`), Bun.gzipSync(JSON.stringify(catalog)));

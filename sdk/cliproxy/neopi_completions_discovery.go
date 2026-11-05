@@ -405,7 +405,7 @@ func fetchNeoPiFireworksModels(ctx context.Context, cfg *config.Config, auth *co
 		}
 		pageToken = next
 	}
-	return registry.NeoPiFireworksListing(base, records), nil
+	return registry.NeoPiFireworksListing(base, records)
 }
 
 // neoPiDiscoveryGet sends NeoPi's discovery request and returns the body of a
