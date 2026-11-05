@@ -17,6 +17,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopidialect"
+	"github.com/tidwall/gjson"
 )
 
 // The Duo Workflow runtime of pi-ai providers/gitlab-duo-workflow.ts
@@ -97,9 +98,14 @@ type Options struct {
 
 // Request is one turn.
 type Request struct {
-	APIKey    string
-	BaseURL   string
-	ModelID   string
+	APIKey  string
+	BaseURL string
+	ModelID string
+	// Scope names whose workflows these are: the account and the caller
+	// behind the request. NeoPi keeps a session's workflow in that agent
+	// session's own state; a proxy shares one runtime among callers and
+	// accounts, so a session id resumes a workflow only within its scope.
+	Scope     string
 	SessionID string
 	Context   *cursorwire.Context
 	Options   Options
@@ -134,8 +140,10 @@ type sessionEntry struct {
 
 // session is GitLabDuoWorkflowProviderSessionState. Its lock is the event
 // loop: a turn holds it except while it awaits GitLab, and socket handlers
-// take it to run.
+// take it to run. turn admits one turn at a time, as an agent session runs
+// its turns in order; it stays held across the turn's awaits.
 type session struct {
+	turn   sync.Mutex
 	mu     sync.Mutex
 	active *activeSession
 }
@@ -177,8 +185,8 @@ type accountState struct {
 	settingsEnsured bool
 }
 
-func (rt *Runtime) session(baseURL, modelID, sessionID string) *session {
-	key := Provider + ":" + baseURL + "\x00" + modelID + "\x00" + sessionID
+func (rt *Runtime) session(baseURL, scope, modelID, sessionID string) *session {
+	key := Provider + ":" + baseURL + "\x00" + scope + "\x00" + modelID + "\x00" + sessionID
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	if element, ok := rt.sessions[key]; ok {
@@ -235,7 +243,9 @@ func (rt *Runtime) markSettingsEnsured(apiKey, baseURL string) {
 // finished message is returned.
 func (rt *Runtime) Stream(ctx context.Context, req *Request) *Output {
 	baseURL := trimTrailingSlashes(req.BaseURL)
-	sess := rt.session(baseURL, req.ModelID, req.SessionID)
+	sess := rt.session(baseURL, req.Scope, req.ModelID, req.SessionID)
+	sess.turn.Lock()
+	defer sess.turn.Unlock()
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 	t := newTurn(req.Sink)
@@ -319,7 +329,7 @@ func (c *call) run() error {
 	if pending != nil && resolved && !steered {
 		responses := make([]string, len(batch))
 		for i, entry := range batch {
-			responses[i] = string(actionResponse(entry.requestID, entry.result))
+			responses[i] = c.finalizedFrame("actionResponse", actionResponse(entry.requestID, entry.result))
 		}
 		pending.pending = nil
 		result, err := c.resume(pending.workflowID, func() (string, error) {
@@ -621,18 +631,22 @@ func (c *call) open(s *setup, definition string) *socket {
 // startFrame is `{startRequest}` with the configured payload rules applied
 // to the start request.
 func (c *call) startFrame(start *StartRequest, approval bool) string {
-	frame := start.JSON(approval)
+	return c.finalizedFrame("startRequest", start.JSON(approval))
+}
+
+// finalizedFrame applies the configured payload rules once to the business
+// payload a client frame `{key: payload}` carries: a start request, or a
+// tool's answer resuming the workflow.
+func (c *call) finalizedFrame(key string, frame json.RawMessage) string {
 	if c.req.Finalize == nil {
 		return string(frame)
 	}
-	var wrapper struct {
-		StartRequest json.RawMessage `json:"startRequest"`
-	}
-	if err := json.Unmarshal(frame, &wrapper); err != nil {
+	payload := gjson.GetBytes(frame, key)
+	if !payload.IsObject() {
 		return string(frame)
 	}
-	finalized := c.req.Finalize(append([]byte(nil), wrapper.StartRequest...))
-	return string(jsjson.Object(jsjson.Field{Name: "startRequest", Value: json.RawMessage(finalized)}))
+	finalized := c.req.Finalize([]byte(payload.Raw))
+	return string(jsjson.Object(jsjson.Field{Name: key, Value: json.RawMessage(finalized)}))
 }
 
 // resume is resumeGitLabDuoWorkflowSocket: a run on the preserved socket,
@@ -758,10 +772,17 @@ func (c *call) socket(ws *socket, start string, responses, replay []string) (str
 	case len(responses) > 0:
 		ws.onOpen = nil
 		for _, response := range responses {
-			ws.send(response)
+			if err := ws.send(response); err != nil {
+				settle(resultClosed, &Error{Message: "GitLab Duo Workflow WebSocket error: " + describeSocketError(err)})
+				break
+			}
 		}
 	default:
-		ws.onOpen = func() { ws.send(start) }
+		ws.onOpen = func() {
+			if err := ws.send(start); err != nil {
+				settle(resultClosed, &Error{Message: "GitLab Duo Workflow WebSocket error: " + describeSocketError(err)})
+			}
+		}
 	}
 	if ws.closed && !settled {
 		settle(resultClosed, nil)

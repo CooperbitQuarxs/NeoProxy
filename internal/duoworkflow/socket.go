@@ -21,7 +21,9 @@ type SocketEvent struct {
 }
 
 // Conn is one Duo Workflow WebSocket as NeoPi's GitLabDuoWorkflowWebSocketLike
-// sees it: sends, and a close that reports through a "close" event.
+// sees it: sends, and a close that reports through a "close" event. Neither
+// waits on the network: Send queues the frame, failing only when the socket
+// is not open, as ws.send throws then.
 type Conn interface {
 	Send(data string) error
 	Close()
@@ -70,9 +72,9 @@ func (s *socket) deliver(event SocketEvent) {
 	}
 }
 
-// send is ws.send: a socket that already closed drops the frame.
-func (s *socket) send(data string) {
-	_ = s.conn.Send(data)
+// send is ws.send: it fails when the socket is not open.
+func (s *socket) send(data string) error {
+	return s.conn.Send(data)
 }
 
 // close is ws.close(); closing twice is closing once.
@@ -89,16 +91,21 @@ func (s *socket) close() {
 // deadline, where NeoPi gives up after 90 s of silence.
 func WebSocketDialer(dialer *websocket.Dialer) Dialer {
 	return func(url string, headers map[string]string, deliver func(SocketEvent)) Conn {
-		conn := &gorillaConn{}
+		conn := &gorillaConn{wake: make(chan struct{}, 1)}
 		go conn.run(dialer, url, headers, deliver)
 		return conn
 	}
 }
 
+// gorillaConn is a WebSocket whose frames a writer goroutine sends in
+// order, so no caller waits on GitLab reading them.
 type gorillaConn struct {
-	mu     sync.Mutex
-	conn   *websocket.Conn
-	closed bool
+	mu      sync.Mutex
+	conn    *websocket.Conn
+	closed  bool
+	writing bool
+	queue   []string
+	wake    chan struct{}
 }
 
 func (c *gorillaConn) run(dialer *websocket.Dialer, url string, headers map[string]string, deliver func(SocketEvent)) {
@@ -124,10 +131,15 @@ func (c *gorillaConn) run(dialer *websocket.Dialer, url string, headers map[stri
 		deliver(SocketEvent{Type: "close", Code: websocket.CloseAbnormalClosure})
 		return
 	}
+	go c.write(conn)
 	deliver(SocketEvent{Type: "open"})
 	for {
 		_, data, errRead := conn.ReadMessage()
 		if errRead != nil {
+			c.mu.Lock()
+			c.closed = true
+			c.mu.Unlock()
+			c.signal()
 			event := SocketEvent{Type: "close", Code: websocket.CloseAbnormalClosure}
 			var closeErr *websocket.CloseError
 			if errors.As(errRead, &closeErr) {
@@ -140,26 +152,73 @@ func (c *gorillaConn) run(dialer *websocket.Dialer, url string, headers map[stri
 	}
 }
 
+func (c *gorillaConn) signal() {
+	select {
+	case c.wake <- struct{}{}:
+	default:
+	}
+}
+
+// write sends the queued frames in order and, once the socket is closed
+// and drained, a close frame without a status, as ws.close() does; then it
+// drops the connection, and the reader reports the close.
+func (c *gorillaConn) write(conn *websocket.Conn) {
+	for {
+		c.mu.Lock()
+		for len(c.queue) == 0 && !c.closed {
+			c.mu.Unlock()
+			<-c.wake
+			c.mu.Lock()
+		}
+		if len(c.queue) == 0 {
+			c.mu.Unlock()
+			_ = conn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
+			_ = conn.Close()
+			return
+		}
+		data := c.queue[0]
+		c.queue = c.queue[1:]
+		c.writing = true
+		c.mu.Unlock()
+		err := conn.WriteMessage(websocket.TextMessage, []byte(data))
+		c.mu.Lock()
+		c.writing = false
+		c.mu.Unlock()
+		if err != nil {
+			_ = conn.Close()
+			return
+		}
+	}
+}
+
 func (c *gorillaConn) Send(data string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn == nil || c.closed {
 		return errors.New("duo workflow socket is not open")
 	}
-	return c.conn.WriteMessage(websocket.TextMessage, []byte(data))
+	c.queue = append(c.queue, data)
+	c.signal()
+	return nil
 }
 
-// Close sends a close frame without a status, as ws.close() does, and drops
-// the connection; the reader then reports the close.
+// Close closes the socket once. With every frame sent, the writer sends the
+// close frame, as ws.close() does. A frame still queued or being written
+// would hold that close back for as long as GitLab is not reading it, so
+// the connection is dropped instead: the runtime closes with frames unsent
+// only when the request ends or the session is evicted.
 func (c *gorillaConn) Close() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.closed {
+		c.mu.Unlock()
 		return
 	}
 	c.closed = true
-	if c.conn != nil {
-		_ = c.conn.WriteControl(websocket.CloseMessage, []byte{}, time.Time{})
-		_ = c.conn.Close()
+	conn, unsent := c.conn, c.writing || len(c.queue) > 0
+	c.queue = nil
+	c.mu.Unlock()
+	if conn != nil && unsent {
+		_ = conn.Close()
 	}
+	c.signal()
 }

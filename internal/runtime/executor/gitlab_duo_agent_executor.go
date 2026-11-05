@@ -3,6 +3,8 @@ package executor
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -18,6 +20,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/usage"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 	"golang.org/x/sync/singleflight"
@@ -65,8 +68,8 @@ func (e *GitLabDuoAgentExecutor) prepare(ctx context.Context, auth *cliproxyauth
 		return nil, statusErr{code: http.StatusUnauthorized, msg: "Missing GitLab access token. Run /login gitlab-duo-agent or set GITLAB_TOKEN."}
 	}
 	modelID := thinking.ParseSuffix(req.Model).ModelName
-	baseURL := ""
-	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.Provider == gitlabduo.AgentProvider {
+	baseURL := gitlabDuoAgentInstance(auth)
+	if info, ok := cliproxyauth.ResolvedModelInfo(req); baseURL == "" && ok && info != nil && info.NeoPi != nil && info.NeoPi.Provider == gitlabduo.AgentProvider {
 		baseURL = info.NeoPi.BaseURL
 	}
 	original := req.Payload
@@ -104,7 +107,7 @@ func (e *GitLabDuoAgentExecutor) prepare(ctx context.Context, auth *cliproxyauth
 func (e *GitLabDuoAgentExecutor) run(ctx context.Context, auth *cliproxyauth.Auth, p *gitlabDuoAgentPrepared, reporter *helps.UsageReporter, sink cursorwire.Sink) (*cursorwire.Output, error) {
 	client := reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0))
 	out := gitlabDuoAgentRuntime.Stream(ctx, &duoworkflow.Request{
-		APIKey: p.token, BaseURL: p.baseURL, ModelID: p.modelID, SessionID: p.key, Context: &p.request.Context,
+		APIKey: p.token, BaseURL: p.baseURL, ModelID: p.modelID, Scope: gitlabDuoAgentScope(ctx, auth), SessionID: p.key, Context: &p.request.Context,
 		Options: duoworkflow.Options{ToolChoiceNone: p.toolChoiceNone}, Client: client, Finalize: p.finalize,
 		Sink: func(event duoworkflow.Event) { forwardGitLabDuoAgentEvent(sink, event) },
 		Dial: gitlabDuoAgentDial(ctx, e.cfg, auth),
@@ -121,6 +124,17 @@ func (e *GitLabDuoAgentExecutor) run(ctx context.Context, auth *cliproxyauth.Aut
 		code = http.StatusBadGateway
 	}
 	return output, statusErr{code: code, msg: out.ErrorMessage}
+}
+
+// gitlabDuoAgentScope fingerprints whose workflows a request may resume: the
+// account serving it and the client key that sent it.
+func gitlabDuoAgentScope(ctx context.Context, auth *cliproxyauth.Auth) string {
+	account := ""
+	if auth != nil {
+		account = auth.ID
+	}
+	sum := sha256.Sum256([]byte(account + "\x00" + usage.APIKeyFromContext(ctx)))
+	return hex.EncodeToString(sum[:])
 }
 
 // forwardGitLabDuoAgentEvent hands a turn's content events to the OpenAI
@@ -331,7 +345,7 @@ func FetchGitLabDuoAgentModels(ctx context.Context, cfg *config.Config, auth *cl
 	if token == "" {
 		return nil, errors.New("gitlab-duo-agent models: account has no token")
 	}
-	models, err := duoworkflow.FetchModels(ctx, duoworkflow.DiscoveryConfig{APIKey: token, Client: helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0)})
+	models, err := duoworkflow.FetchModels(ctx, duoworkflow.DiscoveryConfig{APIKey: token, BaseURL: gitlabDuoAgentInstance(auth), Client: helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0)})
 	if err != nil {
 		return nil, err
 	}
@@ -343,4 +357,14 @@ func FetchGitLabDuoAgentModels(ctx context.Context, cfg *config.Config, auth *cl
 		out[i] = registry.GitLabDuoAgentModelInfo(registry.GitLabDuoAgentRow(model.ID, model.Name, model.BaseURL, model.ContextWindow))
 	}
 	return out, nil
+}
+
+// gitlabDuoAgentInstance is the GitLab instance an account is configured
+// for (a GitLab Duo Agent key's base URL), "" for none; its workflows and
+// models live there, whichever row a request resolved.
+func gitlabDuoAgentInstance(auth *cliproxyauth.Auth) string {
+	if auth == nil {
+		return ""
+	}
+	return strings.TrimSpace(auth.Attributes["base_url"])
 }
