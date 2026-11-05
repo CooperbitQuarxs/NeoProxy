@@ -19169,6 +19169,168 @@
       "requests": []
     },
     {
+      "provider": "vllm",
+      "label": "pasted",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html",
+        "instructions": "Paste your vLLM API key if your server requires auth. Leave empty for local no-auth mode (default base URL: http://127.0.0.1:8000/v1)."
+      },
+      "prompts": [
+        {
+          "message": "Paste your vLLM API key (optional for local no-auth)",
+          "placeholder": "vllm-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": []
+    },
+    {
+      "provider": "vllm",
+      "label": "empty-fallback",
+      "input": "",
+      "answers": [
+        ""
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html",
+        "instructions": "Paste your vLLM API key if your server requires auth. Leave empty for local no-auth mode (default base URL: http://127.0.0.1:8000/v1)."
+      },
+      "prompts": [
+        {
+          "message": "Paste your vLLM API key (optional for local no-auth)",
+          "placeholder": "vllm-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "vllm-local"
+      },
+      "requests": []
+    },
+    {
+      "provider": "vllm",
+      "label": "blank-fallback",
+      "input": "   ",
+      "answers": [
+        "   "
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html",
+        "instructions": "Paste your vLLM API key if your server requires auth. Leave empty for local no-auth mode (default base URL: http://127.0.0.1:8000/v1)."
+      },
+      "prompts": [
+        {
+          "message": "Paste your vLLM API key (optional for local no-auth)",
+          "placeholder": "vllm-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "vllm-local"
+      },
+      "requests": []
+    },
+    {
+      "provider": "lm-studio",
+      "label": "pasted",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "prompts": [
+        {
+          "message": "Optional: Paste LM Studio API key (to customize endpoint URL, set LM_STUDIO_BASE_URL env var)",
+          "placeholder": "lm-studio-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": []
+    },
+    {
+      "provider": "lm-studio",
+      "label": "empty-fallback",
+      "input": "",
+      "answers": [
+        ""
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "prompts": [
+        {
+          "message": "Optional: Paste LM Studio API key (to customize endpoint URL, set LM_STUDIO_BASE_URL env var)",
+          "placeholder": "lm-studio-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "lm-studio-local"
+      },
+      "requests": []
+    },
+    {
+      "provider": "lm-studio",
+      "label": "blank-fallback",
+      "input": "   ",
+      "answers": [
+        "   "
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "prompts": [
+        {
+          "message": "Optional: Paste LM Studio API key (to customize endpoint URL, set LM_STUDIO_BASE_URL env var)",
+          "placeholder": "lm-studio-local",
+          "allowEmpty": true
+        }
+      ],
+      "progress": [],
+      "result": {
+        "value": "lm-studio-local"
+      },
+      "requests": []
+    },
+    {
       "provider": "moonshot",
       "label": "base-url-env",
       "input": "fixture-key-0123456789abcdef",

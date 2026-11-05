@@ -20,9 +20,11 @@ import (
 // no model list is kept with the key.
 
 // normalizeNeoPiKey applies the provider's login normalisation to a pasted key.
+// An empty key stands for the login's no-auth placeholder (local servers),
+// and otherwise stays empty for the caller's own requirement.
 func normalizeNeoPiKey(info ProviderInfo, key string) (string, error) {
 	login, ok := neopikeys.LoginFor(info.ID)
-	if !ok || key == "" {
+	if !ok || key == "" && login.EmptyFallback == nil {
 		return key, nil
 	}
 	normalized, err := login.NormalizeKey(key)

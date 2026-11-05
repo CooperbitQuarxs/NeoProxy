@@ -173,17 +173,24 @@ func NeoPiCompletionsDiscoversWithoutKey(provider string) bool {
 // with the listing's ids and limits merged in. An unusable body is an error;
 // NeoPi then serves the bundled roster.
 func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInfo, error) {
-	return neoPiCompletionsListing(provider, baseURL, body, nil)
+	return neoPiCompletionsListing(provider, baseURL, body, neoPiListingExtras{})
+}
+
+// neoPiListingExtras are what a manager fetched beside its listing: the
+// models.dev references (SiliconFlow) and LM Studio's native metadata.
+type neoPiListingExtras struct {
+	modelsDev map[string]*NeoPiModel
+	lmStudio  map[string]neoPiLmStudioMetadata
 }
 
 // NeoPiSiliconFlowListing is NeoPiCompletionsListing for SiliconFlow, whose
 // manager hydrates the listing from the models.dev catalog it fetched first
 // (modelsDev; nil when that fetch failed).
 func NeoPiSiliconFlowListing(provider, baseURL string, body, modelsDev []byte) ([]*ModelInfo, error) {
-	return neoPiCompletionsListing(provider, baseURL, body, neoPiModelsDevReferences(provider, neoPiNormalizeBase(baseURL), modelsDev))
+	return neoPiCompletionsListing(provider, baseURL, body, neoPiListingExtras{modelsDev: neoPiModelsDevReferences(provider, neoPiNormalizeBase(baseURL), modelsDev)})
 }
 
-func neoPiCompletionsListing(provider, baseURL string, body []byte, modelsDev map[string]*NeoPiModel) ([]*ModelInfo, error) {
+func neoPiCompletionsListing(provider, baseURL string, body []byte, extras neoPiListingExtras) ([]*ModelInfo, error) {
 	if !NeoPiCompletionsDiscovers(provider) || provider == "fireworks" || provider == neoPiClinePassProvider {
 		return nil, ErrNeoPiListing
 	}
@@ -206,7 +213,10 @@ func neoPiCompletionsListing(provider, baseURL string, body []byte, modelsDev ma
 		}
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
-	specs, authoritative := neoPiListingSpecs(provider, entries, modelsDev)
+	specs, authoritative := neoPiListingSpecs(provider, entries, extras.modelsDev)
+	if extras.lmStudio != nil {
+		neoPiApplyLmStudioMetadata(specs, extras.lmStudio)
+	}
 	// A listing that names no models comes back as NeoPiEmptyListing with
 	// the bundled rows the merge keeps (runner rows, for an authoritative
 	// provider), which the discovery cache retries after its short interval.
@@ -643,6 +653,8 @@ func neoPiListingSpecs(provider string, entries []gjson.Result, modelsDev map[st
 				continue
 			}
 			spec = neoPiMapSiliconFlow(entry, defaults, modelsDev)
+		case "vllm":
+			spec = neoPiMapVllm(entry, defaults, reference)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

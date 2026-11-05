@@ -32,7 +32,7 @@ var neoPiCompletionsProviders = []string{
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
-	"siliconflow", "siliconflow-cn",
+	"siliconflow", "siliconflow-cn", "vllm", "lm-studio",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -296,6 +296,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiClinePassModels(ctx, cfg, auth, base)
 		case "siliconflow", "siliconflow-cn":
 			return fetchNeoPiSiliconFlowModels(ctx, cfg, auth, provider, key, base)
+		case "lm-studio":
+			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
 			if neoPiIsXiaomiTokenPlanKey(key) {
 				return fetchNeoPiXiaomiTokenPlanModels(ctx, cfg, auth, key)

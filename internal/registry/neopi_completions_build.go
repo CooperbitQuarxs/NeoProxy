@@ -12,9 +12,10 @@ import (
 // baseURL. For an openai-completions spec NeoPi's compat engine resolves the
 // row's compat, thinking and reasoning from its id, its authored thinking and
 // its sparse compat (package neopicompat); a runner spec (openai-images,
-// openai-speech) carries no completions policy and is materialized as mapped.
+// openai-speech) or a Decisions judge (openai-decisions, served by no chat
+// route) carries no completions policy and is materialized as mapped.
 func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, error) {
-	if neoPiRunnerAPI(spec.api) {
+	if neoPiRunnerAPI(spec.api) || spec.api == "openai-decisions" {
 		return &NeoPiModel{ID: spec.id, Name: cleanModelName(spec.name), API: spec.api, Kind: spec.kind, Provider: provider,
 			BaseURL: baseURL, Input: slices.Clone(spec.input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens, cost: spec.cost}, nil
 	}

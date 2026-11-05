@@ -64,6 +64,8 @@ const managers: Record<string, (config: any) => any> = {
 	kilo: m.kiloModelManagerOptions,
 	siliconflow: m.siliconflowModelManagerOptions,
 	"siliconflow-cn": m.siliconflowCnModelManagerOptions,
+	vllm: m.vllmModelManagerOptions,
+	"lm-studio": m.lmStudioModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -334,6 +336,15 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-silicon-new" },
 		],
 		"siliconflow-cn": [{ id: "Pro/zai-org/GLM-5.1" }, { id: "deepseek-ai/DeepSeek-V4-Pro" }, { id: "FunAudioLLM/CosyVoice2-0.5B" }, { id: "zz-silicon-cn-new" }],
+		// vLLM serves its context as max_model_len; Qwen 3.8+ always thinks.
+		vllm: [
+			{ id: "Qwen/Qwen3.8-32B", max_model_len: 32768 },
+			{ id: "Qwen/Qwen3-32B", max_model_len: "40960" },
+			{ id: "qwen3.9-coder", max_model_len: -1 },
+			{ id: "meta-llama/Llama-4-Scout-17B-16E-Instruct" },
+		],
+		// LM Studio's listing; its native metadata answers per scenario.
+		"lm-studio": [{ id: "qwen/qwen3.8-vl-8b" }, { id: "google/gemma-4-12b" }, { id: "lm-judge" }, { id: "lm-judge:2" }, { id: "zz-lms-cap" }],
 	};
 	list.push(...(shaped[provider] ?? []));
 	return list;
@@ -389,7 +400,7 @@ function fireworksPages(bundled: string[]): Reply[] {
 // ClinePass reads two hosts at once: Cline's recommended-models roster (the
 // authoritative ids) and OpenRouter's public catalog (enrichment only), so
 // its scenarios answer each host with its own reply.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply };
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply } };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -478,6 +489,33 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		// (without Authorization); the others serve the bundled roster.
 		{ name: "no key", keyless: true, replies: [json({ object: "list", data: list })] },
 	];
+	if (provider === "lm-studio") {
+		// LM Studio's native /api/v0 (input, served window) and /api/v1
+		// (decision judges) answers; without them only the listing counts.
+		const v0 = json({
+			data: [
+				{ id: "qwen/qwen3.8-vl-8b", type: "vlm", max_context_length: 131072 },
+				{ id: "google/gemma-4-12b", type: "LLM", state: "loaded", loaded_context_length: 8192, max_context_length: 131072 },
+				{ id: "zz-lms-cap", type: "llm", state: "unloaded", loaded_context_length: 4096, capabilities: ["Vision", 5], context_length: "16384" },
+				{ id: "", type: "vlm" },
+				"junk",
+			],
+		});
+		const v1 = json({
+			models: [
+				{ key: "lm-judge", type: "decision", has_vision_adapter: true, max_context_length: 4096, loaded_instances: [{ id: "lm-judge:2", config: { context_length: 2048 } }, "junk"] },
+				{ key: "google/gemma-4-12b", type: "llm" },
+			],
+		});
+		const listing = json({ object: "list", data: list });
+		return [
+			...generic,
+			{ name: "native metadata", native: { v0, v1 }, replies: [listing] },
+			{ name: "native v1 only", native: { v0: json({ error: "no" }, 404), v1 }, replies: [listing] },
+			{ name: "native v0 only", native: { v0, v1: { status: 200, body: "oops" } }, replies: [listing] },
+			{ name: "native junk", native: { v0: json({ data: "x" }), v1: json({ models: {} }) }, replies: [listing] },
+		];
+	}
 	if (provider === "siliconflow" || provider === "siliconflow-cn") {
 		// models.dev answers each scenario; without it only the bundled
 		// reference index hydrates.
@@ -549,11 +587,14 @@ for (const [provider, build] of Object.entries(managers)) {
 				query: Object.fromEntries(url.searchParams),
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
 			});
-			const reply = scenario.roster
-				? url.hostname === "openrouter.ai"
-					? scenario.live!
-					: scenario.roster
-				: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
+			const nativeKey = provider !== "lm-studio" ? undefined : url.pathname === "/api/v0/models" ? "v0" : url.pathname === "/api/v1/models" ? "v1" : undefined;
+			const reply = nativeKey
+				? (scenario.native?.[nativeKey] ?? { status: 404, body: "{}" })
+				: scenario.roster
+					? url.hostname === "openrouter.ai"
+						? scenario.live!
+						: scenario.roster
+					: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
 		const options = build({ apiKey: scenario.keyless ? undefined : (scenario.apiKey ?? apiKey), fetch: fetchImpl });
@@ -566,6 +607,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
 			...(scenario.keyless ? { keyless: true } : {}),
 			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
+			...(scenario.native ? { native: scenario.native } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,
