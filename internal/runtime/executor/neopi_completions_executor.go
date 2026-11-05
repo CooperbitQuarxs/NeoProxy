@@ -268,7 +268,7 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 		}
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.provider, row.ID, "openai", "", originalTranslated, req, opts)(body)
-	headers := neoPiCompletionsHeaders(ctx, auth, opts.Headers, key, row)
+	headers := neoPiCompletionsHeaders(ctx, auth, opts.Headers, key, row, sessionID)
 	if e.profile.Headers != nil {
 		e.profile.Headers(ctx, auth, opts.Headers, key, row, headers, sessionID)
 	}

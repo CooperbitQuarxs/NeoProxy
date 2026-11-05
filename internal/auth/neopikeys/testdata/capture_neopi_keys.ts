@@ -47,7 +47,7 @@ const providers = [
 	"cerebras", "deepseek", "fireworks", "huggingface", "moonshot", "nanogpt", "nvidia", "together",
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
-	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan",
+	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "cline-pass",
 ];
 const statuses = [
 	{ name: "ok" },
@@ -84,9 +84,15 @@ async function run(provider: string, label: string, scenario: any, input: string
 			return queue.shift() ?? "";
 		},
 	} as any;
-	const saved = process.env.MOONSHOT_BASE_URL;
-	if (scenario.env) process.env.MOONSHOT_BASE_URL = scenario.env;
-	else delete process.env.MOONSHOT_BASE_URL;
+	// MOONSHOT_BASE_URL redirects Moonshot's probe; the CoreWeave variables
+	// name the project its probe must carry.
+	const envNames = ["MOONSHOT_BASE_URL", "COREWEAVE_PROJECT", "WANDB_INFERENCE_PROJECT", "WANDB_PROJECT", "WANDB_ENTITY"];
+	const saved = Object.fromEntries(envNames.map(name => [name, process.env[name]]));
+	const envVars: Record<string, string> = { ...(scenario.env ? { MOONSHOT_BASE_URL: scenario.env } : {}), ...(scenario.envVars ?? {}) };
+	for (const name of envNames) {
+		if (envVars[name] !== undefined) process.env[name] = envVars[name];
+		else delete process.env[name];
+	}
 	let result: any;
 	try {
 		const policy = rules.auth.providers.find((entry: any) => entry.id === provider);
@@ -95,16 +101,24 @@ async function run(provider: string, label: string, scenario: any, input: string
 	} catch (error) {
 		result = { error: String(error instanceof Error ? error.message : error), errorName: (error as any)?.name, errorStatus: (error as any)?.status ?? null };
 	} finally {
-		if (saved === undefined) delete process.env.MOONSHOT_BASE_URL;
-		else process.env.MOONSHOT_BASE_URL = saved;
+		for (const name of envNames) {
+			if (saved[name] === undefined) delete process.env[name];
+			else process.env[name] = saved[name];
+		}
 	}
-	scenarios.push({ provider, label, input, answers, env: scenario.env ?? null, status: scenario.status ?? 200, body: scenario.body ?? null, networkError: scenario.networkError ?? false, auth, prompts, progress, result, requests });
+	scenarios.push({ provider, label, input, answers, env: scenario.env ?? null, envVars: scenario.envVars ?? null, status: scenario.status ?? 200, body: scenario.body ?? null, networkError: scenario.networkError ?? false, auth, prompts, progress, result, requests });
 }
 
 try {
 	for (const provider of providers) {
 		for (const scenario of statuses) await run(provider, scenario.name, scenario, key, [key]);
 	}
+	// CoreWeave's probe needs the W&B project from the environment.
+	const project = { COREWEAVE_PROJECT: "team/project" };
+	for (const scenario of statuses) await run("coreweave", scenario.name, { ...scenario, envVars: project }, key, [key]);
+	await run("coreweave", "no-project", {}, key, [key]);
+	await run("coreweave", "wandb-entity-project", { envVars: { WANDB_ENTITY: "team", WANDB_PROJECT: "proj" } }, key, [key]);
+	await run("coreweave", "wandb-project-unqualified", { envVars: { WANDB_PROJECT: "proj" } }, key, [key]);
 	// A pasted "Bearer" prefix is stripped by DeepSeek's rule only.
 	await run("deepseek", "bearer-prefix", {}, "Bearer " + key, ["Bearer " + key]);
 	await run("deepseek", "bearer-only", {}, "Bearer", ["Bearer"]);

@@ -10,29 +10,37 @@ import (
 	"testing"
 )
 
+type neoPiCaptureReply struct {
+	Status int    `json:"status"`
+	Body   string `json:"body"`
+}
+
+type neoPiDiscoveryResult struct {
+	Provider string              `json:"provider"`
+	Scenario string              `json:"scenario"`
+	Replies  []neoPiCaptureReply `json:"replies"`
+	// Roster and Live are ClinePass's two hosts: Cline's recommended-models
+	// and OpenRouter's catalog.
+	Roster *neoPiCaptureReply `json:"roster"`
+	Live   *neoPiCaptureReply `json:"live"`
+	Source string             `json:"source"`
+	Models []struct {
+		ID            string         `json:"id"`
+		API           string         `json:"api"`
+		Name          string         `json:"name"`
+		Reasoning     bool           `json:"reasoning"`
+		Input         []string       `json:"input"`
+		ContextWindow *int           `json:"contextWindow"`
+		MaxTokens     *int           `json:"maxTokens"`
+		BaseURL       string         `json:"baseUrl"`
+		CompatIndex   int            `json:"compatIndex"`
+		Thinking      *NeoPiThinking `json:"thinking"`
+	} `json:"models"`
+}
+
 type neoPiDiscoveryCapture struct {
-	Compats []json.RawMessage `json:"compats"`
-	Results []struct {
-		Provider string `json:"provider"`
-		Scenario string `json:"scenario"`
-		Replies  []struct {
-			Status int    `json:"status"`
-			Body   string `json:"body"`
-		} `json:"replies"`
-		Source string `json:"source"`
-		Models []struct {
-			ID            string         `json:"id"`
-			API           string         `json:"api"`
-			Name          string         `json:"name"`
-			Reasoning     bool           `json:"reasoning"`
-			Input         []string       `json:"input"`
-			ContextWindow *int           `json:"contextWindow"`
-			MaxTokens     *int           `json:"maxTokens"`
-			BaseURL       string         `json:"baseUrl"`
-			CompatIndex   int            `json:"compatIndex"`
-			Thinking      *NeoPiThinking `json:"thinking"`
-		} `json:"models"`
-	} `json:"results"`
+	Compats []json.RawMessage      `json:"compats"`
+	Results []neoPiDiscoveryResult `json:"results"`
 }
 
 func loadNeoPiDiscoveryCapture(t *testing.T) *neoPiDiscoveryCapture {
@@ -66,18 +74,7 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 	for _, result := range capture.Results {
 		t.Run(result.Provider+"/"+result.Scenario, func(t *testing.T) {
 			baseURL := NeoPiCompletionsListingBase(result.Provider)
-			var got []*ModelInfo
-			var err error
-			if result.Provider == "fireworks" {
-				got, err = neoPiReplayFireworks(baseURL, result.Replies)
-			} else {
-				reply := result.Replies[0]
-				if reply.Status/100 != 2 {
-					err = ErrNeoPiListing
-				} else {
-					got, err = NeoPiCompletionsListing(result.Provider, baseURL, []byte(reply.Body))
-				}
-			}
+			got, err := neoPiReplayListing(baseURL, result)
 			if result.Source == "bundled" {
 				if err == nil {
 					t.Fatalf("NeoPi kept the bundled roster; port resolved %d models", len(got))
@@ -156,10 +153,14 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 // Wafer serves a Qwen-backed id with the qwen thinking format, whose disable
 // mode and ladder come from the qwen-format rules, and a GLM past the newest
 // bundled revision takes the GLM class's generic ladder (minimal..high)
-// rather than Wafer's provider-wide one (minimal..xhigh).
+// rather than Wafer's provider-wide one (minimal..xhigh). A ClinePass id the
+// bundle lacks takes its class's compat: Claude's Anthropic cache markers and
+// GPT-5's ban on sampling parameters.
 var neoPiRuleEngineGaps = map[string]map[string]bool{
 	"wafer-serverless/zz-wafer-qwen": {"thinking": true, "compat": true},
 	"wafer-serverless/GLM-5.4":       {"thinking": true},
+	"cline-pass/claude-sonnet-4-6":   {"compat": true},
+	"cline-pass/gpt-5.4-thinking":    {"compat": true},
 }
 
 // TestNeoPiCompletionsCapturedCompat compares every resolved compat field in
@@ -189,16 +190,7 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 			continue
 		}
 		base := NeoPiCompletionsListingBase(result.Provider)
-		var models []*ModelInfo
-		var err error
-		if result.Provider == "fireworks" {
-			models, err = neoPiReplayFireworks(base, result.Replies)
-		} else {
-			if len(result.Replies) == 0 || result.Replies[0].Status/100 != 2 {
-				continue
-			}
-			models, err = NeoPiCompletionsListing(result.Provider, base, []byte(result.Replies[0].Body))
-		}
+		models, err := neoPiReplayListing(base, result)
 		if err != nil {
 			continue
 		}
@@ -275,6 +267,8 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		"xiaomi-token-plan-cn":  {0, 4, 7, nil},
 		"yolo-auto":             {0, 6, 4, nil},
 		"zhipu-coding-plan":     {0, 8, 6, nil},
+		"coreweave":             {0, 4, 44, nil},
+		"cline-pass":            {3, 15, 20, []string{"CacheControlFormat", "SupportsForcedToolChoice", "SupportsSamplingParams", "SupportsStore"}},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))
@@ -306,10 +300,28 @@ func neoPiCaptureLimit(limit *int) int {
 	return *limit
 }
 
-func neoPiReplayFireworks(baseURL string, replies []struct {
-	Status int    `json:"status"`
-	Body   string `json:"body"`
-}) ([]*ModelInfo, error) {
+// neoPiReplayListing resolves a captured scenario's replies the way the
+// discovery client does for its provider.
+func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelInfo, error) {
+	switch {
+	case result.Provider == "fireworks":
+		return neoPiReplayFireworks(baseURL, result.Replies)
+	case result.Roster != nil:
+		if result.Roster.Status/100 != 2 {
+			return nil, ErrNeoPiListing
+		}
+		var live []byte
+		if result.Live != nil && result.Live.Status/100 == 2 {
+			live = []byte(result.Live.Body)
+		}
+		return NeoPiClinePassListing(baseURL, []byte(result.Roster.Body), live)
+	case len(result.Replies) == 0 || result.Replies[0].Status/100 != 2:
+		return nil, ErrNeoPiListing
+	}
+	return NeoPiCompletionsListing(result.Provider, baseURL, []byte(result.Replies[0].Body))
+}
+
+func neoPiReplayFireworks(baseURL string, replies []neoPiCaptureReply) ([]*ModelInfo, error) {
 	var records []json.RawMessage
 	for _, reply := range replies {
 		if reply.Status/100 != 2 {

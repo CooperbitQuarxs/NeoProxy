@@ -85,6 +85,8 @@ var apiKeyRoutes = map[string]route{
 	"xiaomi-token-plan-cn":  {target: "xiaomi-token-plan-cn"},
 	"yolo-auto":             {target: "yolo-auto"},
 	"zhipu-coding-plan":     {target: "zhipu-coding-plan"},
+	"coreweave":             {target: "coreweave"},
+	"cline-pass":            {target: "cline-pass"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.

@@ -74,7 +74,7 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 					if string(body) != fixture.RawBody {
 						t.Errorf("body:\n got %s\nwant %s", body, fixture.RawBody)
 					}
-					headers := neoPiCompletionsHeaders(context.Background(), auth, nil, capture.APIKey, row)
+					headers := neoPiCompletionsHeaders(context.Background(), auth, nil, capture.APIKey, row, capture.SessionID)
 					want := map[string]string{}
 					for name, value := range fixture.Headers {
 						if name == "host" || name == "content-length" {
@@ -133,7 +133,7 @@ func readNeoPiCompletionsCapture(t *testing.T, path string) neoPiCompletionsCapt
 func TestNeoPiCompletionsTimeoutDisabled(t *testing.T) {
 	zero := 0
 	row := &registry.NeoPiModel{CompletionsCompat: &registry.NeoPiCompletionsCompat{StreamFirstEventTimeoutMs: &zero}}
-	if value := neoPiCompletionsHeaders(context.Background(), nil, nil, "key", row).Get("X-Stainless-Timeout"); value != "" {
+	if value := neoPiCompletionsHeaders(context.Background(), nil, nil, "key", row, "").Get("X-Stainless-Timeout"); value != "" {
 		t.Fatalf("disabled timeout sent %q", value)
 	}
 }
