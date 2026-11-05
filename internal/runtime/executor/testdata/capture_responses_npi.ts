@@ -6,6 +6,9 @@
 const root = process.env.NEOPI_SOURCE_MODULES;
 if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const { streamOpenAIResponses } = await import(root + "/pi-ai/src/providers/openai-responses.ts");
+// streamSimple runs every inference fetch through transportFetch (the
+// inference User-Agent default among others); the capture does the same.
+const { transportFetch } = await import(root + "/pi-ai/src/utils/transport-fetch.ts");
 const { getProviderDefinition } = await import(root + "/pi-ai/src/registry/registry.ts");
 const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
@@ -197,7 +200,7 @@ try {
 		// provider sees it.
 		const options = { ...scenario.options };
 		if (options.reasoning) options.reasoning = clampThinkingLevelForModel(model, options.reasoning);
-		const result = await streamOpenAIResponses(prepared.model, context as any, { ...prepared.options, sessionId, ...options, fetch: redirectFetch }).result();
+		const result = await streamOpenAIResponses(prepared.model, context as any, { ...prepared.options, sessionId, ...options, fetch: transportFetch(prepared.model, redirectFetch) }).result();
 		if (result.stopReason !== "stop") throw new Error(`${scenario.name}: ${result.errorMessage}`);
 		fixtures.push({ name: scenario.name, requestedURL, scenario, requests: captured });
 	}
