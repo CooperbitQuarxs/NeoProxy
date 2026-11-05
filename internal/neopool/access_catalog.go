@@ -306,6 +306,12 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.stepfun.ai/v1", "StepFun API key", "https://platform.stepfun.ai/interface-key"), Plans: []ProviderPlan{}},
 	{ID: "synthetic", Name: "Synthetic", Vendor: "Synthetic", Hue: 290, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.synthetic.new/openai/v1", "sk-...", "https://dev.synthetic.new/docs/api/overview"), Plans: []ProviderPlan{}},
+	// SiliconFlow's two platforms take separate keys; discovery hydrates the
+	// bare listing from models.dev and NeoPi's bundled reference index.
+	{ID: "siliconflow", Name: "SiliconFlow", Vendor: "SiliconFlow", Hue: 255, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.siliconflow.com/v1", "sk-...", "https://cloud.siliconflow.com/account/ak"), Plans: []ProviderPlan{}},
+	{ID: "siliconflow-cn", Name: "SiliconFlow (China)", Vendor: "SiliconFlow", Hue: 255, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.siliconflow.cn/v1", "sk-...", "https://cloud.siliconflow.cn/account/ak"), Plans: []ProviderPlan{}},
 	{ID: "venice", Name: "Venice", Vendor: "Venice", Hue: 350, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.venice.ai/api/v1", "vapi_...", "https://venice.ai/settings/api"), Plans: []ProviderPlan{}},
 	{ID: "wafer-serverless", Name: "Wafer Serverless (pay-as-you-go)", Vendor: "Wafer", Hue: 40, Chroma: providerChroma, Methods: []string{"apiKey"},

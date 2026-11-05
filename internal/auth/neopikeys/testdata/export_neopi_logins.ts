@@ -15,7 +15,7 @@ const served = [
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
-	"singularityapi-dev", "singularityapi-tech", "charm-hyper",
+	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 const names: Record<string, string> = { groq: "Groq", mistral: "Mistral" };
