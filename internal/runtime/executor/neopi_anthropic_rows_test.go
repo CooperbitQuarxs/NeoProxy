@@ -140,23 +140,30 @@ func TestNeoPiAnthropicRowsReplayNeoPiRequests(t *testing.T) {
 	}
 }
 
-// An account's configured endpoint, NeoPi's provider baseUrl override, moves a
-// provider's bundled Anthropic Messages rows onto it when they sit on the
-// provider's catalog endpoint (MiniMax serves only Anthropic Messages).
+// An endpoint the account names itself, NeoPi's provider baseUrl override,
+// moves every bundled row, Anthropic Messages rows of a mixed Token Plan
+// included; an Anthropic endpoint named with its /v1 drops it before
+// /v1/messages (normalizeAnthropicBaseUrl).
 func TestNeoPiAnthropicRowsFollowAccountBaseURL(t *testing.T) {
-	var path string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path = r.URL.Path
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
-	exec := NewNeoPiCompletionsExecutor("minimax", &config.Config{}, NeoPiCompletionsProfile{})
-	auth := &cliproxyauth.Auth{ID: "minimax-account", Provider: "minimax", Attributes: map[string]string{"api_key": "sk-minimax", "base_url": server.URL + "/anthropic"}}
-	payload := []byte(`{"model":"MiniMax-M3","max_tokens":64,"messages":[{"role":"user","content":"hi"}],"stream":true}`)
-	_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: "MiniMax-M3", Payload: payload},
-		cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude, OriginalRequest: payload})
-	if path != "/anthropic/v1/messages" {
-		t.Fatalf("request path = %q, want the account endpoint's /anthropic/v1/messages", path)
+	for _, c := range []struct{ provider, base, path string }{
+		{"minimax", "/anthropic", "/anthropic/v1/messages"},
+		{"minimax", "/anthropic/v1", "/anthropic/v1/messages"},
+		{"minimax-code", "/gateway", "/gateway/v1/messages"},
+	} {
+		var path string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path = r.URL.Path
+			w.WriteHeader(http.StatusBadRequest)
+		}))
+		exec := NewNeoPiCompletionsExecutor(c.provider, &config.Config{}, NeoPiCompletionsProfile{})
+		auth := &cliproxyauth.Auth{ID: c.provider + "-account", Provider: c.provider, Attributes: map[string]string{"api_key": "sk-minimax", "base_url": server.URL + c.base}}
+		payload := []byte(`{"model":"MiniMax-M3","max_tokens":64,"messages":[{"role":"user","content":"hi"}],"stream":true}`)
+		_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: "MiniMax-M3", Payload: payload},
+			cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude, OriginalRequest: payload})
+		server.Close()
+		if path != c.path {
+			t.Errorf("%s at %s: request path = %q, want %q", c.provider, c.base, path, c.path)
+		}
 	}
 }
 
