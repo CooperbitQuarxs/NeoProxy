@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -85,6 +86,9 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 			return e.row(auth, req)
 		},
 		bearer: e.apiKey,
+	}
+	if e.profile.Provider == cloudflare.Provider {
+		e.messages.thirdParty.gatewayAuthHeader = cloudflareAuthHeader
 	}
 	return e
 }
@@ -175,7 +179,11 @@ func (e *NeoPiCompletionsExecutor) HttpRequest(ctx context.Context, auth *clipro
 		return nil, fmt.Errorf("%s: request is nil", e.provider)
 	}
 	if key := e.apiKey(auth); key != "" {
-		request.Header.Set("Authorization", "Bearer "+key)
+		if e.profile.Provider == cloudflare.Provider {
+			request.Header.Set(cloudflareAuthHeader, "Bearer "+key)
+		} else {
+			request.Header.Set("Authorization", "Bearer "+key)
+		}
 	}
 	if auth != nil {
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes)
@@ -196,7 +204,7 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	if xaiIsSpeechRequest(opts) {
 		return e.executeSpeech(ctx, auth, req, opts)
 	}
-	if err = e.snowflakeReady(auth, req); err != nil {
+	if err = e.transportReady(auth, req); err != nil {
 		return result, err
 	}
 	if e.anthropicRow(auth, req) {
@@ -254,7 +262,7 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	if xaiIsSpeechRequest(opts) {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: speech synthesis does not stream", e.provider)}
 	}
-	if err = e.snowflakeReady(auth, req); err != nil {
+	if err = e.transportReady(auth, req); err != nil {
 		return nil, err
 	}
 	if e.anthropicRow(auth, req) {
@@ -368,11 +376,25 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 		}
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.provider, row.ID, "openai", "", originalTranslated, req, opts)(body)
-	headers := neoPiCompletionsHeaders(ctx, auth, opts.Headers, key, row, sessionID)
-	if e.profile.Headers != nil {
-		e.profile.Headers(ctx, auth, opts.Headers, key, row, headers, sessionID)
-	}
+	headers := e.requestHeaders(ctx, auth, opts.Headers, key, row, sessionID)
 	return &neoPiCompletionsPrepared{body: body, headers: headers, url: e.url(row), model: row.ID}, nil
+}
+
+// requestHeaders are NeoPi's Chat Completions headers for the row, with the
+// provider's own additions and Cloudflare's gateway auth header.
+func (e *NeoPiCompletionsExecutor) requestHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID string) http.Header {
+	headers := neoPiCompletionsHeaders(ctx, auth, incoming, key, row, sessionID)
+	if e.profile.Headers != nil {
+		e.profile.Headers(ctx, auth, incoming, key, row, headers, sessionID)
+	}
+	if e.profile.Provider == cloudflare.Provider {
+		// The gateway takes its token in its own header; NeoPi sends no
+		// Authorization or X-Api-Key at all.
+		headers.Del("Authorization")
+		headers.Del("X-Api-Key")
+		headers.Set(cloudflareAuthHeader, "Bearer "+key)
+	}
+	return headers
 }
 
 // sessionID is NeoPi's options.sessionId for a downstream request: the
@@ -471,7 +493,7 @@ func neoPiCompletionsDefaultRetryDelay(attempt int) time.Duration {
 func (e *NeoPiCompletionsExecutor) now() time.Time { return time.Now() }
 
 // apiKey reads the account's bearer credential (for Snowflake, the token of
-// its PAT or structured OAuth credential).
+// its PAT or structured OAuth credential; for Cloudflare, its gateway token).
 func (e *NeoPiCompletionsExecutor) apiKey(auth *cliproxyauth.Auth) string {
 	if e.profile.APIKey != nil {
 		return strings.TrimSpace(e.profile.APIKey(auth))
@@ -479,6 +501,13 @@ func (e *NeoPiCompletionsExecutor) apiKey(auth *cliproxyauth.Auth) string {
 	if e.profile.Provider == snowflake.Provider {
 		credential, ok, err := e.snowflakeCredential(auth)
 		if err != nil || !ok {
+			return ""
+		}
+		return credential.Token
+	}
+	if e.profile.Provider == cloudflare.Provider {
+		credential, ok := e.cloudflareCredential(auth)
+		if !ok {
 			return ""
 		}
 		return credential.Token
@@ -519,7 +548,8 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 // transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
 // cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
-// Snowflake's transport then places the effective row on its account.
+// Snowflake's and Cloudflare's transports then place the effective row on the
+// credential's account (and gateway).
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
 	if row == nil || auth == nil {
 		return row
@@ -531,8 +561,11 @@ func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *regi
 		row = row.Clone()
 		row.BaseURL = base
 	}
-	if provider == snowflake.Provider {
+	switch provider {
+	case snowflake.Provider:
 		return e.snowflakeRow(auth, row)
+	case cloudflare.Provider:
+		return e.cloudflareRow(auth, row)
 	}
 	return row
 }
@@ -580,14 +613,63 @@ func (e *NeoPiCompletionsExecutor) snowflakeRow(auth *cliproxyauth.Auth, row *re
 	return row
 }
 
-// snowflakeReady reports the configuration error NeoPi's Snowflake transport
-// raises for the request's effective endpoint (a malformed credential, no
-// account, an OAuth account that does not own the endpoint) before anything
-// is sent.
-func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
-	if e.profile.Provider != snowflake.Provider {
-		return nil
+// cloudflareAuthHeader is the header Cloudflare AI Gateway takes its token in.
+const cloudflareAuthHeader = "cf-aig-authorization"
+
+// cloudflareCredential is the account's gateway credential: its key (a
+// structured login credential or a plain token), else
+// CLOUDFLARE_AI_GATEWAY_API_KEY, as NeoPi's transport falls back to.
+func (e *NeoPiCompletionsExecutor) cloudflareCredential(auth *cliproxyauth.Auth) (cloudflare.Credential, bool) {
+	raw := neoPiCompletionsAPIKey(auth)
+	if raw == "" {
+		raw = os.Getenv("CLOUDFLARE_AI_GATEWAY_API_KEY")
 	}
+	return cloudflare.ParseCredential(raw)
+}
+
+// cloudflareRow is cloudflareAiGatewayTransport.prepareRequest's endpoint
+// rewrite: a row on the gateway placeholders moves to the credential's
+// account and gateway, else CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_GATEWAY_ID. A
+// row that cannot be placed keeps the placeholders, which transportReady
+// refuses before any request.
+func (e *NeoPiCompletionsExecutor) cloudflareRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
+	credential, ok := e.cloudflareCredential(auth)
+	if !ok {
+		return row
+	}
+	base, err := cloudflare.BaseURL(row.BaseURL, credential, os.Getenv("CLOUDFLARE_ACCOUNT_ID"), os.Getenv("CLOUDFLARE_GATEWAY_ID"))
+	if err != nil || base == row.BaseURL {
+		return row
+	}
+	row = row.Clone()
+	row.BaseURL = base
+	return row
+}
+
+// transportReady reports the configuration error NeoPi's Snowflake or
+// Cloudflare transport raises for the request's effective endpoint (a
+// malformed credential, no account or gateway, an OAuth account that does
+// not own the endpoint) before anything is sent.
+func (e *NeoPiCompletionsExecutor) transportReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
+	switch e.profile.Provider {
+	case snowflake.Provider:
+		return e.snowflakeReady(auth, req)
+	case cloudflare.Provider:
+		credential, ok := e.cloudflareCredential(auth)
+		if !ok {
+			return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no gateway token"}
+		}
+		if row := e.row(auth, req); row != nil {
+			if _, err := cloudflare.BaseURL(row.BaseURL, credential, os.Getenv("CLOUDFLARE_ACCOUNT_ID"), os.Getenv("CLOUDFLARE_GATEWAY_ID")); err != nil {
+				return statusErr{code: http.StatusBadRequest, msg: e.provider + ": " + err.Error()}
+			}
+		}
+	}
+	return nil
+}
+
+// snowflakeReady is transportReady for Snowflake.
+func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
 	credential, ok, err := e.snowflakeCredential(auth)
 	if err != nil {
 		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": " + err.Error()}

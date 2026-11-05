@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/tidwall/gjson"
@@ -913,5 +914,52 @@ func neoPiMapZenMux(entry gjson.Result, defaults neoPiSpec, openAIBase string) n
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), defaults.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), defaults.maxTokens)
+	return spec
+}
+
+// NeoPiCloudflareListingBase is the base cloudflareAiGatewayModelManagerOptions
+// lists from (normalizeAnthropicBaseUrl): the account's configured endpoint,
+// else NeoPi's Anthropic gateway base. The catalog's own base, which a key
+// added from the dashboard carries, configures no endpoint.
+func NeoPiCloudflareListingBase(configured string) string {
+	value := strings.TrimSpace(configured)
+	if value == "" || strings.TrimSuffix(value, "/") == NeoPiCompletionsListingBase(cloudflare.Provider) {
+		return cloudflare.GatewayBase + "/anthropic"
+	}
+	return strings.TrimSuffix(value, "/")
+}
+
+// NeoPiCloudflarePlaceholders reports a base whose gateway placeholders no
+// request has filled; NeoPi's listing there never reaches an account.
+func NeoPiCloudflarePlaceholders(base string) bool {
+	return strings.Contains(base, "<account>") || strings.Contains(base, "<gateway>")
+}
+
+// neoPiMapCloudflare is cloudflareAiGatewayModelManagerOptions' mapModel (an
+// Anthropic Messages row on the listing base, named by display_name), routed
+// as cloudflareAiGatewayTransport.prepareModel routes it by NeoPi's
+// api-routes: anthropic/ and openai/ ids drop their prefix on the wire,
+// workers-ai/ ids take the compat route, and on the gateway's placeholders
+// each route has its own base.
+func neoPiMapCloudflare(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel, baseURL string) neoPiSpec {
+	spec := neoPiMapWithBundledReference(entry, defaults, reference)
+	spec.name = neoPiModelName(entry.Get("display_name"), spec.name)
+	spec.api, spec.baseURL, spec.requestModelID = neopicompat.APIAnthropicMessages, baseURL, ""
+	routeBase := func(route string) string {
+		if NeoPiCloudflarePlaceholders(baseURL) {
+			return cloudflare.GatewayBase + route
+		}
+		return baseURL
+	}
+	switch {
+	case strings.HasPrefix(spec.id, "anthropic/"):
+		spec.baseURL = routeBase("/anthropic")
+		spec.requestModelID = strings.ReplaceAll(strings.TrimPrefix(spec.id, "anthropic/"), ".", "-")
+	case strings.HasPrefix(spec.id, "openai/"):
+		spec.api, spec.baseURL = "", routeBase("/openai")
+		spec.requestModelID = strings.TrimPrefix(spec.id, "openai/")
+	case strings.HasPrefix(spec.id, "workers-ai/"):
+		spec.api, spec.baseURL = "", routeBase("/compat")
+	}
 	return spec
 }

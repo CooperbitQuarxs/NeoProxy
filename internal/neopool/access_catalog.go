@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	kiloauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
@@ -68,10 +69,11 @@ type ProviderInfo struct {
 	Methods      []string              `json:"methods"`
 	Subscription *ProviderSubscription `json:"subscription,omitempty"`
 	APIKey       *ProviderAPIKey       `json:"apiKey,omitempty"`
-	// Account asks which of the provider's accounts a sign-in or key belongs
-	// to (Snowflake's account identifier) before either flow starts.
-	Account *ProviderAccount `json:"account,omitempty"`
-	Plans   []ProviderPlan   `json:"plans"`
+	// Fields are the details a sign-in or key needs besides the credential,
+	// asked before either flow starts (NeoPi's login prompts: Snowflake's
+	// account; Cloudflare's account and gateway ids).
+	Fields []ProviderField `json:"fields,omitempty"`
+	Plans  []ProviderPlan  `json:"plans"`
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
@@ -90,9 +92,10 @@ type ProviderInfo struct {
 	headers map[string]string
 }
 
-// ProviderAccount is the account prompt of a provider whose sign-in and keys
-// are per account (NeoPi's Snowflake account prompt).
-type ProviderAccount struct {
+// ProviderField is one detail a provider's sign-in or key needs; the request
+// carries its value under ID.
+type ProviderField struct {
+	ID          string `json:"id"`
 	Label       string `json:"label"`
 	Placeholder string `json:"placeholder"`
 	Hint        string `json:"hint"`
@@ -395,8 +398,18 @@ var providerCatalog = []ProviderInfo{
 	{ID: "snowflake", Name: "Snowflake Cortex", Vendor: "Snowflake", Hue: 200, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
 		Subscription: browser("Opens your Snowflake account's sign-in in a new tab. NeoProxy keeps the sign-in refreshed.").at("Snowflake"),
 		APIKey:       openAIKey(snowflake.Placeholder+"/api/v2/cortex/v1", "Programmatic access token (not checked before it is added)", "https://docs.snowflake.com/en/user-guide/programmatic-access-tokens"),
-		Account:      &ProviderAccount{Label: "Snowflake account", Placeholder: "myorg-myaccount", Hint: "Your account identifier (orgname-accountname) or account URL."},
+		Fields:       []ProviderField{{ID: "account", Label: "Snowflake account", Placeholder: "myorg-myaccount", Hint: "Your account identifier (orgname-accountname) or account URL."}},
 		Plans:        []ProviderPlan{}},
+	// Cloudflare AI Gateway routes each request through the account's own
+	// gateway; NeoPi's login collects the gateway token with both ids and
+	// never checks them.
+	{ID: cloudflare.Provider, Name: "Cloudflare AI Gateway", Vendor: "Cloudflare", Hue: 55, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey(cloudflare.GatewayBase+"/openai", "AI Gateway token, cfut_... (not checked before it is added)", "https://developers.cloudflare.com/ai-gateway/configuration/authentication/"),
+		Fields: []ProviderField{
+			{ID: "accountId", Label: "Cloudflare account ID", Placeholder: "32-character account ID", Hint: "Shown on your Cloudflare dashboard's account overview."},
+			{ID: "gatewayId", Label: "AI Gateway ID", Placeholder: "default", Hint: "The name of the gateway under AI → AI Gateway."},
+		},
+		Plans: []ProviderPlan{}},
 	// Local OpenAI-compatible servers: an administrator names the server, and
 	// an empty key stands for NeoPi's no-auth placeholder.
 	{ID: "vllm", Name: "vLLM", Vendor: "vLLM", Hue: 60, Chroma: providerChroma, Methods: []string{"apiKey"},

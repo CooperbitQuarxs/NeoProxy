@@ -70,6 +70,11 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, result := range capture.Results {
+		if result.Provider == "cloudflare-ai-gateway" {
+			// Its listing follows the configured endpoint; see
+			// TestNeoPiCloudflareDiscoveryRequests.
+			continue
+		}
 		// Each provider's first scenario, and its keyless one.
 		key, name := capture.APIKey, result.Provider
 		if result.Keyless {
@@ -275,5 +280,102 @@ func TestNeoPiCompletionsKeepConfiguredModels(t *testing.T) {
 	if private == nil || private.NeoPi == nil || private.NeoPi.ID != "zz-private-model" ||
 		!reflect.DeepEqual(private.NeoPi.CompletionsCompat, unknown.CompletionsCompat) {
 		t.Fatalf("configured unknown model = %+v", private)
+	}
+}
+
+// TestNeoPiCloudflareDiscoveryRequests replays NeoPi's Cloudflare listings on
+// a configured endpoint: the Anthropic /v1/models request with NeoPi's
+// discovery headers and the stored credential as its key. On the gateway's
+// unfilled placeholders, where NeoPi's listing never reaches an account, the
+// port sends nothing and serves the bundled roster.
+func TestNeoPiCloudflareDiscoveryRequests(t *testing.T) {
+	raw, err := os.ReadFile("../../internal/registry/testdata/neopi_completions_discovery.json.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture struct {
+		APIKey  string `json:"apiKey"`
+		Results []struct {
+			Provider string                 `json:"provider"`
+			Scenario string                 `json:"scenario"`
+			APIKey   string                 `json:"apiKey"`
+			BaseURL  string                 `json:"baseUrl"`
+			Replies  []neoPiCapturedReply   `json:"replies"`
+			Requests []neoPiCapturedRequest `json:"requests"`
+			Models   []json.RawMessage      `json:"models"`
+		} `json:"results"`
+	}
+	if err = json.NewDecoder(reader).Decode(&capture); err != nil {
+		t.Fatal(err)
+	}
+	headerNames := []string{"accept", "anthropic-version", "anthropic-dangerous-direct-browser-access", "anthropic-beta", "x-api-key", "authorization"}
+	configured, placeholder := 0, 0
+	for _, result := range capture.Results {
+		if result.Provider != "cloudflare-ai-gateway" || len(result.Requests) == 0 {
+			continue
+		}
+		key := capture.APIKey
+		if result.APIKey != "" {
+			key = result.APIKey
+		}
+		t.Run(result.Scenario, func(t *testing.T) {
+			var got []neoPiCapturedRequest
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				headers := map[string]string{}
+				for _, name := range headerNames {
+					if value := r.Header.Get(name); value != "" {
+						headers[name] = value
+					}
+				}
+				got = append(got, neoPiCapturedRequest{Method: r.Method, Path: r.URL.EscapedPath(), Query: map[string]string{}, Headers: headers})
+				_, _ = w.Write([]byte(result.Replies[0].Body))
+			}))
+			defer server.Close()
+			auth := &coreauth.Auth{ID: "a", Provider: "cloudflare-ai-gateway", Attributes: map[string]string{"api_key": key}}
+			if result.BaseURL != "" {
+				endpoint, err := url.Parse(result.BaseURL)
+				if err != nil {
+					t.Fatal(err)
+				}
+				auth.Attributes["base_url"] = server.URL + endpoint.Path
+			}
+			models, err := fetchNeoPiCompletionsModels("cloudflare-ai-gateway")(context.Background(), &config.Config{}, auth)
+			if result.BaseURL == "" {
+				placeholder++
+				if err != nil || len(got) != 0 || len(models) != len(registry.NeoPiCompletionsBundledModels("cloudflare-ai-gateway", "cloudflare-ai-gateway")) {
+					t.Fatalf("placeholder base: %d requests, %d models, %v; want none sent and the bundled roster", len(got), len(models), err)
+				}
+				return
+			}
+			configured++
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got) != len(result.Requests) {
+				t.Fatalf("requests: port sent %d, NeoPi %d", len(got), len(result.Requests))
+			}
+			for i, want := range result.Requests {
+				headers := map[string]string{}
+				for _, name := range headerNames {
+					if value := want.Headers[name]; value != "" {
+						headers[name] = value
+					}
+				}
+				want.Headers, want.Query = headers, map[string]string{}
+				if !reflect.DeepEqual(got[i], want) {
+					t.Errorf("request %d: port %+v, NeoPi %+v", i, got[i], want)
+				}
+			}
+			if len(models) != len(result.Models) {
+				t.Errorf("roster: port %d models, NeoPi %d", len(models), len(result.Models))
+			}
+		})
+	}
+	if configured == 0 || placeholder == 0 {
+		t.Fatalf("capture has %d configured and %d placeholder Cloudflare listings; want both", configured, placeholder)
 	}
 }

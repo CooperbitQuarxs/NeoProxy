@@ -13,16 +13,24 @@ import (
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // applyThirdPartyIdentity applies NeoPi's client auth choice and conversation
 // header: endpoints that validate X-Api-Key never see an Authorization header,
-// and the conversation id rides next to the protocol's own session header.
+// a gateway that takes its own auth header sees neither, and the conversation
+// id rides next to the protocol's own session header.
 func applyThirdPartyIdentity(headers http.Header, provider *neoPiThirdPartyProvider, bearer, session string) {
 	if provider == nil {
 		return
 	}
-	if provider.apiKeyHeader {
+	switch {
+	case provider.gatewayAuthHeader != "":
+		headers.Del("Authorization")
+		headers.Del("X-Api-Key")
+		headers.Set(provider.gatewayAuthHeader, "Bearer "+bearer)
+	case provider.apiKeyHeader:
 		headers.Del("Authorization")
 		if bearer != "" && bearer != "N/A" {
 			headers.Set("X-Api-Key", bearer)
@@ -58,6 +66,13 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "claude", e.Identifier()); err != nil {
 		return nil, err
 	}
+	// NeoPi omits the thinking display only for hideThinkingSummary, a
+	// summary opt-out under requested thinking. A thinking-off request that a
+	// model cannot honor clamps to its floor with summaries; the pipeline
+	// marks that clamp omitted, which NeoPi does not.
+	if gjson.GetBytes(originalTranslated, "thinking.type").String() == "disabled" && gjson.GetBytes(translated, "thinking.display").String() == "omitted" {
+		translated, _ = sjson.DeleteBytes(translated, "thinking.display")
+	}
 	session := neoPiSession(opts, translated)
 	if session == "" {
 		// NeoPi's streamSimple always carries an inference session id.
@@ -87,7 +102,13 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		webSearch, webSearchSet, gateway = provider.gatewayWebSearch(merged)
 		profile.thirdParty.gatewayWebSearch = gateway
 	}
-	body, headers, err := projectNeoPiAnthropic(translated, model, base, "", identity, profile)
+	// resolveWireModelId: a row's wire id (Cloudflare's stripped namespace)
+	// replaces the id the client named.
+	wireModel := model
+	if row.RequestModelID != "" {
+		wireModel = row.RequestModelID
+	}
+	body, headers, err := projectNeoPiAnthropic(translated, wireModel, base, "", identity, profile)
 	if err != nil {
 		return nil, err
 	}

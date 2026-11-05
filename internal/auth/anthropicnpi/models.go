@@ -37,15 +37,7 @@ func (c *Client) Models(ctx context.Context, token, baseURL string) ([]Discovere
 		return nil, fmt.Errorf("invalid Claude models endpoint")
 	}
 	fetchHeaders(request)
-	request.Header.Set("Accept", "application/json")
-	request.Header.Set("anthropic-version", "2023-06-01")
-	request.Header.Set("anthropic-dangerous-direct-browser-access", "true")
-	request.Header.Set("anthropic-beta", UsageBetas)
-	if strings.Contains(token, "sk-ant-oat") {
-		request.Header.Set("Authorization", "Bearer "+token)
-	} else {
-		request.Header.Set("x-api-key", token)
-	}
+	SetDiscoveryHeaders(request.Header, token)
 	response, err := c.HTTP.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("Claude models endpoint unreachable")
@@ -93,6 +85,21 @@ func (c *Client) Models(ctx context.Context, token, baseURL string) ([]Discovere
 	}
 	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 	return models, nil
+}
+
+// SetDiscoveryHeaders sets buildAnthropicDiscoveryHeaders for token: NeoPi's
+// Anthropic /v1/models request headers, an OAuth token as a bearer and any
+// other key as x-api-key.
+func SetDiscoveryHeaders(header http.Header, token string) {
+	header.Set("Accept", "application/json")
+	header.Set("anthropic-version", "2023-06-01")
+	header.Set("anthropic-dangerous-direct-browser-access", "true")
+	header.Set("anthropic-beta", UsageBetas)
+	if strings.Contains(token, "sk-ant-oat") {
+		header.Set("Authorization", "Bearer "+token)
+	} else {
+		header.Set("x-api-key", token)
+	}
 }
 
 func modelEntries(node any) ([]any, bool) {

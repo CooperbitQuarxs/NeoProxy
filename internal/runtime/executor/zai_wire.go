@@ -40,6 +40,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	if thinking := model.Thinking; thinking != nil {
 		profile.Thinking.Mode = thinking.Mode
 		profile.Thinking.SupportsDisplay = thinking.SupportsDisplay
+		profile.Thinking.PrefixBinding = thinking.PrefixBinding
 		party.efforts = append([]string(nil), thinking.Efforts...)
 		party.requiresEffort = thinking.RequiresEffort
 		party.effortMap = thinking.EffortMap
@@ -64,6 +65,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Compat.SupportsForcedToolChoice = compat.SupportsForcedToolChoice
 		profile.Compat.SupportsSamplingParams = compat.SupportsSamplingParams
 		profile.Compat.InjectClaudeCodeInstruction = compat.InjectClaudeCodeInstruction
+		profile.Compat.DisabledThinking = compat.DisabledThinking
 		party.outputEffort = compat.SupportsOutputEffort
 		party.toolResultID = compat.RequiresToolResultID
 		party.escapeToolNames = compat.EscapeBuiltinToolNames
@@ -88,8 +90,22 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking && !tagOnly || adaptivePin) {
 		betas = append(betas, "effort-2025-11-24")
 	}
+	// resolveAnthropicControlBetas: the endpoint's mid-conversation controls.
+	if profile.Compat.SupportsTurnScopedSystem {
+		betas = append(betas, "mid-conversation-system-clear-at-2026-08-21")
+	}
+	if profile.Compat.SupportsMidConversationToolChanges {
+		betas = append(betas, "mid-conversation-tool-changes-2026-07-01")
+	}
+	if profile.Compat.SupportsPerMessageEffort {
+		betas = append(betas, "mid-conversation-output-config-2026-07-01")
+	}
 	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing {
 		betas = append(betas, "interleaved-thinking-2025-05-14")
+	}
+	// The binding-controls beta follows the finalized body's block_binding.
+	if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+		betas = append(betas, "thinking-binding-controls-2026-08-01")
 	}
 	for _, edit := range gjson.GetBytes(body, "context_management.edits").Array() {
 		if edit.Get("type").String() == "clear_thinking_20251015" {

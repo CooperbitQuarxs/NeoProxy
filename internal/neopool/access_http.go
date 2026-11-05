@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -293,9 +294,10 @@ type APIKeyRequest struct {
 	// provider (administrators only). It is chosen explicitly because it
 	// changes the key check even when BaseURL names a region.
 	CustomBaseURL bool `json:"customBaseUrl"`
-	// Account names the provider account a key belongs to, for a provider
-	// with an account prompt (Snowflake).
-	Account string `json:"account"`
+	// Fields are the provider's own details for the key, keyed by the
+	// catalogue's field IDs (Snowflake's account; Cloudflare's accountId and
+	// gatewayId).
+	Fields map[string]string `json:"fields"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -411,7 +413,8 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	if len(key) > 16384 || strings.ContainsAny(key, " \r\n\t") {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "The key contains spaces or line breaks. Paste only the key itself.")
 	}
-	if info.Account != nil && info.ID == snowflake.Provider {
+	switch info.ID {
+	case snowflake.Provider:
 		// Requests go to the account the credential is bound to: NeoPi's
 		// structured key names it; a PAT is bound to the entered account.
 		credential, _, parseErr := snowflake.ParseCredential(key)
@@ -419,8 +422,8 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 			return AccessItem{}, accessErr(http.StatusBadRequest, "%s", parseErr.Error())
 		}
 		accountURL := credential.AccountURL
-		if strings.TrimSpace(req.Account) != "" || accountURL == "" {
-			entered, accountErr := snowflake.NormalizeAccountURL(req.Account)
+		if account := strings.TrimSpace(req.Fields["account"]); account != "" || accountURL == "" {
+			entered, accountErr := snowflake.NormalizeAccountURL(account)
 			if accountErr != nil {
 				return AccessItem{}, accessErr(http.StatusBadRequest, "%s", accountErr.Error())
 			}
@@ -431,6 +434,32 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		}
 		structured, _ := json.Marshal(map[string]string{"token": credential.Token, "enterpriseUrl": accountURL})
 		key = string(structured)
+	case cloudflare.Provider:
+		// NeoPi's login stores the token with the account and gateway it
+		// collects; a structured key already naming them keeps them.
+		credential, ok := cloudflare.ParseCredential(key)
+		if !ok {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Paste the Cloudflare AI Gateway token.")
+		}
+		for _, field := range []struct {
+			id, name string
+			value    *string
+		}{{"accountId", "account ID", &credential.AccountID}, {"gatewayId", "AI Gateway ID", &credential.GatewayID}} {
+			entered := strings.TrimSpace(req.Fields[field.id])
+			if entered != "" && *field.value != "" && entered != *field.value {
+				return AccessItem{}, accessErr(http.StatusBadRequest, "This Cloudflare key names %s %s, not %s.", field.name, *field.value, entered)
+			}
+			if entered != "" {
+				*field.value = entered
+			}
+		}
+		if credential.AccountID == "" {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Cloudflare account ID is required")
+		}
+		if credential.GatewayID == "" {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Cloudflare AI Gateway ID is required")
+		}
+		key = cloudflare.Serialize(credential)
 	}
 	if req.PlanID != "" && !validPlanID(info.ID, req.PlanID) {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "planId %q is not a plan of %s.", req.PlanID, info.Name)

@@ -54,6 +54,10 @@ type neoPiThirdPartyProvider struct {
 	// OpenCode's Anthropic-compatible endpoint rejects bearer-only requests
 	// (401 Missing API key).
 	apiKeyHeader bool
+	// gatewayAuthHeader carries the bearer in a gateway's own header instead
+	// of Authorization or X-Api-Key (Cloudflare AI Gateway's
+	// cf-aig-authorization).
+	gatewayAuthHeader string
 	// sessionHeader carries the conversation id next to the endpoint's own
 	// protocol header (OpenCode's x-opencode-session).
 	sessionHeader string

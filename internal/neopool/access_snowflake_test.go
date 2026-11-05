@@ -17,7 +17,7 @@ import (
 func TestSnowflakeKeyIsBoundToItsAccount(t *testing.T) {
 	f := newAccessFixture(t)
 	t.Cleanup(neopool.SetAccessTransportForTest(refuseTransport{t}))
-	item := itemOf(t, f.json("owner-a", "POST", "/v8/neo/access/api-key", `{"provider":"snowflake","apiKey":"pat-0123456789abcd","account":"https://app.snowflake.com/MyOrg/My_Account"}`, 201))
+	item := itemOf(t, f.json("owner-a", "POST", "/v8/neo/access/api-key", `{"provider":"snowflake","apiKey":"pat-0123456789abcd","fields":{"account":"https://app.snowflake.com/MyOrg/My_Account"}}`, 201))
 	// The pool names the token's ending and its account, never the stored JSON.
 	if want := "Snowflake Cortex key ending in abcd (myorg-my-account.snowflakecomputing.com)"; item.Label != want {
 		t.Errorf("label = %q, want %q", item.Label, want)
@@ -32,9 +32,9 @@ func TestSnowflakeKeyIsBoundToItsAccount(t *testing.T) {
 	}
 
 	for body, reason := range map[string]string{
-		`{"provider":"snowflake","apiKey":"pat-123","account":"https://evil.example.com"}`:                                               "Paste your Snowflake account identifier",
-		`{"provider":"snowflake","apiKey":"pat-123"}`:                                                                                    "Snowflake account is required",
-		`{"provider":"snowflake","apiKey":"{\"token\":\"t\",\"enterpriseUrl\":\"https://a-b.snowflakecomputing.com\"}","account":"c-d"}`: "belongs to https://a-b.snowflakecomputing.com",
+		`{"provider":"snowflake","apiKey":"pat-123","fields":{"account":"https://evil.example.com"}}`:                                               "Paste your Snowflake account identifier",
+		`{"provider":"snowflake","apiKey":"pat-123"}`:                                                                                               "Snowflake account is required",
+		`{"provider":"snowflake","apiKey":"{\"token\":\"t\",\"enterpriseUrl\":\"https://a-b.snowflakecomputing.com\"}","fields":{"account":"c-d"}}`: "belongs to https://a-b.snowflakecomputing.com",
 	} {
 		w := f.do("owner-a", "POST", "/v8/neo/access/api-key", []byte(body), "")
 		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), reason) {
