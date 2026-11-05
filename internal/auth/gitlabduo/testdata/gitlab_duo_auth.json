@@ -1,0 +1,518 @@
+{
+  "source": "NeoPi OWN gitlab-duo oauth-code rule via DeclarativeOAuthCodeFlow and createRefresh",
+  "now": 1800000000000,
+  "state": "11111111-2222-4333-8444-555555555555",
+  "login": {
+    "kind": "oauth-code",
+    "scopes": [
+      "api"
+    ],
+    "scopeSeparator": " ",
+    "pkce": true,
+    "state": "hex",
+    "standardAuthorizeParams": true,
+    "authorizeParams": {},
+    "clientId": {
+      "value": "da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b",
+      "env": [
+        "GITLAB_CLIENT_ID"
+      ]
+    },
+    "authorizeUrl": {
+      "value": "https://gitlab.com/oauth/authorize"
+    },
+    "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN.",
+    "callback": {
+      "port": 8080,
+      "path": "/callback",
+      "hostname": "localhost",
+      "portFallback": true,
+      "manualOnly": false,
+      "nativeScheme": false,
+      "redirectUri": {
+        "env": [
+          "GITLAB_REDIRECT_URI"
+        ]
+      }
+    },
+    "token": {
+      "url": {
+        "value": "https://gitlab.com/oauth/token"
+      },
+      "body": "form",
+      "standard": true,
+      "params": {},
+      "headers": {}
+    },
+    "afterExchange": "gitlab-duo-clear-cache",
+    "credential": {
+      "access": {
+        "path": "access_token"
+      },
+      "refresh": {
+        "path": "refresh_token"
+      },
+      "expires": {
+        "mode": "seconds",
+        "path": "expires_in",
+        "skewMs": 300000,
+        "fromPath": "created_at"
+      }
+    }
+  },
+  "refresh": {
+    "kind": "request",
+    "require": [],
+    "afterRefresh": "gitlab-duo-clear-cache",
+    "token": {
+      "url": {
+        "value": "https://gitlab.com/oauth/token"
+      },
+      "body": "form",
+      "standard": true,
+      "params": {},
+      "headers": {}
+    },
+    "credential": {
+      "access": {
+        "path": "access_token"
+      },
+      "refresh": {
+        "path": "refresh_token"
+      },
+      "expires": {
+        "mode": "seconds",
+        "path": "expires_in",
+        "skewMs": 300000,
+        "fromPath": "created_at"
+      }
+    }
+  },
+  "logins": [
+    {
+      "name": "default/token",
+      "env": {},
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "316",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "default/token-without-created-at",
+      "env": {},
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\"}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "316",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006900000
+      },
+      "error": null
+    },
+    {
+      "name": "default/token-without-refresh",
+      "env": {},
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "316",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "default/missing-access-token",
+      "env": {},
+      "response": {
+        "status": 200,
+        "body": "{\"refresh_token\":\"r\",\"expires_in\":7200}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "316",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo token response missing access token: {\"refresh_token\":\"r\",\"expires_in\":7200}"
+    },
+    {
+      "name": "default/rejected",
+      "env": {},
+      "response": {
+        "status": 400,
+        "body": "{\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "316",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo token exchange failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+    },
+    {
+      "name": "client-override/token",
+      "env": {
+        "GITLAB_CLIENT_ID": "my-own-gitlab-app"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 8080,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://localhost:8080/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=my-own-gitlab-app&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "269",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=my-own-gitlab-app&code=auth-code&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "redirect-override/token",
+      "env": {
+        "GITLAB_REDIRECT_URI": "http://127.0.0.1:9123/gitlab/callback"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 9123,
+        "callbackPath": "/gitlab/callback",
+        "callbackHostname": "127.0.0.1",
+        "redirectUri": "http://127.0.0.1:9123/gitlab/callback",
+        "allowPortFallback": false,
+        "manualInputOnly": false,
+        "nativeScheme": false
+      },
+      "redirectUri": "http://127.0.0.1:9123/gitlab/callback",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&response_type=code&redirect_uri=http%3A%2F%2F127.0.0.1%3A9123%2Fgitlab%2Fcallback&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in browser. If GitLab responds with \"The redirect URI included is not valid\", register your own GitLab OAuth application and set GITLAB_CLIENT_ID + GITLAB_REDIRECT_URI, or use a Personal Access Token via GITLAB_TOKEN."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "325",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&code=auth-code&redirect_uri=http%3A%2F%2F127.0.0.1%3A9123%2Fgitlab%2Fcallback&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006300000
+      },
+      "error": null
+    }
+  ],
+  "refreshes": [
+    {
+      "name": "rotated",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-2\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "127",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&refresh_token=glo-refresh-0"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-2",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "unrotated",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "127",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&refresh_token=glo-refresh-0"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-0",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "without-created-at",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\"}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "127",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&refresh_token=glo-refresh-0"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006900000
+      },
+      "error": null
+    },
+    {
+      "name": "rejected",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "127",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b&refresh_token=glo-refresh-0"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo token refresh failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -375,6 +376,25 @@ func (s *Service) umansModelsFor(a *coreauth.Auth, fallback []*ModelInfo) []*Mod
 		owner = strings.TrimSpace(a.Provider)
 	}
 	models := s.registerNeoPiDiscovered(umansDiscovery, a)
+	for _, model := range models {
+		model.OwnedBy, model.Type = owner, "openai-compatibility"
+	}
+	return models
+}
+
+// gitlabDuoModelsFor replaces the (empty) configured model list of an
+// openai-compatibility key at GitLab's address (a personal access token,
+// NeoPi's GITLAB_TOKEN) with NeoPi's bundled GitLab Duo roster, owned by the
+// entry; any other account keeps fallback. GitLab Duo has no discovery.
+func gitlabDuoModelsFor(a *coreauth.Auth, fallback []*ModelInfo) []*ModelInfo {
+	if a == nil || !gitlabduo.IsBaseURL(a.Attributes["base_url"]) {
+		return fallback
+	}
+	owner := strings.TrimSpace(a.Attributes["compat_name"])
+	if owner == "" {
+		owner = strings.TrimSpace(a.Provider)
+	}
+	models := registry.GitLabDuoModels()
 	for _, model := range models {
 		model.OwnedBy, model.Type = owner, "openai-compatibility"
 	}
