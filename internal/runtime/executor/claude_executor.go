@@ -49,6 +49,16 @@ type neoPiThirdPartyProvider struct {
 	catalog func(req cliproxyexecutor.Request, model string) *registry.NeoPiModel
 	bearer  func(auth *cliproxyauth.Auth) string
 	headers func() http.Header
+	// apiKeyHeader authenticates with X-Api-Key instead of Authorization:
+	// OpenCode's Anthropic-compatible endpoint rejects bearer-only requests
+	// (401 Missing API key).
+	apiKeyHeader bool
+	// sessionHeader carries the conversation id next to the endpoint's own
+	// protocol header (OpenCode's x-opencode-session).
+	sessionHeader string
+	// gatewayWebSearch is the X-Umans-Websearch-Provider value a request
+	// sends ("" for none) and whether it turns Umans' gateway web search on.
+	gatewayWebSearch func(incoming http.Header) (value string, gateway bool)
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {
@@ -120,7 +130,10 @@ type neoPiPrepared struct {
 	identity   neoPiWireIdentity
 	base       string
 	oauth      bool
-	finalize   helps.PayloadFinalizer
+	// stripToolPrefix removes the Claude tool prefix from returned tool
+	// names: OAuth requests and escapeBuiltinToolNames models.
+	stripToolPrefix bool
+	finalize        helps.PayloadFinalizer
 }
 
 func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, countOnly ...bool) (*neoPiPrepared, error) {
@@ -186,7 +199,7 @@ func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, r
 	if oauth {
 		path += "?beta=true"
 	}
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + path, model: model, identity: identity, base: base, oauth: oauth, finalize: finalize}, nil
+	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + path, model: model, identity: identity, base: base, oauth: oauth, stripToolPrefix: oauth, finalize: finalize}, nil
 }
 
 func (e *ClaudeExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, request *http.Request) (*http.Response, error) {
@@ -603,7 +616,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	var transcript bytes.Buffer
 	var usage helps.StreamUsageBuffer
 	err = stream.consume(ctx, e.cfg, func(data []byte) error {
-		if prepared.oauth {
+		if prepared.stripToolPrefix {
 			data = neoPiStripToolPrefix(data)
 		}
 		line := append([]byte("data: "), data...)
@@ -657,7 +670,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		format := cliproxyexecutor.ResponseFormatOrSource(opts)
 		helps.InitializeApplyPatchStream(ctx, sdktranslator.FormatClaude, format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.body, &state)
 		consumeErr := stream.consume(ctx, e.cfg, func(data []byte) error {
-			if prepared.oauth {
+			if prepared.stripToolPrefix {
 				data = neoPiStripToolPrefix(data)
 			}
 			line := append([]byte("data: "), data...)

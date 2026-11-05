@@ -1,0 +1,65 @@
+{
+	"umans-coder": {
+		"name": "umans-coder",
+		"display_name": "Umans Coder",
+		"capabilities": {
+			"supports_vision": true,
+			"supports_tools": true,
+			"context_window": 1048576,
+			"recommended_max_tokens": 131072,
+			"max_completion_tokens": 393215,
+			"reasoning": { "supported": true, "levels": ["minimal", "low", "medium", "high", "xhigh"], "can_disable": false, "default_level": "medium" }
+		}
+	},
+	"umans-glm-5.2": {
+		"display_name": "GLM 5.2",
+		"capabilities": {
+			"supports_vision": "via-handoff",
+			"context_window": 202752,
+			"max_completion_tokens": 131072,
+			"reasoning": { "supported": true, "levels": ["high", "max"], "default_level": "max" }
+		}
+	},
+	"umans-glm-5.3": {
+		"name": "GLM 5.3",
+		"capabilities": {
+			"supports_vision": false,
+			"context_window": 262144,
+			"recommended_max_tokens": 65536,
+			"reasoning": { "supported": true, "levels": ["low", "medium", "high", "max", "turbo"], "can_disable": true }
+		}
+	},
+	"umans-kimi-k3": {
+		"display_name": "Kimi K3",
+		"capabilities": {
+			"supports_vision": true,
+			"context_window": 262144,
+			"reasoning": true
+		}
+	},
+	"umans-flash": {
+		"capabilities": {
+			"supports_tools": false,
+			"reasoning": { "supported": false }
+		}
+	},
+	"umans-deepseek-v4-flash-0731": {
+		"display_name": "DeepSeek V4 Flash",
+		"capabilities": {
+			"context_window": 1048576,
+			"max_completion_tokens": 393215,
+			"reasoning": { "supported": true, "levels": ["unknown"], "default_level": "xhigh" }
+		}
+	},
+	"umans-qwen-4-coder": {
+		"display_name": "Qwen 4 Coder",
+		"capabilities": {
+			"supports_vision": true,
+			"context_window": 0,
+			"recommended_max_tokens": -5,
+			"max_completion_tokens": 32768
+		}
+	},
+	"umans-not-an-object": "ignored",
+	"umans-minimal": {}
+}

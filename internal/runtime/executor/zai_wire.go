@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopidialect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/tidwall/gjson"
@@ -27,7 +28,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	var profile neoPiProfile
 	profile.Reasoning = model.Reasoning
 	profile.MaxTokens = int64(model.MaxTokens)
-	party := &neoPiThirdParty{images: false}
+	party := &neoPiThirdParty{images: false, modelID: model.ID}
 	for _, input := range model.Input {
 		party.images = party.images || input == "image"
 	}
@@ -54,6 +55,8 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Compat.InjectClaudeCodeInstruction = compat.InjectClaudeCodeInstruction
 		party.outputEffort = compat.SupportsOutputEffort
 		party.toolResultID = compat.RequiresToolResultID
+		party.escapeToolNames = compat.EscapeBuiltinToolNames
+		party.replayUnsigned = compat.ReplayUnsignedThinking
 	}
 	profile.thirdParty = party
 	return profile
@@ -100,7 +103,8 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a
 // non-Anthropic model to downstream Messages turns: blank user turns drop,
 // user and tool_result content is rebuilt for the model's input modalities,
-// and a tool_result carries the `id` alias the provider requires.
+// a tool_result carries the `id` alias the provider requires, and unsigned
+// assistant thinking the model cannot replay is demoted to text.
 func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	root := gjson.ParseBytes(input)
 	messages := root.Get("messages")
@@ -109,6 +113,10 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	}
 	out := make([]json.RawMessage, 0, len(messages.Array()))
 	for _, message := range messages.Array() {
+		if message.Get("role").String() == "assistant" {
+			out = append(out, neoPiThirdPartyAssistant(message, party))
+			continue
+		}
 		if message.Get("role").String() != "user" {
 			out = append(out, json.RawMessage(message.Raw))
 			continue
@@ -158,6 +166,50 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 		out = append(out, neoPiSetRaw(raw, "content", jsjson.Marshal(blocks)))
 	}
 	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
+}
+
+// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay: an
+// unsigned thinking block stays a thinking block with an empty signature
+// only when the turn has no signed thinking and the model replays unsigned
+// thinking; otherwise it is demoted to text (renderDemotedThinking), and a
+// blank one is dropped.
+func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json.RawMessage {
+	content := message.Get("content")
+	if !content.IsArray() {
+		return json.RawMessage(message.Raw)
+	}
+	unsigned := func(block gjson.Result) bool {
+		return block.Get("type").String() == "thinking" && strings.TrimSpace(block.Get("signature").String()) == ""
+	}
+	hasSigned := false
+	demote := !party.replayUnsigned
+	for _, block := range content.Array() {
+		if block.Get("type").String() == "thinking" && !unsigned(block) {
+			hasSigned = true
+		}
+	}
+	demote = demote || hasSigned
+	if !demote {
+		return json.RawMessage(message.Raw)
+	}
+	changed := false
+	blocks := make([]json.RawMessage, 0, len(content.Array()))
+	for _, block := range content.Array() {
+		if !unsigned(block) {
+			blocks = append(blocks, json.RawMessage(block.Raw))
+			continue
+		}
+		changed = true
+		thinking := block.Get("thinking").String()
+		if strings.TrimSpace(thinking) == "" {
+			continue
+		}
+		blocks = append(blocks, neoPiTextBlock(neopidialect.RenderDemotedThinking(party.modelID, thinking)))
+	}
+	if !changed {
+		return json.RawMessage(message.Raw)
+	}
+	return neoPiSetRaw([]byte(message.Raw), "content", jsjson.Marshal(blocks))
 }
 
 // neoPiThirdPartyContent is convertContentBlocks: a text-only model gets one

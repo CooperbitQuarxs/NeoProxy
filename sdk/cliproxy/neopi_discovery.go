@@ -2,9 +2,11 @@ package cliproxy
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
@@ -23,6 +25,9 @@ type neoPiDiscovery struct {
 	ttl, retry, timeout time.Duration
 	bundled             func() []*ModelInfo
 	fetch               func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
+	// match selects the accounts the discovery serves when provider alone
+	// cannot (keys at an address, one provider with two NeoPi catalogs).
+	match func(*coreauth.Auth) bool
 
 	mu      sync.Mutex
 	entries map[string]*neoPiDiscoveryEntry
@@ -48,7 +53,14 @@ var (
 	devinDiscovery = &neoPiDiscovery{provider: "devin", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
 		bundled: registry.DevinBundledModels, fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery}
+	// umansDiscovery lists an openai-compatibility key at the Umans address:
+	// NeoPi's authoritative GET /v1/models/info manager (2h cache), which sets
+	// no timeout; a zero timeout runs the fetch without a deadline.
+	umansDiscovery = &neoPiDiscovery{provider: umansauth.Provider, ttl: 2 * time.Hour, retry: 5 * time.Minute,
+		match:   func(a *coreauth.Auth) bool { return umansauth.IsBaseURL(a.Attributes["base_url"]) },
+		bundled: registry.UmansBundledModels, fetch: executor.FetchUmansModels, entries: map[string]*neoPiDiscoveryEntry{}}
+
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, umansDiscovery}
 )
 
 // models returns the models to register for a and whether its cached listing
@@ -60,7 +72,13 @@ func (d *neoPiDiscovery) models(a *coreauth.Auth, now time.Time) ([]*ModelInfo, 
 	if entry == nil {
 		return d.bundled(), true
 	}
-	fresh := !entry.fetchedAt.IsZero() && now.Sub(entry.fetchedAt) < d.ttl
+	// A successful empty listing stands for this cycle but, as in NeoPi's
+	// model manager, is not cached as authoritative: it retries after d.retry.
+	ttl := d.ttl
+	if entry.models != nil && len(entry.models) == 0 {
+		ttl = d.retry
+	}
+	fresh := !entry.fetchedAt.IsZero() && now.Sub(entry.fetchedAt) < ttl
 	backingOff := !entry.failedAt.IsZero() && now.Sub(entry.failedAt) < d.retry
 	stale := !fresh && !backingOff && !entry.inFlight
 	if entry.models == nil {
@@ -110,7 +128,12 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 
 	snapshot := a.Clone()
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), d.timeout)
+		ctx, cancel := context.Background(), context.CancelFunc(nil)
+		if d.timeout > 0 {
+			ctx, cancel = context.WithTimeout(ctx, d.timeout)
+		} else {
+			ctx, cancel = context.WithCancel(ctx)
+		}
 		defer cancel()
 		models, err := d.fetch(ctx, cfg, snapshot)
 		d.mu.Lock()
@@ -129,7 +152,7 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 		if s.coreManager == nil {
 			return
 		}
-		if latest, ok := s.coreManager.GetByID(snapshot.ID); ok && latest != nil && !latest.Disabled && latest.Provider == d.provider {
+		if latest, ok := s.coreManager.GetByID(snapshot.ID); ok && latest != nil && !latest.Disabled && d.serves(latest) {
 			s.refreshModelRegistrationForAuth(latest)
 		}
 	}()
@@ -164,7 +187,7 @@ func (s *Service) runNeoPiDiscovery(ctx context.Context) {
 				continue
 			}
 			for _, d := range neoPiDiscoveries {
-				if a.Provider != d.provider {
+				if !d.serves(a) {
 					continue
 				}
 				if _, stale := d.models(a, now); stale {
@@ -173,4 +196,33 @@ func (s *Service) runNeoPiDiscovery(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// serves reports whether the discovery lists a's models.
+func (d *neoPiDiscovery) serves(a *coreauth.Auth) bool {
+	if a == nil {
+		return false
+	}
+	if d.match != nil {
+		return d.match(a)
+	}
+	return a.Provider == d.provider
+}
+
+// umansModelsFor replaces the (empty) configured model list of an
+// openai-compatibility key at the Umans address with NeoPi's discovered
+// catalog, owned by the entry; any other account keeps fallback.
+func (s *Service) umansModelsFor(a *coreauth.Auth, fallback []*ModelInfo) []*ModelInfo {
+	if !umansDiscovery.serves(a) {
+		return fallback
+	}
+	owner := strings.TrimSpace(a.Attributes["compat_name"])
+	if owner == "" {
+		owner = strings.TrimSpace(a.Provider)
+	}
+	models := s.registerNeoPiDiscovered(umansDiscovery, a)
+	for _, model := range models {
+		model.OwnedBy, model.Type = owner, "openai-compatibility"
+	}
+	return models
 }

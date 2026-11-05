@@ -62,6 +62,7 @@ var apiKeyRoutes = map[string]route{
 	"alibaba-token-plan": {target: "alibaba-token-plan"},
 	"sakana":             {target: "sakana"},
 	"abliteration":       {target: "abliteration"},
+	"umans":              {target: "umans"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.

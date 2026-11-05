@@ -16,6 +16,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
@@ -117,6 +118,10 @@ func quotaProvider(a *coreauth.Auth) string {
 	if zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
 		return "zai"
 	}
+	// NeoPi meters a Umans key with GET /v1/usage.
+	if umansauth.IsBaseURL(a.Attributes["base_url"]) {
+		return "umans"
+	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
@@ -143,7 +148,7 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		return ""
 	}
 	token, _ := a.Metadata["access_token"].(string)
-	if token == "" && zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
+	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"])) {
 		token = a.Attributes["api_key"]
 	}
 	if token == "" && a.Provider == "devin" {
@@ -294,6 +299,41 @@ func zaiUsageWindows(usage *zaiauth.Usage) []Window {
 	return out
 }
 
+// umansUsageWindows adapts NeoPi's Umans report: the rolling 5h request
+// limit becomes the 5h window. Only a row that can exhaust gates routing
+// (the single row or the burst ceiling); a soft cap without a burst row is
+// reported but unknown to routing, because NeoPi never lets it exhaust.
+// Concurrency is instantaneous, not a window.
+func umansUsageWindows(usage *umansauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	var gate, soft *umansauth.UsageLimit
+	for i := range usage.Limits {
+		switch usage.Limits[i].ID {
+		case "umans:requests", "umans:requests:hard":
+			gate = &usage.Limits[i]
+		case "umans:requests:soft":
+			soft = &usage.Limits[i]
+		}
+	}
+	if gate == nil {
+		if soft != nil {
+			out = append(out, Window{Kind: "5h", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+		}
+		return out
+	}
+	if gate.UsedFraction == nil {
+		return append(out, Window{Kind: "5h", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+	}
+	startsAt := time.Time{}
+	if !gate.ResetsAt.IsZero() && gate.DurationMs > 0 {
+		startsAt = gate.ResetsAt.Add(-time.Duration(gate.DurationMs) * time.Millisecond)
+	}
+	return append(out, percentWindow("5h", *gate.UsedFraction*100, startsAt, gate.ResetsAt))
+}
+
 // kimiUsageWindows adapts NeoPi's Kimi Code report the way its ranking
 // strategy reads it: the first 5h limit and the first 7d limit gate the
 // account; a limit without a duration spans its window's default. A limit
@@ -432,6 +472,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return zaiUsageWindows(usage), nil
+	case "umans":
+		usage, err := umansauth.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return umansUsageWindows(usage), nil
 	case "kimi":
 		// NeoPi skips the probe while the stored token is expired; the next
 		// poll carries the refreshed one.

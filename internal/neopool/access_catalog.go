@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -255,6 +256,10 @@ var providerCatalog = []ProviderInfo{
 	{ID: "cursor", Name: "Cursor", Vendor: "Anysphere", Hue: 75, Chroma: tintChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Cursor's sign-in in a new tab; NeoProxy finishes once you approve it there and keeps the sign-in refreshed.").at("Cursor"),
 		Plans:        cursorPlans},
+	// Umans keys are Anthropic Messages keys sent as X-Api-Key; the account
+	// serves the models its /v1/models/info lists, as NeoPi does.
+	{ID: "umans", Name: umansauth.Name, Vendor: "Umans", Hue: 280, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "anthropic", BaseURL: umansauth.BaseURL, KeyHint: "sk-...", GetKeyURL: umansauth.KeyPageURL}, Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

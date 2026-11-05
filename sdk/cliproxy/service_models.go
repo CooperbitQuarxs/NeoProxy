@@ -250,7 +250,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					return false
 				}
 				isCompatAuth = true
-				ms := buildOpenAICompatibilityConfigModels(compat)
+				ms := s.umansModelsFor(a, buildOpenAICompatibilityConfigModels(compat))
 				if providerKey == "" {
 					providerKey = "openai-compatibility"
 				}
@@ -276,7 +276,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					if providerKey == "" {
 						providerKey = "openai-compatibility"
 					}
-					ms := cached.models
+					ms := s.umansModelsFor(a, cached.models)
 					if len(ms) > 0 {
 						ms = s.appendPluginModels(providerKey, ms, nil)
 						published = s.registerResolvedModelsForAuthFenced(a, fence, providerKey, applyModelPrefixes(ms, a.Prefix, cfg.ForceModelPrefix))
