@@ -43,6 +43,13 @@ export const KIND_COPY = {
 const METHOD_LABEL = { subscription: "Sign in with an account", apiKey: "Paste an API key" };
 const PICKER_SEARCH_FROM = 9;
 
+// A provider's own details (NeoPi's login prompts: Snowflake's account,
+// Cloudflare's account and gateway ids), asked before its flow starts.
+const providerFields = (p, values, onChange) => (p.fields ?? []).map((f) =>
+	field(f.label, input({ mono: true, placeholder: f.placeholder, autocomplete: "off", value: values[f.id] ?? "", onInput: (e) => { values[f.id] = e.target.value; onChange(); } }), f.hint));
+const fieldsFilled = (p, values) => (p.fields ?? []).every((f) => (values[f.id] ?? "").trim());
+const trimmedFields = (p, values) => p.fields?.length ? Object.fromEntries(p.fields.map((f) => [f.id, (values[f.id] ?? "").trim()])) : undefined;
+
 // Sets the provider hue as real custom properties (style objects can't).
 export function hueVars(el, provider) {
 	el.style.setProperty("--p-h", String(provider?.hue ?? 0));
@@ -195,14 +202,14 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 		const offersDevice = flow !== "device" && (sub.deviceFlow === true || (Array.isArray(sub.modes) && sub.modes.includes("device")));
 		let mode = flow === "device" ? "device" : "browser";
 		// Per-account providers (Snowflake) sign in at the account named here.
-		let account = "";
+		const values = {};
 		const idle = (error) => {
 			const asDevice = mode === "device";
 			const go = btn(asDevice ? "Get a code" : `Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) });
-			go.disabled = !!p.account && !account.trim();
+			go.disabled = !fieldsFilled(p, values);
 			replace(box, 
 				offersDevice ? seg([{ value: "browser", label: "In this browser" }, { value: "device", label: "With a code" }], mode, (v) => { mode = v; idle(); }) : null,
-				p.account ? field(p.account.label, input({ mono: true, placeholder: p.account.placeholder, autocomplete: "off", value: account, onInput: (e) => { account = e.target.value; go.disabled = !account.trim(); } }), p.account.hint) : null,
+				...providerFields(p, values, () => { go.disabled = !fieldsFilled(p, values); }),
 				h("ol", { class: "pa-steps" },
 					h("li", null, asDevice ? `A short code appears here; open ${site}'s device page on any machine and type it in.` : `${site}'s sign-in page opens in a new tab.`),
 					h("li", null, "Sign in with the account you want to share and approve access."),
@@ -221,7 +228,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			popup = mode === "device" ? null : window.open("about:blank", "_blank");
 			button.disabled = true;
 			button.lastChild.textContent = "Starting…";
-			const query = mode === "device" ? { mode: "device" } : p.account ? { account: account.trim() } : undefined;
+			const query = mode === "device" ? { mode: "device" } : trimmedFields(p, values);
 			neo.startLogin(p.id, query).then((r) => {
 				if (dead) { popup?.close(); return; }
 				if (r.url && popup) popup.location.href = r.url;
@@ -278,7 +285,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 	// ---- paste an API key ----
 	function apiKeyFlow(p) {
 		const cfg = p.apiKey ?? {};
-		let key = "", baseUrl = "", label = "", monthly = "", account = "";
+		let key = "", baseUrl = "", label = "", monthly = "";
+		const values = {};
 		// Regional providers (NeoPi's endpoint prompt): each key works at one
 		// region; administrators may also name a custom endpoint.
 		const regions = cfg.regions ?? [];
@@ -296,16 +304,16 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			errorHost.replaceChildren();
 			await busy(submit, async () => {
 				try {
-					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), account: p.account ? account.trim() : undefined, baseUrl: chosenBaseUrl(), customBaseUrl: region === CUSTOM || undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
+					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), fields: trimmedFields(p, values), baseUrl: chosenBaseUrl(), customBaseUrl: region === CUSTOM || undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
 					finish("API key added", h("p", null, h("strong", null, p.name), " checked out and is now in the pool. Its models are available to virtual models and grants right away."));
 				} catch (e) { replace(errorHost, notice("bad", "The key wasn't added", e.message)); }
 			});
 		} });
-		const sync = () => { submit.disabled = (!key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl)) || (region === CUSTOM && !baseUrl.trim()) || (!!p.account && !account.trim()); };
+		const sync = () => { submit.disabled = (!key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl)) || (region === CUSTOM && !baseUrl.trim()) || !fieldsFilled(p, values); };
 		sync();
 		return h("form", { class: "pa-stack", onSubmit: (e) => { e.preventDefault(); if (!submit.disabled) submit.click(); } },
 			cfg.editableBaseUrl ? field("Server address", input({ mono: true, placeholder: p.id === "custom" ? "https://example.com/v1" : cfg.baseUrl, onInput: (e) => { baseUrl = e.target.value; } }), p.id === "custom" ? "The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1" : `The gateway's base URL. Leave empty for the default, ${cfg.baseUrl}`) : null,
-			p.account ? field(p.account.label, input({ mono: true, placeholder: p.account.placeholder, autocomplete: "off", onInput: (e) => { account = e.target.value; sync(); } }), p.account.hint) : null,
+			...providerFields(p, values, sync),
 			regionField,
 			regionField ? customField : null,
 			field("API key", h("div", { class: "pa-inline" }, keyInput, reveal), h("span", null, "Stored on this server only and never shown again. ", cfg.getKeyUrl ? h("a", { href: cfg.getKeyUrl, target: "_blank", rel: "noopener noreferrer" }, `Get a key from ${p.vendor}`) : null)),
