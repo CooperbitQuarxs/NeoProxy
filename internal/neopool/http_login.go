@@ -88,7 +88,7 @@ func (h *HTTP) login(c *gin.Context) {
 	}
 	provider := c.Param("provider")
 	switch provider {
-	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo", "snowflake", "factory-droid", "github-copilot", "gitlab-duo":
+	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo", "snowflake", "factory-droid", "github-copilot", "gitlab-duo", "gitlab-duo-agent":
 	default:
 		poolError(c, 400, "unsupported login provider")
 		return
@@ -177,10 +177,11 @@ func (h *HTTP) loginStatus(c *gin.Context) {
 }
 func (h *HTTP) loginCallback(c *gin.Context) {
 	var body struct {
-		Provider string `json:"provider"`
-		State    string `json:"state"`
-		Code     string `json:"code"`
-		Error    string `json:"error"`
+		Provider    string `json:"provider"`
+		State       string `json:"state"`
+		Code        string `json:"code"`
+		Error       string `json:"error"`
+		RedirectURL string `json:"redirect_url,omitempty"`
 	}
 	if c.ShouldBindJSON(&body) != nil || body.State == "" {
 		poolError(c, http.StatusBadRequest, "login state is required")

@@ -34,6 +34,7 @@ type XAIKey = internalconfig.XAIKey
 type XAIModel = internalconfig.XAIModel
 type MetaKey = internalconfig.MetaKey
 type MetaModel = internalconfig.MetaModel
+type GitLabDuoAgentKey = internalconfig.GitLabDuoAgentKey
 type ClaudeKey = internalconfig.ClaudeKey
 type VertexCompatKey = internalconfig.VertexCompatKey
 type VertexCompatModel = internalconfig.VertexCompatModel

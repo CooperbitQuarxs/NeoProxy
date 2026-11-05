@@ -64,7 +64,7 @@ var v8SharedStructPaths = []configPath{
 var v8KeyFamilies = []configPath{
 	{"gemini-api-key", "gemini"}, {"interactions-api-key", "interactions"},
 	{"vertex-api-key", "vertex"}, {"codex-api-key", "codex"},
-	{"claude-api-key", "claude"}, {"xai-api-key", "xai"}, {"meta-api-key", "meta"},
+	{"claude-api-key", "claude"}, {"xai-api-key", "xai"}, {"meta-api-key", "meta"}, {"gitlab-duo-agent-api-key", "gitlab-duo-agent"},
 	{"openai-compatibility", "openai-compatibility"},
 }
 

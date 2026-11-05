@@ -146,3 +146,51 @@ func TestWriteOAuthCallbackFileForPendingSessionCreatesMissingAuthDirForCallback
 		})
 	}
 }
+
+// TestPostOAuthCallbackReadsPastedGitLabAgentAddress finishes a manual-only
+// GitLab Duo Agent sign-in from what the person pastes, as NeoPi's
+// parseCallbackInput reads it, and refuses a paste naming another sign-in's
+// state instead of handing its code to this one.
+func TestPostOAuthCallbackReadsPastedGitLabAgentAddress(t *testing.T) {
+	const state = "a1b2c3d4e5f60718"
+	cases := []struct {
+		name     string
+		body     string
+		status   int
+		wantCode string
+	}{
+		{"vscode address", `{"provider":"gitlab-duo-agent","state":"` + state + `","code":"the-code","redirect_url":"vscode://gitlab.gitlab-workflow/authentication?code=the-code&state=` + state + `"}`, http.StatusOK, "the-code"},
+		{"address of another sign-in", `{"provider":"gitlab-duo-agent","state":"` + state + `","code":"the-code","redirect_url":"vscode://gitlab.gitlab-workflow/authentication?code=the-code&state=ffff0000ffff0000"}`, http.StatusBadRequest, ""},
+		{"query alone", `{"provider":"gitlab-duo-agent","state":"` + state + `","code":"?code=the-code&state=` + state + `"}`, http.StatusOK, "the-code"},
+		{"code and state", `{"provider":"gitlab-duo-agent","state":"` + state + `","code":"the-code#` + state + `"}`, http.StatusOK, "the-code"},
+		{"code and another state", `{"provider":"gitlab-duo-agent","state":"` + state + `","code":"the-code#ffff0000ffff0000"}`, http.StatusBadRequest, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			authDir := t.TempDir()
+			RegisterOAuthSession(state, "gitlab-duo-agent")
+			defer CompleteOAuthSession(state)
+			h := NewHandlerWithoutConfigFilePath(&config.Config{AuthDir: authDir}, nil)
+			router := gin.New()
+			router.POST("/v0/management/oauth-callback", h.PostOAuthCallback)
+			req := httptest.NewRequest(http.MethodPost, "/v0/management/oauth-callback", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != tc.status {
+				t.Fatalf("status %d, want %d: %s", w.Code, tc.status, w.Body.String())
+			}
+			data, errRead := os.ReadFile(filepath.Join(authDir, ".oauth-gitlab-duo-agent-"+state+".oauth"))
+			if tc.wantCode == "" {
+				if errRead == nil {
+					t.Fatalf("a refused paste reached the sign-in: %s", data)
+				}
+				return
+			}
+			var payload oauthCallbackFilePayload
+			if errRead != nil || json.Unmarshal(data, &payload) != nil || payload.Code != tc.wantCode || payload.State != state {
+				t.Fatalf("callback payload %s (%v)", data, errRead)
+			}
+		})
+	}
+}
