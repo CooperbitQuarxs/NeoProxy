@@ -28,7 +28,10 @@ type neoPiCompletionsCapture struct {
 	// ModelsDev is the models.dev catalog the manager hydrated the listing
 	// from (SiliconFlow).
 	ModelsDev string `json:"modelsDev"`
-	Fixtures  []struct {
+	// LmStudioV0 and LmStudioV1 are LM Studio's native metadata answers.
+	LmStudioV0 string `json:"lmStudioV0"`
+	LmStudioV1 string `json:"lmStudioV1"`
+	Fixtures   []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`
 		RequestedURL string            `json:"requestedURL"`
@@ -130,8 +133,11 @@ func neoPiCapturedListingRows(t *testing.T, capture neoPiCompletionsCapture) map
 	}
 	base := registry.NeoPiCompletionsListingBase(capture.Provider)
 	infos, err := registry.NeoPiCompletionsListing(capture.Provider, base, []byte(capture.Listing))
-	if capture.ModelsDev != "" {
+	switch {
+	case capture.ModelsDev != "":
 		infos, err = registry.NeoPiSiliconFlowListing(capture.Provider, base, []byte(capture.Listing), []byte(capture.ModelsDev))
+	case capture.LmStudioV0 != "" || capture.LmStudioV1 != "":
+		infos, err = registry.NeoPiLmStudioListing(base, []byte(capture.Listing), []byte(capture.LmStudioV0), []byte(capture.LmStudioV1))
 	}
 	if err != nil {
 		t.Fatalf("listing: %v", err)
