@@ -103,7 +103,11 @@ func neoPiCompletionsRequest(input []byte, row *registry.NeoPiModel, call neoPiC
 	}
 	root := gjson.ParseBytes(input)
 	options := neoPiCompletionsOptionsFrom(root)
-	neoPiNormalizeMandatoryReasoning(row, &options)
+	// streamSimple routes Synthetic through streamSynthetic, which maps the raw
+	// options itself and never applies normalizeMandatoryReasoningOptions.
+	if row.Provider != "synthetic" {
+		neoPiNormalizeMandatoryReasoning(row, &options)
+	}
 	if options.maxTokens == nil && row.MaxTokens > 0 {
 		limit := float64(row.MaxTokens)
 		options.maxTokens = &limit
@@ -490,6 +494,8 @@ func neoPiEncodeDisabledReasoning(body *neoPiOrderedObject, mode string) {
 		body.setNested("chat_template_kwargs", "thinking", jsjson.Marshal(false))
 	case "openrouter-enabled-false", "cline-enabled-false":
 		body.set("reasoning", []byte(`{"enabled":false}`))
+	case "venice-disable-thinking":
+		body.setNested("venice_parameters", "disable_thinking", jsjson.Marshal(true))
 	default:
 		body.del("reasoning")
 	}

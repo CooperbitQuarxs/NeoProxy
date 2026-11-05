@@ -28,6 +28,7 @@ mkdirSync(catalogDir, { recursive: true });
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
+const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
 const maxRepresentatives = Number(process.env.MAX_MODELS_PER_PROVIDER ?? 24);
@@ -178,11 +179,27 @@ for (const provider of providers) {
 		...(model.headers ? { headers: model.headers } : {}),
 		completionsCompatIndex: indexOf(model.compat),
 	}));
+	// The model manager's authority flags decide how a listing replaces the
+	// bundled rows (model-manager.ts mergeDynamicModels).
+	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
+	// The fixture key has each provider's credential shape, so a manager that
+	// parses its key (Token Plan) still wires its listing.
+	const manager = descriptor?.createModelManagerOptions({ apiKey: apiKeyFor(provider) });
 	const catalog = {
 		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)}) with buildModel for a non-bundled id`,
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
+		discovery: {
+			// Whether the model manager fetches a live listing at all.
+			listing: typeof manager?.fetchDynamicModels === "function",
+			// The descriptor's KDL flag only steers bundle generation; the
+			// runtime model manager reads its own options.
+			modelsAuthoritative: !!manager?.dynamicModelsAuthoritative,
+			reasoningAuthoritative: !!manager?.dynamicReasoningAuthoritative,
+			inputAuthoritative: !!manager?.dynamicInputAuthoritative,
+			costAuthoritative: !!manager?.dynamicCostAuthoritative,
+		},
 		compats,
 		unknownCompatIndex: indexOf(unknownRow.compat),
 		models: rows,

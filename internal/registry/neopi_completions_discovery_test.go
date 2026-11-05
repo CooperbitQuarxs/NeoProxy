@@ -22,6 +22,7 @@ type neoPiDiscoveryCapture struct {
 		Source string `json:"source"`
 		Models []struct {
 			ID            string         `json:"id"`
+			API           string         `json:"api"`
 			Name          string         `json:"name"`
 			Reasoning     bool           `json:"reasoning"`
 			Input         []string       `json:"input"`
@@ -84,21 +85,24 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				return
 			}
 			if err != nil {
-				if result.Provider == "alibaba-token-plan" && len(result.Models) == 0 {
-					// NeoPi serves an empty roster for one cycle; the port keeps
-					// the bundled one instead (documented divergence).
-					return
-				}
 				t.Fatalf("port rejected a listing NeoPi accepted: %v", err)
 			}
 			byID := map[string]*NeoPiModel{}
 			for _, info := range got {
 				byID[info.ID] = info.NeoPi
 			}
-			if len(byID) != len(result.Models) {
-				t.Errorf("roster size: port %d, NeoPi %d", len(byID), len(result.Models))
+			// The port serves the Chat Completions rows; NeoPi's image and
+			// speech runners on the same provider are out of its scope.
+			want := result.Models[:0:0]
+			for _, model := range result.Models {
+				if model.API == "openai-completions" {
+					want = append(want, model)
+				}
 			}
-			for _, want := range result.Models {
+			if len(byID) != len(want) {
+				t.Errorf("roster size: port %d, NeoPi %d", len(byID), len(want))
+			}
+			for _, want := range want {
 				row := byID[want.ID]
 				if row == nil {
 					t.Errorf("%s: missing from port roster", want.ID)
@@ -122,8 +126,11 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				if row.BaseURL != want.BaseURL {
 					t.Errorf("%s: base URL %q, NeoPi %q", want.ID, row.BaseURL, want.BaseURL)
 				}
-				if !reflect.DeepEqual(row.Thinking, want.Thinking) {
+				gaps := neoPiRuleEngineGaps[result.Provider+"/"+want.ID]
+				if equal := reflect.DeepEqual(row.Thinking, want.Thinking); !equal && !gaps["thinking"] {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
+				} else if equal && gaps["thinking"] {
+					t.Errorf("%s: thinking now matches NeoPi; drop it from neoPiRuleEngineGaps", want.ID)
 				}
 				// A discovered non-reasoning id takes its compat from its nearest
 				// bundled sibling (see neoPiNewRow), which only approximates NeoPi's
@@ -133,13 +140,26 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 					if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
 						t.Fatal(err)
 					}
-					if !reflect.DeepEqual(row.CompletionsCompat, &wantCompat) {
+					if equal := reflect.DeepEqual(row.CompletionsCompat, &wantCompat); !equal && !gaps["compat"] {
 						t.Errorf("%s: compat differs from NeoPi's", want.ID)
+					} else if equal && gaps["compat"] {
+						t.Errorf("%s: compat now matches NeoPi; drop it from neoPiRuleEngineGaps", want.ID)
 					}
 				}
 			}
 		})
 	}
+}
+
+// neoPiRuleEngineGaps are unbundled reasoning ids whose fields NeoPi's
+// catalog rule engine derives from class rules the port cannot evaluate:
+// Wafer serves a Qwen-backed id with the qwen thinking format, whose disable
+// mode and ladder come from the qwen-format rules, and a GLM past the newest
+// bundled revision takes the GLM class's generic ladder (minimal..high)
+// rather than Wafer's provider-wide one (minimal..xhigh).
+var neoPiRuleEngineGaps = map[string]map[string]bool{
+	"wafer-serverless/zz-wafer-qwen": {"thinking": true, "compat": true},
+	"wafer-serverless/GLM-5.4":       {"thinking": true},
 }
 
 // TestNeoPiCompletionsCapturedCompat compares every resolved compat field in
@@ -224,17 +244,37 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		unknown, total, bundled int
 		fields                  []string
 	}{
-		"cerebras":           {0, 4, 8, nil},
-		"deepseek":           {0, 4, 4, nil},
-		"fireworks":          {0, 5, 35, nil},
-		"groq":               {0, 4, 20, nil},
-		"huggingface":        {0, 4, 82, nil},
-		"mistral":            {0, 4, 44, nil},
-		"moonshot":           {1, 11, 19, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDisableMode", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamRevision", "ThinkingFormat"}},
-		"nanogpt":            {0, 6, 1197, nil},
-		"nvidia":             {0, 4, 175, nil},
-		"together":           {0, 4, 42, nil},
-		"alibaba-token-plan": {4, 12, 6, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDeltasMayBeCumulative", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamMarkupHealingPattern", "StreamRevision", "StripImageInput", "ThinkingLoopGuard", "ToolSchemaFlavor"}},
+		"cerebras":              {0, 4, 8, nil},
+		"deepseek":              {0, 4, 4, nil},
+		"fireworks":             {0, 5, 35, nil},
+		"groq":                  {0, 4, 20, nil},
+		"huggingface":           {0, 4, 82, nil},
+		"mistral":               {0, 4, 44, nil},
+		"moonshot":              {1, 11, 19, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDisableMode", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamRevision", "ThinkingFormat"}},
+		"nanogpt":               {0, 6, 1197, nil},
+		"nvidia":                {0, 4, 175, nil},
+		"together":              {0, 4, 42, nil},
+		"alibaba-token-plan":    {4, 12, 6, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDeltasMayBeCumulative", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamMarkupHealingPattern", "StreamRevision", "StripImageInput", "ThinkingLoopGuard", "ToolSchemaFlavor"}},
+		"aiand":                 {0, 7, 6, nil},
+		"baseten":               {0, 6, 8, nil},
+		"coralbricks":           {0, 9, 2, nil},
+		"deepinfra":             {0, 2, 2, nil},
+		"gmi-cloud":             {0, 4, 1, nil},
+		"helmcode":              {0, 5, 4, nil},
+		"inception":             {0, 1, 1, nil},
+		"novita":                {0, 1, 1, nil},
+		"qianfan":               {0, 5, 1, nil},
+		"qwen-portal":           {0, 4, 2, nil},
+		"sambanova":             {0, 4, 1, nil},
+		"stepfun":               {0, 5, 4, nil},
+		"synthetic":             {0, 8, 6, nil},
+		"venice":                {0, 4, 183, nil},
+		"wafer-serverless":      {1, 10, 22, []string{"ReasoningDisableMode"}},
+		"xiaomi-token-plan-sgp": {0, 4, 6, nil},
+		"xiaomi-token-plan-ams": {0, 4, 6, nil},
+		"xiaomi-token-plan-cn":  {0, 4, 7, nil},
+		"yolo-auto":             {0, 6, 4, nil},
+		"zhipu-coding-plan":     {0, 8, 6, nil},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))

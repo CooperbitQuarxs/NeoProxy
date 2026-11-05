@@ -11,6 +11,7 @@ package neopikeys
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -43,48 +45,56 @@ const (
 
 // Validation is one compiled `validate` rule.
 type Validation struct {
-	Kind string
+	Kind string `json:"kind"`
 	// Label names the provider in failure messages; empty means the login's name.
-	Label string
-	// BaseURL and Model address a chat-completions probe.
-	BaseURL string
-	Model   string
+	Label string `json:"label"`
+	// BaseURL and Model address a chat-completions probe; MaxTokensField and
+	// MaxTokens override its one-token "max_tokens" field.
+	BaseURL        string `json:"baseUrl"`
+	Model          string `json:"model"`
+	MaxTokensField string `json:"maxTokensField"`
+	MaxTokens      *int   `json:"maxTokens"`
+	// TolerateModelDenied accepts a 401 whose error code is invalid_model:
+	// the key is good, the probe model is not on its plan.
+	TolerateModelDenied bool `json:"tolerateModelDenied"`
 	// URL addresses a models-endpoint probe; BaseURLEnv names an environment
-	// variable whose value replaces its origin and path prefix (`/models` is
-	// appended).
-	URL        string
-	BaseURLEnv string
+	// variable whose value replaces its origin and path prefix, followed by
+	// BaseURLPath (default `/models`).
+	URL         string `json:"url"`
+	BaseURLEnv  string `json:"baseUrlEnv"`
+	BaseURLPath string `json:"baseUrlPath"`
 	// Optional trusts the key unless the probe proves an auth failure.
-	Optional bool
+	Optional bool `json:"optional"`
 }
 
 // Login is one provider's key entry.
 type Login struct {
 	// Name is the provider's display name in NeoPi's auth rule.
-	Name string
-	// StripBearer is `normalize "strip-bearer"`.
-	StripBearer bool
+	Name string `json:"name"`
+	// Normalize is the rule's `normalize` step ("strip-bearer").
+	Normalize string `json:"normalize"`
 	// Probe is nil for providers without a validation probe.
-	Probe *Validation
+	Probe *Validation `json:"validate"`
 }
 
-// logins holds the compiled auth rules of the NeoPi-served providers. The
-// Token Plan's region and cookie prompts live in package alibabatokenplan.
-var logins = map[string]Login{
-	"cerebras": {Name: "Cerebras", Probe: &Validation{Kind: ChatCompletions, Label: "Cerebras", BaseURL: "https://api.cerebras.ai/v1", Model: "gpt-oss-120b"}},
-	"deepseek": {Name: "DeepSeek", StripBearer: true, Probe: &Validation{Kind: ModelsEndpoint, Label: "deepseek", URL: "https://api.deepseek.com/v1/models"}},
-	// The control-plane model listing needs a valid key but no deployment; the
-	// inference listing answers 500 for accounts without deployments (issue #3219).
-	"fireworks":   {Name: "Fireworks", Probe: &Validation{Kind: ModelsEndpoint, Label: "Fireworks", URL: "https://api.fireworks.ai/v1/accounts/fireworks/models?filter=supports_serverless%3Dtrue&pageSize=1"}},
-	"groq":        {Name: "Groq"},
-	"huggingface": {Name: "Hugging Face Inference", Probe: &Validation{Kind: ChatCompletions, Label: "Hugging Face", BaseURL: "https://router.huggingface.co/v1", Model: "openai/gpt-oss-120b"}},
-	"mistral":     {Name: "Mistral"},
-	"moonshot":    {Name: "Moonshot (Kimi API)", Probe: &Validation{Kind: ModelsEndpoint, Label: "moonshot", URL: "https://api.moonshot.ai/v1/models", BaseURLEnv: "MOONSHOT_BASE_URL"}},
-	"nanogpt":     {Name: "NanoGPT", Probe: &Validation{Kind: ModelsEndpoint, URL: "https://nano-gpt.com/api/v1/models"}},
-	// A real auth rejection is fatal; any other failure trusts the key.
-	"nvidia":   {Name: "NVIDIA", Probe: &Validation{Kind: ChatCompletions, Label: "nvidia", BaseURL: "https://integrate.api.nvidia.com/v1", Model: "nvidia/llama-3.1-nemotron-70b-instruct", Optional: true}},
-	"together": {Name: "Together", Probe: &Validation{Kind: ModelsEndpoint, Label: "together", URL: "https://api.together.xyz/v1/models"}},
-}
+// loginsJSON is NeoPi's compiled `login "api-key"` rules for the providers
+// NeoProxy serves through NeoPi's Chat Completions provider, exported by
+// testdata/export_neopi_logins.ts. A provider whose keys come only from the
+// environment (Groq, Mistral) carries its name alone and takes keys unprobed.
+// The Token Plan's region and cookie prompts live in package alibabatokenplan.
+//
+//go:embed logins.json
+var loginsJSON []byte
+
+var logins = func() map[string]Login {
+	var export struct {
+		Logins map[string]Login `json:"logins"`
+	}
+	if err := json.Unmarshal(loginsJSON, &export); err != nil {
+		panic(fmt.Sprintf("neopikeys: logins.json: %v", err))
+	}
+	return export.Logins
+}()
 
 // LoginFor reports NeoPi's key entry for a catalogue provider.
 func LoginFor(provider string) (Login, bool) {
@@ -105,7 +115,7 @@ var bearerPrefix = regexp.MustCompile(`(?i)^bearer\b\s*`)
 // NormalizeKey is the login's trim and `normalize` step.
 func (l Login) NormalizeKey(raw string) (string, error) {
 	key := strings.TrimSpace(raw)
-	if l.StripBearer && key != "" {
+	if l.Normalize == "strip-bearer" && key != "" {
 		if key = bearerPrefix.ReplaceAllString(key, ""); key == "" {
 			return "", fmt.Errorf("%s %w", l.Name, ErrEmptyAfterBearer)
 		}
@@ -164,12 +174,16 @@ func (l Login) Validate(ctx context.Context, client *http.Client, key string) er
 	var err error
 	switch v.Kind {
 	case ChatCompletions:
-		err = validateChatCompletions(ctx, client, label, v.BaseURL, v.Model, key)
+		err = validateChatCompletions(ctx, client, label, v, key)
 	case ModelsEndpoint:
 		target := v.URL
 		if v.BaseURLEnv != "" {
 			if base := strings.TrimSpace(lookupEnv(v.BaseURLEnv)); base != "" {
-				target = strings.TrimRight(base, "/") + "/models"
+				path := v.BaseURLPath
+				if path == "" {
+					path = "/models"
+				}
+				target = strings.TrimRight(base, "/") + path
 			}
 		}
 		err = ValidateModelsEndpoint(ctx, client, label, target, key)
@@ -191,17 +205,29 @@ func setBunDefaults(req *http.Request) {
 	req.Header.Set("User-Agent", userAgent)
 }
 
-func validateChatCompletions(ctx context.Context, client *http.Client, label, baseURL, model, key string) error {
+func validateChatCompletions(ctx context.Context, client *http.Client, label string, v *Validation, key string) error {
 	// validateOpenAICompatibleApiKey: a one-token "ping" at temperature 0.
-	body := `{"model":` + jsonString(model) + `,"messages":[{"role":"user","content":"ping"}],"max_tokens":1,"temperature":0}`
-	req, err := http.NewRequest(http.MethodPost, baseURL+"/chat/completions", strings.NewReader(body))
+	field, maxTokens := v.MaxTokensField, 1
+	if field == "" {
+		field = "max_tokens"
+	}
+	if v.MaxTokens != nil {
+		maxTokens = *v.MaxTokens
+	}
+	body := `{"model":` + jsonString(v.Model) + `,"messages":[{"role":"user","content":"ping"}],` + jsonString(field) + `:` + fmt.Sprint(maxTokens) + `,"temperature":0}`
+	req, err := http.NewRequest(http.MethodPost, v.BaseURL+"/chat/completions", strings.NewReader(body))
 	if err != nil {
 		return err
 	}
 	setBunDefaults(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
-	return probe(ctx, client, req, label)
+	err = probe(ctx, client, req, label)
+	var httpErr *HTTPError
+	if v.TolerateModelDenied && errors.As(err, &httpErr) && httpErr.Status == http.StatusUnauthorized && httpErr.envelopeCode() == "invalid_model" {
+		return nil
+	}
+	return err
 }
 
 // ValidateModelsEndpoint is validateApiKeyAgainstModelsEndpoint: a GET of the
@@ -242,4 +268,20 @@ func probe(ctx context.Context, client *http.Client, req *http.Request, label st
 func jsonString(s string) string {
 	encoded, _ := json.Marshal(s)
 	return string(encoded)
+}
+
+// envelopeCode is OpenAIHttpError.parseEnvelope's code: error.code, else
+// error.type, when the body carries an error object.
+func (e *HTTPError) envelopeCode() string {
+	errorObject := gjson.Get(e.Details, "error")
+	if !errorObject.IsObject() {
+		return ""
+	}
+	if code := errorObject.Get("code"); code.Type == gjson.String {
+		return code.String()
+	}
+	if kind := errorObject.Get("type"); kind.Type == gjson.String {
+		return kind.String()
+	}
+	return ""
 }
