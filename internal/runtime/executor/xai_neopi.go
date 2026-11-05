@@ -98,6 +98,7 @@ func (e *XAIExecutor) shapeXaiNeoPi(ctx context.Context, auth *cliproxyauth.Auth
 	conversation, options := openaiwire.FromResponses(body, model)
 	restoreNeoPiSourceIntent(from, originalPayload, &conversation, &options)
 	conversation.ReconstructAssistantHistory = true
+	conversation.NativeUserHistory = from == sdktranslator.FormatOpenAIResponse
 	options.SessionID = xaiNeoPiSessionID(req, opts)
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)

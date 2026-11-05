@@ -93,8 +93,8 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 			if got := gjson.GetBytes(fixture.Scenario.Downstream, "input.0.content.1.detail").String(); got != "original" {
 				t.Errorf("%s downstream detail = %q; want original", fixture.Name, got)
 			}
-			if got := gjson.Get(body, "input.0.content.1.detail").String(); got != "original" {
-				t.Errorf("%s native image detail = %q; want original", fixture.Name, got)
+			if got := gjson.Get(body, "input.0.content.1.detail").String(); got != "auto" {
+				t.Errorf("%s typed native image detail = %q; want auto", fixture.Name, got)
 			}
 		case strings.HasSuffix(fixture.Name, "-reconstructed-assistant-history"):
 			if gjson.Get(body, "input.1.id").Exists() || gjson.Get(body, "input.2.id").Exists() {
@@ -123,6 +123,7 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 			}
 			ctx, opts := openaiwire.FromResponses(fixture.Scenario.Downstream, model)
 			ctx.ReconstructAssistantHistory = strings.HasSuffix(fixture.Name, "-reconstructed-assistant-history")
+			ctx.NativeUserHistory = strings.HasSuffix(fixture.Name, "-image-input") || strings.HasSuffix(fixture.Name, "-image-original")
 			opts.SessionID = capture.SessionID
 			request := openaiwire.ShapeResponses(model, ctx, opts, bearerFor(provider, capture.Credentials[provider]))
 			(&NeoPiResponsesExecutor{identifier: "meta"}).applyTransportHeaders(request.Header, nil, model, nil)

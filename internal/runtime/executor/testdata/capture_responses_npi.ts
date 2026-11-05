@@ -154,6 +154,8 @@ for (const provider of ["meta", "muse-code", "sakana", "abliteration"]) {
 		name: `${provider}-image-input`, provider, model, options: {}, messages: [{ role: "user", content: [{ type: "text", text: "Describe." }, { type: "image", mimeType: "image/png", data: imageB64 }] }],
 		downstream: { model, input: [{ role: "user", content: [{ type: "input_text", text: "Describe." }, { type: "input_image", detail: "auto", image_url: `data:image/png;base64,${imageB64}` }] }] },
 	});
+	const nativeAutoImage = scenarios[scenarios.length - 1];
+	nativeAutoImage.messages[0].providerPayload = { type: "openaiResponsesHistory", items: structuredClone(nativeAutoImage.downstream.input), dt: true };
 	scenarios.push({
 		name: `${provider}-image-original`, provider, model, options: {}, messages: [{ role: "user", content: [{ type: "text", text: "Describe." }, { type: "image", mimeType: "image/png", data: imageB64, detail: "original" }] }],
 		downstream: { model, input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Describe." }, { type: "input_image", detail: "original", image_url: `data:image/png;base64,${imageB64}` }] }] },

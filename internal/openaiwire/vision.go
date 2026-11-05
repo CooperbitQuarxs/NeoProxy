@@ -13,10 +13,10 @@ import (
 // nonVisionImagePlaceholder is NON_VISION_IMAGE_PLACEHOLDER (vision-guard.ts).
 const nonVisionImagePlaceholder = "[image omitted: model does not support vision]"
 
-// omitUnsupportedImages is convertResponsesInputContent's vision guard: a model
-// whose catalog row declares no image input never receives an `input_image`;
-// each content list that carried one ends with the placeholder text instead.
-func omitUnsupportedImages(items []json.RawMessage, model *registry.NeoPiModel) []json.RawMessage {
+// omitUnsupportedImages is convertResponsesInputContent's vision guard.
+// Native user/developer provider payloads bypass content conversion; constructed
+// content and tool outputs still replace unsupported images with a placeholder.
+func omitUnsupportedImages(items []json.RawMessage, model *registry.NeoPiModel, nativeUserHistory bool) []json.RawMessage {
 	if model == nil || slices.Contains(model.Input, "image") {
 		return items
 	}
@@ -25,6 +25,10 @@ func omitUnsupportedImages(items []json.RawMessage, model *registry.NeoPiModel) 
 		out[i] = item
 		switch gjson.GetBytes(item, "type").String() {
 		case "", "message":
+			role := gjson.GetBytes(item, "role").String()
+			if nativeUserHistory && (role == "user" || role == "developer") {
+				continue
+			}
 			if content := gjson.GetBytes(item, "content"); content.IsArray() {
 				if replaced, ok := withoutImages(content); ok {
 					if next, err := sjson.SetRawBytes(item, "content", replaced); err == nil {

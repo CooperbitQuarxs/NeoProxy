@@ -30,6 +30,10 @@ type Context struct {
 	// assistant messages become completed output_text items rather than native
 	// replay. Set after FromResponses; false preserves native replay semantics.
 	ReconstructAssistantHistory bool
+	// NativeUserHistory preserves user/developer image references replayed from
+	// a Responses provider payload, bypassing the constructed-content vision
+	// guard. Set after FromResponses only for native Responses source history.
+	NativeUserHistory bool
 }
 
 // Options are the OpenAIResponsesOptions NeoProxy derives from a downstream body.
@@ -76,7 +80,6 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 			)})},
 		)}
 	}
-	ctx.Input = omitUnsupportedImages(ctx.Input, model)
 	for _, tool := range root.Get("tools").Array() {
 		ctx.Tools = append(ctx.Tools, json.RawMessage(tool.Raw))
 	}
@@ -248,7 +251,8 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 // body NeoPi streams for model.
 func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.RawMessage {
 	compat := model.Compat
-	input := buildInput(ctx.Input, compat, ctx.ReconstructAssistantHistory)
+	input := omitUnsupportedImages(ctx.Input, model, ctx.NativeUserHistory)
+	input = buildInput(input, compat, ctx.ReconstructAssistantHistory)
 	var instructions string
 	if len(ctx.SystemPrompts) > 0 {
 		if model.Reasoning && compat.SupportsDeveloperRole {
