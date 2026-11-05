@@ -1,14 +1,15 @@
-// Runs NeoPi's OWN streamSimple over every bundled GitHub Copilot model
-// (getBundledModels("github-copilot"), each on its own API) against a
-// loopback capture server only; the GitHub token is fake and no request can
-// reach Copilot. Each scenario is recorded beside the downstream request a
-// client sends NeoProxy for it, in the format the model's API takes: Claude
-// Messages for anthropic-messages, Chat Completions for openai-completions,
-// Responses (through NeoPi's own server boundary) for openai-responses.
-// Writes testdata/neopi_github_copilot/<api>.json.gz.
+// Runs NeoPi's OWN streamSimple over every bundled model of a routed host
+// (NEOPI_PROVIDER: github-copilot, the default, or commandcode; each row on
+// its own API) against a loopback capture server only; the key is fake and
+// no request can reach the host. Each scenario is recorded beside the
+// downstream request a client sends NeoProxy for it, in the format the
+// model's API takes: Claude Messages for anthropic-messages, Chat
+// Completions for openai-completions, Responses (through NeoPi's own server
+// boundary) for openai-responses.
+// Writes testdata/neopi_<provider>/<api>.json.gz.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
-//     COPILOT_APIS=anthropic-messages,openai-completions,openai-responses \
+//     NEOPI_PROVIDER=github-copilot COPILOT_APIS=anthropic-messages,openai-completions,openai-responses \
 //     bun --preserve-symlinks capture_neopi_github_copilot.ts
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -16,6 +17,11 @@ import { join } from "node:path";
 const root = process.env.NEOPI_SOURCE_MODULES;
 if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const wires = (process.env.COPILOT_APIS ?? "anthropic-messages,openai-completions,openai-responses").split(",").filter(Boolean);
+const provider = process.env.NEOPI_PROVIDER ?? "github-copilot";
+// The host each provider's rows are served from, which the capture answers.
+const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai" };
+const origin = origins[provider];
+if (!origin) throw new Error(`no capture origin for ${provider}`);
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 // A Responses client reaches NeoPi through its server boundary, which keeps
@@ -23,9 +29,10 @@ const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 // NeoPi's own messages.
 const { parseRequest } = await import(root + "/pi-ai/src/providers/openai-responses-server.ts");
 
-// A GitHub OAuth token, used directly as the Copilot bearer.
-const apiKey = "gho_capturefixturetoken0000000000000000";
-const sessionId = "capture-session-github-copilot-0001";
+// The bearer: a GitHub OAuth token used directly by Copilot, a Command Code
+// Provider API key.
+const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : "gho_capturefixturetoken0000000000000000";
+const sessionId = `capture-session-${provider}-0001`;
 
 // Minimal successful streams per wire; the request is what is compared.
 const anthropicSse = [
@@ -197,12 +204,12 @@ const responsesDownstream = (model: any, turns: Turn[], opts: any, extra: any) =
 const downstreamFor = (wire: string) =>
 	wire === "anthropic-messages" ? claudeDownstream : wire === "google-generate" ? geminiDownstream : wire === "openai-responses" ? responsesDownstream : chatDownstream;
 
-const outDir = join(import.meta.dir, "neopi_github_copilot");
+const outDir = join(import.meta.dir, `neopi_${provider.replaceAll("-", "_")}`);
 mkdirSync(outDir, { recursive: true });
 try {
 	for (const wire of wires) {
 		currentWire = wire;
-		const registry = getBundledModels("github-copilot").filter((entry: any) => entry.api === wire);
+		const registry = getBundledModels(provider).filter((entry: any) => entry.api === wire);
 		const scenarios: any[] = [];
 		for (const model of registry) {
 			const efforts: string[] = model.thinking?.efforts ?? [];
@@ -244,7 +251,7 @@ try {
 			const redirectFetch = (async (input: any, init: any) => {
 				requestedURL = input instanceof Request ? input.url : String(input);
 				const u = new URL(requestedURL);
-				if (u.origin !== "https://api.githubcopilot.com") throw new Error("Unexpected non-capture request " + requestedURL);
+				if (u.origin !== origin) throw new Error("Unexpected non-capture request " + requestedURL);
 				const headers = new Headers(init?.headers);
 				headers.set("host", u.host);
 				return fetch(local + u.pathname + u.search, { ...init, headers, tls: undefined });
@@ -254,7 +261,7 @@ try {
 			if (captured.length !== 1) throw new Error(`Capture ${scenario.name} saw ${captured.length} requests`);
 			fixtures.push({ name: scenario.name, model: scenario.model.id, options: scenario.options, downstream: scenario.downstream, requestedURL, ...captured[0] });
 		}
-		await Bun.write(join(outDir, `${wire}.json.gz`), Bun.gzipSync(JSON.stringify({ source: `NeoPi OWN streamSimple over bundled github-copilot ${wire} rows`, wire, apiKey, sessionId, fixtures })));
+		await Bun.write(join(outDir, `${wire}.json.gz`), Bun.gzipSync(JSON.stringify({ source: `NeoPi OWN streamSimple over bundled ${provider} ${wire} rows`, wire, apiKey, sessionId, fixtures })));
 		console.log(`${wire}: ${registry.length} models, ${fixtures.length} fixtures`);
 	}
 } finally {

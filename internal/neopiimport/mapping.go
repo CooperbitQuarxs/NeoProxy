@@ -111,6 +111,7 @@ var apiKeyRoutes = map[string]route{
 	"singularityapi-dev":    {target: "singularityapi-dev"},
 	"singularityapi-tech":   {target: "singularityapi-tech"},
 	"charm-hyper":           {target: "charm-hyper"},
+	"commandcode":           {target: "commandcode"},
 	// A GitLab personal access token (GITLAB_TOKEN) is the account's key.
 	"gitlab-duo": {target: "gitlab-duo"},
 	// GITLAB_TOKEN stored for GitLab Duo Agent stays the agent's own key.

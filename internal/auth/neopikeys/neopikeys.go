@@ -66,8 +66,10 @@ type Validation struct {
 	URL         string `json:"url"`
 	BaseURLEnv  string `json:"baseUrlEnv"`
 	BaseURLPath string `json:"baseUrlPath"`
-	// Optional trusts the key unless the probe proves an auth failure.
-	Optional bool `json:"optional"`
+	// Optional trusts the key unless the probe proves an auth failure;
+	// TrustForbidden narrows that failure to a 401 (a 403 trusts the key).
+	Optional       bool `json:"optional"`
+	TrustForbidden bool `json:"trustForbidden"`
 	// HeadersHook names the computed headers a models-endpoint probe sends
 	// (registry/hooks/api-key.ts API_KEY_HEADERS_HOOKS).
 	HeadersHook string `json:"headersHook"`
@@ -204,7 +206,8 @@ func IsAuthFailure(err error) bool {
 var lookupEnv = os.Getenv
 
 // Validate runs the login's probe for key. Providers without a probe pass. An
-// optional probe fails only on an authentication failure; any other failure,
+// optional probe fails only on an authentication failure, which a probe that
+// trusts forbidden answers does not take a 403 for; any other failure,
 // including an unreachable host, trusts the key.
 func (l Login) Validate(ctx context.Context, client *http.Client, key string) error {
 	v := l.Probe
@@ -240,8 +243,12 @@ func (l Login) Validate(ctx context.Context, client *http.Client, key string) er
 	default:
 		return fmt.Errorf("neopikeys: unknown validation kind %q", v.Kind)
 	}
-	if err != nil && v.Optional && !IsAuthFailure(err) {
-		return nil
+	if err != nil && v.Optional {
+		var httpErr *HTTPError
+		trustsForbidden := v.TrustForbidden && errors.As(err, &httpErr) && httpErr.Status == http.StatusForbidden
+		if !IsAuthFailure(err) || trustsForbidden {
+			return nil
+		}
 	}
 	return err
 }

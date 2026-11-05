@@ -74,6 +74,7 @@ const managers: Record<string, (config: any) => any> = {
 	"lm-studio": m.lmStudioModelManagerOptions,
 	zenmux: m.zenmuxModelManagerOptions,
 	"cloudflare-ai-gateway": m.cloudflareAiGatewayModelManagerOptions,
+	commandcode: m.commandCodeModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -379,6 +380,21 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "openai/gpt-5.6", display_name: "GPT 5.6", capabilities: { reasoning: true }, input_modalities: ["image"], pricings: { prompt: [{ value: 1.25 }], completion: [{ value: 10 }] } },
 			{ id: "zz-zenmux-new", pricings: "junk", context_length: -1 },
 		],
+		// Command Code: Claude ids route to Messages at the provider root,
+		// the route table's ids to Responses, everything else to Chat
+		// Completions; rows start neutral and KDL policy fills them. The
+		// listed seed id gives way to the appended seed.
+		commandcode: [
+			{ id: "claude-sonnet-5", name: "Claude Sonnet 5 (live)", context_length: 1000000 },
+			{ id: "claude-zz-next", name: "Claude Next" },
+			{ id: "gpt-5.5", context_length: "400000" },
+			{ id: "deepseek/deepseek-v4-pro", context_length: 1048576 },
+			{ id: "deepseek/deepseek-v4.1-flash" },
+			{ id: "zai-org/GLM-5.2", context_length: 0 },
+			{ id: "MiniMaxAI/MiniMax-M2.7", name: "  " },
+			{ id: "typesafe/jev", name: "Listed Jev" },
+			{ id: "zz-cc-new", name: "Brand New", context_length: 131072 },
+		],
 	};
 	list.push(...(shaped[provider] ?? []));
 	return list;
@@ -594,6 +610,16 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			...generic,
 			{ name: "anthropic-route base", baseUrl: "https://eu.zenmux.example/api/anthropic/", replies: [listing] },
 			{ name: "custom path base", baseUrl: "https://proxy.example/zen/v2", replies: [listing] },
+		];
+	}
+	if (provider === "commandcode") {
+		// A configured base is normalized to the /provider root: a trailing
+		// /v1 is dropped, so Claude rows use the root and the rest /v1.
+		const listing = json({ object: "list", data: list });
+		return [
+			...generic,
+			{ name: "v1 base", baseUrl: "https://cc.example/provider/v1/", replies: [listing] },
+			{ name: "root base", baseUrl: "https://cc.example/root", replies: [listing] },
 		];
 	}
 	if (provider !== "xiaomi") return generic;
