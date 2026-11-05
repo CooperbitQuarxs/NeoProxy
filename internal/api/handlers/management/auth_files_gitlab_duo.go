@@ -35,7 +35,7 @@ func (h *Handler) RequestGitLabDuoToken(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	session, err := gitlabduo.NewSession(redirectURI)
+	session, err := gitlabduo.Duo.NewSession(redirectURI)
 	if err != nil {
 		for _, listener := range listeners {
 			_ = listener.Close()
@@ -111,8 +111,8 @@ func (h *Handler) RequestGitLabDuoToken(c *gin.Context) {
 				// NeoPi's after-exchange hook (gitlab-duo-clear-cache) drops
 				// every minted direct-access token.
 				gitlabduo.ClearDirectAccessCache()
-				fileName := gitlabduo.FileName(credential)
-				record := &coreauth.Auth{ID: fileName, FileName: fileName, Provider: gitlabduo.Provider, Label: "GitLab Duo", Metadata: gitlabduo.Metadata(credential)}
+				fileName := gitlabduo.Duo.FileName(credential)
+				record := &coreauth.Auth{ID: fileName, FileName: fileName, Provider: gitlabduo.Provider, Label: "GitLab Duo", Metadata: gitlabduo.Duo.Metadata(credential)}
 				if guardOAuthSessionPendingForSave(session.State, callbackProvider) != nil {
 					return
 				}
