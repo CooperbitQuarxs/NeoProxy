@@ -71,7 +71,7 @@ func UmansNeoPiModel(id string, raw gjson.Result, baseURL string) NeoPiModel {
 		// buildModel fills an absent requiresEffort (fillExplicitThinking):
 		// the umans rule's mandatory models, else a thinking-variant id
 		// (impliesMandatoryReasoning).
-		model.Thinking.RequiresEffort = slices.Contains(umansMandatoryThinking, id) || strings.Contains(strings.ToLower(id), "thinking")
+		model.Thinking.RequiresEffort = slices.Contains(umansMandatoryThinking, id) || neoPiThinkingVariant(id)
 	}
 	model.Input = []string{"text"}
 	if capabilities.Get("supports_vision").Type == gjson.True {
@@ -83,6 +83,38 @@ func UmansNeoPiModel(id string, raw gjson.Result, baseURL string) NeoPiModel {
 	compat.ReplayUnsignedThinking = model.Reasoning
 	model.AnthropicCompat = &compat
 	return model
+}
+
+// neoPiThinkingPairTokens is rules.json taxonomy.collapse.pairTokens.
+var neoPiThinkingPairTokens = []string{"thinking", "reasoning", "reasoner"}
+
+// neoPiThinkingVariant is stripThinkingVariantSuffix(id) !== undefined: a
+// "-<pair token>" not followed by a letter or digit and not negated by a
+// preceding "non"/"no" word names a reasoning-locked sibling.
+func neoPiThinkingVariant(id string) bool {
+	lower := strings.ToLower(id)
+	tokenChar := func(c byte) bool { return c >= '0' && c <= '9' || c >= 'a' && c <= 'z' }
+	for _, token := range neoPiThinkingPairTokens {
+		needle := "-" + token
+		for from := 0; from < len(lower); {
+			index := strings.Index(lower[from:], needle)
+			if index < 0 {
+				break
+			}
+			index += from
+			end := index + len(needle)
+			start := index
+			for start > 0 && tokenChar(lower[start-1]) {
+				start--
+			}
+			preceding := lower[start:index]
+			if (end >= len(lower) || !tokenChar(lower[end])) && preceding != "non" && preceding != "no" {
+				return len(id) > len(needle)
+			}
+			from = index + 1
+		}
+	}
+	return false
 }
 
 // umansModelName is toModelName: a non-blank string, trimmed, else fallback.

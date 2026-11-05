@@ -69,7 +69,7 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if provider.headers != nil {
 		profile.thirdParty.headers = provider.headers()
 	}
-	webSearch := ""
+	webSearch, webSearchSet := "", false
 	if provider.gatewayWebSearch != nil {
 		// NeoPi decides over model headers merged with the caller's, the
 		// caller's winning: here the account's configured headers, then the
@@ -82,7 +82,7 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 			merged[name] = values
 		}
 		var gateway bool
-		webSearch, gateway = provider.gatewayWebSearch(merged)
+		webSearch, webSearchSet, gateway = provider.gatewayWebSearch(merged)
 		profile.thirdParty.gatewayWebSearch = gateway
 	}
 	body, headers, err := projectNeoPiAnthropic(translated, model, base, "", identity, profile)
@@ -93,7 +93,7 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
-	if webSearch != "" {
+	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
 	}
 	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil

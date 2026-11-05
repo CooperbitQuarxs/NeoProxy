@@ -41,24 +41,25 @@ func IsBaseURL(base string) bool {
 }
 
 // WebSearch is the X-Umans-Websearch-Provider header NeoPi sends and whether
-// Umans' gateway web search is on (getUmansWebSearchHeader over the caller's
-// headers). A caller's header is forwarded as sent; when it names native or
-// exa (case and spaces aside) the normalized value replaces it and the
-// gateway is on. Without a caller header, UMANS_WEBSEARCH_PROVIDER decides,
-// and only a valid value is sent.
-func WebSearch(incoming http.Header) (value string, gateway bool) {
+// Umans' gateway web search is on (getUmansWebSearchHeader over the merged
+// headers). A present header, even an empty one, is forwarded as sent and
+// suppresses the environment; when it names native or exa (case and spaces
+// aside) the normalized value replaces it and the gateway is on. Without one,
+// UMANS_WEBSEARCH_PROVIDER decides, and only a valid value is sent. set
+// reports whether a header goes out at all.
+func WebSearch(incoming http.Header) (value string, set, gateway bool) {
 	if values := incoming.Values(WebSearchHeader); len(values) > 0 {
 		if normalized := normalizeWebSearchProvider(values[0]); normalized != "" {
-			return normalized, true
+			return normalized, true, true
 		}
-		return values[0], false
+		return values[0], true, false
 	}
 	if value, ok := os.LookupEnv("UMANS_WEBSEARCH_PROVIDER"); ok {
 		if normalized := normalizeWebSearchProvider(value); normalized != "" {
-			return normalized, true
+			return normalized, true, true
 		}
 	}
-	return "", false
+	return "", false, false
 }
 
 func normalizeWebSearchProvider(value string) string {

@@ -103,7 +103,7 @@ const add = (source: "bundled" | "discovered", id: string, name: string, turns: 
 	else if (options.reasoning) Object.assign(downstream, { thinking: { type: "adaptive" }, output_config: { effort: options.reasoning } });
 	if (options.toolChoice === "any") downstream.tool_choice = { type: "any" };
 	else if (options.toolChoice?.type === "tool") downstream.tool_choice = { type: "tool", name: options.toolChoice.name };
-	const headers = extra.webSearchProvider ? { "X-Umans-Websearch-Provider": extra.webSearchProvider } : undefined;
+	const headers = extra.webSearchProvider !== undefined ? { "X-Umans-Websearch-Provider": extra.webSearchProvider } : undefined;
 	scenarios.push({
 		name: `${source}/${id}/${name}`,
 		source,
@@ -161,6 +161,7 @@ for (const [source, id] of rows) {
 	add(source, id, "gateway-invalid-provider", askTurns, { reasoning: first }, { tools: [webSearch], webSearchProvider: "bing" });
 	add(source, id, "gateway-configured", askTurns, { reasoning: first, toolChoice: { type: "tool", name: "web_search" } }, { tools: [lookup, webSearch], configuredHeaders: { "X-Umans-Websearch-Provider": "Native" } });
 	add(source, id, "gateway-caller-over-configured", askTurns, { reasoning: first }, { tools: [webSearch], webSearchProvider: "bing", configuredHeaders: { "X-Umans-Websearch-Provider": "exa" } });
+	add(source, id, "gateway-empty-caller-over-configured", askTurns, { reasoning: first }, { tools: [webSearch], webSearchProvider: "", configuredHeaders: { "X-Umans-Websearch-Provider": "exa" } });
 	// Replayed thinking: blank text drops; a missing signature replays empty.
 	add(source, id, "blank-thinking-history", history([text("Found.")], false, "lookup", { thinking: "   " }), { reasoning: first }, { tools: [lookup] });
 	add(source, id, "unsigned-thinking-history", history([text("Found.")], false, "lookup", { unsigned: true }), { reasoning: first }, { tools: [lookup] });
@@ -178,7 +179,7 @@ for (const id of ["umans-tiny", "umans-tiny-4000"]) {
 }
 // buildModel's mandatory-thinking backfill: the umans rule and a
 // thinking-variant id, each listed without can_disable.
-for (const id of ["umans-kimi-k2.7", "umans-r2-thinking"]) {
+for (const id of ["umans-kimi-k2.7", "umans-r2-thinking", "umans-r2-reasoner", "umans-r2-thinkingless", "umans-r2-non-reasoning"]) {
 	add("discovered", id, "plain", hello, {});
 	add("discovered", id, "off", hello, { disableReasoning: true });
 }

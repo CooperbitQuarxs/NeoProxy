@@ -57,8 +57,9 @@ type neoPiThirdPartyProvider struct {
 	// protocol header (OpenCode's x-opencode-session).
 	sessionHeader string
 	// gatewayWebSearch is the X-Umans-Websearch-Provider value a request
-	// sends ("" for none) and whether it turns Umans' gateway web search on.
-	gatewayWebSearch func(incoming http.Header) (value string, gateway bool)
+	// sends, whether it sends one at all (an explicit empty value counts),
+	// and whether it turns Umans' gateway web search on.
+	gatewayWebSearch func(incoming http.Header) (value string, set, gateway bool)
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {

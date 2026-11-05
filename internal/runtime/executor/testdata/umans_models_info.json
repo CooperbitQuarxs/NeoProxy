@@ -137,5 +137,20 @@
 				"supported": true
 			}
 		}
+	},
+	"umans-r2-reasoner": {
+		"capabilities": {
+			"reasoning": true
+		}
+	},
+	"umans-r2-thinkingless": {
+		"capabilities": {
+			"reasoning": true
+		}
+	},
+	"umans-r2-non-reasoning": {
+		"capabilities": {
+			"reasoning": true
+		}
 	}
 }
