@@ -764,7 +764,7 @@ func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 // neoPiV1BaseProviders are the providers whose configured base URL NeoPi
 // resolves onto the gateway's /v1 surface (normalizeSingularityApiBaseUrl,
 // normalizeCharmHyperBaseUrl).
-var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true}
+var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true, "commandcode": true}
 
 // NeoPiV1BaseURL is the discovery and inference endpoint of a provider in
 // neoPiV1BaseProviders: a blank configured URL is the provider's canonical
@@ -914,6 +914,26 @@ func neoPiMapZenMux(entry gjson.Result, defaults neoPiSpec, openAIBase string) n
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), defaults.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), defaults.maxTokens)
+	return spec
+}
+
+// neoPiMapCommandCode is commandCodeModelManagerOptions' mapModel: the id's
+// route in NeoPi's api-routes table (Claude ids to Anthropic Messages at the
+// provider root, the listed ids to Responses, every other id to Chat
+// Completions under /v1), the listing's name, and only its context window;
+// reasoning, input and output stay neutral for KDL policy to fill.
+func neoPiMapCommandCode(entry gjson.Result, defaults neoPiSpec, listingBase string) neoPiSpec {
+	spec := defaults
+	spec.name = neoPiModelName(entry.Get("name"), defaults.name)
+	route, _ := neoPiAPIRouteFor("commandcode", defaults.id)
+	switch route {
+	case neopicompat.APIAnthropicMessages:
+		spec.api, spec.baseURL = route, strings.TrimSuffix(listingBase, "/v1")
+	case neopicompat.APIOpenAIResponses:
+		spec.api = route
+	}
+	spec.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
+	spec.maxTokens = 0
 	return spec
 }
 

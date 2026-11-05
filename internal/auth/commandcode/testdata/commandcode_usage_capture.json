@@ -1,0 +1,982 @@
+{
+  "source": "NeoPi OWN commandCodeUsageProvider.fetchUsage",
+  "apiKey": "user_commandcode-usage-capture-0000",
+  "results": [
+    {
+      "name": "plan-windows",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "fiveHour": {
+              "used": 45,
+              "cap": 50,
+              "resetAt": 1793854800,
+              "exceeded": false
+            },
+            "weekly": {
+              "used": 120,
+              "cap": 1000,
+              "resetAt": "1794268800000"
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": [
+          {
+            "id": "commandcode:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 1793854800000,
+            "used": 45,
+            "cap": 50,
+            "usedFraction": 0.9,
+            "status": "warning"
+          },
+          {
+            "id": "commandcode:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 1794268800000,
+            "used": 120,
+            "cap": 1000,
+            "usedFraction": 0.12,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "exceeded-under-cap",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "fiveHour": {
+              "used": 10,
+              "cap": 50,
+              "exceeded": true,
+              "resetAt": "2026-11-05T05:00:00Z"
+            },
+            "weekly": {
+              "used": 1000,
+              "cap": 1000,
+              "resetAt": 1794268800123
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": [
+          {
+            "id": "commandcode:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 10,
+            "cap": 50,
+            "usedFraction": 0.2,
+            "status": "exhausted"
+          },
+          {
+            "id": "commandcode:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 1794268800123,
+            "used": 1000,
+            "cap": 1000,
+            "usedFraction": 1,
+            "status": "exhausted"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown-fractions",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "fiveHour": {
+              "used": 3,
+              "cap": 0,
+              "resetAt": -5
+            },
+            "weekly": {
+              "used": 7
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": [
+          {
+            "id": "commandcode:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 0,
+            "used": 3,
+            "cap": 0,
+            "usedFraction": null,
+            "status": "unknown"
+          },
+          {
+            "id": "commandcode:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 0,
+            "used": 7,
+            "cap": null,
+            "usedFraction": null,
+            "status": "unknown"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unusable-windows",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "fiveHour": {
+              "used": "3",
+              "cap": 50
+            },
+            "weekly": "x"
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": []
+      }
+    },
+    {
+      "name": "pay-as-you-go",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "data": {
+            "user": {
+              "id": "user_9"
+            }
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "data": {
+            "credits": {
+              "purchasedCredits": 0
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_9",
+        "email": "",
+        "orgId": "",
+        "orgName": "",
+        "planType": "",
+        "balance": 0,
+        "limits": []
+      }
+    },
+    {
+      "name": "windows-not-object",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": [
+            1,
+            2
+          ]
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": []
+      }
+    },
+    {
+      "name": "no-org",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_5",
+            "email": ""
+          },
+          "org": {
+            "id": "",
+            "login": 3
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "freeCredits": -2
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_5",
+        "email": "",
+        "orgId": "",
+        "orgName": "",
+        "planType": "",
+        "balance": -2,
+        "limits": []
+      }
+    },
+    {
+      "name": "no-credit-numbers",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": "5",
+            "planId": "free"
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "credits-not-object",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": [
+            5
+          ]
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "credits-rejected",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 401,
+        "body": {
+          "error": "bad key"
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": "Command Code usage endpoint returned 401",
+      "report": null
+    },
+    {
+      "name": "credits-forbidden",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 403,
+        "body": {
+          "error": "nope"
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "credits-not-json",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": "oops"
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "whoami-rejected",
+      "baseUrl": "",
+      "whoami": {
+        "status": 401,
+        "body": {
+          "error": "bad key"
+        }
+      },
+      "credits": null,
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": "Command Code usage endpoint returned 401",
+      "report": null
+    },
+    {
+      "name": "whoami-forbidden",
+      "baseUrl": "",
+      "whoami": {
+        "status": 403,
+        "body": {
+          "error": "nope"
+        }
+      },
+      "credits": null,
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "whoami-transient",
+      "baseUrl": "",
+      "whoami": {
+        "status": 503,
+        "body": {
+          "error": "down"
+        }
+      },
+      "credits": null,
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "whoami-no-user",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": 7
+          }
+        }
+      },
+      "credits": null,
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "whoami-not-object",
+      "baseUrl": "",
+      "whoami": {
+        "status": 200,
+        "body": [
+          1
+        ]
+      },
+      "credits": null,
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": null
+    },
+    {
+      "name": "configured-base",
+      "baseUrl": "https://CC.Example:8443/provider/v1",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "weekly": {
+              "used": 1,
+              "cap": 2
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://cc.example:8443/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://cc.example:8443/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": [
+          {
+            "id": "commandcode:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 0,
+            "used": 1,
+            "cap": 2,
+            "usedFraction": 0.5,
+            "status": "ok"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unparseable-base",
+      "baseUrl": "not a url",
+      "whoami": {
+        "status": 200,
+        "body": {
+          "user": {
+            "id": "user_123",
+            "email": "dev@example.com"
+          },
+          "org": {
+            "id": "org/1 a+b",
+            "login": "acme"
+          }
+        }
+      },
+      "credits": {
+        "status": 200,
+        "body": {
+          "credits": {
+            "monthlyCredits": 400,
+            "purchasedCredits": 25.5,
+            "freeCredits": 0,
+            "planId": "pro"
+          },
+          "windowLimits": {
+            "weekly": {
+              "used": 1,
+              "cap": 2
+            }
+          }
+        }
+      },
+      "requests": [
+        {
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        },
+        {
+          "url": "https://api.commandcode.ai/alpha/billing/credits?orgId=org%2F1%20a%2Bb",
+          "method": "GET",
+          "headers": {
+            "accept": "application/json",
+            "authorization": "Bearer user_commandcode-usage-capture-0000"
+          }
+        }
+      ],
+      "error": null,
+      "report": {
+        "accountId": "user_123",
+        "email": "dev@example.com",
+        "orgId": "org/1 a+b",
+        "orgName": "acme",
+        "planType": "pro",
+        "balance": 425.5,
+        "limits": [
+          {
+            "id": "commandcode:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 0,
+            "used": 1,
+            "cap": 2,
+            "usedFraction": 0.5,
+            "status": "ok"
+          }
+        ]
+      }
+    }
+  ]
+}

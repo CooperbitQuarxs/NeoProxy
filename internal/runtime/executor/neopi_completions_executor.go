@@ -66,7 +66,8 @@ type NeoPiCompletionsProfile struct {
 // request built by NeoPi's own buildParams, sent with NeoPi's headers and retry
 // policy, relayed as NeoPi's stream. A row NeoPi routes over Anthropic
 // Messages (ZenMux's Claude models) goes to NeoPi's Anthropic Messages port
-// on that row's endpoint instead.
+// on that row's endpoint instead, and a row routed over Responses (Command
+// Code's GPT models) to NeoPi's Responses port.
 type NeoPiCompletionsExecutor struct {
 	provider string
 	profile  NeoPiCompletionsProfile
@@ -109,6 +110,31 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 func (e *NeoPiCompletionsExecutor) anthropicRow(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) bool {
 	row := e.row(auth, req)
 	return row != nil && row.API == "anthropic-messages"
+}
+
+// responsesWire is NeoPi's Responses port bound to the request's row when
+// NeoPi routes it over openai-responses: streamSimple's options, the
+// account's bearer, and the account's configured headers over NeoPi's.
+func (e *NeoPiCompletionsExecutor) responsesWire(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*NeoPiResponsesExecutor, error) {
+	row := e.row(auth, req)
+	if row == nil || row.API != "openai-responses" {
+		return nil, nil
+	}
+	key, _, err := e.credential(ctx, auth)
+	if err != nil {
+		return nil, err
+	}
+	exec := NewNeoPiResponsesExecutor(e.provider, e.cfg)
+	exec.StreamSimple = true
+	session := neoPiSession(opts, nil)
+	if session == "" {
+		session = neoPiResponsesSessionID(e.profile.Provider, req, opts)
+	}
+	exec.binding = &neoPiResponsesBinding{model: row, token: key, session: session,
+		headers: func(_ context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header) {
+			exec.applyTransportHeaders(header, auth, row, clientHeaders)
+		}}
+	return exec, nil
 }
 
 // Identifier is the engine provider key this executor is registered under.
@@ -239,6 +265,12 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	if e.anthropicRow(auth, req) {
 		return e.messages.Execute(ctx, auth, req, opts)
 	}
+	if responses, errWire := e.responsesWire(ctx, auth, req, opts); errWire != nil || responses != nil {
+		if errWire != nil {
+			return result, errWire
+		}
+		return responses.Execute(ctx, auth, req, opts)
+	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
 	if err != nil {
@@ -299,6 +331,12 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	}
 	if e.anthropicRow(auth, req) {
 		return e.messages.ExecuteStream(ctx, auth, req, opts)
+	}
+	if responses, errWire := e.responsesWire(ctx, auth, req, opts); errWire != nil || responses != nil {
+		if errWire != nil {
+			return nil, errWire
+		}
+		return responses.ExecuteStream(ctx, auth, req, opts)
 	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
@@ -590,7 +628,7 @@ func neoPiCompletionsAPIKey(auth *cliproxyauth.Auth) string {
 // account's configured endpoint.
 func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) *registry.NeoPiModel {
 	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil &&
-		(info.NeoPi.API == "openai-completions" || info.NeoPi.API == "anthropic-messages") {
+		(info.NeoPi.API == "openai-completions" || info.NeoPi.API == "anthropic-messages" || info.NeoPi.API == "openai-responses") {
 		return e.accountRow(auth, info.NeoPi)
 	}
 	resolve := e.profile.Row

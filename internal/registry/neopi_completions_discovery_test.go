@@ -118,15 +118,16 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 			for _, info := range got {
 				byID[info.ID] = info.NeoPi
 			}
-			// The port serves NeoPi's chat rows over Chat Completions or
-			// Anthropic Messages and its image and speech rows over their
-			// runner transports. Rows a rule classifies as a runner kind while
-			// they stay on a chat transport (which NeoPi keeps out of chat)
+			// The port serves NeoPi's chat rows over Chat Completions,
+			// Anthropic Messages or Responses and its image and speech rows
+			// over their runner transports. Rows a rule classifies as a
+			// runner kind while they stay on a chat transport (which NeoPi
+			// keeps out of chat), and rows on other transports (a judge's),
 			// are not served.
 			want := result.Models[:0:0]
 			for _, model := range result.Models {
 				runner := model.API == "openai-images" || model.API == "openai-speech"
-				chat := model.API == "openai-completions" || model.API == "anthropic-messages"
+				chat := model.API == "openai-completions" || model.API == "anthropic-messages" || model.API == "openai-responses"
 				if runner || chat && (model.Kind == "" || model.Kind == "chat") {
 					want = append(want, model)
 				}
@@ -183,6 +184,14 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 					}
 					if !reflect.DeepEqual(row.AnthropicCompat, &wantCompat) {
 						t.Errorf("%s: anthropic compat %+v, NeoPi %+v", want.ID, row.AnthropicCompat, wantCompat)
+					}
+				case "openai-responses":
+					var wantCompat NeoPiCompat
+					if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(row.Compat, &wantCompat) {
+						t.Errorf("%s: responses compat %+v, NeoPi %+v", want.ID, row.Compat, wantCompat)
 					}
 				}
 			}
