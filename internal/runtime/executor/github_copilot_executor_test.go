@@ -279,6 +279,45 @@ func TestGitHubCopilotConfiguredHeaders(t *testing.T) {
 	}
 }
 
+// A configured Copilot-Integration-Id that forwards a client header is
+// resolved against the client's request before the identity is chosen: it
+// pins the identity, so a denial is never reissued under the other one, as
+// NeoPi sends with that value in options.headers.
+func TestGitHubCopilotForwardedIdentityPin(t *testing.T) {
+	t.Setenv("COPILOT_INTEGRATION_ID", "")
+	var sent []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = append(sent, r.Header.Get("Copilot-Integration-Id"))
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+	for _, wire := range []struct {
+		api, payload string
+		format       sdktranslator.Format
+	}{
+		{"anthropic-messages", `{"max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatClaude},
+		{"openai-completions", `{"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatOpenAI},
+		{"openai-responses", `{"input":"hi"}`, sdktranslator.FormatOpenAIResponse},
+	} {
+		t.Run(wire.api, func(t *testing.T) {
+			sent = nil
+			row := githubCopilotRowOnAPI(t, wire.api)
+			row.BaseURL = server.URL
+			auth := &cliproxyauth.Auth{ID: "copilot-forwarded-pin", Provider: "github-copilot",
+				Metadata:   map[string]any{"type": "github-copilot", "access_token": "ghu_forwarded_pin_" + wire.api},
+				Attributes: map[string]string{"header:Copilot-Integration-Id": "$X-Client-Integration"}}
+			payload := []byte(`{"model":"` + row.ID + `",` + wire.payload[1:])
+			_, _ = NewGitHubCopilotExecutor(&config.Config{}).Execute(context.Background(), auth, cliproxyexecutor.Request{Model: row.ID, Payload: payload,
+				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.GitHubCopilotModelInfo(row)}},
+				cliproxyexecutor.Options{SourceFormat: wire.format, OriginalRequest: payload,
+					Headers: http.Header{"X-Client-Integration": {"copilot-chat"}}})
+			if want := []string{"copilot-chat"}; !reflect.DeepEqual(sent, want) {
+				t.Fatalf("sent identities %v, want %v", sent, want)
+			}
+		})
+	}
+}
+
 func githubCopilotRowOnAPI(t *testing.T, api string) *registry.NeoPiModel {
 	t.Helper()
 	bundled, err := registry.GitHubCopilotBundledModels()

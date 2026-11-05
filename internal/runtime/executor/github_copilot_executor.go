@@ -46,9 +46,11 @@ type githubCopilotAttempt struct {
 	// cached is that identity as the request's headers are built from it,
 	// the snapshot the fallback decides a reverse retry on.
 	cacheKey, cached string
-	// attrs carries the headers the account configured: NeoPi's caller
-	// headers, whose X-Initiator overrides the inferred initiator.
-	attrs map[string]string
+	// configured is the headers the account configured, resolved against
+	// the client's request: NeoPi's caller headers, whose X-Initiator
+	// overrides the inferred initiator and whose Copilot-Integration-Id pins
+	// the identity.
+	configured http.Header
 }
 
 // identityFallback scopes NeoPi's Copilot identity fallback to every client
@@ -61,7 +63,7 @@ func (a *githubCopilotAttempt) identityFallback(ctx context.Context) context.Con
 }
 
 // attempt resolves the request's model row on the credential's endpoint.
-func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) (*githubCopilotAttempt, error) {
+func (e *GitHubCopilotExecutor) attempt(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*githubCopilotAttempt, error) {
 	var credential *githubcopilot.Credential
 	if auth != nil {
 		credential, _ = githubcopilot.RecordCredential(auth.Metadata)
@@ -85,20 +87,17 @@ func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexe
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("github-copilot: model %s is not in the GitHub Copilot catalog", id)}
 	}
 	row.BaseURL = githubcopilot.ResolveBaseURL(row.BaseURL, credential)
-	explicit := ""
-	var attrs map[string]string
+	configured := make(http.Header)
 	if auth != nil {
-		attrs = auth.Attributes
-		configured := make(http.Header)
-		util.ApplyCustomHeadersFromAttrs(&http.Request{Header: configured}, attrs)
-		explicit = configured.Get("Copilot-Integration-Id")
+		util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, opts.Headers)
 	}
+	explicit := configured.Get("Copilot-Integration-Id")
 	if githubcopilot.NormalizeIntegrationID(explicit) == "" {
 		explicit = os.Getenv("COPILOT_INTEGRATION_ID")
 	}
 	cacheKey := helps.GitHubCopilotIntegrationCacheKey(credential, row.BaseURL)
 	return &githubCopilotAttempt{row: row, credential: credential, explicit: explicit, cacheKey: cacheKey,
-		cached: helps.GitHubCopilotCachedIntegrationID(cacheKey), attrs: attrs}, nil
+		cached: helps.GitHubCopilotCachedIntegrationID(cacheKey), configured: configured}, nil
 }
 
 // dynamicHeaders is the turn's Copilot identity over headers. NeoPi's model
@@ -109,15 +108,13 @@ func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexe
 // configured one (buildCopilotDynamicHeaders reads the merged model and
 // caller headers), else the inferred one.
 func (a *githubCopilotAttempt) dynamicHeaders(headers, incoming http.Header, initiator string, hasImages bool) {
-	configured := make(http.Header)
-	util.ApplyCustomHeadersFromAttrs(&http.Request{Header: configured}, a.attrs, incoming)
 	if override := helps.GitHubCopilotInitiatorOverride(incoming); override != "" {
 		initiator = override
-	} else if override := helps.GitHubCopilotInitiatorOverride(configured); override != "" {
+	} else if override := helps.GitHubCopilotInitiatorOverride(a.configured); override != "" {
 		initiator = override
 	}
 	for name, values := range githubcopilot.APIHeaders() {
-		if _, set := configured[name]; !set {
+		if _, set := a.configured[name]; !set {
 			headers[name] = values
 		}
 	}
@@ -184,8 +181,10 @@ func (e *GitHubCopilotExecutor) wire(a *githubCopilotAttempt, req cliproxyexecut
 			// content and the Responses route never asks for vision. The
 			// configured headers land first and the dynamic set over them, as
 			// resolveOpenAIRequestSetup merges options.headers.
-			headers: func(ctx context.Context, _ *cliproxyauth.Auth, header, clientHeaders http.Header) {
-				util.ApplyCustomHeadersFromAttrs((&http.Request{Header: header}).WithContext(ctx), a.attrs, clientHeaders)
+			headers: func(_ context.Context, _ *cliproxyauth.Auth, header, clientHeaders http.Header) {
+				for name, values := range a.configured {
+					header[name] = values
+				}
 				a.dynamicHeaders(header, clientHeaders, initiator, false)
 			}}
 		return exec, nil
@@ -195,7 +194,7 @@ func (e *GitHubCopilotExecutor) wire(a *githubCopilotAttempt, req cliproxyexecut
 
 // Execute runs one non-streaming request.
 func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	a, err := e.attempt(auth, req)
+	a, err := e.attempt(ctx, auth, req, opts)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
@@ -208,7 +207,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.
 
 // ExecuteStream relays the upstream stream in the client's format.
 func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*cliproxyexecutor.StreamResult, error) {
-	a, err := e.attempt(auth, req)
+	a, err := e.attempt(ctx, auth, req, opts)
 	if err != nil {
 		return nil, err
 	}
