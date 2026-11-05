@@ -491,13 +491,16 @@ func (e *ClaudeExecutor) open(ctx context.Context, client *http.Client, prepared
 				err = &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 			}
 			if (prepared.oauth || prepared.reshape != nil) && anthropicnpi.AdoptRequiredVersion(err.Error()) {
+				// anthropic.ts rebuilds the request at the adopted version and
+				// sets providerRetryAttempt = 0: the next attempt starts the
+				// retry budget over.
 				if prepared.reshape != nil {
 					body, headers, reshapeErr := prepared.reshape()
 					if reshapeErr != nil {
 						return nil, reshapeErr
 					}
 					prepared.body, prepared.headers = body, headers
-					attempt--
+					attempt = -1
 					continue
 				}
 				projected, headers, projectErr := projectNeoPiRequest(prepared.translated, prepared.model, prepared.base, anthropicnpi.WireVersion(), prepared.identity)
@@ -514,7 +517,7 @@ func (e *ClaudeExecutor) open(ctx context.Context, client *http.Client, prepared
 					headers.Set("anthropic-usage-limit", slow)
 				}
 				prepared.body, prepared.headers = projected, headers
-				attempt--
+				attempt = -1
 				continue
 			}
 			if retryErr := e.retry(ctx, err, attempt); retryErr != nil {

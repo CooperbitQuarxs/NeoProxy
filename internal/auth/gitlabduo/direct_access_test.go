@@ -107,6 +107,7 @@ func TestGitLabDuoMintedHeadersCoerceAsNeoPi(t *testing.T) {
 	}{
 		"values":    {`{"object":{"a":1},"array":["a","b",null],"number":7,"flag":true,"none":null}`, map[string]string{"Object": "[object Object]", "Array": "a,b,", "Number": "7", "Flag": "true", "None": "null"}},
 		"container": {`["first","second"]`, map[string]string{"0": "first", "1": "second"}},
+		"numbers":   {`{"exponent":1e3,"negative-zero":-0,"decimal":1.0,"large":1e21,"small":1.5e-7,"fraction":0.000001}`, map[string]string{"Exponent": "1000", "Negative-Zero": "0", "Decimal": "1", "Large": "1e+21", "Small": "1.5e-7", "Fraction": "0.000001"}},
 	} {
 		ClearDirectAccessCache()
 		access, err := GetDirectAccess(context.Background(), &http.Client{Transport: gzipAnswer{`{"token":"direct","headers":` + tc.headers + `}`}}, "gitlab-"+name)

@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
@@ -393,5 +394,75 @@ func TestGitLabDuoServesPersonalAccessToken(t *testing.T) {
 	}
 	if got := loop.calls[1].Headers["authorization"]; got != "Bearer direct-from-pat" || loop.calls[1].Path != "/ai/v1/proxy/openai/v1/chat/completions" {
 		t.Fatalf("model request %s with Authorization %q, want GitLab's proxy with the minted token", loop.calls[1].Path, got)
+	}
+}
+
+// Adopting a required Claude Code version starts the request's retry budget
+// over (anthropic.ts sets providerRetryAttempt = 0): ten transient failures,
+// the version rejection, then one more transient failure still retry, on the
+// token minted once.
+func TestGitLabDuoVersionAdoptionRestartsRetryBudget(t *testing.T) {
+	bundled, err := registry.GitLabDuoBundledModels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var row *registry.NeoPiModel
+	for _, candidate := range bundled {
+		if candidate.API == "anthropic-messages" {
+			row = candidate
+			break
+		}
+	}
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stream=%v", stream), func(t *testing.T) {
+			t.Setenv("PI_AI_CLAUDE_CODE_VERSION", "")
+			previous := anthropicnpi.SwapAdoptedVersionForTesting("")
+			defer anthropicnpi.SwapAdoptedVersionForTesting(previous)
+			gitlabduo.ClearDirectAccessCache()
+			defer gitlabduo.ClearDirectAccessCache()
+			loop := newGitLabDuoLoopback(t)
+			loop.mint = func(w http.ResponseWriter) { _, _ = io.WriteString(w, `{"token":"direct","headers":{}}`) }
+			answered := 0
+			loop.model = func(w http.ResponseWriter) {
+				answered++
+				switch {
+				case answered == 11:
+					w.WriteHeader(http.StatusBadRequest)
+					_, _ = io.WriteString(w, `{"type":"error","error":{"type":"claude_code_version_too_old","message":"version 2.1.999 or newer is required"}}`)
+				case answered <= 12:
+					w.WriteHeader(http.StatusInternalServerError)
+				default:
+					w.WriteHeader(http.StatusBadRequest)
+					_, _ = io.WriteString(w, "sentinel")
+				}
+			}
+			auth := &cliproxyauth.Auth{ID: "gitlab-duo-retry", Provider: gitlabduo.Provider, Metadata: map[string]any{"type": gitlabduo.Provider, "access_token": "gitlab-oauth"}}
+			payload := []byte(`{"model":"` + row.ID + `","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`)
+			req := cliproxyexecutor.Request{Model: row.ID, Payload: payload, Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.GitLabDuoModelInfo(row)}}
+			opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatClaude, OriginalRequest: payload}
+			exec := NewGitLabDuoExecutor(gitlabduo.Provider, &config.Config{AuthDir: t.TempDir()})
+			a, err := exec.attempt(loop.context(), auth, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wire, err := exec.wire(a, req, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			messages := wire.(*ClaudeExecutor)
+			messages.wait = func(context.Context, time.Duration) error { return nil }
+			messages.random = func() float64 { return 0 }
+			if stream {
+				_, err = messages.ExecuteStream(loop.context(), auth, req, opts)
+			} else {
+				_, err = messages.Execute(loop.context(), auth, req, opts)
+			}
+			if answered != 13 || err == nil || !strings.Contains(err.Error(), "sentinel") {
+				t.Fatalf("model requests = %d, error = %v; NeoPi retries afresh after adopting the version and reaches request 13", answered, err)
+			}
+			if mints := len(loop.calls) - answered; mints != 1 {
+				t.Fatalf("minted %d times, want 1", mints)
+			}
+		})
 	}
 }

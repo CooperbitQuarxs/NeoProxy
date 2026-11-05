@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -135,11 +136,14 @@ func mintDirectAccess(ctx context.Context, client *http.Client, gitlabToken stri
 }
 
 // jsString is JavaScript's String(value) for a JSON value: arrays join their
-// items with commas (null as empty), objects are "[object Object]".
+// items with commas (null as empty), objects are "[object Object]", numbers
+// print as Number.prototype.toString does.
 func jsString(value gjson.Result) string {
 	switch {
 	case value.Type == gjson.String:
 		return value.Str
+	case value.Type == gjson.Number:
+		return jsNumber(value.Num)
 	case value.IsArray():
 		var parts []string
 		value.ForEach(func(_, item gjson.Result) bool {
@@ -156,4 +160,23 @@ func jsString(value gjson.Result) string {
 	default:
 		return value.Raw
 	}
+}
+
+// jsNumber is Number.prototype.toString for a finite JSON number: the
+// shortest round-trip digits, fixed between 1e-6 and 1e21, else exponent
+// form with a signed, unpadded exponent; -0 prints as 0.
+func jsNumber(number float64) string {
+	if number == 0 {
+		return "0"
+	}
+	if magnitude := math.Abs(number); magnitude >= 1e21 || magnitude < 1e-6 {
+		mantissa, exponent, _ := strings.Cut(strconv.FormatFloat(number, 'e', -1, 64), "e")
+		power, _ := strconv.Atoi(exponent)
+		sign := "+"
+		if power < 0 {
+			sign, power = "-", -power
+		}
+		return mantissa + "e" + sign + strconv.Itoa(power)
+	}
+	return strconv.FormatFloat(number, 'f', -1, 64)
 }
