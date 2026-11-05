@@ -19,9 +19,10 @@ func (e GeminiExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
 	return &e
 }
 
-func (e GeminiVertexExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
-	e.cfg = e.cfg.ForAPIKey()
-	return &e
+// ForAPIKey rebuilds Vertex's ports on the scoped configuration; neither
+// holds state of its own.
+func (e *VertexExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {
+	return NewVertexExecutor(e.cfg.ForAPIKey())
 }
 
 func (e OpenAICompatExecutor) ForAPIKey() cliproxyauth.ProviderExecutor {

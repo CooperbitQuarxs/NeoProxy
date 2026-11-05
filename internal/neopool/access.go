@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -255,10 +257,33 @@ func accessLabel(provider, kind string, a *coreauth.Auth) string {
 		if provider == "custom" {
 			name = firstNonEmpty(a.Attributes["compat_name"], name)
 		}
-		if len(key) >= 16 {
-			return name + " key ending in " + key[len(key)-4:]
+		account := ""
+		switch provider {
+		case snowflake.Provider:
+			// A Snowflake key is stored bound to its account; name the
+			// token's ending and the account it serves.
+			if credential, ok, err := snowflake.ParseCredential(key); ok && err == nil {
+				key = credential.Token
+				account = strings.TrimPrefix(credential.AccountURL, "https://")
+			}
+		case cloudflare.Provider:
+			// A Cloudflare key is stored with its account and gateway; name
+			// the token's ending and the gateway it goes through.
+			if credential, ok := cloudflare.ParseCredential(key); ok {
+				key = credential.Token
+				if credential.GatewayID != "" {
+					account = "gateway " + credential.GatewayID
+				}
+			}
 		}
-		return name + " key"
+		label := name + " key"
+		if len(key) >= 16 {
+			label += " ending in " + key[len(key)-4:]
+		}
+		if account != "" {
+			label += " (" + account + ")"
+		}
+		return label
 	}
 	if label := strings.TrimSpace(a.Label); label != "" && label != a.Provider {
 		return label

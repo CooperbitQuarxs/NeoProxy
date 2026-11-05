@@ -1,0 +1,368 @@
+{
+	"source": "NeoPi rules.json auth.providers (login api-key)",
+	"logins": {
+		"cerebras": {
+			"name": "Cerebras",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "Cerebras",
+				"baseUrl": "https://api.cerebras.ai/v1",
+				"model": "gpt-oss-120b"
+			}
+		},
+		"deepseek": {
+			"name": "DeepSeek",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "deepseek",
+				"url": "https://api.deepseek.com/v1/models"
+			}
+		},
+		"fireworks": {
+			"name": "Fireworks",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Fireworks",
+				"url": "https://api.fireworks.ai/v1/accounts/fireworks/models?filter=supports_serverless%3Dtrue&pageSize=1"
+			}
+		},
+		"groq": {
+			"name": "Groq"
+		},
+		"huggingface": {
+			"name": "Hugging Face Inference",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "Hugging Face",
+				"baseUrl": "https://router.huggingface.co/v1",
+				"model": "openai/gpt-oss-120b"
+			}
+		},
+		"mistral": {
+			"name": "Mistral"
+		},
+		"moonshot": {
+			"name": "Moonshot (Kimi API)",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "moonshot",
+				"url": "https://api.moonshot.ai/v1/models",
+				"baseUrlEnv": "MOONSHOT_BASE_URL"
+			}
+		},
+		"nanogpt": {
+			"name": "NanoGPT",
+			"validate": {
+				"kind": "models-endpoint",
+				"url": "https://nano-gpt.com/api/v1/models"
+			}
+		},
+		"nvidia": {
+			"name": "NVIDIA",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "nvidia",
+				"optional": true,
+				"baseUrl": "https://integrate.api.nvidia.com/v1",
+				"model": "nvidia/llama-3.1-nemotron-70b-instruct"
+			}
+		},
+		"together": {
+			"name": "Together",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "together",
+				"url": "https://api.together.xyz/v1/models"
+			}
+		},
+		"aiand": {
+			"name": "ai&",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "ai&",
+				"url": "https://api.aiand.com/v1/models"
+			}
+		},
+		"baseten": {
+			"name": "Baseten",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Baseten",
+				"url": "https://inference.baseten.co/v1/models"
+			}
+		},
+		"coralbricks": {
+			"name": "CoralBricks",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "CoralBricks",
+				"url": "https://inference.coralbricks.ai/v1/models"
+			}
+		},
+		"deepinfra": {
+			"name": "DeepInfra",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "DeepInfra",
+				"baseUrl": "https://api.deepinfra.com/v1/openai",
+				"model": "deepseek-ai/DeepSeek-V4-Flash-0731"
+			}
+		},
+		"firepass": {
+			"name": "Fire Pass (Fireworks subscription)",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "Fire Pass",
+				"baseUrl": "https://api.fireworks.ai/inference/v1",
+				"model": "accounts/fireworks/routers/glm-5p2-fast"
+			}
+		},
+		"gmi-cloud": {
+			"name": "GMI Cloud",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "GMI Cloud",
+				"url": "https://api.gmi-serving.com/v1/models"
+			}
+		},
+		"helmcode": {
+			"name": "Helmcode",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Helmcode",
+				"url": "https://api.helmcode.com/v1/models"
+			}
+		},
+		"inception": {
+			"name": "Inception",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "Inception",
+				"baseUrl": "https://api.inceptionlabs.ai/v1",
+				"model": "mercury-3",
+				"maxTokensField": "max_completion_tokens"
+			}
+		},
+		"novita": {
+			"name": "Novita",
+			"validate": {
+				"kind": "chat-completions",
+				"baseUrl": "https://api.novita.ai/openai/v1",
+				"model": "moonshotai/kimi-k2.7-code"
+			}
+		},
+		"qianfan": {
+			"name": "Qianfan",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "qianfan",
+				"baseUrl": "https://qianfan.baidubce.com/v2",
+				"model": "deepseek-v3.2",
+				"tolerateModelDenied": true
+			}
+		},
+		"qwen-portal": {
+			"name": "Qwen Portal",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "qwen-portal",
+				"baseUrl": "https://portal.qwen.ai/v1",
+				"model": "coder-model"
+			}
+		},
+		"sambanova": {
+			"name": "SambaNova",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "SambaNova",
+				"url": "https://api.sambanova.ai/v1/models"
+			}
+		},
+		"stepfun": {
+			"name": "StepFun",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "StepFun",
+				"optional": true,
+				"baseUrl": "https://api.stepfun.ai/v1",
+				"model": "step-5-preview"
+			}
+		},
+		"synthetic": {
+			"name": "Synthetic",
+			"validate": {
+				"kind": "models-endpoint",
+				"url": "https://api.synthetic.new/openai/v1/models"
+			}
+		},
+		"venice": {
+			"name": "Venice",
+			"validate": {
+				"kind": "chat-completions",
+				"baseUrl": "https://api.venice.ai/api/v1",
+				"model": "qwen3-4b"
+			}
+		},
+		"wafer-serverless": {
+			"name": "Wafer Serverless (pay-as-you-go)",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Wafer Serverless",
+				"url": "https://pass.wafer.ai/v1/models"
+			}
+		},
+		"xiaomi-token-plan-sgp": {
+			"name": "Xiaomi Token Plan (Singapore)",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "xiaomi",
+				"baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
+				"model": "mimo-v2.6-flash"
+			}
+		},
+		"xiaomi-token-plan-ams": {
+			"name": "Xiaomi Token Plan (Europe)",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "xiaomi",
+				"baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
+				"model": "mimo-v2.6-flash"
+			}
+		},
+		"xiaomi-token-plan-cn": {
+			"name": "Xiaomi Token Plan (China)",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "xiaomi",
+				"baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+				"model": "mimo-v2.6-flash"
+			}
+		},
+		"yolo-auto": {
+			"name": "Yolo-Auto",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Yolo-Auto",
+				"url": "https://yolo-auto.com/v1/models"
+			}
+		},
+		"zhipu-coding-plan": {
+			"name": "Zhipu Coding Plan (智谱)",
+			"validate": {
+				"kind": "chat-completions",
+				"label": "Zhipu",
+				"baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+				"model": "glm-5.1"
+			}
+		},
+		"coreweave": {
+			"name": "CoreWeave Serverless Inference",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "CoreWeave Serverless Inference",
+				"url": "https://api.inference.wandb.ai/v1/models",
+				"headersHook": "coreweave-project"
+			}
+		},
+		"cline-pass": {
+			"name": "ClinePass",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "ClinePass",
+				"url": "https://api.cline.bot/api/v1/users/me",
+				"headersHook": "cline-pass-client"
+			}
+		},
+		"aimlapi": {
+			"name": "AIML API"
+		},
+		"singularityapi-dev": {
+			"name": "SingularityAPI",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "SingularityAPI",
+				"url": "https://api.singularityapi.dev/v1/models"
+			}
+		},
+		"singularityapi-tech": {
+			"name": "SingularityAPI Reserved Lanes",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "SingularityAPI Reserved Lanes",
+				"url": "https://api.singularityapi.tech/v1/models"
+			}
+		},
+		"charm-hyper": {
+			"name": "Charm Hyper",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Charm Hyper",
+				"url": "https://hyper.charm.land/v1/credits"
+			}
+		},
+		"siliconflow": {
+			"name": "SiliconFlow",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "siliconflow",
+				"url": "https://api.siliconflow.com/v1/models"
+			}
+		},
+		"siliconflow-cn": {
+			"name": "SiliconFlow (China)",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "siliconflow-cn",
+				"url": "https://api.siliconflow.cn/v1/models"
+			}
+		},
+		"vllm": {
+			"name": "vLLM (Local OpenAI-compatible)",
+			"emptyFallback": "vllm-local"
+		},
+		"lm-studio": {
+			"name": "LM Studio (Local OpenAI-compatible)",
+			"emptyFallback": "lm-studio-local"
+		},
+		"zenmux": {
+			"name": "ZenMux",
+			"validate": {
+				"kind": "models-endpoint",
+				"url": "https://zenmux.ai/api/v1/models"
+			}
+		},
+		"minimax": {
+			"name": "MiniMax"
+		},
+		"minimax-cn": {
+			"name": "MiniMax (China)"
+		},
+		"minimax-code": {
+			"name": "MiniMax Token Plan (International)",
+			"validate": {
+				"kind": "anthropic-messages",
+				"label": "MiniMax Token Plan",
+				"baseUrl": "https://api.minimax.io/anthropic",
+				"model": "MiniMax-M3"
+			}
+		},
+		"minimax-code-cn": {
+			"name": "MiniMax Token Plan (China)",
+			"validate": {
+				"kind": "anthropic-messages",
+				"baseUrl": "https://api.minimaxi.com/anthropic",
+				"model": "MiniMax-M3"
+			}
+		},
+		"snowflake": {
+			"name": "Snowflake Cortex"
+		},
+		"cloudflare-ai-gateway": {
+			"name": "Cloudflare AI Gateway"
+		}
+	}
+}

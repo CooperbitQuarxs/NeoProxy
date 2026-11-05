@@ -1,0 +1,1530 @@
+{
+	"source": "NeoPi OWN pi-ai registry/snowflake.ts",
+	"placeholder": "https://snowflake-account.invalid",
+	"normalize": [
+		{
+			"input": "myorg-myaccount",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "  MyOrg_MyAccount  ",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "myorg-myaccount.snowflakecomputing.com",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "myorg-myaccount.snowflakecomputing.com:443",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "myorg-myaccount.eu-west-1.snowflakecomputing.com",
+			"url": "https://myorg-myaccount.eu-west-1.snowflakecomputing.com"
+		},
+		{
+			"input": "https://myorg-myaccount.snowflakecomputing.com",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "https://MYORG-MYACCOUNT.snowflakecomputing.com:443/console?x=1#y",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "https://app.snowflake.com/myorg/myaccount/worksheets",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "https://app.snowflake.com/MyOrg/My_Account",
+			"url": "https://myorg-my-account.snowflakecomputing.com"
+		},
+		{
+			"input": "https://app.snowflake.com/us-east-1/xy12345",
+			"error": "Legacy Snowsight links don't identify the account host; paste your account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://app.snowflake.com/us-gov-west-1/xy12345",
+			"error": "Legacy Snowsight links don't identify the account host; paste your account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://app.snowflake.com/myorg",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://app.snowflake.com/",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "http://myorg-myaccount.snowflakecomputing.com",
+			"error": "Snowflake account URL must use https"
+		},
+		{
+			"input": "ftp://myorg-myaccount",
+			"error": "Snowflake account URL must use https"
+		},
+		{
+			"input": "HTTPS://myorg-myaccount.snowflakecomputing.com",
+			"url": "https://myorg-myaccount.snowflakecomputing.com"
+		},
+		{
+			"input": "myorg-myaccount.snowflakecomputing.cn",
+			"error": "Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn)"
+		},
+		{
+			"input": "https://myorg-myaccount.snowflakecomputing.cn",
+			"error": "Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn)"
+		},
+		{
+			"input": "myorg/myaccount",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "myorg?x",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "myorg#x",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "my\\org",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://evil.example.com",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://evil.example.com/.snowflakecomputing.com",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": ".snowflakecomputing.com",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "-bad-.snowflakecomputing.com",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"url": "https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.snowflakecomputing.com"
+		},
+		{
+			"input": "myorg..myaccount",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "https://",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"input": "",
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"input": "   ",
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"input": "host:443",
+			"url": "https://host.snowflakecomputing.com"
+		},
+		{
+			"input": "https://user@myorg-myaccount.snowflakecomputing.com",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		}
+	],
+	"transport": [
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "null",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "null"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "[]",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com/api/v2/cortex/v1",
+			"token": "[]"
+		},
+		{
+			"base": "https://snowflake-account.invalid/api/v2/cortex/v1",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "https://snowflake-account.invalid",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://snowflake-account.invalid",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "https://snowflake-account.invalid",
+			"token": ""
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "null",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com",
+			"token": "null"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "[]",
+			"envAccount": null,
+			"error": "Snowflake account is required: run /login snowflake or set SNOWFLAKE_ACCOUNT"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://env-org-env-account.snowflakecomputing.com",
+			"token": "[]"
+		},
+		{
+			"base": "https://snowflake-account.invalid",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"error": "Paste your Snowflake account identifier (orgname-accountname) or account URL"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "oauth-token"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": null,
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"baseUrl": "https://myorg-myaccount.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "pat-token"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": ""
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": null,
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "null"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": null,
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"baseUrl": "https://other-account.snowflakecomputing.com/api/v2/cortex",
+			"token": "[]"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "pat-token",
+			"envAccount": null,
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "pat-token",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "pat-token",
+			"envAccount": "bad/account",
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "  pat-token  ",
+			"envAccount": null,
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "  pat-token  ",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "  pat-token  ",
+			"envAccount": "bad/account",
+			"baseUrl": "not a url",
+			"token": "pat-token"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "",
+			"envAccount": null,
+			"baseUrl": "not a url",
+			"token": ""
+		},
+		{
+			"base": "not a url",
+			"apiKey": "",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "not a url",
+			"token": ""
+		},
+		{
+			"base": "not a url",
+			"apiKey": "",
+			"envAccount": "bad/account",
+			"baseUrl": "not a url",
+			"token": ""
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": null,
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\" oauth-token \",\"enterpriseUrl\":\"https://app.snowflake.com/myorg/myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Snowflake OAuth account does not match the model endpoint"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"\",\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":\"oauth-token\",\"enterpriseUrl\":\"acct.snowflakecomputing.cn\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential account: Snowflake Cortex REST API is not available in China-region accounts (.snowflakecomputing.cn); run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{\"token\":5,\"enterpriseUrl\":\"myorg-myaccount\"}",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{not json",
+			"envAccount": null,
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{not json",
+			"envAccount": "env-org-env-account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "{not json",
+			"envAccount": "bad/account",
+			"error": "Invalid Snowflake credential; run /login snowflake again"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "null",
+			"envAccount": null,
+			"baseUrl": "not a url",
+			"token": "null"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "null",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "not a url",
+			"token": "null"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "null",
+			"envAccount": "bad/account",
+			"baseUrl": "not a url",
+			"token": "null"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "[]",
+			"envAccount": null,
+			"baseUrl": "not a url",
+			"token": "[]"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "[]",
+			"envAccount": "env-org-env-account",
+			"baseUrl": "not a url",
+			"token": "[]"
+		},
+		{
+			"base": "not a url",
+			"apiKey": "[]",
+			"envAccount": "bad/account",
+			"baseUrl": "not a url",
+			"token": "[]"
+		}
+	]
+}

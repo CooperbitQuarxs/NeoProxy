@@ -33,9 +33,11 @@ func NewKimiExecutor(cfg *config.Config) *KimiExecutor {
 	messages := NewClaudeExecutor(cfg)
 	messages.provider = kimiauth.Type
 	messages.thirdParty = &neoPiThirdPartyProvider{
-		catalog: kimiDiscoveredModel,
-		bearer:  kimiAccessToken,
-		headers: func() http.Header { return kimiauth.CommonHeaders(kimiAuthDir(cfg)) },
+		catalog: func(_ *cliproxyauth.Auth, req cliproxyexecutor.Request, model string) *registry.NeoPiModel {
+			return kimiDiscoveredModel(req, model)
+		},
+		credential: neoPiAccountBearer(kimiAccessToken),
+		headers:    func() http.Header { return kimiauth.CommonHeaders(kimiAuthDir(cfg)) },
 	}
 	return &KimiExecutor{ClaudeExecutor: messages, cfg: cfg, counter: NewOpenAICompatExecutor(kimiauth.Type, cfg)}
 }

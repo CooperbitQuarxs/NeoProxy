@@ -73,7 +73,7 @@ func TestResponsesKeyValidationMatchesNeoPi(t *testing.T) {
 			if !ok {
 				t.Fatalf("%s missing from the catalog", scenario.Provider)
 			}
-			_, models, _, errValidate := validateCatalogKey(t.Context(), info, info.APIKey.BaseURL, "", "pasted-key")
+			_, models, _, errValidate := validateCatalogKey(t.Context(), info, info.APIKey.BaseURL, regionChoice{}, "pasted-key")
 			if len(scenario.Requests) != 1 || len(transport.requests) != 1 {
 				t.Fatalf("requests: NeoPi %d, Go %d", len(scenario.Requests), len(transport.requests))
 			}

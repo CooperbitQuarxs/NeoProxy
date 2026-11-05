@@ -12,12 +12,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/clinepass"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
@@ -90,8 +93,17 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		}
 	}
 	timeout, idleTimeout := quotaRequestTimeout, quotaIdleTimeout
-	if a.Provider == "claude" {
+	switch {
+	case a.Provider == "claude":
 		key += ":claude"
+		timeout, idleTimeout = 0, 0
+	case umansauth.IsBaseURL(a.Attributes["base_url"]):
+		// NeoPi bounds Umans usage only by the caller's signal.
+		key += ":umans"
+		timeout, idleTimeout = 0, 0
+	case tokenPlanCookie(a) != "":
+		// NeoPi bounds Token Plan usage only by the caller's signal.
+		key += ":alibaba-token-plan"
 		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
@@ -120,6 +132,19 @@ func quotaProvider(a *coreauth.Auth) string {
 	if zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
 		return "zai"
 	}
+	// NeoPi meters a QwenCloud Token Plan key through the console cookie stored
+	// beside it; without one NeoPi shows no usage either.
+	if tokenPlanCookie(a) != "" {
+		return "alibaba-token-plan"
+	}
+	// NeoPi meters a Umans key with GET /v1/usage.
+	if umansauth.IsBaseURL(a.Attributes["base_url"]) {
+		return "umans"
+	}
+	// NeoPi meters every ClinePass key with its plan quota route.
+	if catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider {
+		return clinepass.Provider
+	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
@@ -145,6 +170,15 @@ func quotaProvider(a *coreauth.Auth) string {
 	return ""
 }
 
+// tokenPlanCookie is the console Cookie header of a QwenCloud Token Plan key,
+// or "" for any other credential.
+func tokenPlanCookie(a *coreauth.Auth) string {
+	if a == nil || catalogProviderID(a.Provider, a.Attributes["compat_name"]) != alibabatokenplan.Provider {
+		return ""
+	}
+	return strings.TrimSpace(a.Attributes["console_cookie"])
+}
+
 func quotaAccessToken(a *coreauth.Auth) string {
 	if a == nil {
 		return ""
@@ -153,8 +187,13 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		// A Muse sign-in is read with its account token, not the minted key.
 		return metaDeviceToken(a)
 	}
+	// The Token Plan usage report authenticates with the console session, not
+	// the inference key.
+	if cookie := tokenPlanCookie(a); cookie != "" {
+		return cookie
+	}
 	token, _ := a.Metadata["access_token"].(string)
-	if token == "" && zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
+	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"]) || catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider) {
 		token = a.Attributes["api_key"]
 	}
 	if token == "" && a.Provider == "devin" {
@@ -301,6 +340,91 @@ func zaiUsageWindows(usage *zaiauth.Usage) []Window {
 			continue
 		}
 		out = append(out, percentWindow(kind, *limit.UsedFraction*100, startsAt, limit.ResetsAt))
+	}
+	return out
+}
+
+// alibabaTokenPlanUsageWindows adapts NeoPi's Token Plan report the way its
+// ranking strategy reads it: the 5h and 7d credits gate the account, the
+// monthly credits (whose span the console never states) are reported but not
+// known to routing.
+func alibabaTokenPlanUsageWindows(usage *alibabatokenplan.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "7d": "week", "monthly": "month"}
+	for _, limit := range usage.Limits {
+		kind, ok := kinds[limit.WindowID]
+		if !ok {
+			continue
+		}
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() && limit.DurationMs > 0 {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		w := percentWindow(kind, limit.UsedFraction*100, startsAt, limit.ResetsAt)
+		if startsAt.IsZero() {
+			w.StartsAt = 0
+		}
+		w.Known = limit.WindowID != "monthly"
+		out = append(out, w)
+	}
+	return out
+}
+
+// umansUsageWindows adapts NeoPi's Umans report: the rolling 5h request
+// limit becomes the 5h window. Only a row that can exhaust gates routing
+// (the single row or the burst ceiling); a soft cap without a burst row is
+// reported but unknown to routing, because NeoPi never lets it exhaust.
+// Concurrency is instantaneous, not a window.
+func umansUsageWindows(usage *umansauth.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	var gate, soft *umansauth.UsageLimit
+	for i := range usage.Limits {
+		switch usage.Limits[i].ID {
+		case "umans:requests", "umans:requests:hard":
+			gate = &usage.Limits[i]
+		case "umans:requests:soft":
+			soft = &usage.Limits[i]
+		}
+	}
+	if gate == nil {
+		if soft != nil {
+			out = append(out, Window{Kind: "5h", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+		}
+		return out
+	}
+	if gate.UsedFraction == nil {
+		return append(out, Window{Kind: "5h", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+	}
+	startsAt := time.Time{}
+	if !gate.ResetsAt.IsZero() && gate.DurationMs > 0 {
+		startsAt = gate.ResetsAt.Add(-time.Duration(gate.DurationMs) * time.Millisecond)
+	}
+	return append(out, percentWindow("5h", *gate.UsedFraction*100, startsAt, gate.ResetsAt))
+}
+
+// clinePassUsageWindows adapts NeoPi's ClinePass plan report: the 5h and
+// weekly windows gate routing, as NeoPi's ranking reads only those; the
+// monthly window is reported but unknown to routing.
+func clinePassUsageWindows(usage *clinepass.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "7d": "week", "30d": "month"}
+	for _, limit := range usage.Limits {
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		w := percentWindow(kinds[limit.WindowID], limit.Used, startsAt, limit.ResetsAt)
+		w.Known = limit.WindowID != "30d"
+		out = append(out, w)
 	}
 	return out
 }
@@ -480,12 +604,30 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return xaiUsageWindows(usage), nil
+	case "alibaba-token-plan":
+		usage, err := alibabatokenplan.FetchUsage(ctx, client, token, alibabatokenplan.IsChina(a.Attributes["base_url"]))
+		if err != nil {
+			return nil, err
+		}
+		return alibabaTokenPlanUsageWindows(usage), nil
 	case "zai":
 		usage, err := zaiauth.FetchUsage(ctx, client, token)
 		if err != nil {
 			return nil, err
 		}
 		return zaiUsageWindows(usage), nil
+	case "umans":
+		usage, err := umansauth.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return umansUsageWindows(usage), nil
+	case clinepass.Provider:
+		usage, err := clinepass.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return clinePassUsageWindows(usage), nil
 	case "kimi":
 		// NeoPi skips the probe while the stored token is expired; the next
 		// poll carries the refreshed one.
@@ -558,6 +700,11 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 		}
 		entry.failing = true
 		entry.gen = gen
+		if quotaProvider(a) == "alibaba-token-plan" {
+			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
+			// an expired cookie or refused report makes the windows unknown.
+			entry.goodAt = time.Time{}
+		}
 	}
 	q.entries[a.ID] = entry
 	q.mu.Unlock()

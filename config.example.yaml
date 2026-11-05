@@ -606,17 +606,18 @@ upstream:
 #         - api-key: "AIzaSy...03"
 #           weight: 5 # optional: weighted-round-robin share; omitted defaults to 1; maximum 1,000,000
 #
-#   # Vertex API keys (Vertex-compatible endpoints, base-url is optional)
+#   # Vertex AI keys, served the way NeoPi's google-vertex provider serves them:
+#   # Gemini over generateContent on the location's host (global when no location
+#   # is set), and Model Garden partner/open models and Claude with an ADC access
+#   # token on the project and location (GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION).
 #
 #   vertex:
 #     - name: vertex-1
 #       prefix: "test"                              # optional: require calls like "test/vertex-pro" to target this credential
 #       disable-cooling: false                       # optional override: true disables cooling, false enables it; omit to inherit global
 #       request-retry: 3                             # optional per-auth override; 0 disables additional rounds; omit or set < 0 to inherit global
-#       base-url: "https://example.com/api"         # optional, e.g. https://zenmux.ai/api; falls back to Google Vertex when omitted
 #       proxy-url: "socks5://proxy.example.com:1080" # optional per-key proxy override
 #       # proxy-url: "direct" # optional: explicit direct connect for this credential
-#       # interactions: true                        # optional: opt into native Vertex Interactions API routing (/v1beta1/interactions). For service account JSON files under auths/, add "interactions": true at the root of the file.
 #       headers:
 #         X-Custom-Header: "custom-value"
 #         # Values starting with "$" dynamically copy the header value from downstream client requests.
@@ -631,8 +632,8 @@ upstream:
 #         - name: "gemini-2.5-pro"
 #           alias: "vertex-pro"
 #       excluded-models:                            # optional: models to exclude from listing
-#         - "imagen-3.0-generate-002"
-#         - "imagen-*"
+#         - "gemini-2.0-flash-lite"
+#         - "claude-*"
 #       keys:
 #         - api-key: "vk-123..."                        # x-goog-api-key header
 #           weight: 5                                    # optional: weighted-round-robin share; omitted defaults to 1; maximum 1,000,000

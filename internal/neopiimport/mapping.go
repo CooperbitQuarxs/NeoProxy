@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -64,6 +66,51 @@ var apiKeyRoutes = map[string]route{
 	"alibaba-token-plan": {target: "alibaba-token-plan"},
 	"sakana":             {target: "sakana"},
 	"abliteration":       {target: "abliteration"},
+	"umans":              {target: "umans"},
+	"aiand":              {target: "aiand"},
+	"baseten":            {target: "baseten"},
+	"coralbricks":        {target: "coralbricks"},
+	"deepinfra":          {target: "deepinfra"},
+	"firepass":           {target: "firepass"},
+	"gmi-cloud":          {target: "gmi-cloud"},
+	"helmcode":           {target: "helmcode"},
+	"inception":          {target: "inception"},
+	"novita":             {target: "novita"},
+	"qianfan":            {target: "qianfan"},
+	"qwen-portal":        {target: "qwen-portal"},
+	"sambanova":          {target: "sambanova"},
+	"stepfun":            {target: "stepfun"},
+	"synthetic":          {target: "synthetic"},
+	"siliconflow":        {target: "siliconflow"},
+	"siliconflow-cn":     {target: "siliconflow-cn"},
+	"zenmux":             {target: "zenmux"},
+	"minimax":            {target: "minimax"},
+	"minimax-cn":         {target: "minimax-cn"},
+	"minimax-code":       {target: "minimax-code"},
+	"minimax-code-cn":    {target: "minimax-code-cn"},
+	// A Snowflake PAT, or NeoPi's structured key that names its account.
+	"snowflake": {target: "snowflake"},
+	// NeoPi's Cloudflare login credential: the gateway token with its account
+	// and gateway ids.
+	"cloudflare-ai-gateway": {target: "cloudflare-ai-gateway"},
+	// Local servers import at their default address (an administrator's
+	// action, as their address is editable).
+	"vllm":                  {target: "vllm"},
+	"lm-studio":             {target: "lm-studio"},
+	"venice":                {target: "venice"},
+	"wafer-serverless":      {target: "wafer-serverless"},
+	"xiaomi-token-plan-sgp": {target: "xiaomi-token-plan-sgp"},
+	"xiaomi-token-plan-ams": {target: "xiaomi-token-plan-ams"},
+	"xiaomi-token-plan-cn":  {target: "xiaomi-token-plan-cn"},
+	"yolo-auto":             {target: "yolo-auto"},
+	"zhipu-coding-plan":     {target: "zhipu-coding-plan"},
+	"coreweave":             {target: "coreweave"},
+	"cline-pass":            {target: "cline-pass"},
+	"aimlapi":               {target: "aimlapi"},
+	"xiaomi":                {target: "xiaomi"},
+	"singularityapi-dev":    {target: "singularityapi-dev"},
+	"singularityapi-tech":   {target: "singularityapi-tech"},
+	"charm-hyper":           {target: "charm-hyper"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -86,10 +133,19 @@ var oauthRoutes = map[string]route{
 	"nous-portal": {target: "nous-portal"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
-	"zai":               {kind: KindAPIKey, target: "zai"},
+	"zai": {kind: KindAPIKey, target: "zai"},
+	// The Coding Plan sign-in stores the pasted key in access and the
+	// endpoint it chose (International, China or custom) in enterpriseUrl.
+	"alibaba-coding-plan": {kind: KindAPIKey, target: "alibaba-coding-plan"},
+	// Kilo's device sign-in stores the gateway's bearer token in access and
+	// nothing to refresh; it imports as the account's key.
+	"kilo":              {kind: KindAPIKey, target: "kilo"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
 	"cursor":            {target: "cursor"},
-	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
+	// Snowflake's browser sign-in keeps the account it signed in at in
+	// enterpriseUrl.
+	"snowflake":      {target: "snowflake"},
+	"github-copilot": {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
 func routeFor(c Credential) route {
@@ -201,6 +257,28 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			}
 			return "NeoPi's record has no key."
 		}
+		if c.Provider == "snowflake" {
+			// NeoPi binds a bare PAT to SNOWFLAKE_ACCOUNT, which the record
+			// does not carry; only a key naming its account can be routed.
+			credential, _, err := snowflake.ParseCredential(apiKeyValue(c))
+			if err != nil {
+				return "NeoPi's Snowflake key is not valid: " + err.Error()
+			}
+			if credential.AccountURL == "" {
+				return "This Snowflake access token does not name its account. Add it in NeoProxy with its Snowflake account."
+			}
+		}
+		if c.Provider == cloudflare.Provider {
+			// NeoPi fills missing ids from CLOUDFLARE_ACCOUNT_ID and
+			// CLOUDFLARE_GATEWAY_ID, which the record does not carry.
+			credential, ok := cloudflare.ParseCredential(apiKeyValue(c))
+			if !ok {
+				return "NeoPi's Cloudflare AI Gateway key is not valid."
+			}
+			if credential.AccountID == "" || credential.GatewayID == "" {
+				return "This Cloudflare AI Gateway token does not name its account and gateway. Add it in NeoProxy with both IDs."
+			}
+		}
 	case r.kind == KindSubscription:
 		if str(c.data, "access") == "" {
 			return "NeoPi's record has no access token."
@@ -238,6 +316,9 @@ type APIKey struct {
 	// outside the credential; empty means the catalog's fixed address.
 	BaseURL string
 	Label   string
+	// Cookie is the QwenCloud Token Plan console Cookie header NeoPi stores
+	// beside the key; it only enables quota reporting.
+	Cookie string
 }
 
 // BuildAPIKey returns the catalog entry for an importable API-key credential.
@@ -249,13 +330,18 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	baseURL := c.baseURL
-	if c.Provider == "alibaba-token-plan" {
-		// The region the key belongs to; NeoProxy tries it first.
+	baseURL, cookie := c.baseURL, ""
+	switch c.Provider {
+	case "alibaba-token-plan":
+		// The region the key belongs to (NeoProxy tries it first) and the
+		// console cookie behind NeoPi's quota reporting.
 		key, _ := parseTokenPlanKey(str(c.data, "key"))
-		baseURL = key.baseURL
+		baseURL, cookie = key.baseURL, key.cookie
+	case "alibaba-coding-plan":
+		// The endpoint the sign-in chose and validated the key against.
+		baseURL = strings.TrimRight(strings.TrimSpace(str(c.data, "enterpriseUrl")), "/")
 	}
-	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r)}, nil
+	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r), Cookie: cookie}, nil
 }
 
 // AuthFile is an imported subscription in the engine's native auth-file format.
@@ -350,6 +436,9 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["base_url"] = metaauth.DefaultAPIBaseURL
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "account_id", str(c.data, "accountId"))
+	case "snowflake":
+		meta["access_token"] = access
+		meta["enterprise_url"] = str(c.data, "enterpriseUrl")
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}
@@ -404,6 +493,18 @@ func label(c Credential, r route) string {
 		return email
 	}
 	key := apiKeyValue(c)
+	if c.Provider == "snowflake" {
+		// Name the token's ending and its account, never the stored JSON.
+		if credential, ok, err := snowflake.ParseCredential(key); ok && err == nil && credential.AccountURL != "" && len(credential.Token) >= 12 {
+			return "…" + credential.Token[len(credential.Token)-4:] + " (" + strings.TrimPrefix(credential.AccountURL, "https://") + ")"
+		}
+	}
+	if c.Provider == cloudflare.Provider {
+		// Name the token's ending and its gateway, never the stored JSON.
+		if credential, ok := cloudflare.ParseCredential(key); ok && credential.GatewayID != "" && len(credential.Token) >= 12 {
+			return "…" + credential.Token[len(credential.Token)-4:] + " (gateway " + credential.GatewayID + ")"
+		}
+	}
 	if len(key) < 12 {
 		return "NeoPi key " + c.ID
 	}

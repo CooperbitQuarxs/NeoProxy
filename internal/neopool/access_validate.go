@@ -8,12 +8,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -165,60 +165,25 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 }
 
 // validateCatalogKey lists the models a key can use at base and returns the
-// endpoint that accepted it. A provider with regional endpoints is tried region
-// by region (preferred first, when it is one of them), because its keys are
-// region-locked. Models the provider lists but chat clients cannot use are
-// dropped so they never reach the model list. routes carries the API each
-// model is served over (see modelRoutes).
-func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, []string, map[string]modelRoute, error) {
+// endpoint that accepted it. routes carries the API each model is served over
+// (see modelRoutes). Providers NeoProxy serves through NeoPi's own provider
+// check their keys the way NeoPi's sign-in does (see validateNeoPiKey).
+func validateCatalogKey(ctx context.Context, info ProviderInfo, base string, preferred regionChoice, key string) (string, []string, map[string]modelRoute, error) {
 	if registry.ResponsesProviderForBaseURL(base) != "" {
 		return base, nil, nil, validateResponsesKey(ctx, base, key)
 	}
 	if info.ID == "zai" {
 		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
 	}
-	candidates := []string{base}
-	if regions := catalogRegions(info.ID); len(regions) > 0 {
-		preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
-		if preferred != "" && !slices.Contains(regions, preferred) {
-			return "", nil, nil, accessErr(http.StatusBadRequest, "%s keys work only at its regional endpoints (%s); %s is not one of them.", info.Name, strings.Join(regions, ", "), preferred)
-		}
-		candidates = make([]string, 0, len(regions))
-		if preferred != "" {
-			candidates = append(candidates, preferred)
-		}
-		for _, region := range regions {
-			if region != preferred {
-				candidates = append(candidates, region)
-			}
-		}
+	if info.ID == "umans" {
+		return umansauth.BaseURL, nil, nil, validateUmansKey(ctx, key)
 	}
-	var models []string
-	var advertised map[string]modelRoute
-	var err error
-	for _, candidate := range candidates {
-		if models, advertised, err = listUpstreamModels(ctx, info.APIKey.Style, candidate, key); err == nil {
-			base = candidate
-			break
-		}
-		var rejected *AccessError
-		if !errors.As(err, &rejected) || !rejected.keyRejected {
-			return "", nil, nil, err
-		}
+	if accepted, handled, err := validateNeoPiKey(ctx, info, base, preferred, key); handled {
+		return accepted, nil, nil, err
 	}
+	models, advertised, err := listUpstreamModels(ctx, info.APIKey.Style, base, key)
 	if err != nil {
-		if len(candidates) > 1 {
-			return "", nil, nil, accessErr(http.StatusBadRequest, "%s rejected this key in every region. Check that the whole key was pasted and that its subscription is active.", info.Name)
-		}
 		return "", nil, nil, err
-	}
-	if len(info.skipModels) > 0 {
-		models = slices.DeleteFunc(models, func(id string) bool {
-			return slices.ContainsFunc(info.skipModels, func(prefix string) bool { return strings.HasPrefix(id, prefix) })
-		})
-		if len(models) == 0 {
-			return "", nil, nil, accessErr(http.StatusBadRequest, "%s accepted the key but lists no chat models for it.", info.Name)
-		}
 	}
 	return base, models, modelRoutes(info, base, models, advertised), nil
 }
@@ -249,6 +214,27 @@ func validateZaiKey(ctx context.Context, key string) error {
 		return accessErr(http.StatusServiceUnavailable, "Z.ai is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.")
 	default:
 		return accessErr(http.StatusBadGateway, "Z.ai answered HTTP %d when checking the key. Try again in a moment.", resp.StatusCode)
+	}
+}
+
+// validateUmansKey is NeoPi's Umans key check (validate "anthropic-messages"):
+// a one-token Messages request for umans-coder with the key in x-api-key. The
+// account then serves the models its /v1/models/info lists, so no model list
+// is kept.
+func validateUmansKey(ctx context.Context, key string) error {
+	status, err := umansauth.ValidateKey(ctx, accessHTTPClient, umansauth.BaseURL, key)
+	if err != nil {
+		return accessErr(http.StatusBadGateway, "Could not reach Umans to check the key. Try again in a moment.")
+	}
+	switch {
+	case status >= 200 && status < 300:
+		return nil
+	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+		return &AccessError{Status: http.StatusBadRequest, keyRejected: true, Message: fmt.Sprintf("Umans rejected this key (HTTP %d). Check that the whole key was pasted and that its Coding Plan is active.", status)}
+	case status == http.StatusTooManyRequests:
+		return accessErr(http.StatusServiceUnavailable, "Umans is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.")
+	default:
+		return accessErr(http.StatusBadGateway, "Umans answered HTTP %d when checking the key. Try again in a moment.", status)
 	}
 }
 

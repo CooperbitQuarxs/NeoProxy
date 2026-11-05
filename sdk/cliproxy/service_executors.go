@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
@@ -295,6 +296,17 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			}
 		}
 	}
+	if providerKey, catalogProvider, ok := neoPiCompletionsIdentity(a); ok {
+		if !forceReplace {
+			if existing, ok := s.coreManager.Executor(providerKey); ok {
+				if completions, ok := existing.(*executor.NeoPiCompletionsExecutor); ok && completions.UsesConfig(cfg) {
+					return
+				}
+			}
+		}
+		s.coreManager.RegisterExecutor(executor.NewNeoPiCompletionsExecutor(providerKey, cfg, executor.NeoPiCompletionsProfile{Provider: catalogProvider}))
+		return
+	}
 	if compatProviderKey, _, isCompat := openAICompatInfoFromAuth(a); isCompat {
 		if compatProviderKey == "" {
 			compatProviderKey = strings.ToLower(strings.TrimSpace(a.Provider))
@@ -328,6 +340,18 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor(compatProviderKey, cfg))
 			return
 		}
+		if umansauth.IsBaseURL(a.Attributes["base_url"]) {
+			// NeoPi serves Umans keys itself over Anthropic Messages.
+			if !forceReplace {
+				if existing, ok := s.coreManager.Executor(compatProviderKey); ok {
+					if umans, isUmans := existing.(*executor.UmansExecutor); isUmans && umans.UsesConfig(cfg) {
+						return
+					}
+				}
+			}
+			s.coreManager.RegisterExecutor(executor.NewUmansExecutor(compatProviderKey, cfg))
+			return
+		}
 		s.registerOpenAICompatProviderExecutor(compatProviderKey, a, cfg, forceReplace, false)
 		return
 	}
@@ -337,7 +361,7 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 	case constant.GeminiInteractions:
 		s.coreManager.RegisterExecutor(executor.NewGeminiInteractionsExecutor(cfg))
 	case "vertex":
-		s.coreManager.RegisterExecutor(executor.NewGeminiVertexExecutor(cfg))
+		s.coreManager.RegisterExecutor(executor.NewVertexExecutor(cfg))
 	case "aistudio":
 		if s.wsGateway != nil {
 			s.coreManager.RegisterExecutor(executor.NewAIStudioExecutor(cfg, a.ID, s.wsGateway))

@@ -87,6 +87,12 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	if ctx.Err() != nil {
 		return true
 	}
+	// NeoPi's Chat Completions providers resolve their roster by NeoPi's own
+	// discovery and register under the account's runtime key, which differs
+	// from the catalog provider for an OpenAI-compatibility account.
+	if runtimeKey, catalog, ok := neoPiCompletionsIdentity(a); ok {
+		return s.registerNeoPiCompletionsModels(ctx, cfg, a, fence, provider, authKind, runtimeKey, catalog, excluded)
+	}
 	published := true
 	var models []*ModelInfo
 	switch provider {
@@ -115,8 +121,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "vertex":
-		// Vertex AI Gemini supports the same model identifiers as Gemini.
-		models = registry.GetGeminiVertexModels()
+		// NeoPi's google-vertex roster: it has no discovery for the provider.
+		models = registry.VertexBundledModels()
 		if entry := resolveConfigVertexCompatKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildVertexCompatConfigModels(entry)
@@ -252,7 +258,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					return false
 				}
 				isCompatAuth = true
-				ms := s.neoPiResponsesModelsFor(a, buildOpenAICompatibilityConfigModels(compat))
+				ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, buildOpenAICompatibilityConfigModels(compat)))
 				if providerKey == "" {
 					providerKey = "openai-compatibility"
 				}
@@ -278,7 +284,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					if providerKey == "" {
 						providerKey = "openai-compatibility"
 					}
-					ms := s.neoPiResponsesModelsFor(a, cached.models)
+					ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, cached.models))
 					if len(ms) > 0 {
 						ms = s.appendPluginModels(providerKey, ms, nil)
 						published = s.registerResolvedModelsForAuthFenced(a, fence, providerKey, applyModelPrefixes(ms, a.Prefix, cfg.ForceModelPrefix))
@@ -1030,23 +1036,16 @@ func appendVertexServiceAccountModels(cfg *config.Config, a *coreauth.Auth, base
 	out := make([]*ModelInfo, 0, len(baseModels)+len(extraNames))
 	out = append(out, baseModels...)
 	for _, name := range extraNames {
-		ownedBy := "google"
+		// A name the bundle lacks is the row NeoPi's rules build for its id.
+		row := registry.VertexNeoPiModelFor(name)
+		if row == nil {
+			continue
+		}
+		info := registry.VertexModelInfo(row)
+		info.Created = now
+		info.UserDefined = true
 		if publisher, _, ok := strings.Cut(name, "/"); ok && strings.TrimSpace(publisher) != "" {
-			ownedBy = strings.TrimSpace(publisher)
-		}
-		info := &ModelInfo{
-			ID:              name,
-			MetadataModelID: name,
-			Object:          "model",
-			Created:         now,
-			OwnedBy:         ownedBy,
-			Type:            "vertex",
-			DisplayName:     name,
-			UserDefined:     true,
-			Thinking:        &registry.ThinkingSupport{Levels: []string{"low", "medium", "high"}},
-		}
-		if resolved := modelconfig.ResolveModelInfo(name, "vertex", nil); resolved.Thinking != nil {
-			info.Thinking = resolved.Thinking
+			info.OwnedBy = strings.TrimSpace(publisher)
 		}
 		out = append(out, info)
 	}

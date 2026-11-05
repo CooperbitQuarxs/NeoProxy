@@ -5,7 +5,7 @@
 
 import { h, icon, replace, fmtInt, copyText } from "../lib/dom.js";
 import { neo, ApiError } from "../lib/client.js";
-import { btn, field, input, search, seg, dialog, copyLine, toast } from "../lib/components.js";
+import { btn, field, input, select, search, seg, dialog, copyLine, toast } from "../lib/components.js";
 
 export const KIND_COPY = {
 	subscription: {
@@ -42,6 +42,13 @@ export const KIND_COPY = {
 
 const METHOD_LABEL = { subscription: "Sign in with an account", apiKey: "Paste an API key" };
 const PICKER_SEARCH_FROM = 9;
+
+// A provider's own details (NeoPi's login prompts: Snowflake's account,
+// Cloudflare's account and gateway ids), asked before its flow starts.
+const providerFields = (p, values, onChange) => (p.fields ?? []).map((f) =>
+	field(f.label, input({ mono: true, placeholder: f.placeholder, autocomplete: "off", value: values[f.id] ?? "", onInput: (e) => { values[f.id] = e.target.value; onChange(); } }), f.hint));
+const fieldsFilled = (p, values) => (p.fields ?? []).every((f) => (values[f.id] ?? "").trim());
+const trimmedFields = (p, values) => p.fields?.length ? Object.fromEntries(p.fields.map((f) => [f.id, (values[f.id] ?? "").trim()])) : undefined;
 
 // Sets the provider hue as real custom properties (style objects can't).
 export function hueVars(el, provider) {
@@ -194,10 +201,15 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 		// browsers on another computer; the catalog says so with modes/deviceFlow.
 		const offersDevice = flow !== "device" && (sub.deviceFlow === true || (Array.isArray(sub.modes) && sub.modes.includes("device")));
 		let mode = flow === "device" ? "device" : "browser";
+		// Per-account providers (Snowflake) sign in at the account named here.
+		const values = {};
 		const idle = (error) => {
 			const asDevice = mode === "device";
+			const go = btn(asDevice ? "Get a code" : `Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) });
+			go.disabled = !fieldsFilled(p, values);
 			replace(box, 
 				offersDevice ? seg([{ value: "browser", label: "In this browser" }, { value: "device", label: "With a code" }], mode, (v) => { mode = v; idle(); }) : null,
+				...providerFields(p, values, () => { go.disabled = !fieldsFilled(p, values); }),
 				h("ol", { class: "pa-steps" },
 					h("li", null, asDevice ? `A short code appears here; open ${site}'s device page on any machine and type it in.` : `${site}'s sign-in page opens in a new tab.`),
 					h("li", null, "Sign in with the account you want to share and approve access."),
@@ -206,7 +218,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 				// repeat step 1 or describe the plumbing, so say the one thing a person needs.
 				asDevice ? null : flow === "browser" ? h("p", { class: "pa-detail" }, "If this page doesn't continue after you approve, copy the address your browser ends up on and paste it on the next screen.") : sub.note ? h("p", { class: "pa-detail" }, sub.note) : null,
 				error ? notice("bad", "Sign-in didn't complete", error) : null,
-				h("div", { class: "pa-actions" }, btn(asDevice ? "Get a code" : `Continue to ${site}`, { icon: "arrowRight", cls: "primary", onClick: (e) => start(e.currentTarget) })),
+				h("div", { class: "pa-actions" }, go),
 			);
 		};
 
@@ -216,7 +228,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			popup = mode === "device" ? null : window.open("about:blank", "_blank");
 			button.disabled = true;
 			button.lastChild.textContent = "Starting…";
-			neo.startLogin(p.id, mode === "device" ? { mode: "device" } : undefined).then((r) => {
+			const query = mode === "device" ? { mode: "device" } : trimmedFields(p, values);
+			neo.startLogin(p.id, query).then((r) => {
 				if (dead) { popup?.close(); return; }
 				if (r.url && popup) popup.location.href = r.url;
 				else popup?.close();
@@ -226,7 +239,8 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 
 		function waiting(r) {
 			const device = r.flow === "device" || (r.status === "ok" && !!r.user_code);
-			const verify = r.verification_uri_complete || r.verification_uri || r.verification_url || null;
+			// Most device-code starts (Kimi, xAI, Meta, Nous) send the provider's device page as `url`.
+			const verify = r.verification_uri_complete || r.verification_uri || r.verification_url || (device ? r.url : null) || null;
 			let code = "";
 			const note = h("div");
 			const submit = async (e) => {
@@ -273,6 +287,17 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 	function apiKeyFlow(p) {
 		const cfg = p.apiKey ?? {};
 		let key = "", baseUrl = "", label = "", monthly = "";
+		const values = {};
+		// Regional providers (NeoPi's endpoint prompt): each key works at one
+		// region; administrators may also name a custom endpoint.
+		const regions = cfg.regions ?? [];
+		const CUSTOM = "custom";
+		let region = regions[0]?.baseUrl ?? "";
+		const customField = field("Custom endpoint", input({ mono: true, placeholder: "https://your-proxy.com/v1", onInput: (e) => { baseUrl = e.target.value; sync(); } }), "The base URL to send this key's requests to, usually ending in /v1.");
+		customField.style.display = "none";
+		const regionOptions = [...regions.map((r) => ({ value: r.baseUrl, label: `${r.label} (${r.baseUrl})` })), ...(admin && cfg.customRegion ? [{ value: CUSTOM, label: "Custom endpoint" }] : [])];
+		const regionField = regions.length ? field("Region", select(regionOptions, region, (v) => { region = v; customField.style.display = v === CUSTOM ? "" : "none"; sync(); }), "Keys work only in the region they were created in.") : null;
+		const chosenBaseUrl = () => cfg.editableBaseUrl ? baseUrl.trim() || undefined : region === CUSTOM ? baseUrl.trim() : region || undefined;
 		const errorHost = h("div");
 		const keyInput = input({ mono: true, type: "password", autocomplete: "off", placeholder: cfg.keyHint, onInput: (e) => { key = e.target.value; sync(); } });
 		const reveal = btn("Show", { onClick: () => { const show = keyInput.type === "password"; keyInput.type = show ? "text" : "password"; reveal.lastChild.textContent = show ? "Hide" : "Show"; } });
@@ -280,15 +305,18 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			errorHost.replaceChildren();
 			await busy(submit, async () => {
 				try {
-					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), baseUrl: cfg.editableBaseUrl ? baseUrl.trim() || undefined : undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
+					await neo.addApiKey({ provider: p.id, apiKey: key.trim(), fields: trimmedFields(p, values), baseUrl: chosenBaseUrl(), customBaseUrl: region === CUSTOM || undefined, label: label.trim() || undefined, ownerId: owner.id, monthlyUSD: monthly ? Number(monthly) : undefined });
 					finish("API key added", h("p", null, h("strong", null, p.name), " checked out and is now in the pool. Its models are available to virtual models and grants right away."));
 				} catch (e) { replace(errorHost, notice("bad", "The key wasn't added", e.message)); }
 			});
 		} });
-		const sync = () => { submit.disabled = !key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl); };
+		const sync = () => { submit.disabled = (!key.trim() && !(cfg.keyOptional ?? cfg.editableBaseUrl)) || (region === CUSTOM && !baseUrl.trim()) || !fieldsFilled(p, values); };
 		sync();
 		return h("form", { class: "pa-stack", onSubmit: (e) => { e.preventDefault(); if (!submit.disabled) submit.click(); } },
 			cfg.editableBaseUrl ? field("Server address", input({ mono: true, placeholder: p.id === "custom" ? "https://example.com/v1" : cfg.baseUrl, onInput: (e) => { baseUrl = e.target.value; } }), p.id === "custom" ? "The OpenAI-compatible base URL, usually ending in /v1. For a local Ollama: http://127.0.0.1:11434/v1" : `The gateway's base URL. Leave empty for the default, ${cfg.baseUrl}`) : null,
+			...providerFields(p, values, sync),
+			regionField,
+			regionField ? customField : null,
 			field("API key", h("div", { class: "pa-inline" }, keyInput, reveal), h("span", null, "Stored on this server only and never shown again. ", cfg.getKeyUrl ? h("a", { href: cfg.getKeyUrl, target: "_blank", rel: "noopener noreferrer" }, `Get a key from ${p.vendor}`) : null)),
 			h("div", { class: "pa-two" },
 				field("Name (optional)", input({ placeholder: "Team research", onInput: (e) => { label = e.target.value; } }), "Helps tell keys apart."),

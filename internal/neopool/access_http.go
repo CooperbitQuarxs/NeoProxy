@@ -10,9 +10,12 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -274,11 +277,8 @@ func (h *HTTP) accessDelete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// APIKeyRequest is POST /v8/neo/access/api-key. BaseURL is honoured only for
-// providers with an editable address (custom servers, self-hosted gateways) and
-// only for administrators: choosing an upstream that the server will call with
-// a key is an administrative decision. For a provider with regional endpoints it
-// only selects which known region is tried first.
+// APIKeyRequest is POST /v8/neo/access/api-key. Custom upstream addresses
+// require administrator authority; Token Plan also accepts a selected region.
 type APIKeyRequest struct {
 	Provider   string   `json:"provider"`
 	APIKey     string   `json:"apiKey"`
@@ -287,6 +287,17 @@ type APIKeyRequest struct {
 	OwnerID    string   `json:"ownerId"`
 	PlanID     string   `json:"planId"`
 	MonthlyUSD *float64 `json:"monthlyUSD"`
+	// Cookie is QwenCloud Token Plan's optional console Cookie header, which
+	// enables its quota reporting (NeoPi's credential bundle `cookie`).
+	Cookie string `json:"cookie"`
+	// CustomBaseURL is NeoPi's "Custom" endpoint option of a regional
+	// provider (administrators only). It is chosen explicitly because it
+	// changes the key check even when BaseURL names a region.
+	CustomBaseURL bool `json:"customBaseUrl"`
+	// Fields are the provider's own details for the key, keyed by the
+	// catalogue's field IDs (Snowflake's account; Cloudflare's accountId and
+	// gatewayId).
+	Fields map[string]string `json:"fields"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -392,12 +403,63 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	if !ok || info.APIKey == nil {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "%q does not take API keys here. Choose a provider from the list.", req.Provider)
 	}
-	key := strings.TrimSpace(req.APIKey)
+	key, err := normalizeNeoPiKey(info, strings.TrimSpace(req.APIKey))
+	if err != nil {
+		return AccessItem{}, err
+	}
 	if key == "" && !info.APIKey.KeyOptional {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "Paste the %s API key. Keys look like %s.", info.Name, info.APIKey.KeyHint)
 	}
 	if len(key) > 16384 || strings.ContainsAny(key, " \r\n\t") {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "The key contains spaces or line breaks. Paste only the key itself.")
+	}
+	switch info.ID {
+	case snowflake.Provider:
+		// Requests go to the account the credential is bound to: NeoPi's
+		// structured key names it; a PAT is bound to the entered account.
+		credential, _, parseErr := snowflake.ParseCredential(key)
+		if parseErr != nil {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "%s", parseErr.Error())
+		}
+		accountURL := credential.AccountURL
+		if account := strings.TrimSpace(req.Fields["account"]); account != "" || accountURL == "" {
+			entered, accountErr := snowflake.NormalizeAccountURL(account)
+			if accountErr != nil {
+				return AccessItem{}, accessErr(http.StatusBadRequest, "%s", accountErr.Error())
+			}
+			if accountURL != "" && entered != accountURL {
+				return AccessItem{}, accessErr(http.StatusBadRequest, "This Snowflake key belongs to %s, not %s.", accountURL, entered)
+			}
+			accountURL = entered
+		}
+		structured, _ := json.Marshal(map[string]string{"token": credential.Token, "enterpriseUrl": accountURL})
+		key = string(structured)
+	case cloudflare.Provider:
+		// NeoPi's login stores the token with the account and gateway it
+		// collects; a structured key already naming them keeps them.
+		credential, ok := cloudflare.ParseCredential(key)
+		if !ok {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Paste the Cloudflare AI Gateway token.")
+		}
+		for _, field := range []struct {
+			id, name string
+			value    *string
+		}{{"accountId", "account ID", &credential.AccountID}, {"gatewayId", "AI Gateway ID", &credential.GatewayID}} {
+			entered := strings.TrimSpace(req.Fields[field.id])
+			if entered != "" && *field.value != "" && entered != *field.value {
+				return AccessItem{}, accessErr(http.StatusBadRequest, "This Cloudflare key names %s %s, not %s.", field.name, *field.value, entered)
+			}
+			if entered != "" {
+				*field.value = entered
+			}
+		}
+		if credential.AccountID == "" {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Cloudflare account ID is required")
+		}
+		if credential.GatewayID == "" {
+			return AccessItem{}, accessErr(http.StatusBadRequest, "Cloudflare AI Gateway ID is required")
+		}
+		key = cloudflare.Serialize(credential)
 	}
 	if req.PlanID != "" && !validPlanID(info.ID, req.PlanID) {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "planId %q is not a plan of %s.", req.PlanID, info.Name)
@@ -413,7 +475,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		return AccessItem{}, err
 	}
 	base := catalogBaseURL(info.ID)
-	preferred := ""
+	var preferred regionChoice
 	if info.APIKey.EditableBaseURL {
 		if p.Role != neo.RoleAdmin {
 			return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
@@ -427,9 +489,28 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 			return AccessItem{}, accessErr(http.StatusBadRequest, "Enter the server's base URL, for example http://localhost:11434/v1 for Ollama.")
 		}
 	} else {
-		preferred = req.BaseURL
+		preferred = regionChoice{BaseURL: strings.TrimRight(strings.TrimSpace(req.BaseURL), "/"), Custom: req.CustomBaseURL}
+		if regions := catalogRegions(info.ID); len(regions) > 0 {
+			// A URL that is not one of the regions is the Custom option too.
+			preferred.Custom = preferred.Custom || (preferred.BaseURL != "" && !slices.Contains(regions, preferred.BaseURL))
+			if preferred.Custom {
+				if p.Role != neo.RoleAdmin {
+					return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
+				}
+				u, parseErr := url.Parse(preferred.BaseURL)
+				if parseErr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+					return AccessItem{}, accessErr(http.StatusBadRequest, "Enter a valid custom %s base URL.", info.Name)
+				}
+			}
+		} else {
+			preferred = regionChoice{}
+		}
 	}
 	base, models, routes, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)
+	if err != nil {
+		return AccessItem{}, err
+	}
+	cookie, err := neoPiConsoleCookie(info, req.Cookie, base)
 	if err != nil {
 		return AccessItem{}, err
 	}
@@ -437,7 +518,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	if info.engine == "" {
 		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models,
 			Dialect: info.dialect, SessionHeader: info.sessionHeader, ModelRoutes: accountModelRoutes(routes),
-			RequestScopedErrors: info.upstreamErrors, Headers: info.headers}
+			RequestScopedErrors: info.upstreamErrors, Headers: info.headers, ConsoleCookie: cookie}
 	}
 	record, err := h.management.CreateAccountAPIKey(coreauth.WithAccountLoginOwner(ctx, p.UserID), spec)
 	if err != nil {

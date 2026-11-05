@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopidialect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/tidwall/gjson"
@@ -27,19 +28,31 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	var profile neoPiProfile
 	profile.Reasoning = model.Reasoning
 	profile.MaxTokens = int64(model.MaxTokens)
-	party := &neoPiThirdParty{images: false}
+	if profile.MaxTokens <= 0 {
+		// A discovered row without an output cap: NeoPi's Anthropic provider
+		// allows 64000 (anthropic.ts maxAllowedTokens).
+		profile.MaxTokens = 64000
+	}
+	party := &neoPiThirdParty{images: false, modelID: model.ID}
 	for _, input := range model.Input {
 		party.images = party.images || input == "image"
 	}
 	if thinking := model.Thinking; thinking != nil {
 		profile.Thinking.Mode = thinking.Mode
 		profile.Thinking.SupportsDisplay = thinking.SupportsDisplay
+		profile.Thinking.PrefixBinding = thinking.PrefixBinding
 		party.efforts = append([]string(nil), thinking.Efforts...)
 		party.requiresEffort = thinking.RequiresEffort
+		party.effortMap = thinking.EffortMap
+		party.adaptiveTagOnly = thinking.Mode == "anthropic-adaptive" && len(thinking.Efforts) > 0
+		for _, effort := range thinking.Efforts {
+			party.adaptiveTagOnly = party.adaptiveTagOnly && thinking.EffortMap[effort] == "adaptive"
+		}
 	}
 	// NeoPi keys this on the provider: Kimi shares its affinity identity
 	// across its two transports.
 	party.promptCacheUserID = model.Provider == "kimi-code"
+	party.ownStream = model.Provider == "kimi-code"
 	if compat := model.AnthropicCompat; compat != nil {
 		profile.Compat.SupportsContextManagement = compat.SupportsContextManagement
 		profile.Compat.SupportsEagerToolInputStreaming = compat.SupportsEagerToolInputStreaming
@@ -52,23 +65,42 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Compat.SupportsForcedToolChoice = compat.SupportsForcedToolChoice
 		profile.Compat.SupportsSamplingParams = compat.SupportsSamplingParams
 		profile.Compat.InjectClaudeCodeInstruction = compat.InjectClaudeCodeInstruction
+		profile.Compat.DisabledThinking = compat.DisabledThinking
 		party.outputEffort = compat.SupportsOutputEffort
 		party.toolResultID = compat.RequiresToolResultID
+		party.escapeToolNames = compat.EscapeBuiltinToolNames
+		party.replayUnsigned = compat.ReplayUnsignedThinking
+		party.signing = compat.SigningEndpoint && !compat.OfficialEndpoint
 	}
+	party.vertexRawPredict = neoPiVertexRawPredictURL(model.BaseURL)
 	profile.thirdParty = party
 	return profile
 }
 
 // neoPiThirdPartyHeaders is buildAnthropicHeaders for an API key on a
 // non-Anthropic endpoint: Bearer auth (applied later), NeoPi's own user agent
-// and only the betas the request's fields need.
+// and only the betas the request's fields need. The effort beta rides a
+// requested effort and an adaptive-only model's pinned one (thinking off, or a
+// forced tool choice); interleaved thinking needs its beta unless the model
+// displays thinking natively off a signing route.
 func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile neoPiProfile) http.Header {
 	var betas []string
-	if thinking && profile.Reasoning && profile.thirdParty.outputEffort {
+	tagOnly := profile.thirdParty.adaptiveTagOnly
+	adaptivePin := profile.Thinking.Mode == "anthropic-adaptive" && !tagOnly &&
+		(!thinking || profile.Compat.SupportsForcedToolChoice && neoPiForcedToolChoice(body))
+	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking && !tagOnly || adaptivePin) {
 		betas = append(betas, "effort-2025-11-24")
 	}
-	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay {
+	rawPredict := profile.thirdParty.vertexRawPredict
+	if !rawPredict {
+		betas = append(betas, neoPiControlBetas(profile)...)
+	}
+	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing && !rawPredict {
 		betas = append(betas, "interleaved-thinking-2025-05-14")
+	}
+	// The binding-controls beta follows the finalized body's block_binding.
+	if !rawPredict && gjson.GetBytes(body, "thinking.block_binding").Exists() {
+		betas = append(betas, "thinking-binding-controls-2026-08-01")
 	}
 	for _, edit := range gjson.GetBytes(body, "context_management.edits").Array() {
 		if edit.Get("type").String() == "clear_thinking_20251015" {
@@ -97,10 +129,59 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 	return h
 }
 
+// neoPiControlBetas is resolveAnthropicControlBetas without a binding: the
+// endpoint's mid-conversation controls.
+func neoPiControlBetas(profile neoPiProfile) []string {
+	var betas []string
+	if profile.Compat.SupportsTurnScopedSystem {
+		betas = append(betas, "mid-conversation-system-clear-at-2026-08-21")
+	}
+	if profile.Compat.SupportsMidConversationToolChanges {
+		betas = append(betas, "mid-conversation-tool-changes-2026-07-01")
+	}
+	if profile.Compat.SupportsPerMessageEffort {
+		betas = append(betas, "mid-conversation-output-config-2026-07-01")
+	}
+	return betas
+}
+
+// neoPiVertexRawPredictURL is isVertexRawPredictUrl.
+func neoPiVertexRawPredictURL(url string) bool {
+	return strings.Contains(url, ":streamRawPredict") || strings.Contains(url, ":rawPredict")
+}
+
+// neoPiVertexRawPredictBody is the body Vertex's Claude adapter takes: the
+// thinking-binding beta the finalized thinking carries joins the body betas
+// (anthropic.ts, after buildParams), then transformVertexAnthropicBody drops
+// the model, which rides the URL, and names Vertex's API version last.
+func neoPiVertexRawPredictBody(body []byte) []byte {
+	const binding = "thinking-binding-controls-2026-08-01"
+	if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+		present := false
+		for _, beta := range gjson.GetBytes(body, "anthropic_beta").Array() {
+			present = present || beta.String() == binding
+		}
+		if !present {
+			body = neoPiSet(body, "anthropic_beta.-1", binding)
+		}
+	}
+	body = neoPiDelete(body, "model")
+	return neoPiSet(body, "anthropic_version", "vertex-2023-10-16")
+}
+
+// neoPiForcedToolChoice is isForcedToolChoice over the wire request: a
+// tool_choice that makes the model call a tool.
+func neoPiForcedToolChoice(body []byte) bool {
+	kind := gjson.GetBytes(body, "tool_choice.type").String()
+	return kind == "any" || kind == "tool"
+}
+
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a
 // non-Anthropic model to downstream Messages turns: blank user turns drop,
 // user and tool_result content is rebuilt for the model's input modalities,
-// and a tool_result carries the `id` alias the provider requires.
+// a tool_result carries the `id` alias the provider requires, unsigned
+// assistant thinking the model cannot replay is demoted to text (or dropped),
+// and an assistant turn left with no blocks is skipped.
 func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	root := gjson.ParseBytes(input)
 	messages := root.Get("messages")
@@ -109,6 +190,14 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	}
 	out := make([]json.RawMessage, 0, len(messages.Array()))
 	for _, message := range messages.Array() {
+		if message.Get("role").String() == "assistant" {
+			converted := neoPiThirdPartyAssistant(message, party)
+			if content := gjson.GetBytes(converted, "content"); content.IsArray() && len(content.Array()) == 0 {
+				continue
+			}
+			out = append(out, converted)
+			continue
+		}
 		if message.Get("role").String() != "user" {
 			out = append(out, json.RawMessage(message.Raw))
 			continue
@@ -158,6 +247,65 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 		out = append(out, neoPiSetRaw(raw, "content", jsjson.Marshal(blocks)))
 	}
 	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
+}
+
+// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay. On
+// a signing route (transformMessages' same-model replay to a
+// signature-enforcing target) unsigned thinking is dropped, never demoted,
+// and a turn left with no signed thinking drops its redacted thinking too.
+// Elsewhere, in a turn with signed thinking, or for a model that does not
+// replay unsigned thinking, an unsigned block is demoted to text
+// (renderDemotedThinking) and a blank one dropped. Otherwise every blank
+// thinking block is dropped and an unsigned one is replayed as a thinking
+// block with an empty signature.
+func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json.RawMessage {
+	content := message.Get("content")
+	if !content.IsArray() {
+		return json.RawMessage(message.Raw)
+	}
+	unsigned := func(block gjson.Result) bool {
+		return strings.TrimSpace(block.Get("signature").String()) == ""
+	}
+	hasSigned, hasThinking := false, false
+	for _, block := range content.Array() {
+		if block.Get("type").String() == "thinking" {
+			hasThinking = true
+			hasSigned = hasSigned || !unsigned(block)
+		}
+	}
+	demote := hasSigned || !party.replayUnsigned
+	changed := false
+	blocks := make([]json.RawMessage, 0, len(content.Array()))
+	for _, block := range content.Array() {
+		kind := block.Get("type").String()
+		if party.signing && (kind == "thinking" && unsigned(block) || kind == "redacted_thinking" && hasThinking && !hasSigned) {
+			changed = true
+			continue
+		}
+		if kind != "thinking" {
+			blocks = append(blocks, json.RawMessage(block.Raw))
+			continue
+		}
+		thinking := block.Get("thinking").String()
+		blank := strings.TrimSpace(thinking) == ""
+		switch {
+		case demote && !unsigned(block):
+			blocks = append(blocks, json.RawMessage(block.Raw))
+		case blank:
+			changed = true
+		case demote:
+			changed = true
+			blocks = append(blocks, neoPiTextBlock(neopidialect.RenderDemotedThinking(party.modelID, thinking)))
+		default:
+			wire := jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("thinking")}, jsjson.Field{Name: "thinking", Value: jsjson.Marshal(thinking)}, jsjson.Field{Name: "signature", Value: jsjson.Marshal("")})
+			changed = changed || string(wire) != block.Raw
+			blocks = append(blocks, wire)
+		}
+	}
+	if !changed {
+		return json.RawMessage(message.Raw)
+	}
+	return neoPiSetRaw([]byte(message.Raw), "content", jsjson.Marshal(blocks))
 }
 
 // neoPiThirdPartyContent is convertContentBlocks: a text-only model gets one
