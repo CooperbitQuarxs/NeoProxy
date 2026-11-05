@@ -13,6 +13,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -268,5 +269,116 @@ func TestFactoryDroidRewritesRegionRejection(t *testing.T) {
 	var coded interface{ StatusCode() int }
 	if !errors.As(err, &coded) || coded.StatusCode() != http.StatusForbidden {
 		t.Errorf("status = %v, want 403", err)
+	}
+}
+
+// Discovery asks what NeoPi's fetchFactoryDroidModels asks (both endpoints
+// on the account's residency host, with droid's client identity), answers
+// with NeoPi's roster, and stays unanswered where NeoPi returned null
+// (testdata of internal/registry: capture_factory_droid_discovery.ts).
+func TestFetchFactoryDroidModelsMatchesNeoPi(t *testing.T) {
+	file, err := os.Open("../../registry/testdata/factory_droid_discovery.json.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+	reader, err := gzip.NewReader(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture struct {
+		Token     string `json:"token"`
+		Scenarios []struct {
+			Name  string `json:"name"`
+			Scope struct {
+				Region          string `json:"region"`
+				InferenceRegion string `json:"inferenceRegion"`
+				OrgID           string `json:"orgId"`
+			} `json:"scope"`
+			Flags, Settings struct {
+				Status int    `json:"status"`
+				Body   string `json:"body"`
+			}
+			Requests []struct {
+				URL     string            `json:"url"`
+				Headers map[string]string `json:"headers"`
+			} `json:"requests"`
+			Models []struct {
+				ID string `json:"id"`
+			} `json:"models"`
+		} `json:"scenarios"`
+	}
+	if err = json.NewDecoder(reader).Decode(&capture); err != nil {
+		t.Fatal(err)
+	}
+	original := factoryDroidAPIBaseURL
+	defer func() { factoryDroidAPIBaseURL = original }()
+	for _, scenario := range capture.Scenarios {
+		t.Run(scenario.Name, func(t *testing.T) {
+			var host string
+			var mu sync.Mutex
+			seen := map[string]http.Header{}
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				seen[r.URL.Path] = r.Header.Clone()
+				mu.Unlock()
+				answer := scenario.Flags
+				if r.URL.Path == "/api/organization/managed-settings" {
+					answer = scenario.Settings
+				}
+				w.WriteHeader(answer.Status)
+				_, _ = io.WriteString(w, answer.Body)
+			}))
+			defer server.Close()
+			factoryDroidAPIBaseURL = func(region string) string {
+				host = original(region)
+				return server.URL
+			}
+			auth := &cliproxyauth.Auth{ID: "factory-droid-account", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid",
+				"access_token": capture.Token, "region": scenario.Scope.Region, "inference_region": scenario.Scope.InferenceRegion, "org_id": scenario.Scope.OrgID}}
+			models, err := FetchFactoryDroidModels(context.Background(), &config.Config{}, auth)
+			for _, request := range scenario.Requests {
+				requested, errURL := url.Parse(request.URL)
+				if errURL != nil {
+					t.Fatal(errURL)
+				}
+				if host+requested.Path != request.URL {
+					t.Errorf("request %s, want %s", host+requested.Path, request.URL)
+				}
+				mu.Lock()
+				sent, ok := seen[requested.Path]
+				mu.Unlock()
+				if !ok {
+					t.Fatalf("no request to %s", requested.Path)
+				}
+				for name, value := range request.Headers {
+					if got := sent.Get(name); got != value {
+						t.Errorf("%s %s = %q, want %q", requested.Path, name, got, value)
+					}
+				}
+				if sent.Get("X-Factory-Org-Id") != "" && request.Headers["x-factory-org-id"] == "" {
+					t.Errorf("%s sends X-Factory-Org-Id NeoPi omits", requested.Path)
+				}
+			}
+			if scenario.Models == nil {
+				if err == nil {
+					t.Fatalf("discovery answered %d models; NeoPi returned null", len(models))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got, want []string
+			for _, model := range models {
+				got = append(got, model.ID)
+			}
+			for _, model := range scenario.Models {
+				want = append(want, model.ID)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("models:\n got %v\nwant %v", got, want)
+			}
+		})
 	}
 }

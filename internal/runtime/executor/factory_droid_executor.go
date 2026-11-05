@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
@@ -518,9 +520,53 @@ func factoryDroidRegionStream(modelID string, result *cliproxyexecutor.StreamRes
 	return &cliproxyexecutor.StreamResult{Headers: result.Headers, Chunks: out}
 }
 
-// CountTokens is not served: Factory's proxy has no counting endpoint.
-func (e *FactoryDroidExecutor) CountTokens(context.Context, *cliproxyauth.Auth, cliproxyexecutor.Request, cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	return cliproxyexecutor.Response{}, statusErr{code: http.StatusNotImplemented, msg: "factory-droid: token counting is not supported"}
+// CountTokens estimates locally from the Chat Completions form: Factory's
+// proxy has no counting endpoint.
+func (e *FactoryDroidExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	return e.completions.CountTokens(ctx, auth, req, opts)
+}
+
+// Refresh renews the WorkOS session (the refresh-token grant scoped to the
+// credential's organization, then the region lookup), merging what the
+// refresh omitted from the stored record.
+func (e *FactoryDroidExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
+	if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, e.cfg, auth); handled {
+		return refreshed, err
+	}
+	if auth == nil {
+		return nil, statusErr{code: http.StatusInternalServerError, msg: "factory-droid executor: auth is nil"}
+	}
+	if cliproxyauth.IsRefreshLocked(auth) {
+		return nil, cliproxyauth.ErrRefreshLocked
+	}
+	stored, ok := factorydroid.RecordCredential(auth.Metadata)
+	if !ok || stored.RefreshToken == "" {
+		return auth, nil
+	}
+	refreshed, err := factorydroid.NewAuth(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)).Refresh(ctx, stored)
+	if err != nil {
+		var oauthErr *factorydroid.Error
+		if errors.As(err, &oauthErr) && (oauthErr.Status == http.StatusBadRequest || oauthErr.Status == http.StatusUnauthorized) {
+			return nil, statusErr{code: http.StatusUnauthorized, msg: err.Error()}
+		}
+		return nil, err
+	}
+	merged := factorydroid.Merge(stored, refreshed)
+	updated := auth.Clone()
+	if updated.Metadata == nil {
+		updated.Metadata = map[string]any{}
+	}
+	// Organization scope the refresh dropped is dropped from the record too.
+	for _, key := range []string{"email", "account_id", "org_id", "active_organization_id", "region", "inference_region"} {
+		delete(updated.Metadata, key)
+	}
+	for key, value := range factorydroid.Metadata(merged) {
+		updated.Metadata[key] = value
+	}
+	now := time.Now()
+	updated.Metadata["last_refresh"] = now.UTC().Format(time.RFC3339)
+	updated.LastRefreshedAt = now
+	return updated, nil
 }
 
 // HttpRequest sends an arbitrary request with the account's bearer.
@@ -538,4 +584,104 @@ func (e *FactoryDroidExecutor) HttpRequest(ctx context.Context, auth *cliproxyau
 	request = request.Clone(ctx)
 	request.Header.Set("Authorization", "Bearer "+credential.AccessToken)
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
+}
+
+// factoryDroidAPIBaseURL is factoryDroidApiBaseUrl; tests point it at a
+// loopback server.
+var factoryDroidAPIBaseURL = factorydroid.APIBaseURL
+
+// FetchFactoryDroidModels is fetchFactoryDroidModels: Factory has no
+// model-listing endpoint, so the registry is narrowed live with the
+// account's Statsig gates (GET /api/feature-flags) and its organization's
+// model policy and image settings (GET /api/organization/managed-settings).
+// A failed or malformed flags answer leaves discovery unanswered; an
+// unreadable settings body leaves policy and image settings unknown.
+func FetchFactoryDroidModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) ([]*registry.ModelInfo, error) {
+	var credential *factorydroid.Credential
+	if auth != nil {
+		credential, _ = factorydroid.RecordCredential(auth.Metadata)
+	}
+	if credential == nil || strings.TrimSpace(credential.AccessToken) == "" {
+		return nil, errors.New("factory-droid models: account has no access token")
+	}
+	client := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0)
+	base := factoryDroidAPIBaseURL(credential.Region)
+	get := func(path string) (int, []byte, error) {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
+		if err != nil {
+			return 0, nil, err
+		}
+		// Bun's fetch defaults beside the init headers NeoPi passes.
+		request.Header.Set("Accept", "*/*")
+		request.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+		request.Header.Set("Connection", "keep-alive")
+		request.Header.Set("User-Agent", factorydroid.BunUserAgent)
+		request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(credential.AccessToken))
+		for name, values := range factorydroid.ClientHeaders(credential.OrgID) {
+			request.Header[name] = values
+		}
+		response, err := client.Do(request)
+		if err != nil {
+			return 0, nil, err
+		}
+		defer func() { _ = response.Body.Close() }()
+		decoded, err := util.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
+		if err != nil {
+			return response.StatusCode, nil, err
+		}
+		defer func() { _ = decoded.Close() }()
+		body, err := io.ReadAll(decoded)
+		return response.StatusCode, body, err
+	}
+	type answer struct {
+		status int
+		body   []byte
+		err    error
+	}
+	settingsDone := make(chan answer, 1)
+	go func() {
+		status, body, err := get("/api/organization/managed-settings")
+		settingsDone <- answer{status, body, err}
+	}()
+	flagsStatus, flagsBody, flagsErr := get("/api/feature-flags")
+	settingsAnswer := <-settingsDone
+	if flagsErr != nil {
+		return nil, fmt.Errorf("factory-droid models: feature flags: %w", flagsErr)
+	}
+	if flagsStatus < 200 || flagsStatus >= 300 {
+		return nil, fmt.Errorf("factory-droid models: feature flags answered %d", flagsStatus)
+	}
+	var settingsBody []byte
+	if settingsAnswer.err == nil && settingsAnswer.status >= 200 && settingsAnswer.status < 300 {
+		settingsBody = settingsAnswer.body
+	}
+	settings, ok := registry.ParseFactoryDroidSettings(flagsBody, settingsBody)
+	if !ok {
+		return nil, errors.New("factory-droid models: feature flags answer names no flags")
+	}
+	scope := registry.FactoryDroidScope{Region: credential.Region, InferenceRegion: credential.InferenceRegion, OrgID: credential.OrgID}
+	rows := registry.FactoryDroidDiscoveredModels(scope, settings)
+	models := make([]*registry.ModelInfo, 0, len(rows))
+	for _, row := range rows {
+		models = append(models, registry.FactoryDroidModelInfo(row))
+	}
+	return models, nil
+}
+
+// FactoryDroidSeedModels is factoryDroidSeedModels for one account: the
+// registry narrowed offline for the credential's scope, served until
+// discovery answers.
+func FactoryDroidSeedModels(auth *cliproxyauth.Auth) []*registry.ModelInfo {
+	scope := registry.FactoryDroidScope{}
+	if auth != nil {
+		if credential, ok := factorydroid.RecordCredential(auth.Metadata); ok {
+			scope = registry.FactoryDroidScope{Region: credential.Region, InferenceRegion: credential.InferenceRegion, OrgID: credential.OrgID}
+		}
+	}
+	rows := registry.FactoryDroidSeedModels(scope)
+	models := make([]*registry.ModelInfo, 0, len(rows))
+	for _, row := range rows {
+		models = append(models, registry.FactoryDroidModelInfo(row))
+	}
+	return models
 }

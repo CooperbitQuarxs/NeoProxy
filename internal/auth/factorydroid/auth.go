@@ -29,9 +29,9 @@ const (
 	// fallbackExpiry is the rule's `expires "jwt" fallback-ms`: a token
 	// without an exp claim lives a day.
 	fallbackExpiry = 24 * time.Hour
-	// bunUserAgent is the user agent Bun's fetch supplies when NeoPi's
+	// BunUserAgent is the user agent Bun's fetch supplies when NeoPi's
 	// request names none.
-	bunUserAgent = "Bun/1.3.14"
+	BunUserAgent = "Bun/1.3.14"
 )
 
 // RFC 8628 polling as pollOAuthDeviceCodeFlow paces it.
@@ -160,7 +160,7 @@ func (a *Auth) postToken(ctx context.Context, endpoint, kind string, fields ...f
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", bunUserAgent)
+	req.Header.Set("User-Agent", BunUserAgent)
 	status, body, err := a.do(ctx, req)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -536,7 +536,7 @@ func setBunGetHeaders(req *http.Request, token string) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br, zstd")
 	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("User-Agent", bunUserAgent)
+	req.Header.Set("User-Agent", BunUserAgent)
 }
 
 // jwtClaims decodes a JWT payload without verification (decodeJwtPayload).
