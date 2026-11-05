@@ -183,6 +183,27 @@ func TestAccountLimitsOverridePerAccount(t *testing.T) {
 	}
 }
 
+// A provider window scoped to some models (Factory Droid's per-pool quotas)
+// gates only stages serving one of them: account a's pool past its limit
+// stops a stage for that pool's model and no other.
+func TestProviderWindowGatesOnlyItsModels(t *testing.T) {
+	for _, tc := range []struct {
+		models []string
+		want   string
+	}{{[]string{"primary/other"}, "a"}, {[]string{"primary/other", "primary/model"}, "b"}, {nil, "b"}} {
+		state := policyState()
+		for j := range state.snapshot.Accounts {
+			if state.snapshot.Accounts[j].ID == "a" {
+				state.snapshot.Accounts[j].ProviderWindows = []neopool.Window{{Kind: "day", Known: true, Source: "provider-reported", Unit: "percent", Capacity: 100, Used: .9, Models: tc.models}}
+			}
+		}
+		d := decide(Request{Asked: "neoproxy/route"}, state, -1, nil)
+		if d.Outcome != "ok" || d.AccountID != tc.want {
+			t.Errorf("window models %v: decision=%+v, want account %s", tc.models, d, tc.want)
+		}
+	}
+}
+
 func TestAccountLimitsValidation(t *testing.T) {
 	for _, bad := range []float64{0, -.1, 1.01, math.NaN(), math.Inf(1)} {
 		state := policyState()

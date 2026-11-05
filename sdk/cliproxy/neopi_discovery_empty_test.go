@@ -10,7 +10,7 @@ import (
 // A successful empty roster registers no models for the cycle but is retried at
 // the failure cadence, not cached for the full TTL (model-manager.ts).
 func TestNeoPiDiscoveryRetriesEmptyRosterEarly(t *testing.T) {
-	d := &neoPiDiscovery{provider: "x", ttl: 2 * time.Hour, retry: 5 * time.Minute, bundled: func() []*ModelInfo { return []*ModelInfo{{ID: "seed"}} },
+	d := &neoPiDiscovery{provider: "x", ttl: 2 * time.Hour, retry: 5 * time.Minute, bundled: func(*coreauth.Auth) []*ModelInfo { return []*ModelInfo{{ID: "seed"}} },
 		entries: map[string]*neoPiDiscoveryEntry{}}
 	auth := &coreauth.Auth{ID: "a", Provider: "x"}
 	now := time.Now()

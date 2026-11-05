@@ -53,6 +53,12 @@ type Options struct {
 	ServiceTier      string
 	ToolChoice       json.RawMessage
 	Include          []string
+	// IncludeEncryptedReasoning is options.includeEncryptedReasoning: when
+	// set it replaces compat.includeEncryptedReasoning.
+	IncludeEncryptedReasoning *bool
+	// ExtraBody is options.extraBody, assigned over the finished params as
+	// Object.assign does: a present key keeps its place, a new key appends.
+	ExtraBody []jsjson.Field
 }
 
 // FromResponses maps a downstream Responses body onto NeoPi's Context and
@@ -230,6 +236,9 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 	policy := reasoningPolicy{modelSupported: modelSupported, requested: requested, enabled: enabled,
 		omitEffort: compat.OmitReasoningEffort || !compat.SupportsReasoningEffort, disableMode: compat.ReasoningDisableMode,
 		includeEncrypted: compat.IncludeEncryptedReasoning}
+	if opts.IncludeEncryptedReasoning != nil {
+		policy.includeEncrypted = *opts.IncludeEncryptedReasoning
+	}
 	if enabled {
 		policy.wireEffort = mapEffort(model, compat, requested)
 	}
@@ -269,15 +278,17 @@ func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.
 		}
 	}
 	promptCacheKey := codexwire.NormalizePromptCacheKey(opts.SessionID)
-	params := object{{Name: "model", Value: jsjson.Marshal(model.ID)}, {Name: "input", Value: jsjson.Marshal(input)}}
+	// buildParams' object literal: its keys hold their places even while
+	// undefined, so a later assignment (extraBody) lands where NeoPi's does.
+	params := object{{Name: "model", Value: jsjson.Marshal(model.ID)}, {Name: "input", Value: jsjson.Marshal(input)}, {Name: "instructions"},
+		{Name: "stream", Value: jsjson.Marshal(true)}, {Name: "prompt_cache_key"}, {Name: "prompt_cache_retention"}, {Name: "session_id"},
+		{Name: "store", Value: jsjson.Marshal(false)}, {Name: "stream_options"}}
 	if instructions != "" {
 		params.set("instructions", jsjson.Marshal(instructions))
 	}
-	params.set("stream", jsjson.Marshal(true))
 	if promptCacheKey != "" {
 		params.set("prompt_cache_key", jsjson.Marshal(promptCacheKey))
 	}
-	params.set("store", jsjson.Marshal(false))
 	if compat.SupportsObfuscationOptOut {
 		params.set("stream_options", jsjson.Object(jsjson.Field{Name: "include_obfuscation", Value: jsjson.Marshal(false)}))
 	}
@@ -332,6 +343,9 @@ func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.
 	applyReasoning(&params, resolveReasoningPolicy(model, opts, toolChoice, len(ctx.Tools) > 0), reasoningSummary(model, opts), func(effort string) string {
 		return mapEffort(model, compat, effort)
 	})
+	for _, field := range opts.ExtraBody {
+		params.set(field.Name, field.Value)
+	}
 	return params.bytes()
 }
 
@@ -411,6 +425,9 @@ func applyReasoning(params *object, policy reasoningPolicy, summary *string, map
 // outputTokens is resolveOpenAIOutputTokenParam followed by
 // applyCommonResponsesSamplingParams' clamp.
 func outputTokens(model *registry.NeoPiModel, requested *float64) (float64, bool) {
+	if model.OmitMaxOutputTokens {
+		return 0, false
+	}
 	compat := model.Compat
 	var value float64
 	switch {

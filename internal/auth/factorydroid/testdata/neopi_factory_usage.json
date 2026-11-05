@@ -1,0 +1,472 @@
+{
+	"source": "NeoPi parseFactoryDroidUsage",
+	"fetchedAt": 1793880000000,
+	"cases": [
+		{
+			"name": "both-pools",
+			"payload": {
+				"limits": {
+					"standard": {
+						"fiveHour": {
+							"usedPercent": 12.5,
+							"windowEnd": "2026-11-05T14:00:00.000Z"
+						},
+						"weekly": {
+							"usedPercent": 40,
+							"windowEnd": "2026-11-09T16:00:00.000Z"
+						},
+						"monthly": {
+							"usedPercent": 3,
+							"windowEnd": "2026-11-22T04:00:00.000Z"
+						}
+					},
+					"core": {
+						"fiveHour": {
+							"usedPercent": 0,
+							"windowEnd": "2026-11-05T16:00:00.000Z"
+						},
+						"weekly": {
+							"usedPercent": "77",
+							"windowEnd": "2026-11-07T14:00:00.000Z"
+						}
+					}
+				},
+				"extraUsageBalanceCents": 1250
+			},
+			"report": {
+				"provider": "factory-droid",
+				"fetchedAt": 1793880000000,
+				"limits": [
+					{
+						"id": "factory-droid:standard:5h",
+						"label": "Standard credits 5 Hour window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "standard-5h"
+						},
+						"window": {
+							"id": "standard-5h",
+							"label": "Standard credits 5 Hour",
+							"durationMs": 18000000,
+							"resetsAt": 1793887200000
+						},
+						"amount": {
+							"used": 12.5,
+							"limit": 100,
+							"remaining": 87.5,
+							"usedFraction": 0.125,
+							"remainingFraction": 0.875,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:standard:weekly",
+						"label": "Standard credits Weekly window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "standard-weekly"
+						},
+						"window": {
+							"id": "standard-weekly",
+							"label": "Standard credits Weekly",
+							"durationMs": 604800000,
+							"resetsAt": 1794240000000
+						},
+						"amount": {
+							"used": 40,
+							"limit": 100,
+							"remaining": 60,
+							"usedFraction": 0.4,
+							"remainingFraction": 0.6,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:standard:monthly",
+						"label": "Standard credits Monthly window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "standard-monthly"
+						},
+						"window": {
+							"id": "standard-monthly",
+							"label": "Standard credits Monthly",
+							"durationMs": 2592000000,
+							"resetsAt": 1795320000000
+						},
+						"amount": {
+							"used": 3,
+							"limit": 100,
+							"remaining": 97,
+							"usedFraction": 0.03,
+							"remainingFraction": 0.97,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:core:5h",
+						"label": "Droid Core 5 Hour window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "core-5h"
+						},
+						"window": {
+							"id": "core-5h",
+							"label": "Droid Core 5 Hour",
+							"durationMs": 18000000,
+							"resetsAt": 1793894400000
+						},
+						"amount": {
+							"used": 0,
+							"limit": 100,
+							"remaining": 100,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:core:weekly",
+						"label": "Droid Core Weekly window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "core-weekly"
+						},
+						"window": {
+							"id": "core-weekly",
+							"label": "Droid Core Weekly",
+							"durationMs": 604800000,
+							"resetsAt": 1794060000000
+						},
+						"amount": {
+							"used": 77,
+							"limit": 100,
+							"remaining": 23,
+							"usedFraction": 0.77,
+							"remainingFraction": 0.22999999999999998,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:extra-balance",
+						"label": "Extra usage balance",
+						"scope": {
+							"provider": "factory-droid"
+						},
+						"amount": {
+							"used": 0,
+							"limit": 12.5,
+							"remaining": 12.5,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "usd"
+						},
+						"status": "ok"
+					}
+				],
+				"raw": {
+					"limits": {
+						"standard": {
+							"fiveHour": {
+								"usedPercent": 12.5,
+								"windowEnd": "2026-11-05T14:00:00.000Z"
+							},
+							"weekly": {
+								"usedPercent": 40,
+								"windowEnd": "2026-11-09T16:00:00.000Z"
+							},
+							"monthly": {
+								"usedPercent": 3,
+								"windowEnd": "2026-11-22T04:00:00.000Z"
+							}
+						},
+						"core": {
+							"fiveHour": {
+								"usedPercent": 0,
+								"windowEnd": "2026-11-05T16:00:00.000Z"
+							},
+							"weekly": {
+								"usedPercent": "77",
+								"windowEnd": "2026-11-07T14:00:00.000Z"
+							}
+						}
+					},
+					"extraUsageBalanceCents": 1250
+				}
+			}
+		},
+		{
+			"name": "lapsed-window",
+			"payload": {
+				"limits": {
+					"standard": {
+						"fiveHour": {
+							"usedPercent": 100,
+							"windowEnd": "2026-11-05T11:00:00.000Z"
+						},
+						"weekly": {
+							"usedPercent": 140,
+							"windowEnd": "2026-11-05T22:00:00.000Z"
+						}
+					}
+				}
+			},
+			"report": {
+				"provider": "factory-droid",
+				"fetchedAt": 1793880000000,
+				"limits": [
+					{
+						"id": "factory-droid:standard:5h",
+						"label": "Standard credits 5 Hour window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "standard-5h"
+						},
+						"window": {
+							"id": "standard-5h",
+							"label": "Standard credits 5 Hour",
+							"durationMs": 18000000
+						},
+						"amount": {
+							"used": 0,
+							"limit": 100,
+							"remaining": 100,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:standard:weekly",
+						"label": "Standard credits Weekly window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "standard-weekly"
+						},
+						"window": {
+							"id": "standard-weekly",
+							"label": "Standard credits Weekly",
+							"durationMs": 604800000,
+							"resetsAt": 1793916000000
+						},
+						"amount": {
+							"used": 140,
+							"limit": 100,
+							"remaining": 0,
+							"usedFraction": 1,
+							"remainingFraction": 0,
+							"unit": "percent"
+						},
+						"status": "exhausted"
+					}
+				],
+				"raw": {
+					"limits": {
+						"standard": {
+							"fiveHour": {
+								"usedPercent": 100,
+								"windowEnd": "2026-11-05T11:00:00.000Z"
+							},
+							"weekly": {
+								"usedPercent": 140,
+								"windowEnd": "2026-11-05T22:00:00.000Z"
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "no-window-end",
+			"payload": {
+				"limits": {
+					"core": {
+						"fiveHour": {
+							"usedPercent": 50
+						},
+						"weekly": {
+							"usedPercent": -5,
+							"windowEnd": "2026-11-05T13:00:00.000Z"
+						}
+					}
+				}
+			},
+			"report": {
+				"provider": "factory-droid",
+				"fetchedAt": 1793880000000,
+				"limits": [
+					{
+						"id": "factory-droid:core:5h",
+						"label": "Droid Core 5 Hour window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "core-5h"
+						},
+						"window": {
+							"id": "core-5h",
+							"label": "Droid Core 5 Hour",
+							"durationMs": 18000000
+						},
+						"amount": {
+							"used": 0,
+							"limit": 100,
+							"remaining": 100,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "percent"
+						},
+						"status": "ok"
+					},
+					{
+						"id": "factory-droid:core:weekly",
+						"label": "Droid Core Weekly window",
+						"scope": {
+							"provider": "factory-droid",
+							"windowId": "core-weekly"
+						},
+						"window": {
+							"id": "core-weekly",
+							"label": "Droid Core Weekly",
+							"durationMs": 604800000,
+							"resetsAt": 1793883600000
+						},
+						"amount": {
+							"used": -5,
+							"limit": 100,
+							"remaining": 105,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "percent"
+						},
+						"status": "ok"
+					}
+				],
+				"raw": {
+					"limits": {
+						"core": {
+							"fiveHour": {
+								"usedPercent": 50
+							},
+							"weekly": {
+								"usedPercent": -5,
+								"windowEnd": "2026-11-05T13:00:00.000Z"
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "bad-percent",
+			"payload": {
+				"limits": {
+					"standard": {
+						"fiveHour": {
+							"usedPercent": "x",
+							"windowEnd": "2026-11-05T13:00:00.000Z"
+						},
+						"weekly": {
+							"usedPercent": null
+						}
+					}
+				}
+			},
+			"report": null
+		},
+		{
+			"name": "no-token-billing",
+			"payload": {
+				"usesTokenRateLimitsBilling": false,
+				"limits": {
+					"standard": {
+						"fiveHour": {
+							"usedPercent": 1,
+							"windowEnd": "2026-11-05T13:00:00.000Z"
+						}
+					}
+				}
+			},
+			"report": {
+				"provider": "factory-droid",
+				"fetchedAt": 1793880000000,
+				"limits": [],
+				"notes": [
+					"This Factory account does not use token-rate-limit billing; no quota windows are exposed."
+				],
+				"raw": {
+					"usesTokenRateLimitsBilling": false,
+					"limits": {
+						"standard": {
+							"fiveHour": {
+								"usedPercent": 1,
+								"windowEnd": "2026-11-05T13:00:00.000Z"
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "balance-only",
+			"payload": {
+				"limits": {},
+				"extraUsageBalanceCents": 99
+			},
+			"report": {
+				"provider": "factory-droid",
+				"fetchedAt": 1793880000000,
+				"limits": [
+					{
+						"id": "factory-droid:extra-balance",
+						"label": "Extra usage balance",
+						"scope": {
+							"provider": "factory-droid"
+						},
+						"amount": {
+							"used": 0,
+							"limit": 0.99,
+							"remaining": 0.99,
+							"usedFraction": 0,
+							"remainingFraction": 1,
+							"unit": "usd"
+						},
+						"status": "ok"
+					}
+				],
+				"raw": {
+					"limits": {},
+					"extraUsageBalanceCents": 99
+				}
+			}
+		},
+		{
+			"name": "zero-balance",
+			"payload": {
+				"limits": {},
+				"extraUsageBalanceCents": 0
+			},
+			"report": null
+		},
+		{
+			"name": "no-limits",
+			"payload": {
+				"extraUsageBalanceCents": 500
+			},
+			"report": null
+		},
+		{
+			"name": "not-object",
+			"payload": [
+				1,
+				2
+			],
+			"report": null
+		}
+	]
+}

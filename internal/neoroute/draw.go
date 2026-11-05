@@ -508,9 +508,10 @@ func oddsNote(listed []Candidate, weights []float64, chosen int) string {
 	return fmt.Sprintf("drew %s at %s odds of %d", listed[chosen].AccountID, pct(weights[chosen]/total), len(listed))
 }
 
-// resetsAt is the account's window reset for the stage, 0 when it has none.
-func resetsAt(a neopool.Account, st Stage, at int64) int64 {
-	if w, _, metered := windowFor(a, st.Window, at); metered {
+// resetsAt is the account's window reset for the stage serving model, 0 when
+// it has none.
+func resetsAt(a neopool.Account, st Stage, model string, at int64) int64 {
+	if w, _, metered := windowFor(a, st.Window, model, at); metered {
 		return w.ResetsAt
 	}
 	return 0
@@ -522,7 +523,7 @@ func untilText(reset, at int64) string {
 
 // drawCandidate picks one of the stage's candidates (aligned with listed) and
 // says why. It reads the draw memory but never writes it.
-func drawCandidate(state routeState, vm string, st Stage, candidates []neopool.Account, listed []Candidate, facts *requestFacts) (int, string) {
+func drawCandidate(state routeState, vm string, st Stage, model string, candidates []neopool.Account, listed []Candidate, facts *requestFacts) (int, string) {
 	n := len(candidates)
 	rng := state.rng
 	if rng == nil {
@@ -595,7 +596,7 @@ func drawCandidate(state routeState, vm string, st Stage, candidates []neopool.A
 		soonest := canonicalDraw(st.Draw) == "reset-soonest"
 		chosen, best := 0, int64(0)
 		for i, a := range candidates {
-			r := resetsAt(a, st, state.at)
+			r := resetsAt(a, st, model, state.at)
 			if r > 0 && (best == 0 || (soonest && r < best) || (!soonest && r > best)) {
 				chosen, best = i, r
 			}

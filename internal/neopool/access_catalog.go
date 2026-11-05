@@ -185,7 +185,7 @@ func (s *ProviderSubscription) at(site string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -213,6 +213,9 @@ var providerCatalog = []ProviderInfo{
 		Plans:        grokPlans},
 	{ID: "kimi", Name: "Kimi", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: device("Opens Kimi in a new tab and shows a code to confirm there.").at("Kimi"),
+		Plans:        []ProviderPlan{}},
+	{ID: "factory-droid", Name: "Factory Droid", Vendor: "Factory", Hue: 30, Chroma: providerChroma, Methods: []string{"subscription"},
+		Subscription: device("Opens Factory's sign-in in a new tab and shows a code to confirm there. NeoProxy keeps the sign-in refreshed.").at("Factory"),
 		Plans:        []ProviderPlan{}},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),

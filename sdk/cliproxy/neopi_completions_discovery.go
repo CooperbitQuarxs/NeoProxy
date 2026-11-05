@@ -57,7 +57,7 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
 			ttl:      2 * time.Hour, retry: 5 * time.Minute,
-			bundled: func() []*ModelInfo { return registry.NeoPiCompletionsBundledModels(provider, provider) },
+			bundled: func(*coreauth.Auth) []*ModelInfo { return registry.NeoPiCompletionsBundledModels(provider, provider) },
 			fetch:   fetchNeoPiCompletionsModels(provider),
 			match:   func(a *coreauth.Auth) bool { return neoPiCompletionsCatalogProvider(a) == provider },
 			entries: map[string]*neoPiDiscoveryEntry{},

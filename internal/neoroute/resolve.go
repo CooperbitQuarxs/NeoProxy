@@ -52,13 +52,14 @@ func localWindow(a neopool.Account, kind string, now int64) (neopool.Window, boo
 	return neopool.Window{}, false
 }
 
-// windowFor returns the meter a stage of that window kind reads for the account:
-// the provider-reported window when one is known and current, else the local
+// windowFor returns the meter a stage of that window kind reads for the account
+// serving model: the provider-reported window when one is known, current and
+// scoped to the model (an unscoped window covers every model), else the local
 // configured meter. metered is false when the account has neither, i.e. it is
 // unmetered and always eligible. provider tells which of the two was returned.
-func windowFor(a neopool.Account, kind string, now int64) (w neopool.Window, provider, metered bool) {
+func windowFor(a neopool.Account, kind, model string, now int64) (w neopool.Window, provider, metered bool) {
 	for _, pw := range a.ProviderWindows {
-		if pw.Kind == kind && pw.Known && (pw.ResetsAt == 0 || pw.ResetsAt > now) {
+		if pw.Kind == kind && pw.Known && (pw.ResetsAt == 0 || pw.ResetsAt > now) && (len(pw.Models) == 0 || slices.Contains(pw.Models, model)) {
 			return pw, true, true
 		}
 	}
@@ -307,7 +308,7 @@ func evaluateStage(state routeState, vm VirtualModel, st Stage, index int, allot
 		if !inStageScope(state, st, m, a) {
 			continue
 		}
-		w, provider, metered := windowFor(a, st.Window, state.at)
+		w, provider, metered := windowFor(a, st.Window, modelID, state.at)
 		if a.CooldownUntil > state.at && (reset == 0 || a.CooldownUntil < reset) {
 			reset = a.CooldownUntil
 		}
@@ -480,7 +481,7 @@ func resolveAsked(req Request, state routeState, after int, proposal *ScriptProp
 			}
 			tr.DrawNote = "chosen by the routing script"
 		} else {
-			chosen, tr.DrawNote = drawCandidate(state, vm.ID, st, candidates, tr.Candidates, facts)
+			chosen, tr.DrawNote = drawCandidate(state, vm.ID, st, tr.Model, candidates, tr.Candidates, facts)
 		}
 		tr.Chosen = candidates[chosen].ID
 		trail = append(trail, explained(tr))

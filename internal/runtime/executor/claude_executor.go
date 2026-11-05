@@ -68,6 +68,10 @@ type neoPiThirdPartyProvider struct {
 	// sends, whether it sends one at all (an explicit empty value counts),
 	// and whether it turns Umans' gateway web search on.
 	gatewayWebSearch func(incoming http.Header) (value string, set, gateway bool)
+	// factory resolves a Factory Droid attempt from the validated request:
+	// the request with the Droid system prefix, its explicit Messages
+	// options, and the identity headers that ride under configured ones.
+	factory func(translated []byte) ([]byte, *neoPiFactoryMessages, http.Header, error)
 	// enforceBearer sets Authorization from the credential after every
 	// configured header, as Vertex's authenticated fetch does on the finished
 	// request.
