@@ -1,0 +1,2540 @@
+{
+  "source": "NeoPi OWN gitlab-duo-agent streamSimple over a scripted Duo Workflow socket",
+  "model": {
+    "id": "claude_sonnet_4_6_vertex",
+    "api": "gitlab-duo-agent",
+    "provider": "gitlab-duo-agent",
+    "baseUrl": "https://gitlab.com"
+  },
+  "scenarios": [
+    {
+      "name": "text",
+      "apiKey": "gitlab-oauth-runtime-0",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Hi\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Thinking\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Hi\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Thinking about it\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Hello\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Hi\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Thinking about it\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Hello there\\\"}]}}\",\"status\":\"INPUT_REQUIRED\"},\"agent_context_usage\":{\"Chat Agent\":{\"total_tokens\":1234,\"max_tokens\":1000000}}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Hi\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1001}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-0",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1001\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Hi\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "thinking_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "thinking_delta",
+              "contentIndex": 0,
+              "delta": "Thinking"
+            },
+            {
+              "type": "thinking_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "thinking_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "thinking_delta",
+              "contentIndex": 1,
+              "delta": " about it"
+            },
+            {
+              "type": "thinking_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 2
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 2,
+              "delta": "Hello"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 2
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 3
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 3,
+              "delta": " there"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 3
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Thinking"
+              },
+              {
+                "type": "thinking",
+                "thinking": " about it"
+              },
+              {
+                "type": "text",
+                "text": "Hello"
+              },
+              {
+                "type": "text",
+                "text": " there"
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 1234,
+              "totalTokens": 1234
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "tool-loop",
+      "apiKey": "gitlab-oauth-runtime-1",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"requestID\":\"req-7\",\"runMCPTool\":{\"toolName\":\"lookup\",\"args\":\"{\\\"query\\\":\\\"weather\\\"}\"}}"
+          ],
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"},{\\\"message_type\\\":\\\"tool\\\",\\\"content\\\":\\\"Sunny\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"It is sunny.\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"},{\\\"message_type\\\":\\\"tool\\\",\\\"content\\\":\\\"Sunny\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"It is sunny.\\\"}]}}\",\"status\":\"FINISHED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1002}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-1",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1002\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"What's the weather?\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[{\"name\":\"lookup\",\"originalToolName\":\"lookup\",\"serverName\":\"omp\",\"description\":\"Look a thing up.\",\"inputSchema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"query\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"query\\\"]}\",\"isApproved\":true}],\"preapproved_tools\":[\"lookup\"],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "thinking_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "thinking_delta",
+              "contentIndex": 0,
+              "delta": "Let me look."
+            },
+            {
+              "type": "thinking_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "toolcall_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "toolcall_delta",
+              "contentIndex": 1,
+              "delta": "{\"query\":\"weather\"}"
+            },
+            {
+              "type": "toolcall_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Let me look."
+              },
+              {
+                "type": "toolCall",
+                "id": "req-7",
+                "name": "lookup",
+                "arguments": {
+                  "query": "weather"
+                }
+              }
+            ],
+            "stopReason": "toolUse",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        },
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"},{\"role\":\"assistant\",\"content\":[],\"tool_calls\":[{\"id\":\"req-7\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\\\"weather\\\"}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"req-7\",\"content\":\"Sunny\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [],
+          "socketsOpened": [],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"actionResponse\":{\"requestID\":\"req-7\",\"plainTextResponse\":{\"response\":\"Sunny\"}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "It is sunny."
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "It is sunny."
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "steer",
+      "apiKey": "gitlab-oauth-runtime-2",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"requestID\":\"req-7\",\"runMCPTool\":{\"toolName\":\"lookup\",\"args\":\"{\\\"query\\\":\\\"weather\\\"}\"}}"
+          ]
+        ],
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Actually, tomorrow?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"b1\\\",\\\"content\\\":\\\"Tomorrow: rain.\\\"}]}}\",\"status\":\"INPUT_REQUIRED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1003}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1003\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"What's the weather?\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[{\"name\":\"lookup\",\"originalToolName\":\"lookup\",\"serverName\":\"omp\",\"description\":\"Look a thing up.\",\"inputSchema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"query\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"query\\\"]}\",\"isApproved\":true}],\"preapproved_tools\":[\"lookup\"],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "thinking_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "thinking_delta",
+              "contentIndex": 0,
+              "delta": "Let me look."
+            },
+            {
+              "type": "thinking_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "toolcall_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "toolcall_delta",
+              "contentIndex": 1,
+              "delta": "{\"query\":\"weather\"}"
+            },
+            {
+              "type": "toolcall_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Let me look."
+              },
+              {
+                "type": "toolCall",
+                "id": "req-7",
+                "name": "lookup",
+                "arguments": {
+                  "query": "weather"
+                }
+              }
+            ],
+            "stopReason": "toolUse",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        },
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"},{\"role\":\"assistant\",\"content\":[],\"tool_calls\":[{\"id\":\"req-7\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\\\"weather\\\"}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"req-7\",\"content\":\"Sunny\"},{\"role\":\"user\",\"content\":\"Actually, tomorrow?\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [
+            {
+              "method": "PATCH",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows/1003",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "23",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"status_event\":\"stop\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"status\":\"stopped\"}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1004}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-2",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 1,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1004\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"<|im_start|>user\\nWhat's the weather?\\n<|im_end|>\\n<|im_start|>assistant\\n<ran lookup>{\\\"query\\\":\\\"weather\\\"}</ran>\\n<|im_end|>\\n<|im_start|>tool\\n<ran:result>\\nSunny\\n<|im_end|>\\n<|im_start|>user\\nActually, tomorrow?\\n<|im_end|>\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[{\"name\":\"lookup\",\"originalToolName\":\"lookup\",\"serverName\":\"omp\",\"description\":\"Look a thing up.\",\"inputSchema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"query\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"query\\\"]}\",\"isApproved\":true}],\"preapproved_tools\":[\"lookup\"],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\\n\\nThe task below is a transcript of the conversation so far, written as a plain-text log. Turn boundaries (`<|im_start|>role` … `<|im_end|>`) and any `<ran NAME>{…}</ran>` / `<ran:result>` entries inside it are a RECORD of what already happened — past tool calls and their results. They are not a syntax for you to emit. To call a tool, use your normal structured tool-calling channel; never write `<ran …>`, `<tool_call>`, `<|im_start|>`, or similar markers as your own output.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0,
+            1
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Tomorrow: rain."
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Tomorrow: rain."
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "step-limit",
+      "apiKey": "gitlab-oauth-runtime-3",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Long task\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Working\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"workflowStatus\":{\"status\":\"FAILED\"},\"message\":\"The workflow reached its maximum step limit and could not complete.\"}"
+          ]
+        ],
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Long task\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Working\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a2\\\",\\\"content\\\":\\\"Done\\\"}]}}\",\"status\":\"FINISHED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Long task\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1005}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            },
+            {
+              "method": "PATCH",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows/1005",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "23",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"status_event\":\"stop\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"status\":\"stopped\"}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-3",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1006}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            },
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1005\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Long task\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            },
+            {
+              "socket": 1,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1006\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Long task\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0,
+            1
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Working"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 1,
+              "delta": "Done"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Working"
+              },
+              {
+                "type": "text",
+                "text": "Done"
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "generic-error-exhausted",
+      "apiKey": "gitlab-oauth-runtime-4",
+      "script": [
+        [
+          [
+            "{\"workflowStatus\":{\"status\":\"FAILED\"},\"message\":\"There was an error processing your request in the Duo Agent Platform, please contact support if the issue persists.\"}"
+          ]
+        ],
+        [
+          [
+            "{\"workflowStatus\":{\"status\":\"FAILED\"},\"message\":\"There was an error processing your request in the Duo Agent Platform, please contact support if the issue persists.\"}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Flaky\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1007}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            },
+            {
+              "method": "PATCH",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows/1007",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "23",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"status_event\":\"stop\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"status\":\"stopped\"}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-4",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1008}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            },
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1007\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Flaky\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            },
+            {
+              "socket": 1,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1008\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Flaky\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0,
+            1
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "error"
+            }
+          ],
+          "final": {
+            "content": [],
+            "stopReason": "error",
+            "errorMessage": "There was an error processing your request in the Duo Agent Platform, please contact support if the issue persists.",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "failed",
+      "apiKey": "gitlab-oauth-runtime-5",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Break\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Partial\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"workflowStatus\":{\"status\":\"FAILED\"},\"message\":\"Model exploded\"}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Break\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1009}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-5",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1009\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Break\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Partial"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "error"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Partial"
+              }
+            ],
+            "stopReason": "error",
+            "errorMessage": "Model exploded",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "close-4400",
+      "apiKey": "gitlab-oauth-runtime-6",
+      "script": [
+        [
+          [
+            {
+              "close": 4400,
+              "reason": "Flow configuration failed security validation"
+            }
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Rejected\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1010}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            },
+            {
+              "method": "PATCH",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows/1010",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-6",
+                "connection": "keep-alive",
+                "content-length": "23",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"status_event\":\"stop\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"status\":\"stopped\"}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1010\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Rejected\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "error"
+            }
+          ],
+          "final": {
+            "content": [],
+            "stopReason": "error",
+            "errorMessage": "GitLab Duo Workflow closed the session with HTTP 400 (WebSocket 4400): Flow configuration failed security validation",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "approval",
+      "apiKey": "gitlab-oauth-runtime-7",
+      "script": [
+        [
+          [
+            "{\"workflowStatus\":{\"status\":\"TOOL_CALL_APPROVAL_REQUIRED\"}}"
+          ]
+        ],
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Needs approval\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Approved run\\\"}]}}\",\"status\":\"FINISHED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Needs approval\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1011}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-7",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            },
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1011\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Needs approval\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            },
+            {
+              "socket": 1,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1011\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]},\"approval\":{\"approval\":{}}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0,
+            1
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Approved run"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Approved run"
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "apiKey": "gitlab-oauth-runtime-8",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Two parts\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Part one\\\"},{\\\"message_type\\\":\\\"tool\\\",\\\"content\\\":\\\"t\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a2\\\",\\\"content\\\":\\\"Part two\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"Two parts\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a1\\\",\\\"content\\\":\\\"Part one\\\"},{\\\"message_type\\\":\\\"tool\\\",\\\"content\\\":\\\"t\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"a2\\\",\\\"content\\\":\\\"Part two!\\\"}]}}\",\"status\":\"FINISHED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Two parts\"}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1012}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-8",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1012\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"Two parts\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[],\"preapproved_tools\":[],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Part one"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Part one"
+              }
+            ],
+            "stopReason": "stop",
+            "stopDetails": {
+              "type": "pause_turn"
+            },
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        },
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"Two parts\"},{\"role\":\"assistant\",\"content\":\"Part one\"}]}",
+          "rest": [],
+          "socketsOpened": [],
+          "sent": [],
+          "closed": [
+            0
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Part two"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 1,
+              "delta": "!"
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Part two"
+              },
+              {
+                "type": "text",
+                "text": "!"
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "stall",
+      "apiKey": "gitlab-oauth-runtime-9",
+      "script": [
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"requestID\":\"req-7\",\"runMCPTool\":{\"toolName\":\"lookup\",\"args\":\"{\\\"query\\\":\\\"weather\\\"}\"}}"
+          ],
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_sub_type\\\":\\\"reasoning\\\",\\\"message_id\\\":\\\"r1\\\",\\\"content\\\":\\\"Let me look.\\\"}]}}\",\"status\":\"RUNNING\"}}",
+            "{\"requestID\":\"req-8\",\"runMCPTool\":{\"toolName\":\"lookup\",\"args\":\"{\\\"query\\\":\\\"weather\\\"}\"}}"
+          ]
+        ],
+        [
+          [
+            "{\"newCheckpoint\":{\"checkpoint\":\"{\\\"channel_values\\\":{\\\"ui_chat_log\\\":[{\\\"message_type\\\":\\\"request\\\",\\\"content\\\":\\\"What's the weather?\\\"},{\\\"message_type\\\":\\\"agent\\\",\\\"message_id\\\":\\\"c1\\\",\\\"content\\\":\\\"Sunny again.\\\"}]}}\",\"status\":\"FINISHED\"}}"
+          ]
+        ]
+      ],
+      "turns": [
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+              "headers": {
+                "accept": "application/json",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":70,\"full_path\":\"team\",\"path\":\"team\"}]"
+              }
+            },
+            {
+              "method": "PUT",
+              "url": "https://gitlab.com/api/v4/groups/70",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "129",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"experiment_features_enabled\":true,\"ai_settings_attributes\":{\"duo_agent_platform_enabled\":true,\"duo_workflow_mcp_enabled\":true}}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":70}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1013}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1013\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"What's the weather?\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[{\"name\":\"lookup\",\"originalToolName\":\"lookup\",\"serverName\":\"omp\",\"description\":\"Look a thing up.\",\"inputSchema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"query\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"query\\\"]}\",\"isApproved\":true}],\"preapproved_tools\":[\"lookup\"],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "thinking_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "thinking_delta",
+              "contentIndex": 0,
+              "delta": "Let me look."
+            },
+            {
+              "type": "thinking_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "toolcall_start",
+              "contentIndex": 1
+            },
+            {
+              "type": "toolcall_delta",
+              "contentIndex": 1,
+              "delta": "{\"query\":\"weather\"}"
+            },
+            {
+              "type": "toolcall_end",
+              "contentIndex": 1
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "thinking",
+                "thinking": "Let me look."
+              },
+              {
+                "type": "toolCall",
+                "id": "req-7",
+                "name": "lookup",
+                "arguments": {
+                  "query": "weather"
+                }
+              }
+            ],
+            "stopReason": "toolUse",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        },
+        {
+          "body": "{\"model\":\"claude_sonnet_4_6_vertex\",\"messages\":[{\"role\":\"system\",\"content\":\"You are NeoPi.\"},{\"role\":\"user\",\"content\":\"What's the weather?\"},{\"role\":\"assistant\",\"content\":[],\"tool_calls\":[{\"id\":\"req-7\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\\\"weather\\\"}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"req-7\",\"content\":\"Sunny\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}}}]}",
+          "rest": [
+            {
+              "method": "PATCH",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows/1013",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "23",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"status_event\":\"stop\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"status\":\"stopped\"}"
+              }
+            },
+            {
+              "method": "GET",
+              "url": "https://gitlab.com/api/v4/groups/70/projects?include_subgroups=true&per_page=1&min_access_level=30&order_by=last_activity_at&sort=desc",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "response": {
+                "status": 200,
+                "body": "[{\"id\":4242,\"path_with_namespace\":\"team/app\"}]"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/direct_access",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "101",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"root_namespace_id\":\"gid://gitlab/Group/70\",\"project_id\":\"team/app\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"gitlab_rails\":{\"base_url\":\"https://gitlab.com\",\"token\":\"wf-rails-token\"}}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/v4/ai/duo_workflows/workflows",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "215",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"workflow_definition\":\"ambient\",\"environment\":\"ide\",\"allow_agent_to_request_user\":false,\"agent_privileges\":[6],\"pre_approved_agent_privileges\":[6],\"requires_duo_cli_enabled\":false,\"project_id\":\"team/app\",\"goal\":\"\"}",
+              "response": {
+                "status": 200,
+                "body": "{\"id\":1014}"
+              }
+            },
+            {
+              "method": "POST",
+              "url": "https://gitlab.com/api/graphql",
+              "headers": {
+                "accept": "*/*",
+                "accept-encoding": "gzip, deflate, br, zstd",
+                "authorization": "Bearer gitlab-oauth-runtime-9",
+                "connection": "keep-alive",
+                "content-length": "306",
+                "content-type": "application/json",
+                "user-agent": "npi/18.14.0"
+              },
+              "body": "{\"query\":\"query omp_gitlabDuoWorkflowAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+              "response": {
+                "status": 200,
+                "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"}],\"pinnedModel\":null}}}"
+              }
+            }
+          ],
+          "socketsOpened": [
+            {
+              "url": "wss://gitlab.com/api/v4/ai/duo_workflows/ws?project_id=4242&namespace_id=70&root_namespace_id=70&user_selected_model_identifier=claude_sonnet_4_6_vertex&workflow_definition=ambient",
+              "headers": {
+                "authorization": "Bearer wf-rails-token",
+                "x-gitlab-client-type": "node-websocket",
+                "x-gitlab-language-server-version": "8.104.0",
+                "user-agent": "unknown/unknown unknown/unknown gitlab-language-server/8.104.0",
+                "origin": "https://gitlab.com",
+                "x-gitlab-project-id": "4242",
+                "x-gitlab-namespace-id": "70",
+                "x-gitlab-root-namespace-id": "70"
+              }
+            }
+          ],
+          "sent": [
+            {
+              "socket": 0,
+              "frames": [
+                "{\"actionResponse\":{\"requestID\":\"req-7\",\"plainTextResponse\":{\"response\":\"Sunny\"}}}"
+              ]
+            },
+            {
+              "socket": 1,
+              "frames": [
+                "{\"startRequest\":{\"workflowID\":\"1014\",\"clientVersion\":\"1.0\",\"workflowDefinition\":\"ambient\",\"goal\":\"<|im_start|>user\\nWhat's the weather?\\n<|im_end|>\\n<|im_start|>assistant\\n<ran lookup>{\\\"query\\\":\\\"weather\\\"}</ran>\\n<|im_end|>\\n<|im_start|>tool\\n<ran:result>\\nSunny\\n<|im_end|>\",\"workflowMetadata\":\"{\\\"environment\\\":\\\"ide\\\",\\\"client_type\\\":\\\"node-websocket\\\",\\\"projectId\\\":\\\"4242\\\",\\\"namespaceId\\\":\\\"70\\\",\\\"rootNamespaceId\\\":\\\"70\\\",\\\"selectedModelIdentifier\\\":\\\"claude_sonnet_4_6_vertex\\\"}\",\"additional_context\":[],\"clientCapabilities\":[\"incremental_streaming\",\"read_file_chunked\",\"shell_command\",\"command_timeout\",\"tool_call_approval\"],\"mcpTools\":[{\"name\":\"lookup\",\"originalToolName\":\"lookup\",\"serverName\":\"omp\",\"description\":\"Look a thing up.\",\"inputSchema\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"query\\\":{\\\"type\\\":\\\"string\\\"}},\\\"required\\\":[\\\"query\\\"]}\",\"isApproved\":true}],\"preapproved_tools\":[\"lookup\"],\"flowConfigSchemaVersion\":\"v1\",\"flowConfig\":{\"version\":\"v1\",\"environment\":\"ambient\",\"flow\":{\"entry_point\":\"omp_agent\"},\"components\":[{\"name\":\"omp_agent\",\"type\":\"AgentComponent\",\"prompt_id\":\"omp_inline_prompt\",\"toolset\":[],\"inputs\":[{\"from\":\"context:goal\",\"as\":\"goal\"}],\"ui_log_events\":[\"on_agent_reasoning\",\"on_agent_final_answer\",\"on_tool_execution_success\",\"on_tool_execution_failed\"]}],\"routers\":[{\"from\":\"omp_agent\",\"to\":\"end\"}],\"prompts\":[{\"name\":\"omp_inline_prompt\",\"prompt_id\":\"omp_inline_prompt\",\"unit_primitives\":[\"duo_agent_platform\"],\"prompt_template\":{\"system\":\"You are NeoPi.\\n\\nThe task below is a transcript of the conversation so far, written as a plain-text log. Turn boundaries (`<|im_start|>role` … `<|im_end|>`) and any `<ran NAME>{…}</ran>` / `<ran:result>` entries inside it are a RECORD of what already happened — past tool calls and their results. They are not a syntax for you to emit. To call a tool, use your normal structured tool-calling channel; never write `<ran …>`, `<tool_call>`, `<|im_start|>`, or similar markers as your own output.\",\"user\":\"{{goal}}\",\"placeholder\":\"history\"}}]}}}"
+              ]
+            }
+          ],
+          "closed": [
+            0,
+            1
+          ],
+          "events": [
+            {
+              "type": "start"
+            },
+            {
+              "type": "text_start",
+              "contentIndex": 0
+            },
+            {
+              "type": "text_delta",
+              "contentIndex": 0,
+              "delta": "Sunny again."
+            },
+            {
+              "type": "text_end",
+              "contentIndex": 0
+            },
+            {
+              "type": "done"
+            }
+          ],
+          "final": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Sunny again."
+              }
+            ],
+            "stopReason": "stop",
+            "usage": {
+              "input": 0,
+              "totalTokens": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
