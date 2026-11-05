@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
@@ -54,7 +53,6 @@ type NeoPiCompletionsExecutor struct {
 	profile  NeoPiCompletionsProfile
 	cfg      *config.Config
 	counter  *OpenAICompatExecutor
-	random   func() float64
 	wait     func(context.Context, time.Duration) error
 }
 
@@ -68,7 +66,6 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 		profile:  profile,
 		cfg:      cfg,
 		counter:  NewOpenAICompatExecutor(provider, cfg),
-		random:   rand.Float64,
 		wait:     neoPiWait,
 	}
 }
@@ -331,6 +328,13 @@ func (e *NeoPiCompletionsExecutor) open(ctx context.Context, auth *cliproxyauth.
 		}
 		helps.AppendAPIResponseChunk(ctx, e.cfg, data)
 		if !neoPiRetryableStatus(response.StatusCode) || attempt+1 >= maxAttempts {
+			return nil, &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
+		}
+		// Proxy concurrency-admission failures are handled by session recovery,
+		// not the transport retry loop.
+		if strings.TrimSpace(response.Header.Get("rate_limit_type")) == "max_parallel_requests" ||
+			gjson.GetBytes(data, "rate_limit_type").String() == "max_parallel_requests" ||
+			gjson.GetBytes(data, "error.rate_limit_type").String() == "max_parallel_requests" {
 			return nil, &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 		}
 		// NeoPi's transport honours a Retry-After hint up to a minute; a longer
