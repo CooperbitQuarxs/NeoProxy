@@ -94,7 +94,9 @@ func NewNeoPiCompletionsExecutor(provider string, cfg *config.Config, profile Ne
 		catalog: func(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, _ string) *registry.NeoPiModel {
 			return e.row(auth, req)
 		},
-		bearer: e.apiKey,
+		credential: e.credential,
+		// Vertex's authenticated fetch sets the ADC bearer last.
+		enforceBearer: e.profile.Provider == vertexNeoPiProvider,
 	}
 	if e.profile.Provider == cloudflare.Provider {
 		e.messages.thirdParty.gatewayAuthHeader = cloudflareAuthHeader
@@ -182,12 +184,19 @@ func (e *NeoPiCompletionsExecutor) Refresh(ctx context.Context, auth *cliproxyau
 	return updated, nil
 }
 
-// HttpRequest sends an arbitrary request with the account's bearer key.
+// HttpRequest sends an arbitrary request with the account's bearer
+// credential.
 func (e *NeoPiCompletionsExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, request *http.Request) (*http.Response, error) {
 	if request == nil {
 		return nil, fmt.Errorf("%s: request is nil", e.provider)
 	}
-	if key := e.apiKey(auth); key != "" {
+	if e.profile.Provider == vertexNeoPiProvider {
+		token, _, err := vertexAuthenticatedRequest(ctx, e.cfg, auth)
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+	} else if key := e.apiKey(auth); key != "" {
 		if e.profile.Provider == cloudflare.Provider {
 			request.Header.Set(cloudflareAuthHeader, "Bearer "+key)
 		} else {
@@ -370,9 +379,9 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 	if row == nil || row.CompletionsCompat == nil {
 		return nil, statusErr{code: http.StatusBadRequest, msg: e.provider + ": model has no NeoPi completions record"}
 	}
-	key := e.apiKey(auth)
-	if key == "" {
-		return nil, statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no API key"}
+	key, place, err := e.credential(ctx, auth)
+	if err != nil {
+		return nil, err
 	}
 	original := req.Payload
 	if len(opts.OriginalRequest) > 0 {
@@ -408,7 +417,22 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.provider, row.ID, "openai", "", originalTranslated, req, opts)(body)
 	headers := e.requestHeaders(ctx, auth, opts.Headers, key, row, sessionID)
-	return &neoPiCompletionsPrepared{body: body, headers: headers, url: e.url(row), model: row.ID}, nil
+	return &neoPiCompletionsPrepared{body: body, headers: headers, url: place(e.url(row)), model: row.ID}, nil
+}
+
+// credential is the bearer the request carries and the placement its URL
+// takes: the account's key on the row's own endpoint, or for a Vertex
+// Model Garden row an ADC access token (createVertexAuthenticatedFetch) on
+// the account's project and location.
+func (e *NeoPiCompletionsExecutor) credential(ctx context.Context, auth *cliproxyauth.Auth) (string, func(string) string, error) {
+	if e.profile.Provider == vertexNeoPiProvider {
+		return vertexAuthenticatedRequest(ctx, e.cfg, auth)
+	}
+	key := e.apiKey(auth)
+	if key == "" {
+		return "", nil, statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no API key"}
+	}
+	return key, func(url string) string { return url }, nil
 }
 
 // requestHeaders are NeoPi's Chat Completions headers for the row, with the
@@ -597,7 +621,9 @@ func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *regi
 		}
 		return row
 	}
-	if base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"]); base != "" && base != row.BaseURL &&
+	// A Vertex account's base_url belongs to no Model Garden endpoint: NeoPi
+	// places those rows on the project and location alone.
+	if base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"]); base != "" && base != row.BaseURL && provider != vertexNeoPiProvider &&
 		(provider == "alibaba-token-plan" ||
 			(base != registry.NeoPiCompletionsListingBase(provider) && registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL))) {
 		row = row.Clone()

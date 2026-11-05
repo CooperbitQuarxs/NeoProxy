@@ -48,8 +48,11 @@ type ClaudeExecutor struct {
 // and any identity headers NeoPi adds for it.
 type neoPiThirdPartyProvider struct {
 	catalog func(auth *cliproxyauth.Auth, req cliproxyexecutor.Request, model string) *registry.NeoPiModel
-	bearer  func(auth *cliproxyauth.Auth) string
-	headers func() http.Header
+	// credential is the bearer a request carries and the placement its URL
+	// takes on the account (Vertex's project and location); an account
+	// without one is an error.
+	credential func(ctx context.Context, auth *cliproxyauth.Auth) (string, func(string) string, error)
+	headers    func() http.Header
 	// apiKeyHeader authenticates with X-Api-Key instead of Authorization:
 	// OpenCode's Anthropic-compatible endpoint rejects bearer-only requests
 	// (401 Missing API key).
@@ -69,6 +72,10 @@ type neoPiThirdPartyProvider struct {
 	// the request with the Droid system prefix, its explicit Messages
 	// options, and the identity headers that ride under configured ones.
 	factory func(translated []byte) ([]byte, *neoPiFactoryMessages, http.Header, error)
+	// enforceBearer sets Authorization from the credential after every
+	// configured header, as Vertex's authenticated fetch does on the finished
+	// request.
+	enforceBearer bool
 }
 
 func NewClaudeExecutor(cfg *config.Config) *ClaudeExecutor {

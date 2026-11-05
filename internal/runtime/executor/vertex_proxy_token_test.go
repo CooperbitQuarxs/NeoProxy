@@ -44,7 +44,7 @@ func TestVertexAccessTokenUsesCredentialProxyNotRequestProxy(t *testing.T) {
 		3*time.Second,
 	)
 	defer cancel()
-	_, _ = vertexAccessToken(
+	_, _ = vertexBearer(
 		ctx,
 		&config.Config{SDKConfig: sdkconfig.SDKConfig{ProxyURL: globalProxy.URL}},
 		&cliproxyauth.Auth{ProxyURL: authProxy.URL},

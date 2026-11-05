@@ -72,6 +72,11 @@ type neoPiThirdParty struct {
 	// same-model replay drops unsigned thinking, and interleaved thinking
 	// still needs its beta there.
 	signing bool
+	// vertexRawPredict is isVertexRawPredictUrl: Vertex's Claude adapter
+	// takes betas in the body (anthropic_beta) and 400s on the header, so
+	// control betas and the thinking-binding beta move there, and the model
+	// rides the URL with the body naming Vertex's API version instead.
+	vertexRawPredict bool
 	// effortMap is thinking.effortMap: the wire effort an effort level sends.
 	effortMap map[string]string
 	// adaptiveTagOnly is usesAdaptiveThinkingTagOnly: every effort maps to

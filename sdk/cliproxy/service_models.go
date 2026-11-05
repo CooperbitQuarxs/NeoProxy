@@ -121,8 +121,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		}
 		models = applyExcludedModels(models, excluded)
 	case "vertex":
-		// Vertex AI Gemini supports the same model identifiers as Gemini.
-		models = registry.GetGeminiVertexModels()
+		// NeoPi's google-vertex roster: it has no discovery for the provider.
+		models = registry.VertexBundledModels()
 		if entry := resolveConfigVertexCompatKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildVertexCompatConfigModels(entry)
@@ -1038,23 +1038,16 @@ func appendVertexServiceAccountModels(cfg *config.Config, a *coreauth.Auth, base
 	out := make([]*ModelInfo, 0, len(baseModels)+len(extraNames))
 	out = append(out, baseModels...)
 	for _, name := range extraNames {
-		ownedBy := "google"
+		// A name the bundle lacks is the row NeoPi's rules build for its id.
+		row := registry.VertexNeoPiModelFor(name)
+		if row == nil {
+			continue
+		}
+		info := registry.VertexModelInfo(row)
+		info.Created = now
+		info.UserDefined = true
 		if publisher, _, ok := strings.Cut(name, "/"); ok && strings.TrimSpace(publisher) != "" {
-			ownedBy = strings.TrimSpace(publisher)
-		}
-		info := &ModelInfo{
-			ID:              name,
-			MetadataModelID: name,
-			Object:          "model",
-			Created:         now,
-			OwnedBy:         ownedBy,
-			Type:            "vertex",
-			DisplayName:     name,
-			UserDefined:     true,
-			Thinking:        &registry.ThinkingSupport{Levels: []string{"low", "medium", "high"}},
-		}
-		if resolved := modelconfig.ResolveModelInfo(name, "vertex", nil); resolved.Thinking != nil {
-			info.Thinking = resolved.Thinking
+			info.OwnedBy = strings.TrimSpace(publisher)
 		}
 		out = append(out, info)
 	}

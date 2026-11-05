@@ -236,8 +236,8 @@ func (e *FactoryDroidExecutor) messagesExecutor(a *factoryDroidAttempt) (*Claude
 	messages := NewClaudeExecutor(e.cfg)
 	messages.provider = factorydroid.Provider
 	messages.thirdParty = &neoPiThirdPartyProvider{
-		catalog: func(*cliproxyauth.Auth, cliproxyexecutor.Request, string) *registry.NeoPiModel { return row },
-		bearer:  func(*cliproxyauth.Auth) string { return a.token },
+		catalog:    func(*cliproxyauth.Auth, cliproxyexecutor.Request, string) *registry.NeoPiModel { return row },
+		credential: neoPiAccountBearer(func(*cliproxyauth.Auth) string { return a.token }),
 		factory: func(translated []byte) ([]byte, *neoPiFactoryMessages, http.Header, error) {
 			effort, off := a.effort(translated, "claude")
 			model := helps.FactoryDroidAnthropicModel{
