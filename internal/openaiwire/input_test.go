@@ -74,7 +74,7 @@ func TestReconstructedAssistantTextMatchesServerOutputTextOf(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			items := buildInput([]json.RawMessage{json.RawMessage(tc.raw)}, &registry.NeoPiCompat{}, true)
+			items := buildInput([]json.RawMessage{json.RawMessage(tc.raw)}, &registry.NeoPiCompat{}, true, reasoningReplay{})
 			got, err := json.Marshal(items)
 			if err != nil {
 				t.Fatal(err)
@@ -94,7 +94,7 @@ func TestReconstructedAssistantHistoryDoesNotMarkNativeToolsOrRepairNotesComplet
 		json.RawMessage(`{"type":"function_call_output","call_id":"call_1","output":"ok"}`),
 		json.RawMessage(`{"type":"function_call_output","call_id":"orphan","output":"lost"}`),
 		json.RawMessage(`{"type":"message","role":"user","content":"continue"}`),
-	}, &registry.NeoPiCompat{}, true)
+	}, &registry.NeoPiCompat{}, true, reasoningReplay{})
 	if len(items) != 6 {
 		t.Fatalf("got %d items, want 6: %s", len(items), items)
 	}

@@ -19961,6 +19961,513 @@
       "requests": []
     },
     {
+      "provider": "commandcode",
+      "label": "ok",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)..."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-401",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "Incorrect API key provided",
+          "code": "invalid_api_key"
+        }
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)..."
+      ],
+      "result": {
+        "error": "Command Code API key validation failed (401): {\"error\":{\"message\":\"Incorrect API key provided\",\"code\":\"invalid_api_key\"}}",
+        "errorName": "ProviderHttpError",
+        "errorStatus": 401
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-403",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 403,
+      "body": {
+        "error": {
+          "message": "forbidden"
+        }
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-404",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 404,
+      "body": {
+        "detail": "Function 'x': Not found for account"
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-410",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 410,
+      "body": "Gone: end of life",
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-429",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 429,
+      "body": {
+        "error": {
+          "message": "slow down"
+        }
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-500",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 500,
+      "body": "upstream exploded",
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-400-auth-text",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 400,
+      "body": "Invalid API key",
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)..."
+      ],
+      "result": {
+        "error": "Command Code API key validation failed (400): Invalid API key",
+        "errorName": "ProviderHttpError",
+        "errorStatus": 400
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-400-other",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 400,
+      "body": {
+        "error": {
+          "message": "bad request"
+        }
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "http-401-invalid-model",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 401,
+      "body": {
+        "error": {
+          "message": "no such model",
+          "code": "invalid_model"
+        }
+      },
+      "networkError": false,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)..."
+      ],
+      "result": {
+        "error": "Command Code API key validation failed (401): {\"error\":{\"message\":\"no such model\",\"code\":\"invalid_model\"}}",
+        "errorName": "ProviderHttpError",
+        "errorStatus": 401
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://api.commandcode.ai/alpha/whoami",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer fixture-key-0123456789abcdef",
+            "connection": "keep-alive",
+            "host": "api.commandcode.ai",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "commandcode",
+      "label": "network-error",
+      "input": "fixture-key-0123456789abcdef",
+      "answers": [
+        "fixture-key-0123456789abcdef"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": true,
+      "auth": {
+        "url": "https://commandcode.ai/studio",
+        "instructions": "Create or copy a Provider API key from Command Code Studio"
+      },
+      "prompts": [
+        {
+          "message": "Paste your Command Code API key",
+          "placeholder": "user_..."
+        }
+      ],
+      "progress": [
+        "Validating API key (optional)...",
+        "Skipping Command Code validation endpoint; continuing with provided API key."
+      ],
+      "result": {
+        "value": "fixture-key-0123456789abcdef"
+      },
+      "requests": []
+    },
+    {
       "provider": "coreweave",
       "label": "ok",
       "input": "fixture-key-0123456789abcdef",

@@ -28,9 +28,11 @@ type NeoPiCompletionsCatalog struct {
 	// Seeds are the rule-seeded ids, which win over a manager's references.
 	Seeds []string `json:"seeds"`
 	// Compats are the resolved completions compats the rows share;
-	// AnthropicCompats the resolved anthropic-messages compats.
+	// AnthropicCompats the resolved anthropic-messages compats, and
+	// ResponsesCompats the resolved openai-responses compats.
 	Compats          []*NeoPiCompletionsCompat `json:"compats"`
 	AnthropicCompats []*NeoPiAnthropicCompat   `json:"anthropicCompats"`
+	ResponsesCompats []*NeoPiCompat            `json:"responsesCompats"`
 	// Discovery holds the model manager's authority flags: how a provider's
 	// listing replaces its bundled rows (mergeDynamicModels). Listing is
 	// false when NeoPi never fetches one and serves the bundled roster.
@@ -60,8 +62,10 @@ type NeoPiCompletionsCatalog struct {
 		CompatConfig  map[string]any    `json:"compatConfig"`
 		CompatIndex   int               `json:"completionsCompatIndex"`
 		// AnthropicCompatIndex indexes AnthropicCompats for an
-		// anthropic-messages row.
+		// anthropic-messages row, ResponsesCompatIndex ResponsesCompats for
+		// an openai-responses row.
 		AnthropicCompatIndex int `json:"anthropicCompatIndex"`
+		ResponsesCompatIndex int `json:"responsesCompatIndex"`
 		// RequestModelID is the wire id the row's transport sends when it
 		// differs from the id (Cloudflare's stripped namespace).
 		RequestModelID string `json:"requestModelId"`
@@ -117,10 +121,11 @@ func loadNeoPiCompletionsCatalogs() {
 		providerRows := make([]*NeoPiModel, 0, len(catalog.Models))
 		for i := range catalog.Models {
 			row := catalog.Models[i]
-			// A runner row (image, speech) carries no compat; an
-			// anthropic-messages row carries its Anthropic compat.
+			// A runner row (image, speech) carries no compat; a routed row
+			// carries the compat of its own API.
 			var compat *NeoPiCompletionsCompat
 			var anthropic *NeoPiAnthropicCompat
+			var responses *NeoPiCompat
 			switch {
 			case row.API == "anthropic-messages":
 				if row.AnthropicCompatIndex < 0 || row.AnthropicCompatIndex >= len(catalog.AnthropicCompats) {
@@ -128,6 +133,12 @@ func loadNeoPiCompletionsCatalogs() {
 					return
 				}
 				anthropic = catalog.AnthropicCompats[row.AnthropicCompatIndex]
+			case row.API == "openai-responses":
+				if row.ResponsesCompatIndex < 0 || row.ResponsesCompatIndex >= len(catalog.ResponsesCompats) {
+					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: responses compat index %d out of range", name, row.ID, row.ResponsesCompatIndex)
+					return
+				}
+				responses = catalog.ResponsesCompats[row.ResponsesCompatIndex]
 			case !neoPiRunnerAPI(row.API):
 				if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
 					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
@@ -154,6 +165,7 @@ func loadNeoPiCompletionsCatalogs() {
 				Thinking:                  thinking,
 				CompletionsCompat:         compat,
 				AnthropicCompat:           anthropic,
+				Compat:                    responses,
 				CompatConfig:              row.CompatConfig,
 				RequestModelID:            row.RequestModelID,
 				cost:                      row.Cost,

@@ -255,12 +255,12 @@ for (const provider of providers) {
 	const discovered = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : { models: [] };
 	const listed = discovered.models;
 	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
-	// Bundled rows NeoProxy serves: Chat Completions, Anthropic Messages (a
-	// mixed-transport host's Claude rows), image generation over openai-images
-	// (generateOpenAIImage) and speech over openai-speech
+	// Bundled rows NeoProxy serves: Chat Completions, Anthropic Messages and
+	// Responses (a mixed-transport host's routed rows), image generation over
+	// openai-images (generateOpenAIImage) and speech over openai-speech
 	// (synthesizeOpenAiSpeech).
 	const exported = bundled.filter((model: any) =>
-		["openai-completions", "anthropic-messages", "openai-images", "openai-speech"].includes(model.api),
+		["openai-completions", "anthropic-messages", "openai-responses", "openai-images", "openai-speech"].includes(model.api),
 	);
 	const skipped = bundled.length - exported.length;
 
@@ -280,6 +280,7 @@ for (const provider of providers) {
 	};
 	const { list: compats, indexOf } = dedupe();
 	const { list: anthropicCompats, indexOf: anthropicIndexOf } = dedupe();
+	const { list: responsesCompats, indexOf: responsesIndexOf } = dedupe();
 	// The provider's Chat Completions endpoint; a provider NeoPi serves only
 	// over Anthropic Messages (MiniMax) keeps its bundled rows' endpoint.
 	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl;
@@ -302,6 +303,7 @@ for (const provider of providers) {
 		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
 		...(model.api === "openai-completions" ? { completionsCompatIndex: indexOf(model.compat) } : {}),
 		...(model.api === "anthropic-messages" ? { anthropicCompatIndex: anthropicIndexOf(model.compat) } : {}),
+		...(model.api === "openai-responses" ? { responsesCompatIndex: responsesIndexOf(model.compat) } : {}),
 		// The token tariff: the variant collapse keeps differently priced
 		// thinking pairs apart.
 		cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 },
@@ -342,6 +344,7 @@ for (const provider of providers) {
 		},
 		compats,
 		anthropicCompats,
+		responsesCompats,
 		models: rows,
 	};
 	await Bun.write(join(catalogDir, `${provider}.json.gz`), Bun.gzipSync(JSON.stringify(catalog)));

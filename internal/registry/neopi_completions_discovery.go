@@ -668,6 +668,13 @@ func neoPiListingSpecs(provider, baseURL string, entries []gjson.Result, modelsD
 			spec = neoPiMapZenMux(entry, defaults, baseURL)
 		case cloudflare.Provider:
 			spec = neoPiMapCloudflare(entry, defaults, reference, baseURL)
+		case "commandcode":
+			// A listed seed id gives way to the seed NeoPi appends (TypeSafe
+			// Jev, a judge on its own route, which no chat port serves).
+			if catalog, ok := NeoPiCompletionsProvider(provider); ok && slices.Contains(catalog.Seeds, defaults.id) {
+				continue
+			}
+			spec = neoPiMapCommandCode(entry, defaults, baseURL)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}
