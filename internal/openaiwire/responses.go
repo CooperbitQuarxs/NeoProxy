@@ -261,7 +261,15 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.RawMessage {
 	compat := model.Compat
 	input := omitUnsupportedImages(ctx.Input, model, ctx.NativeUserHistory)
-	input = buildInput(input, compat, ctx.ReconstructAssistantHistory)
+	// buildParams resolves the reasoning policy from the caller's options
+	// before building the input; a host that filters reasoning history keeps
+	// replay reconstruction only when it also takes synthetic reasoning.
+	reasoningEnabled := resolveReasoningPolicy(model, opts, opts.ToolChoice, false).enabled
+	canReconstruct := !compat.FilterReasoningHistory || compat.AllowsSyntheticReasoningContentForToolCalls
+	input = buildInput(input, compat, ctx.ReconstructAssistantHistory, reasoningReplay{
+		allTurns:  reasoningEnabled && compat.RequiresReasoningContentForAllAssistantTurns && canReconstruct,
+		toolCalls: reasoningEnabled && compat.RequiresReasoningContentForToolCalls && canReconstruct,
+	})
 	var instructions string
 	if len(ctx.SystemPrompts) > 0 {
 		if model.Reasoning && compat.SupportsDeveloperRole {

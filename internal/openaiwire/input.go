@@ -10,17 +10,28 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 const (
 	orphanOutputLimit         = 16000
 	orphanToolCallPlaceholder = "[No tool output recorded: the tool call was interrupted before it produced a result.]"
+	// syntheticReasoningPlaceholder is SYNTHETIC_REASONING_REPLAY_PLACEHOLDER:
+	// the reasoning_text of a replayed turn whose own reasoning is gone.
+	syntheticReasoningPlaceholder = "reasoning unavailable"
 )
+
+// reasoningReplay is buildResponsesInput's requiresReasoningReplayForAllTurns
+// and requiresReasoningReplayForToolCalls: the replayed assistant turns that
+// must carry a reasoning item with reasoning_text (DeepSeek-family hosts).
+type reasoningReplay struct {
+	allTurns, toolCalls bool
+}
 
 // buildInput replays native history, or reconstructs assistant text at the
 // Responses server boundary, before repairing orphan tools and hoisting
 // messages wedged inside tool batches.
-func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat, reconstructAssistantHistory bool) []json.RawMessage {
+func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat, reconstructAssistantHistory bool, replay reasoningReplay) []json.RawMessage {
 	if compat.FilterReasoningHistory {
 		filtered := raw[:0:0]
 		for _, item := range raw {
@@ -35,9 +46,112 @@ func buildInput(raw []json.RawMessage, compat *registry.NeoPiCompat, reconstruct
 		items = reconstructAssistantMessages(items)
 	}
 	items = adaptReplayItems(items)
+	items = ensureRequiredReasoningReplay(items, replay)
 	items = repairOrphanToolOutputs(items)
 	items = repairOrphanToolCalls(items)
 	return hoistInterleavedToolBatchMessages(items)
+}
+
+// ensureRequiredReasoningReplay is ensureRequiredResponsesReasoningReplay:
+// an assistant turn that must carry reasoning and has none gains a synthetic
+// reasoning item first, and its reasoning items without reasoning_text gain
+// it (withRequiredReasoningText).
+func ensureRequiredReasoningReplay(items []json.RawMessage, replay reasoningReplay) []json.RawMessage {
+	if !replay.allTurns && !replay.toolCalls {
+		return items
+	}
+	out := make([]json.RawMessage, 0, len(items)+1)
+	turnStart := 0
+	for index := 0; index <= len(items); index++ {
+		if index < len(items) && !assistantTurnBoundary(items[index]) {
+			continue
+		}
+		hasContent, hasReasoning, hasToolCall := false, false, false
+		for _, item := range items[turnStart:index] {
+			if gjson.GetBytes(item, "type").String() == "reasoning" {
+				hasReasoning = true
+				continue
+			}
+			hasContent = true
+			if batchKind(item) == "call" {
+				hasToolCall = true
+			}
+		}
+		required := hasContent && (replay.allTurns || replay.toolCalls && hasToolCall)
+		if required && !hasReasoning {
+			out = append(out, syntheticReasoningItem(syntheticReasoningPlaceholder))
+		}
+		for _, item := range items[turnStart:index] {
+			if required && gjson.GetBytes(item, "type").String() == "reasoning" {
+				item = withRequiredReasoningText(item)
+			}
+			out = append(out, item)
+		}
+		if index < len(items) {
+			out = append(out, items[index])
+		}
+		turnStart = index + 1
+	}
+	return out
+}
+
+// assistantTurnBoundary is isResponsesAssistantTurnBoundary: a tool output,
+// a compaction, or an item of another role ends an assistant turn.
+func assistantTurnBoundary(item json.RawMessage) bool {
+	parsed := gjson.ParseBytes(item)
+	kind := parsed.Get("type").String()
+	if toolOutputKind(kind) != "" || kind == "compaction" {
+		return true
+	}
+	role := parsed.Get("role")
+	return role.Exists() && role.String() != "assistant"
+}
+
+// syntheticReasoningItem is createSyntheticResponsesReasoningItem without an
+// id: a reasoning item carrying text as its reasoning_text.
+func syntheticReasoningItem(text string) json.RawMessage {
+	return jsjson.Object(
+		jsjson.Field{Name: "type", Value: jsjson.Marshal("reasoning")},
+		jsjson.Field{Name: "summary", Value: json.RawMessage("[]")},
+		jsjson.Field{Name: "content", Value: jsjson.Marshal([]json.RawMessage{reasoningText(text)})},
+	)
+}
+
+func reasoningText(text string) json.RawMessage {
+	return jsjson.Object(
+		jsjson.Field{Name: "type", Value: jsjson.Marshal("reasoning_text")},
+		jsjson.Field{Name: "text", Value: jsjson.Marshal(text)},
+	)
+}
+
+// withRequiredReasoningText fills a reasoning item's missing reasoning_text
+// from its summary, else the placeholder. An item carrying encrypted_content
+// is the server's opaque reasoning and replays untouched.
+func withRequiredReasoningText(item json.RawMessage) json.RawMessage {
+	parsed := gjson.ParseBytes(item)
+	if parsed.Get("encrypted_content").Type == gjson.String {
+		return item
+	}
+	for _, part := range parsed.Get("content").Array() {
+		if part.Get("type").String() == "reasoning_text" && strings.TrimSpace(part.Get("text").String()) != "" {
+			return item
+		}
+	}
+	var summary []string
+	for _, part := range parsed.Get("summary").Array() {
+		if text := part.Get("text").String(); strings.TrimSpace(text) != "" {
+			summary = append(summary, text)
+		}
+	}
+	text := strings.Join(summary, "\n\n")
+	if text == "" {
+		text = syntheticReasoningPlaceholder
+	}
+	filled, err := sjson.SetRawBytes(item, "content", jsjson.Marshal([]json.RawMessage{reasoningText(text)}))
+	if err != nil {
+		return item
+	}
+	return filled
 }
 
 // reconstructAssistantMessages is the Responses server's outputTextOf followed
