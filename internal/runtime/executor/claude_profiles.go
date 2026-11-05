@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 )
 
 // Captured directly from NeoPi's bundled catalog and neutral discovery models.
@@ -86,6 +87,30 @@ type neoPiThirdParty struct {
 	// headers are provider identity headers (Kimi's fingerprint) applied over
 	// the default set.
 	headers http.Header
+	// factory is set for a Factory Droid route: streamFactoryDroid passes
+	// buildParams explicit thinking options instead of streamSimple's mapping.
+	factory *neoPiFactoryMessages
+}
+
+// neoPiFactoryMessages is what streamMessagesWire hands NeoPi's Anthropic
+// transport for one Factory Droid attempt.
+type neoPiFactoryMessages struct {
+	thinking helps.FactoryDroidAnthropicThinking
+	// maxTokens is anthropicOutputLimit: the scoped route's output cap.
+	maxTokens int64
+	// fallbacks are the route's server-side refusal fallback models.
+	fallbacks []string
+	// toolStreamingBeta is the route policy's anthropicToolStreamingBeta.
+	toolStreamingBeta bool
+	// effortBeta is compat.effortBeta: the effort beta rides exactly when an
+	// output effort does.
+	effortBeta bool
+	fastMode   bool
+	// eagerTools is resolveEagerToolInputStreamingSupport off the official
+	// host: compat supports it and was not authored for the official host.
+	eagerTools bool
+	// disableStrictTools is compat.disableStrictTools.
+	disableStrictTools bool
 }
 
 var neoPiProfiles = func() map[string]neoPiProfile {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"runtime"
 	"strings"
 	"unicode/utf16"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -184,7 +184,12 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if identity.SessionID == "" && !identity.APIKey {
 		identity.SessionID = uuid.NewString()
 	}
+	var factory *neoPiFactoryMessages
 	if profile.thirdParty != nil {
+		factory = profile.thirdParty.factory
+		if factory != nil && factory.thinking.DropThinkingHistory {
+			input = neoPiDropThinkingHistory(input)
+		}
 		input = neoPiThirdPartyMessages(input, profile.thirdParty)
 	}
 	root := gjson.ParseBytes(input)
@@ -316,7 +321,7 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		schema = neoPiSet(schema, "required", required)
 		normalized := neoPiNormalizeSchema(gjson.ParseBytes(schema), true)
 		strict := false
-		if (name == "python" || name == "edit" || name == "find") && tool.Get("strict").Raw != "false" && strictCount < 20 && !neoPiStrictIncompatible(gjson.ParseBytes(schema)) {
+		if (name == "python" || name == "edit" || name == "find") && tool.Get("strict").Raw != "false" && strictCount < 20 && !neoPiStrictIncompatible(gjson.ParseBytes(schema)) && (factory == nil || !factory.disableStrictTools) {
 			budget := strictBudget
 			if converted, ok := neoPiStrictSchema(gjson.ParseBytes(normalized), &budget); ok {
 				normalized = converted
@@ -327,7 +332,7 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 		wireName := neoPiWireToolName(name, !identity.APIKey, profile.thirdParty, true)
 		wire := jsjson.Object(jsjson.Field{Name: "name", Value: jsjson.Marshal(wireName)}, jsjson.Field{Name: "description", Value: jsjson.Marshal(tool.Get("description").String())}, jsjson.Field{Name: "input_schema", Value: normalized})
-		if neoPiOfficialEndpoint(base) && profile.Compat.SupportsEagerToolInputStreaming {
+		if profile.Compat.SupportsEagerToolInputStreaming && (neoPiOfficialEndpoint(base) || factory != nil && factory.eagerTools) {
 			wire = neoPiSet(wire, "eager_input_streaming", true)
 		}
 		if strict {
@@ -354,166 +359,186 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if maxTokens <= 0 || maxTokens > profile.MaxTokens {
 		maxTokens = profile.MaxTokens
 	}
-	thinking := root.Get("thinking")
-	effort := root.Get("output_config.effort").String()
-	off := profile.Reasoning && (thinking.Get("type").String() == "disabled" || effort == "none" || effort == "off")
-	enabled := profile.Reasoning && !off && (thinking.Get("type").String() == "enabled" || thinking.Get("type").String() == "adaptive" || effort != "")
-	if !profile.Reasoning {
-		effort = ""
-	}
 	party := profile.thirdParty
-	if party != nil && profile.Reasoning {
-		// NeoPi's streamSimple sends a reasoning model's thinking off unless an
-		// effort was requested; a mandatory-thinking model then runs at its
-		// lowest effort instead.
-		kind := thinking.Get("type").String()
-		if effort == "none" || effort == "off" || kind == "disabled" {
-			effort = ""
-		} else if effort == "" && kind == "adaptive" && thinking.Get("budget_tokens").Int() <= 0 && len(party.efforts) > 0 {
-			// [INFERENCE] adaptive without an effort has no NeoPi counterpart;
-			// it runs at the model's highest rung.
-			effort = party.efforts[len(party.efforts)-1]
-		}
-		requested := effort != "" || kind == "enabled" && thinking.Get("budget_tokens").Int() > 0
-		if !requested && party.requiresEffort && len(party.efforts) > 0 {
-			effort, requested = party.efforts[0], true
-		}
-		off, enabled = !requested, requested
-	}
-	// partyBudget is the thinking budget streamSimple settles on for a
-	// third-party budget or budget-effort model (mapOptionsForApi), and
-	// maxTokens the output allowance it pairs with it. A budget the model cap
-	// cannot fit at 1024 or more turns thinking off and keeps the caller's
-	// own max_tokens.
-	partyBudget := int64(0)
-	if party != nil && enabled && profile.Thinking.Mode != "anthropic-adaptive" {
-		budget := thinking.Get("budget_tokens").Int()
-		if effort != "" {
-			budget = neoPiEffortBudgets[effort]
-		}
-		if budget <= 0 {
-			budget = 1024
-		}
-		caller := root.Get("max_tokens").Int()
-		requested := budget
-		if profile.MaxTokens < budget+4000 {
-			budget = profile.MaxTokens - 4000
-		}
-		allowance := maxTokens
-		if budget >= 1024 {
-			if caller > 0 {
-				allowance = min(caller+requested, profile.MaxTokens)
-			}
-		} else {
-			allowance = min(64000, profile.MaxTokens)
-			if caller > 0 {
-				allowance = min(caller+budget, profile.MaxTokens)
-			}
-			if allowance < budget+4000 {
-				budget = allowance - 4000
-			}
-		}
-		if budget < 1024 {
-			enabled, off, effort = false, true, ""
-		} else {
-			partyBudget, maxTokens = budget, allowance
-		}
-	}
-	// Adaptive thinking spends the same max_tokens as the answer: streamSimple
-	// gives a requested effort's thinking budget on top of a caller's
-	// allowance, within the model cap (Kimi's own stream adds none).
-	if party != nil && enabled && !party.ownStream && profile.Thinking.Mode == "anthropic-adaptive" {
-		if caller := root.Get("max_tokens").Int(); caller > 0 {
-			maxTokens = min(caller+neoPiEffortBudgets[effort], profile.MaxTokens)
-		}
-	}
-	// mapEffortToAnthropicAdaptiveEffort: the wire effort is the row's effort
-	// map entry, and minimal, which the effort field lacks, goes out as low.
-	if party != nil && enabled && effort != "" {
-		if mapped := party.effortMap[effort]; mapped != "" {
-			effort = mapped
-		}
-		if effort == "minimal" {
-			effort = "low"
-		}
-		// "adaptive" is a sentinel: thinking.type carries it, no effort does.
-		if effort == "adaptive" {
-			effort = ""
-		}
-	}
 	var wireThinking json.RawMessage
-	if profile.Thinking.Mode == "anthropic-adaptive" {
-		if enabled {
-			wireThinking = json.RawMessage(`{"type":"adaptive"}`)
-			if profile.Thinking.SupportsDisplay != nil && *profile.Thinking.SupportsDisplay {
-				wireThinking = neoPiSet(wireThinking, "display", "summarized")
+	var effort string
+	var enabled bool
+	if factory != nil {
+		// streamFactoryDroid hands buildParams explicit thinking options;
+		// streamSimple's mapping below does not run. ensureMaxTokensForThinking
+		// leaves 4000 visible tokens above a budget, within the output cap.
+		wireThinking, effort = factory.thinking.Thinking, factory.thinking.Effort
+		kind := gjson.GetBytes(wireThinking, "type").String()
+		enabled = kind == "adaptive" || kind == "enabled"
+		if budget := gjson.GetBytes(wireThinking, "budget_tokens").Int(); kind == "enabled" && budget > 0 {
+			maxTokens = min(max(maxTokens, budget+4000), profile.MaxTokens)
+			if fitted := min(budget, maxTokens-4000); fitted != budget {
+				if fitted <= 0 {
+					return nil, nil, fmt.Errorf("claude: thinking budget requires max_tokens greater than 4000; got %d", maxTokens)
+				}
+				wireThinking = neoPiSet(wireThinking, "budget_tokens", fitted)
 			}
-		} else if off {
-			switch profile.Compat.DisabledThinking {
-			case "disabled":
-				wireThinking = json.RawMessage(`{"type":"disabled"}`)
+		}
+	} else {
+		thinking := root.Get("thinking")
+		effort = root.Get("output_config.effort").String()
+		off := profile.Reasoning && (thinking.Get("type").String() == "disabled" || effort == "none" || effort == "off")
+		enabled = profile.Reasoning && !off && (thinking.Get("type").String() == "enabled" || thinking.Get("type").String() == "adaptive" || effort != "")
+		if !profile.Reasoning {
+			effort = ""
+		}
+		if party != nil && profile.Reasoning {
+			// NeoPi's streamSimple sends a reasoning model's thinking off unless an
+			// effort was requested; a mandatory-thinking model then runs at its
+			// lowest effort instead.
+			kind := thinking.Get("type").String()
+			if effort == "none" || effort == "off" || kind == "disabled" {
 				effort = ""
-			case "adaptive":
+			} else if effort == "" && kind == "adaptive" && thinking.Get("budget_tokens").Int() <= 0 && len(party.efforts) > 0 {
+				// [INFERENCE] adaptive without an effort has no NeoPi counterpart;
+				// it runs at the model's highest rung.
+				effort = party.efforts[len(party.efforts)-1]
+			}
+			requested := effort != "" || kind == "enabled" && thinking.Get("budget_tokens").Int() > 0
+			if !requested && party.requiresEffort && len(party.efforts) > 0 {
+				effort, requested = party.efforts[0], true
+			}
+			off, enabled = !requested, requested
+		}
+		// partyBudget is the thinking budget streamSimple settles on for a
+		// third-party budget or budget-effort model (mapOptionsForApi), and
+		// maxTokens the output allowance it pairs with it. A budget the model cap
+		// cannot fit at 1024 or more turns thinking off and keeps the caller's
+		// own max_tokens.
+		partyBudget := int64(0)
+		if party != nil && enabled && profile.Thinking.Mode != "anthropic-adaptive" {
+			budget := thinking.Get("budget_tokens").Int()
+			if effort != "" {
+				budget = neoPiEffortBudgets[effort]
+			}
+			if budget <= 0 {
+				budget = 1024
+			}
+			caller := root.Get("max_tokens").Int()
+			requested := budget
+			if profile.MaxTokens < budget+4000 {
+				budget = profile.MaxTokens - 4000
+			}
+			allowance := maxTokens
+			if budget >= 1024 {
+				if caller > 0 {
+					allowance = min(caller+requested, profile.MaxTokens)
+				}
+			} else {
+				allowance = min(64000, profile.MaxTokens)
+				if caller > 0 {
+					allowance = min(caller+budget, profile.MaxTokens)
+				}
+				if allowance < budget+4000 {
+					budget = allowance - 4000
+				}
+			}
+			if budget < 1024 {
+				enabled, off, effort = false, true, ""
+			} else {
+				partyBudget, maxTokens = budget, allowance
+			}
+		}
+		// Adaptive thinking spends the same max_tokens as the answer: streamSimple
+		// gives a requested effort's thinking budget on top of a caller's
+		// allowance, within the model cap (Kimi's own stream adds none).
+		if party != nil && enabled && !party.ownStream && profile.Thinking.Mode == "anthropic-adaptive" {
+			if caller := root.Get("max_tokens").Int(); caller > 0 {
+				maxTokens = min(caller+neoPiEffortBudgets[effort], profile.MaxTokens)
+			}
+		}
+		// mapEffortToAnthropicAdaptiveEffort: the wire effort is the row's effort
+		// map entry, and minimal, which the effort field lacks, goes out as low.
+		if party != nil && enabled && effort != "" {
+			if mapped := party.effortMap[effort]; mapped != "" {
+				effort = mapped
+			}
+			if effort == "minimal" {
+				effort = "low"
+			}
+			// "adaptive" is a sentinel: thinking.type carries it, no effort does.
+			if effort == "adaptive" {
+				effort = ""
+			}
+		}
+		if profile.Thinking.Mode == "anthropic-adaptive" {
+			if enabled {
 				wireThinking = json.RawMessage(`{"type":"adaptive"}`)
-			case "between-tools":
-				wireThinking = json.RawMessage(`{"type":"between_tools"}`)
-				effort = ""
-			default:
-				switch {
-				case party != nil && party.adaptiveTagOnly:
-					// Not adaptive-only: a tag-only model turns thinking off.
+				if profile.Thinking.SupportsDisplay != nil && *profile.Thinking.SupportsDisplay {
+					wireThinking = neoPiSet(wireThinking, "display", "summarized")
+				}
+			} else if off {
+				switch profile.Compat.DisabledThinking {
+				case "disabled":
 					wireThinking = json.RawMessage(`{"type":"disabled"}`)
 					effort = ""
-				case profile.Compat.SupportsBetweenToolsThinking:
+				case "adaptive":
+					wireThinking = json.RawMessage(`{"type":"adaptive"}`)
+				case "between-tools":
 					wireThinking = json.RawMessage(`{"type":"between_tools"}`)
 					effort = ""
 				default:
-					effort = "low"
+					switch {
+					case party != nil && party.adaptiveTagOnly:
+						// Not adaptive-only: a tag-only model turns thinking off.
+						wireThinking = json.RawMessage(`{"type":"disabled"}`)
+						effort = ""
+					case profile.Compat.SupportsBetweenToolsThinking:
+						wireThinking = json.RawMessage(`{"type":"between_tools"}`)
+						effort = ""
+					default:
+						effort = "low"
+					}
 				}
 			}
-		}
-	} else if enabled {
-		budget := thinking.Get("budget_tokens").Int()
-		if party != nil {
-			budget = partyBudget
-		}
-		if budget <= 0 {
-			budget = 1024
-		}
-		maxTokens = min(max(maxTokens, budget+4000), profile.MaxTokens)
-		budget = min(budget, maxTokens-4000)
-		if budget <= 0 {
-			return nil, nil, fmt.Errorf("claude: thinking budget requires max_tokens greater than 4000; got %d", maxTokens)
-		}
-		wireThinking = jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("enabled")}, jsjson.Field{Name: "budget_tokens", Value: jsjson.Marshal(budget)})
-		if profile.Thinking.SupportsDisplay == nil || *profile.Thinking.SupportsDisplay {
-			display := thinking.Get("display").String()
-			if display == "" {
-				display = "summarized"
+		} else if enabled {
+			budget := thinking.Get("budget_tokens").Int()
+			if party != nil {
+				budget = partyBudget
 			}
-			wireThinking = neoPiSet(wireThinking, "display", display)
-		}
-	} else if off {
-		wireThinking = json.RawMessage(`{"type":"disabled"}`)
-	}
-	// Only budget mode carries no effort; adaptive and budget+effort send it.
-	if party != nil && profile.Thinking.Mode == "budget" {
-		effort = ""
-	}
-	if profile.Thinking.PrefixBinding && profile.Compat.SupportsThinkingBindingControls {
-		if len(wireThinking) == 0 && !(off && profile.Compat.DisabledThinking == "omit") {
-			wireThinking = json.RawMessage(`{"type":"adaptive"}`)
-		}
-		if kind := gjson.GetBytes(wireThinking, "type").String(); kind == "adaptive" || kind == "enabled" {
-			binding := thinking.Get("block_binding.prefix_mismatch_behavior").String()
-			if binding == "" {
-				binding = "drop_block"
+			if budget <= 0 {
+				budget = 1024
 			}
-			wireThinking = neoPiSet(wireThinking, "block_binding.prefix_mismatch_behavior", binding)
+			maxTokens = min(max(maxTokens, budget+4000), profile.MaxTokens)
+			budget = min(budget, maxTokens-4000)
+			if budget <= 0 {
+				return nil, nil, fmt.Errorf("claude: thinking budget requires max_tokens greater than 4000; got %d", maxTokens)
+			}
+			wireThinking = jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("enabled")}, jsjson.Field{Name: "budget_tokens", Value: jsjson.Marshal(budget)})
+			if profile.Thinking.SupportsDisplay == nil || *profile.Thinking.SupportsDisplay {
+				display := thinking.Get("display").String()
+				if display == "" {
+					display = "summarized"
+				}
+				wireThinking = neoPiSet(wireThinking, "display", display)
+			}
+		} else if off {
+			wireThinking = json.RawMessage(`{"type":"disabled"}`)
+		}
+		// Only budget mode carries no effort; adaptive and budget+effort send it.
+		if party != nil && profile.Thinking.Mode == "budget" {
+			effort = ""
+		}
+		if profile.Thinking.PrefixBinding && profile.Compat.SupportsThinkingBindingControls {
+			if len(wireThinking) == 0 && !(off && profile.Compat.DisabledThinking == "omit") {
+				wireThinking = json.RawMessage(`{"type":"adaptive"}`)
+			}
+			if kind := gjson.GetBytes(wireThinking, "type").String(); kind == "adaptive" || kind == "enabled" {
+				binding := thinking.Get("block_binding.prefix_mismatch_behavior").String()
+				if binding == "" {
+					binding = "drop_block"
+				}
+				wireThinking = neoPiSet(wireThinking, "block_binding.prefix_mismatch_behavior", binding)
+			}
 		}
 	}
 	var contextManagement json.RawMessage
-	if configured := root.Get("context_management"); configured.Exists() {
+	if configured := root.Get("context_management"); configured.Exists() && factory == nil {
 		contextManagement = []byte(configured.Raw)
 	} else if kind := gjson.GetBytes(wireThinking, "type").String(); profile.Compat.SupportsContextManagement && (kind == "adaptive" || kind == "enabled") {
 		contextManagement = json.RawMessage(`{"edits":[{"type":"clear_thinking_20251015","keep":"all"}]}`)
@@ -548,16 +573,48 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if len(tools) > 0 || !identity.APIKey || root.Get("tools").IsArray() {
 		wireTools = jsjson.Marshal(tools)
 	}
-	fields := []jsjson.Field{{Name: "model", Value: jsjson.Marshal(model)}, {Name: "messages", Value: jsjson.Marshal(messages)}, {Name: "system", Value: wireSystem}, {Name: "tools", Value: wireTools}, {Name: "metadata", Value: metadata}, {Name: "max_tokens", Value: jsjson.Marshal(maxTokens)}, {Name: "thinking", Value: wireThinking}, {Name: "context_management", Value: contextManagement}, {Name: "output_config", Value: outputConfig}, {Name: "stream", Value: jsjson.Marshal(true)}}
-	for _, name := range []string{"stop_sequences", "service_tier", "speed", "fallbacks", "fallback_credit_token"} {
-		if value := root.Get(name); value.Exists() {
-			fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
+	fields := []jsjson.Field{{Name: "model", Value: jsjson.Marshal(model)}, {Name: "messages", Value: jsjson.Marshal(messages)}, {Name: "system", Value: wireSystem}, {Name: "tools", Value: wireTools}, {Name: "metadata", Value: metadata}, {Name: "max_tokens", Value: jsjson.Marshal(maxTokens)}, {Name: "thinking", Value: wireThinking}, {Name: "context_management", Value: contextManagement}, {Name: "output_config", Value: outputConfig}}
+	samplingAllowed := profile.Compat.SupportsSamplingParams && (len(wireThinking) == 0 || gjson.GetBytes(wireThinking, "type").String() == "disabled")
+	if factory != nil {
+		// buildParams' order: fallbacks before stream, then sampling, stop
+		// sequences (at most four) and fast mode.
+		if len(factory.fallbacks) > 0 {
+			entries := make([]json.RawMessage, 0, len(factory.fallbacks))
+			for _, fallback := range factory.fallbacks {
+				entries = append(entries, jsjson.Object(jsjson.Field{Name: "model", Value: jsjson.Marshal(fallback)}))
+			}
+			fields = append(fields, jsjson.Field{Name: "fallbacks", Value: jsjson.Marshal(entries)})
 		}
-	}
-	if profile.Compat.SupportsSamplingParams && (len(wireThinking) == 0 || gjson.GetBytes(wireThinking, "type").String() == "disabled") {
-		for _, name := range []string{"temperature", "top_p", "top_k"} {
+		fields = append(fields, jsjson.Field{Name: "stream", Value: jsjson.Marshal(true)})
+		if samplingAllowed {
+			for _, name := range []string{"temperature", "top_p", "top_k"} {
+				if value := root.Get(name); value.Exists() {
+					fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
+				}
+			}
+		}
+		if stops := root.Get("stop_sequences").Array(); len(stops) > 0 {
+			kept := make([]json.RawMessage, 0, min(len(stops), 4))
+			for _, stop := range stops[:min(len(stops), 4)] {
+				kept = append(kept, json.RawMessage(stop.Raw))
+			}
+			fields = append(fields, jsjson.Field{Name: "stop_sequences", Value: jsjson.Marshal(kept)})
+		}
+		if factory.fastMode {
+			fields = append(fields, jsjson.Field{Name: "speed", Value: jsjson.Marshal("fast")})
+		}
+	} else {
+		fields = append(fields, jsjson.Field{Name: "stream", Value: jsjson.Marshal(true)})
+		for _, name := range []string{"stop_sequences", "service_tier", "speed", "fallbacks", "fallback_credit_token"} {
 			if value := root.Get(name); value.Exists() {
 				fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
+			}
+		}
+		if samplingAllowed {
+			for _, name := range []string{"temperature", "top_p", "top_k"} {
+				if value := root.Get(name); value.Exists() {
+					fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
+				}
 			}
 		}
 	}
@@ -765,36 +822,12 @@ func neoPiHeaders(body []byte, session, version string, thinking, tools bool, ba
 	if gjson.GetBytes(body, "fallbacks.#").Int() > 0 {
 		add("server-side-fallback-2026-06-01")
 	}
-	var arch string
-	switch runtime.GOARCH {
-	case "amd64":
-		arch = "x64"
-	case "386":
-		arch = "x86"
-	case "arm64":
-		arch = "arm64"
-	default:
-		arch = "other::" + runtime.GOARCH
-	}
-	var osName string
-	switch runtime.GOOS {
-	case "linux":
-		osName = "Linux"
-	case "darwin":
-		osName = "MacOS"
-	case "windows":
-		osName = "Windows"
-	case "freebsd":
-		osName = "FreeBSD"
-	default:
-		osName = "Other::" + runtime.GOOS
-	}
 	h := make(http.Header)
 	for key, value := range map[string]string{
 		"Accept": "application/json", "Accept-Encoding": "gzip, deflate, br, zstd", "Connection": "keep-alive", "Content-Type": "application/json",
 		"anthropic-beta": strings.Join(betas, ","), "anthropic-dangerous-direct-browser-access": "true", "anthropic-version": "2023-06-01",
 		"User-Agent": "claude-cli/" + version + " (external, cli)", "x-app": "cli", "X-Claude-Code-Session-Id": session,
-		"X-Stainless-Arch": arch, "X-Stainless-Lang": "js", "X-Stainless-OS": osName, "X-Stainless-Package-Version": anthropicnpi.SDKVersion,
+		"X-Stainless-Arch": helps.StainlessArch(), "X-Stainless-Lang": "js", "X-Stainless-OS": helps.StainlessOS(), "X-Stainless-Package-Version": anthropicnpi.SDKVersion,
 		"X-Stainless-Retry-Count": "0", "X-Stainless-Runtime": "node", "X-Stainless-Runtime-Version": "v26.3.0", "X-Stainless-Timeout": "600",
 	} {
 		h.Set(key, value)

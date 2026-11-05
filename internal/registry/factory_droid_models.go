@@ -363,6 +363,20 @@ func FactoryDroidDiscoveredModels(scope FactoryDroidScope, settings FactoryDroid
 	return out
 }
 
+// FactoryDroidModelInfo is one account-scoped Factory Droid row as a
+// registered model. Its thinking ladder is what the canonical thinking
+// pipeline validates against; a requiresEffort ladder cannot turn off.
+func FactoryDroidModelInfo(row *NeoPiModel) *ModelInfo {
+	model := row.Clone()
+	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: FactoryDroidProvider, Type: FactoryDroidProvider,
+		DisplayName: model.Name, ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
+		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model}
+	if model.Reasoning && model.Thinking != nil && len(model.Thinking.Efforts) > 0 {
+		info.Thinking = &ThinkingSupport{Levels: slices.Clone(model.Thinking.Efforts), ZeroAllowed: !model.Thinking.RequiresEffort}
+	}
+	return info
+}
+
 // factoryDroidInferenceRegion is resolveFactoryDroidInferenceRegion.
 func factoryDroidInferenceRegion(scope FactoryDroidScope) string {
 	if scope.InferenceRegion != "" {
