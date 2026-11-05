@@ -84,6 +84,12 @@ Before serialization or downstream logging, the extracted error node passes
 through the existing Responses recursive sensitive-key/Bearer redaction and
 string-length limits. This policy is reapplied even if an outer wrapper already
 sanitized `Error()`, since `errors.As` can still reach the original raw carrier.
+The policy lives in the shared handler sanitizers so Responses and Claude use
+the same redaction and length limits. Claude selects only the error leaf from
+`error`, `response.error`, or `response.status_details.error` (including failed
+terminal aliases), drops upstream metadata, and renders a Claude error category
+with sanitized code/message text. Unknown or malformed event envelopes use the
+HTTP status text, never the raw serialized event.
 
 ## 2) Register Translators
 

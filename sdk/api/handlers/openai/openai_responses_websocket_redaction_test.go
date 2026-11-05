@@ -132,8 +132,8 @@ func assertResponsesWebsocketErrorRedaction(t *testing.T, payload []byte, wantMe
 	if got := gjson.GetBytes(payload, "error.metadata.note").String(); got != "Bearer [REDACTED]" {
 		t.Errorf("Bearer text = %q, want redaction", got)
 	}
-	if got := len([]rune(gjson.GetBytes(payload, "error.trace").String())); got != responsesStreamErrorMessageLimit+1 {
-		t.Errorf("trace length = %d, want bounded text (%d)", got, responsesStreamErrorMessageLimit+1)
+	if got := len([]rune(gjson.GetBytes(payload, "error.trace").String())); got != handlers.UpstreamErrorMessageLimit+1 {
+		t.Errorf("trace length = %d, want bounded text (%d)", got, handlers.UpstreamErrorMessageLimit+1)
 	}
 	var decoded any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
@@ -142,7 +142,7 @@ func assertResponsesWebsocketErrorRedaction(t *testing.T, payload []byte, wantMe
 }
 
 func responsesWebsocketSensitiveErrorNode() string {
-	return `{"code":"invalid_request_error","message":"Correct the request","api_key":"sk-review-secret","metadata":{"authorization":"Bearer review-secret","refresh_token":"review-refresh-secret","note":"Bearer review-note-secret","children":[{"client_secret":"review-child-secret"}]},"trace":"` + strings.Repeat("x", responsesStreamErrorMessageLimit+128) + `"}`
+	return `{"code":"invalid_request_error","message":"Correct the request","api_key":"sk-review-secret","metadata":{"authorization":"Bearer review-secret","refresh_token":"review-refresh-secret","note":"Bearer review-note-secret","children":[{"client_secret":"review-child-secret"}]},"trace":"` + strings.Repeat("x", handlers.UpstreamErrorMessageLimit+128) + `"}`
 }
 
 type responsesWebsocketRawBodyError struct{ body string }

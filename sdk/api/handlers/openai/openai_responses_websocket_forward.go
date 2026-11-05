@@ -653,7 +653,7 @@ func buildResponsesWebsocketErrorPayload(errMsg *interfaces.ErrorMessage) ([]byt
 				}
 				cleaned, errMarshal := json.Marshal(struct {
 					Error any `json:"error"`
-				}{Error: sanitizeResponsesStreamErrorNode(upstreamError)})
+				}{Error: handlers.SanitizeUpstreamErrorNode(upstreamError)})
 				if errMarshal != nil {
 					return nil, errMarshal
 				}
