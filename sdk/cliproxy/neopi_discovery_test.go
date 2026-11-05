@@ -29,7 +29,7 @@ func TestNeoPiDiscoveryRetriesEmptyListingSoon(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			d := &neoPiDiscovery{
 				provider: "deepinfra", ttl: 2 * time.Hour, retry: 5 * time.Minute,
-				bundled: func() []*ModelInfo { return nil },
+				bundled: func(*coreauth.Auth) []*ModelInfo { return nil },
 				fetch: func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error) {
 					if tc.result != nil {
 						return nil, tc.result

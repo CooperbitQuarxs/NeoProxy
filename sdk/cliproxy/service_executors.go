@@ -222,6 +222,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"xai",
 		"grok-build",
 		"devin",
+		"factory-droid",
 		"meta",
 		"cursor",
 		"nous-portal",
@@ -380,6 +381,8 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewGrokBuildExecutor(cfg))
 	case "devin":
 		s.coreManager.RegisterExecutor(executor.NewDevinExecutor(cfg))
+	case "factory-droid":
+		s.coreManager.RegisterExecutor(executor.NewFactoryDroidExecutor(cfg))
 	case "meta":
 		s.coreManager.RegisterExecutor(executor.NewMetaExecutor(cfg))
 	case "cursor":
