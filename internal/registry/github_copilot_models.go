@@ -142,3 +142,17 @@ func GitHubCopilotModelInfo(row *NeoPiModel) *ModelInfo {
 	}
 	return info
 }
+
+// GitHubCopilotSeedModels is the bundled roster NeoPi serves until discovery
+// answers, as registered models; nil when the bundle does not load.
+func GitHubCopilotSeedModels() []*ModelInfo {
+	rows, err := GitHubCopilotBundledModels()
+	if err != nil {
+		return nil
+	}
+	out := make([]*ModelInfo, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, GitHubCopilotModelInfo(row))
+	}
+	return out
+}

@@ -224,6 +224,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"grok-build",
 		"devin",
 		"factory-droid",
+		"github-copilot",
 		"meta",
 		"cursor",
 		"nous-portal",
@@ -397,6 +398,8 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewDevinExecutor(cfg))
 	case "factory-droid":
 		s.coreManager.RegisterExecutor(executor.NewFactoryDroidExecutor(cfg))
+	case "github-copilot":
+		s.coreManager.RegisterExecutor(executor.NewGitHubCopilotExecutor(cfg))
 	case "meta":
 		s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor("meta", cfg))
 	case "cursor":

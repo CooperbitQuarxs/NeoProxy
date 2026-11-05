@@ -201,6 +201,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		models = applyExcludedModels(s.registerNeoPiDiscovered(devinDiscovery, a), excluded)
 	case "factory-droid":
 		models = applyExcludedModels(s.registerNeoPiDiscovered(factoryDroidDiscovery, a), excluded)
+	case "github-copilot":
+		models = applyExcludedModels(s.registerNeoPiDiscovered(githubCopilotDiscovery, a), excluded)
 	case "nous-portal":
 		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
