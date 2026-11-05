@@ -52,6 +52,14 @@ type NeoPiModel struct {
 	Cursor *NeoPiCursor `json:"cursor,omitempty"`
 	// FactoryDroid is the account scope a factory-droid-agent row carries.
 	FactoryDroid *NeoPiFactoryDroid `json:"factoryDroid,omitempty"`
+	// OllamaCompat is the compat NeoPi resolves for an ollama-chat row.
+	OllamaCompat *NeoPiOllamaCompat `json:"ollamaCompat,omitempty"`
+}
+
+// NeoPiOllamaCompat is ResolvedOllamaCompat: whether replayed assistant
+// thinking is stripped from an ollama-chat request.
+type NeoPiOllamaCompat struct {
+	StripThinkingHistory bool `json:"stripThinkingHistory"`
 }
 
 // NeoPiGoogleCompat is the resolved compat NeoPi's Google request builders read
@@ -351,6 +359,10 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 		scope := *m.FactoryDroid
 		scope.APIProviders = slices.Clone(m.FactoryDroid.APIProviders)
 		out.FactoryDroid = &scope
+	}
+	if m.OllamaCompat != nil {
+		compat := *m.OllamaCompat
+		out.OllamaCompat = &compat
 	}
 	out.CompatConfig = maps.Clone(m.CompatConfig)
 	return &out

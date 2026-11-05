@@ -23,19 +23,21 @@ type neoPiBundledRows struct {
 // neoPiBundledCatalog is the export's shape.
 type neoPiBundledCatalog struct {
 	Models []struct {
-		ID             string          `json:"id"`
-		Name           string          `json:"name"`
-		API            string          `json:"api"`
-		Provider       string          `json:"provider"`
-		BaseURL        string          `json:"baseUrl"`
-		Reasoning      bool            `json:"reasoning"`
-		Input          []string        `json:"input"`
-		ContextWindow  int             `json:"contextWindow"`
-		MaxTokens      int             `json:"maxTokens"`
-		RequestModelID string          `json:"requestModelId"`
-		Thinking       json.RawMessage `json:"thinking"`
-		Compat         json.RawMessage `json:"compat"`
-		Cost           NeoPiCost       `json:"cost"`
+		ID             string   `json:"id"`
+		Name           string   `json:"name"`
+		API            string   `json:"api"`
+		Provider       string   `json:"provider"`
+		BaseURL        string   `json:"baseUrl"`
+		Reasoning      bool     `json:"reasoning"`
+		Input          []string `json:"input"`
+		ContextWindow  int      `json:"contextWindow"`
+		MaxTokens      int      `json:"maxTokens"`
+		RequestModelID string   `json:"requestModelId"`
+		// OmitMaxOutputTokens is model.omitMaxOutputTokens (ollama-chat rows).
+		OmitMaxOutputTokens bool            `json:"omitMaxOutputTokens"`
+		Thinking            json.RawMessage `json:"thinking"`
+		Compat              json.RawMessage `json:"compat"`
+		Cost                NeoPiCost       `json:"cost"`
 	} `json:"models"`
 }
 
@@ -73,7 +75,8 @@ func decodeNeoPiBundledRows(name string, file []byte) ([]*NeoPiModel, error) {
 		}
 		row := &NeoPiModel{ID: entry.ID, Name: entry.Name, API: entry.API, Provider: entry.Provider, BaseURL: entry.BaseURL,
 			Reasoning: entry.Reasoning, Input: entry.Input, ContextWindow: entry.ContextWindow, MaxTokens: entry.MaxTokens,
-			Thinking: thinking, RequestModelID: entry.RequestModelID, cost: entry.Cost, thinkingRequiresEffortSet: requiresEffortSet}
+			Thinking: thinking, RequestModelID: entry.RequestModelID, OmitMaxOutputTokens: entry.OmitMaxOutputTokens, cost: entry.Cost,
+			thinkingRequiresEffortSet: requiresEffortSet}
 		// The compat belongs to the row's own API.
 		var target any
 		switch entry.API {
@@ -86,6 +89,9 @@ func decodeNeoPiBundledRows(name string, file []byte) ([]*NeoPiModel, error) {
 		case "openai-responses":
 			row.Compat = &NeoPiCompat{}
 			target = row.Compat
+		case "ollama-chat":
+			row.OllamaCompat = &NeoPiOllamaCompat{}
+			target = row.OllamaCompat
 		default:
 			return nil, fmt.Errorf("registry: %s %s: unknown api %s", name, entry.ID, entry.API)
 		}
