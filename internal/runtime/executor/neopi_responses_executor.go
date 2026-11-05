@@ -60,8 +60,9 @@ type neoPiResponsesBinding struct {
 	model   *registry.NeoPiModel
 	token   string
 	session string
-	// shape sets the wrapper's options from the shaped Codex body.
-	shape func(body []byte, conversation *openaiwire.Context, options *openaiwire.Options)
+	// shape sets the wrapper's options over the ones NeoPi derived from the
+	// downstream request.
+	shape func(conversation *openaiwire.Context, options *openaiwire.Options)
 	// headers finishes the request headers over the transport's own.
 	headers func(ctx context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header)
 }

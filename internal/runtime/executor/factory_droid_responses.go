@@ -12,6 +12,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	"github.com/tidwall/gjson"
 )
@@ -42,8 +43,14 @@ func (e *FactoryDroidExecutor) responsesExecutor(a *factoryDroidAttempt) (*NeoPi
 	served := false
 	exec := NewNeoPiResponsesExecutor(factorydroid.Provider, e.cfg)
 	exec.binding = &neoPiResponsesBinding{model: row, token: a.token, session: a.session,
-		shape: func(body []byte, conversation *openaiwire.Context, options *openaiwire.Options) {
-			effort, off := a.effort(body, "codex")
+		shape: func(conversation *openaiwire.Context, options *openaiwire.Options) {
+			// The caller's effort as openaiwire resolved it for the model's
+			// own ladder (requireSupportedEffort), not the raw request.
+			requested := options.Effort
+			if options.DisableReasoning {
+				requested = string(thinking.LevelNone)
+			}
+			effort, off := a.effortFor(requested)
 			for _, item := range conversation.Input {
 				served = served || factoryDroidResponsesServed(item)
 			}

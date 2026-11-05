@@ -24,6 +24,7 @@ import (
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
+	"github.com/tidwall/gjson"
 )
 
 // factoryDroidCapture is testdata/neopi_factory_droid/<wire>.json.gz: NeoPi's
@@ -339,6 +340,28 @@ func TestFactoryDroidSendsConfiguredHeaders(t *testing.T) {
 				t.Errorf("X-Custom-Gateway-Key = %q, want the configured required-key", key)
 			}
 		})
+	}
+}
+
+// A Responses route sends the effort NeoPi resolves for the model's own
+// ladder (requireSupportedEffort): gpt-5.4 tops out at xhigh, so a caller's
+// max goes out as xhigh.
+func TestFactoryDroidResponsesClampsEffortToModel(t *testing.T) {
+	var body []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+	entry := registry.FactoryDroidModelFor("gpt-5.4")
+	row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
+	row.BaseURL = server.URL + "/api"
+	payload := `{"model":"gpt-5.4","input":"hi","reasoning":{"effort":"max"}}`
+	auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
+	req := cliproxyexecutor.Request{Model: "gpt-5.4", Payload: []byte(payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
+	_, _ = NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: []byte(payload)})
+	if got := gjson.GetBytes(body, "reasoning.effort").String(); got != "xhigh" {
+		t.Errorf("reasoning.effort = %q, want xhigh; body %s", got, body)
 	}
 }
 

@@ -177,7 +177,13 @@ func (a *factoryDroidAttempt) policyString(name string) string {
 // effort the canonical thinking pipeline settled for the request (suffix
 // over body, validated against the row's ladder).
 func (a *factoryDroidAttempt) effort(translated []byte, format string) (string, bool) {
-	requested := thinking.ExtractTranslatedReasoningEffort(translated, format)
+	return a.effortFor(thinking.ExtractTranslatedReasoningEffort(translated, format))
+}
+
+// effortFor is normalizeMandatoryReasoningOptions and selectEffort over a
+// requested effort already resolved against the model's ladder ("none"
+// turns reasoning off).
+func (a *factoryDroidAttempt) effortFor(requested string) (string, bool) {
 	disabled := requested == string(thinking.LevelNone)
 	if disabled || requested == string(thinking.LevelAuto) {
 		requested = ""
