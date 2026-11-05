@@ -121,11 +121,13 @@ func impliesMandatoryReasoning(facts identityFacts, modelID string) bool {
 
 // fallbackEfforts is fallbackEfforts for the ported APIs.
 func fallbackEfforts(spec Spec, compat map[string]any) []string {
-	if spec.API == APIAnthropicMessages {
+	switch spec.API {
+	case APIAnthropicMessages, APIOpenAIResponses:
 		return defaultReasoningEffortsWithXHigh
-	}
-	if compat["thinkingFormat"] == "openai" && compat["supportsReasoningEffort"] == true {
-		return defaultReasoningEffortsWithXHigh
+	case APIOpenAICompletions:
+		if compat["thinkingFormat"] == "openai" && compat["supportsReasoningEffort"] == true {
+			return defaultReasoningEffortsWithXHigh
+		}
 	}
 	return defaultReasoningEfforts
 }
@@ -136,23 +138,23 @@ func defaultThinkingMode(spec Spec, facts identityFacts) string {
 	switch spec.API {
 	case APIGoogleVertex:
 		return "budget"
-	case APIOpenAICompletions:
-		return "effort"
+	case APIAnthropicMessages:
+		if facts.is("anthropic") {
+			// Haiku stays on budget thinking until 5.5, its first adaptive generation.
+			floor := "4.6"
+			if facts.family("haiku") {
+				floor = "5.5"
+			}
+			if facts.revGte(floor) {
+				return "anthropic-adaptive"
+			}
+			if facts.family("opus") && facts.revGte("4.5") {
+				return "anthropic-budget-effort"
+			}
+		}
+		return "budget"
 	}
-	if facts.is("anthropic") {
-		// Haiku stays on budget thinking until 5.5, its first adaptive generation.
-		floor := "4.6"
-		if facts.family("haiku") {
-			floor = "5.5"
-		}
-		if facts.revGte(floor) {
-			return "anthropic-adaptive"
-		}
-		if facts.family("opus") && facts.revGte("4.5") {
-			return "anthropic-budget-effort"
-		}
-	}
-	return "budget"
+	return "effort"
 }
 
 // defaultSupportsDisplay is defaultSupportsDisplay: an Anthropic-wire lineage
@@ -210,7 +212,7 @@ func stringsToAny(values []string) []any {
 	return out
 }
 
-// resolveThinkingPolicy is resolveThinkingPolicy for openai-completions.
+// resolveThinkingPolicy is resolveThinkingPolicy for the ported APIs.
 func resolveThinkingPolicy(spec Spec, facts identityFacts, a axes, compat map[string]any) (map[string]any, error) {
 	rule := readRuleThinking(a)
 	var explicit map[string]any
@@ -219,6 +221,11 @@ func resolveThinkingPolicy(spec Spec, facts identityFacts, a axes, compat map[st
 	}
 	unverified := !compatReasoning(spec, a)
 	if unverified && (explicit != nil || facts.identity.Class != "unknown" || !rule.unverified) {
+		return nil, nil
+	}
+	// omitsWireReasoningEffort: a Responses wire that takes no effort has no
+	// ladder to offer.
+	if supports, declared := compat["supportsReasoningEffort"]; spec.API == APIOpenAIResponses && declared && supports == false {
 		return nil, nil
 	}
 	if explicit != nil {

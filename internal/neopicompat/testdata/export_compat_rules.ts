@@ -1,7 +1,8 @@
 // Exports the data NeoPi's catalog compat engine resolves model policy from
 // (pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, and the wire
-// axis keys axes.ts applies to an openai-completions, anthropic-messages or
-// google-vertex compat record) as internal/neopicompat/compat_rules.json.gz.
+// axis keys axes.ts applies to an openai-completions, openai-responses,
+// anthropic-messages or google-vertex compat record) as
+// internal/neopicompat/compat_rules.json.gz.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     bun --preserve-symlinks export_compat_rules.ts
@@ -25,6 +26,7 @@ const wireKeysFor = (api: string): string[] => {
 	];
 };
 const completionsWireKeys = wireKeysFor("openai-completions");
+const responsesWireKeys = wireKeysFor("openai-responses");
 const anthropicWireKeys = wireKeysFor("anthropic-messages");
 const googleWireKeys = wireKeysFor("google-vertex");
 
@@ -33,10 +35,11 @@ writeFileSync(
 	out,
 	Bun.gzipSync(
 		JSON.stringify({
-			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions, anthropic-messages and google-vertex wire keys",
+			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions, openai-responses, anthropic-messages and google-vertex wire keys",
 			cascade: rules.cascade.rules,
 			hosts: KNOWN_HOSTS,
 			completionsWireKeys,
+			responsesWireKeys,
 			anthropicWireKeys,
 			googleWireKeys,
 		}),
