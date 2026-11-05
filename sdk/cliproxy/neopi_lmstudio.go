@@ -31,6 +31,11 @@ func fetchNeoPiLmStudioModels(ctx context.Context, cfg *config.Config, auth *cor
 	if err != nil {
 		return nil, err
 	}
+	// An unusable listing fails before the native probes are awaited; the
+	// deferred cancel abandons them.
+	if !registry.NeoPiLmStudioListingUsable(body) {
+		return nil, fmt.Errorf("lm-studio models: %s: %w", endpoint, registry.ErrNeoPiListing)
+	}
 	wg.Wait()
 	models, err := registry.NeoPiLmStudioListing(base, body, v0, v1)
 	if err != nil {

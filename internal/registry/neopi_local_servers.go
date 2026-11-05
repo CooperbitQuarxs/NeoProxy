@@ -182,3 +182,14 @@ func neoPiApplyLmStudioMetadata(specs []neoPiSpec, metadata map[string]neoPiLmSt
 func NeoPiLmStudioListing(baseURL string, body, v0, v1 []byte) ([]*ModelInfo, error) {
 	return neoPiCompletionsListing("lm-studio", baseURL, body, neoPiListingExtras{lmStudio: neoPiLmStudioMetadataFrom(v0, v1)})
 }
+
+// NeoPiLmStudioListingUsable reports whether an LM Studio /models body is a
+// listing NeoPi reads entries from (fetchOpenAICompatibleModels): its manager
+// returns that failure before awaiting the native metadata.
+func NeoPiLmStudioListingUsable(body []byte) bool {
+	if !gjson.ValidBytes(body) {
+		return false
+	}
+	_, ok := neoPiExtractEntries(gjson.ParseBytes(body))
+	return ok
+}

@@ -1039,7 +1039,9 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		if slices.Contains(row.Input, "image") {
 			input = []string{"text", "image"}
 		}
-		collapsed := neoPiSpec{id: base.ID, name: base.Name, reasoning: true, input: input,
+		// The family spreads its first member: the pair's transport and kind
+		// survive the rebuild (a Decisions judge stays out of chat).
+		collapsed := neoPiSpec{id: base.ID, name: base.Name, api: base.API, kind: base.Kind, reasoning: true, input: input,
 			contextWindow: max(base.ContextWindow, row.ContextWindow), maxTokens: max(base.MaxTokens, row.MaxTokens),
 			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID, cost: base.cost}
 		if built, err := neoPiBuildRow(provider, base.BaseURL, &collapsed); err == nil {
