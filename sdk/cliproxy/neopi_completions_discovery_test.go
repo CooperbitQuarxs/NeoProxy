@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -156,6 +157,37 @@ func testNeoPiClinePassDiscoveryRequests(t *testing.T, key string, roster, live 
 		if _, keyed := request.Headers["authorization"]; !keyed && header.Get("Authorization") != "" {
 			t.Errorf("%s: port sent the account key", request.Path)
 		}
+	}
+}
+
+// Charm Hyper's manager lists its public /v1/models with or without a key and
+// sends no Authorization without one; a keyed-only provider still refuses.
+func TestNeoPiCompletionsDiscoveryWithoutKey(t *testing.T) {
+	var mu sync.Mutex
+	var paths, authorizations []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		paths, authorizations = append(paths, r.URL.Path), append(authorizations, r.Header.Get("Authorization"))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"hyper-fixture","object":"model"}]}`))
+	}))
+	defer server.Close()
+
+	hyper := &coreauth.Auth{ID: "h", Provider: "charm-hyper", Attributes: map[string]string{"base_url": server.URL + "/v1"}}
+	if _, err := fetchNeoPiCompletionsModels("charm-hyper")(context.Background(), &config.Config{}, hyper); err != nil {
+		t.Fatalf("keyless Hyper discovery: %v", err)
+	}
+	if len(paths) != 1 || paths[0] != "/v1/models" || authorizations[0] != "" {
+		t.Fatalf("keyless Hyper requests = %v, Authorization %q", paths, authorizations)
+	}
+
+	groq := &coreauth.Auth{ID: "g", Provider: "groq", Attributes: map[string]string{"base_url": server.URL + "/openai/v1"}}
+	if _, err := fetchNeoPiCompletionsModels("groq")(context.Background(), &config.Config{}, groq); err == nil || !strings.Contains(err.Error(), "no api key") {
+		t.Fatalf("keyless groq discovery error = %v", err)
+	}
+	if len(paths) != 1 {
+		t.Fatalf("keyless groq still requested: %v", paths)
 	}
 }
 

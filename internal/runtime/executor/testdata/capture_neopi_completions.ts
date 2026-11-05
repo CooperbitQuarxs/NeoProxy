@@ -224,6 +224,14 @@ for (const provider of providers) {
 	// The fixture key has each provider's credential shape, so a manager that
 	// parses its key (Token Plan) still wires its listing.
 	const manager = descriptor?.createModelManagerOptions({ apiKey: apiKeyFor(provider) });
+	// A manager built without a key that still lists models discovers from a
+	// public endpoint (Charm Hyper). Managers that parse their key may throw.
+	let keyless: any;
+	try {
+		keyless = descriptor?.createModelManagerOptions({});
+	} catch {
+		keyless = undefined;
+	}
 	const catalog = {
 		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)})`,
 		provider,
@@ -232,6 +240,8 @@ for (const provider of providers) {
 		discovery: {
 			// Whether the model manager fetches a live listing at all.
 			listing: typeof manager?.fetchDynamicModels === "function",
+			// Whether that listing also runs without a key (no Authorization).
+			unauthenticated: typeof keyless?.fetchDynamicModels === "function",
 			// The descriptor's KDL flag only steers bundle generation; the
 			// runtime model manager reads its own options.
 			modelsAuthoritative: !!manager?.dynamicModelsAuthoritative,

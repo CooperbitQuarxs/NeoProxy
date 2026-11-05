@@ -40,6 +40,19 @@ type ProviderAPIKey struct {
 	KeyHint         string `json:"keyHint"`
 	GetKeyURL       string `json:"getKeyUrl"`
 	KeyOptional     bool   `json:"keyOptional,omitempty"`
+	// Regions are endpoints of one product whose keys each authenticate at
+	// exactly one of them; the person picks one and only it checks the key.
+	// BaseURL is the first.
+	Regions []ProviderRegion `json:"regions,omitempty"`
+	// CustomRegion offers administrators NeoPi's "Custom" endpoint option
+	// besides Regions.
+	CustomRegion bool `json:"customRegion,omitempty"`
+}
+
+// ProviderRegion is one endpoint choice of a regional provider.
+type ProviderRegion struct {
+	Label   string `json:"label"`
+	BaseURL string `json:"baseUrl"`
 }
 
 // ProviderInfo is one entry of the dashboard's provider catalogue. Hue and
@@ -57,10 +70,6 @@ type ProviderInfo struct {
 	// engine is the native engine provider for API keys; empty means the key is
 	// routed through an openai-compatibility entry named after the catalogue ID.
 	engine string
-	// regions are regional endpoints of one product whose keys each authenticate
-	// at exactly one of them; validation keeps the first that accepts the key.
-	// APIKey.BaseURL is the first region.
-	regions []string
 	// upstreamErrors seeds that openai-compatibility entry's error
 	// classification with provider quirks.
 	upstreamErrors []config.RequestScopedErrorRule
@@ -139,6 +148,13 @@ func openAIKey(base, hint, getKey string) *ProviderAPIKey {
 	return &ProviderAPIKey{Style: "openai", BaseURL: base, KeyHint: hint, GetKeyURL: getKey}
 }
 
+// regional lists a key's endpoint choices after NeoPi's region prompt
+// (1, 2, …, then Custom); the first is the default.
+func (k *ProviderAPIKey) regional(regions ...ProviderRegion) *ProviderAPIKey {
+	k.BaseURL, k.Regions, k.CustomRegion = regions[0].BaseURL, regions, true
+	return k
+}
+
 func browser(note string) *ProviderSubscription {
 	return &ProviderSubscription{Flow: "browser", Note: note}
 }
@@ -214,9 +230,9 @@ var providerCatalog = []ProviderInfo{
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
 	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 267, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey:  openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
-		Plans:   []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
-		regions: []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL}},
+		APIKey: openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual").
+			regional(ProviderRegion{"International", qwenTokenPlanIntlURL}, ProviderRegion{"China (Beijing)", qwenTokenPlanCNURL}),
+		Plans: []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}}},
 	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 242, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
@@ -328,9 +344,9 @@ var providerCatalog = []ProviderInfo{
 	// The Coding Plan sign-in picks the International or China endpoint (or,
 	// for an administrator, a custom one) and checks the key there.
 	{ID: "alibaba-coding-plan", Name: "Alibaba Coding Plan", Vendor: "Alibaba Cloud", Hue: 25, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey:  openAIKey(alibabaCodingPlanIntlURL, "sk-... (International or China key)", "https://modelstudio.console.alibabacloud.com/"),
-		Plans:   []ProviderPlan{},
-		regions: []string{alibabaCodingPlanIntlURL, alibabaCodingPlanCNURL}},
+		APIKey: openAIKey(alibabaCodingPlanIntlURL, "sk-... (International or China key)", "https://modelstudio.console.alibabacloud.com/").
+			regional(ProviderRegion{"International", alibabaCodingPlanIntlURL}, ProviderRegion{"China", alibabaCodingPlanCNURL}),
+		Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},
@@ -348,8 +364,23 @@ var catalogBaseURL = func(id string) string {
 // catalogRegions resolves a catalogue provider's regional endpoints (nil for
 // single-endpoint providers). Tests may replace it like catalogBaseURL.
 var catalogRegions = func(id string) []string {
-	p, _ := catalogProvider(id)
-	return p.regions
+	p, ok := catalogProvider(id)
+	if !ok || p.APIKey == nil {
+		return nil
+	}
+	urls := make([]string, 0, len(p.APIKey.Regions))
+	for _, region := range p.APIKey.Regions {
+		urls = append(urls, region.BaseURL)
+	}
+	return urls
+}
+
+// regionChoice is the endpoint a regional key was entered for: one of the
+// catalogue's regions, or (Custom) any URL an administrator named. Empty
+// means the default region.
+type regionChoice struct {
+	BaseURL string
+	Custom  bool
 }
 
 func catalogProvider(id string) (ProviderInfo, bool) {

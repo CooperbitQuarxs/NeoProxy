@@ -65,16 +65,17 @@ func (v *captureValue) UnmarshalJSON(raw []byte) error {
 	return nil
 }
 
-// codingPlanBase is the endpoint the Coding Plan sign-in's answers choose:
-// 2 is China, 3 a custom URL, anything else International.
-func codingPlanBase(answers []string) string {
+// codingPlanChoice is the endpoint the Coding Plan sign-in's answers choose
+// and whether it was the custom option: 2 is China, 3 a custom URL, anything
+// else International.
+func codingPlanChoice(answers []string) (string, bool) {
 	switch {
 	case len(answers) > 0 && strings.TrimSpace(answers[0]) == "2":
-		return AlibabaCodingPlanCNURL
+		return AlibabaCodingPlanCNURL, false
 	case len(answers) > 1 && strings.TrimSpace(answers[0]) == "3":
-		return answers[1]
+		return answers[1], true
 	}
-	return AlibabaCodingPlanIntlURL
+	return AlibabaCodingPlanIntlURL, false
 }
 
 // redirect sends every request to a loopback server and keeps the original URL.
@@ -120,7 +121,7 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 	for _, scenario := range capture.Scenarios {
 		login, ok := LoginFor(scenario.Provider)
 		if scenario.Provider == "alibaba-coding-plan" {
-			login, ok = AlibabaCodingPlanLogin(codingPlanBase(scenario.Answers)), true
+			login, ok = AlibabaCodingPlanLogin(codingPlanChoice(scenario.Answers)), true
 		}
 		if !ok {
 			continue
@@ -180,8 +181,10 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 			if want := scenario.Result.Value; want.Key != "" && key != want.Key {
 				t.Errorf("key = %q, want %q", key, want.Key)
 			}
-			if want := scenario.Result.Value.BaseURL; want != "" && AlibabaCodingPlanBaseURL(codingPlanBase(scenario.Answers)) != want {
-				t.Errorf("endpoint = %q, want %q", AlibabaCodingPlanBaseURL(codingPlanBase(scenario.Answers)), want)
+			if want := scenario.Result.Value.BaseURL; want != "" {
+				if base, _ := codingPlanChoice(scenario.Answers); AlibabaCodingPlanBaseURL(base) != want {
+					t.Errorf("endpoint = %q, want %q", AlibabaCodingPlanBaseURL(base), want)
+				}
 			}
 			if len(seen) != len(scenario.Requests) {
 				t.Fatalf("requests = %d, want %d", len(seen), len(scenario.Requests))

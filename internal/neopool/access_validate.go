@@ -167,7 +167,7 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 // endpoint that accepted it. routes carries the API each model is served over
 // (see modelRoutes). Providers NeoProxy serves through NeoPi's own provider
 // check their keys the way NeoPi's sign-in does (see validateNeoPiKey).
-func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, []string, map[string]modelRoute, error) {
+func validateCatalogKey(ctx context.Context, info ProviderInfo, base string, preferred regionChoice, key string) (string, []string, map[string]modelRoute, error) {
 	if info.ID == "zai" {
 		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
 	}

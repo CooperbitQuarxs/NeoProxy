@@ -126,11 +126,13 @@ func AlibabaCodingPlanBaseURL(base string) string {
 
 // AlibabaCodingPlanLogin is loginAlibabaCodingPlan's key check for the
 // endpoint it chose: a one-token chat probe on the International or China
-// endpoint, the models endpoint of a custom one.
-func AlibabaCodingPlanLogin(base string) Login {
+// endpoint, the models endpoint when the custom option was chosen. NeoPi
+// branches on that choice, not on the URL, so a custom selection naming a
+// regional endpoint still probes its models.
+func AlibabaCodingPlanLogin(base string, custom bool) Login {
 	base = AlibabaCodingPlanBaseURL(base)
 	probe := &Validation{Kind: ModelsEndpoint, URL: base + "/models"}
-	if base == AlibabaCodingPlanIntlURL || base == AlibabaCodingPlanCNURL {
+	if !custom && (base == AlibabaCodingPlanIntlURL || base == AlibabaCodingPlanCNURL) {
 		probe = &Validation{Kind: ChatCompletions, BaseURL: base, Model: alibabaCodingPlanValidationModel}
 	}
 	return Login{Name: "Alibaba Coding Plan", Probe: probe}

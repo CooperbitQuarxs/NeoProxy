@@ -288,6 +288,10 @@ type APIKeyRequest struct {
 	// Cookie is QwenCloud Token Plan's optional console Cookie header, which
 	// enables its quota reporting (NeoPi's credential bundle `cookie`).
 	Cookie string `json:"cookie"`
+	// CustomBaseURL is NeoPi's "Custom" endpoint option of a regional
+	// provider (administrators only). It is chosen explicitly because it
+	// changes the key check even when BaseURL names a region.
+	CustomBaseURL bool `json:"customBaseUrl"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -417,7 +421,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		return AccessItem{}, err
 	}
 	base := catalogBaseURL(info.ID)
-	preferred := ""
+	var preferred regionChoice
 	if info.APIKey.EditableBaseURL {
 		if p.Role != neo.RoleAdmin {
 			return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
@@ -431,18 +435,21 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 			return AccessItem{}, accessErr(http.StatusBadRequest, "Enter the server's base URL, for example http://localhost:11434/v1 for Ollama.")
 		}
 	} else {
-		preferred = req.BaseURL
-		if len(catalogRegions(info.ID)) > 0 && strings.TrimSpace(preferred) != "" {
-			preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
-			if !slices.Contains(catalogRegions(info.ID), preferred) {
+		preferred = regionChoice{BaseURL: strings.TrimRight(strings.TrimSpace(req.BaseURL), "/"), Custom: req.CustomBaseURL}
+		if regions := catalogRegions(info.ID); len(regions) > 0 {
+			// A URL that is not one of the regions is the Custom option too.
+			preferred.Custom = preferred.Custom || (preferred.BaseURL != "" && !slices.Contains(regions, preferred.BaseURL))
+			if preferred.Custom {
 				if p.Role != neo.RoleAdmin {
 					return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
 				}
-				u, parseErr := url.Parse(preferred)
+				u, parseErr := url.Parse(preferred.BaseURL)
 				if parseErr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 					return AccessItem{}, accessErr(http.StatusBadRequest, "Enter a valid custom %s base URL.", info.Name)
 				}
 			}
+		} else {
+			preferred = regionChoice{}
 		}
 	}
 	base, models, routes, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)

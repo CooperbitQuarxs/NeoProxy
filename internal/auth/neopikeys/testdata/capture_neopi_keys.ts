@@ -156,6 +156,9 @@ try {
 	await run("alibaba-coding-plan", "intl-default", {}, codingKey, ["", codingKey]);
 	await run("alibaba-coding-plan", "china", {}, codingKey, ["2", codingKey]);
 	await run("alibaba-coding-plan", "custom-url", {}, codingKey, ["3", "https://coding.example.invalid/v1//", codingKey]);
+	// Option 3 decides the probe even when it names a regional endpoint.
+	await run("alibaba-coding-plan", "custom-names-intl", {}, codingKey, ["3", "https://coding-intl.dashscope.aliyuncs.com/v1", codingKey]);
+	await run("alibaba-coding-plan", "custom-names-china", {}, codingKey, ["3", "https://coding.dashscope.aliyuncs.com/v1/", codingKey]);
 	await run("alibaba-coding-plan", "intl-http-401", { status: 401, body: { error: { message: "Incorrect API key provided", code: "invalid_api_key" } } }, codingKey, ["1", codingKey]);
 	await run("alibaba-coding-plan", "custom-http-401", { status: 401, body: { error: { message: "unauthorized" } } }, codingKey, ["3", "https://coding.example.invalid/v1", codingKey]);
 	await run("alibaba-coding-plan", "china-http-500", { status: 500, body: "boom" }, codingKey, ["2", codingKey]);

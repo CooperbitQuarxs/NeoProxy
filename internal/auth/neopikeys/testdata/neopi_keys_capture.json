@@ -18928,6 +18928,124 @@
     },
     {
       "provider": "alibaba-coding-plan",
+      "label": "custom-names-intl",
+      "input": "sk-fixture0123456789",
+      "answers": [
+        "3",
+        "https://coding-intl.dashscope.aliyuncs.com/v1",
+        "sk-fixture0123456789"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://modelstudio.console.alibabacloud.com/",
+        "instructions": "Copy your API key from the Alibaba Cloud DashScope console"
+      },
+      "prompts": [
+        {
+          "message": "Select Alibaba Coding Plan endpoint: 1=International (default), 2=China, 3=Custom — enter 1, 2, or 3",
+          "placeholder": "1"
+        },
+        {
+          "message": "Enter custom base URL",
+          "placeholder": "https://your-proxy.com/v1"
+        },
+        {
+          "message": "Paste your Alibaba Coding Plan API key",
+          "placeholder": "sk-..."
+        }
+      ],
+      "progress": [
+        "Validating API key..."
+      ],
+      "result": {
+        "value": {
+          "access": "sk-fixture0123456789",
+          "refresh": "sk-fixture0123456789",
+          "expires": 9007199254740991,
+          "enterpriseUrl": "https://coding-intl.dashscope.aliyuncs.com/v1"
+        }
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://coding-intl.dashscope.aliyuncs.com/v1/models",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer sk-fixture0123456789",
+            "connection": "keep-alive",
+            "host": "coding-intl.dashscope.aliyuncs.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "alibaba-coding-plan",
+      "label": "custom-names-china",
+      "input": "sk-fixture0123456789",
+      "answers": [
+        "3",
+        "https://coding.dashscope.aliyuncs.com/v1/",
+        "sk-fixture0123456789"
+      ],
+      "env": null,
+      "envVars": null,
+      "status": 200,
+      "body": null,
+      "networkError": false,
+      "auth": {
+        "url": "https://modelstudio.console.alibabacloud.com/",
+        "instructions": "Copy your API key from the Alibaba Cloud DashScope console"
+      },
+      "prompts": [
+        {
+          "message": "Select Alibaba Coding Plan endpoint: 1=International (default), 2=China, 3=Custom — enter 1, 2, or 3",
+          "placeholder": "1"
+        },
+        {
+          "message": "Enter custom base URL",
+          "placeholder": "https://your-proxy.com/v1"
+        },
+        {
+          "message": "Paste your Alibaba Coding Plan API key",
+          "placeholder": "sk-..."
+        }
+      ],
+      "progress": [
+        "Validating API key..."
+      ],
+      "result": {
+        "value": {
+          "access": "sk-fixture0123456789",
+          "refresh": "sk-fixture0123456789",
+          "expires": 9007199254740991,
+          "enterpriseUrl": "https://coding.dashscope.aliyuncs.com/v1"
+        }
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://coding.dashscope.aliyuncs.com/v1/models",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer sk-fixture0123456789",
+            "connection": "keep-alive",
+            "host": "coding.dashscope.aliyuncs.com",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "provider": "alibaba-coding-plan",
       "label": "intl-http-401",
       "input": "sk-fixture0123456789",
       "answers": [

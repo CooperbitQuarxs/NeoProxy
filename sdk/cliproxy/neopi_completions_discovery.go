@@ -198,7 +198,8 @@ var alibabaTokenPlanToken = regexp.MustCompile(`^sk-[A-Za-z0-9._~+/-]+={0,2}$`)
 // NeoPi manager is configured with for the account: its key, and a base URL
 // that defaults to the provider's own. A Token Plan key is either a bare
 // sk-... token or a {"token","cookie","baseUrl"} bundle whose region decides
-// the endpoint (parseAlibabaTokenPlanCredential).
+// the endpoint (parseAlibabaTokenPlanCredential). Providers whose manager
+// lists without a key (Charm Hyper) may have none.
 func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key, base string, err error) {
 	if auth != nil {
 		key = strings.TrimSpace(auth.Attributes["api_key"])
@@ -208,7 +209,7 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 		}
 		base = strings.TrimSpace(auth.Attributes["base_url"])
 	}
-	if key == "" {
+	if key == "" && !registry.NeoPiCompletionsDiscoversWithoutKey(provider) {
 		return "", "", fmt.Errorf("%s models: account has no api key", provider)
 	}
 	if provider == "alibaba-token-plan" {
@@ -408,11 +409,13 @@ func fetchNeoPiFireworksModels(ctx context.Context, cfg *config.Config, auth *co
 }
 
 // neoPiDiscoveryGet sends NeoPi's discovery request and returns the body of a
-// 2xx answer.
+// 2xx answer. Without a key it sends no Authorization, as NeoPi does.
 func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint, key string) ([]byte, error) {
 	header := http.Header{}
 	header.Set("Accept", "application/json")
-	header.Set("Authorization", "Bearer "+key)
+	if key != "" {
+		header.Set("Authorization", "Bearer "+key)
+	}
 	if provider == "coreweave" {
 		// coreWeaveModelManagerOptions sends the W&B project the environment names.
 		if project := openaiwire.ResolveCoreWeaveProject(os.Getenv); project != "" {

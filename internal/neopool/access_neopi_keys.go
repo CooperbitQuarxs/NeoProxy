@@ -34,9 +34,9 @@ func normalizeNeoPiKey(info ProviderInfo, key string) (string, error) {
 // validateNeoPiKey runs NeoPi's key check for providers that have one and
 // reports whether it handled the provider. It returns the base URL that
 // accepted the key.
-func validateNeoPiKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, bool, error) {
+func validateNeoPiKey(ctx context.Context, info ProviderInfo, base string, preferred regionChoice, key string) (string, bool, error) {
 	if info.ID == alibabatokenplan.Provider {
-		accepted, err := validateTokenPlanKey(ctx, info, preferred, key)
+		accepted, err := validateTokenPlanKey(ctx, info, preferred.BaseURL, key)
 		return accepted, true, err
 	}
 	if info.ID == xiaomi.Provider {
@@ -46,9 +46,10 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base, preferred, k
 	}
 	if info.ID == "alibaba-coding-plan" {
 		// loginAlibabaCodingPlan: the chosen endpoint (International unless
-		// another is named) checks the key, and the account keeps it.
-		accepted := neopikeys.AlibabaCodingPlanBaseURL(preferred)
-		return accepted, true, neoPiKeyFailure(info, neopikeys.AlibabaCodingPlanLogin(accepted).Validate(ctx, accessHTTPClient, key))
+		// another is named) checks the key, and the account keeps it. The
+		// Custom option probes models even when it names a regional URL.
+		accepted := neopikeys.AlibabaCodingPlanBaseURL(preferred.BaseURL)
+		return accepted, true, neoPiKeyFailure(info, neopikeys.AlibabaCodingPlanLogin(accepted, preferred.Custom).Validate(ctx, accessHTTPClient, key))
 	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {
