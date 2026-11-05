@@ -94,13 +94,14 @@ func resetNeoPiModelsDevSessions() {
 // Callers on one route share a single catalog request, and a caller whose
 // context ends stops waiting instead of holding up the others.
 func TestNeoPiModelsDevCatalogSharedRequest(t *testing.T) {
-	release := make(chan struct{})
+	release, arrived := make(chan struct{}), make(chan struct{}, 4)
 	var mu sync.Mutex
 	requests := 0
 	modelsDev := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		mu.Lock()
 		requests++
 		mu.Unlock()
+		arrived <- struct{}{}
 		<-release
 		_, _ = w.Write([]byte(`{"siliconflow":{"models":{}}}`))
 	}))
@@ -114,11 +115,14 @@ func TestNeoPiModelsDevCatalogSharedRequest(t *testing.T) {
 	}()
 	auth := &coreauth.Auth{ID: "s", Provider: "siliconflow"}
 
+	// The first caller's request is in flight before the second arrives,
+	// so the second can only join it.
+	waited := make(chan []byte)
+	go func() { waited <- neoPiFetchModelsDev(context.Background(), &config.Config{}, auth) }()
+	<-arrived
 	cancelled, cancel := context.WithCancel(context.Background())
 	gaveUp := make(chan []byte)
 	go func() { gaveUp <- neoPiFetchModelsDev(cancelled, &config.Config{}, auth) }()
-	waited := make(chan []byte)
-	go func() { waited <- neoPiFetchModelsDev(context.Background(), &config.Config{}, auth) }()
 	cancel()
 	if payload := <-gaveUp; payload != nil {
 		t.Fatalf("cancelled caller got %q before any catalog arrived", payload)
@@ -131,5 +135,55 @@ func TestNeoPiModelsDevCatalogSharedRequest(t *testing.T) {
 	defer mu.Unlock()
 	if requests != 1 {
 		t.Fatalf("catalog requests = %d, want one shared request", requests)
+	}
+}
+
+// blockingTransport holds every request until released.
+type blockingTransport struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	b.entered <- struct{}{}
+	<-b.release
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+// directTransport passes requests straight through.
+type directTransport struct{}
+
+func (*directTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return http.DefaultTransport.RoundTrip(req)
+}
+
+// Callers on different context transports keep separate sessions: one
+// stalled transport does not hold up another.
+func TestNeoPiModelsDevCatalogSessionPerTransport(t *testing.T) {
+	modelsDev := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"siliconflow":{"models":{}}}`))
+	}))
+	defer modelsDev.Close()
+	previous := neoPiModelsDevURL
+	neoPiModelsDevURL = modelsDev.URL
+	resetNeoPiModelsDevSessions()
+	defer func() {
+		neoPiModelsDevURL = previous
+		resetNeoPiModelsDevSessions()
+	}()
+	auth := &coreauth.Auth{ID: "s", Provider: "siliconflow"}
+	stalled := &blockingTransport{entered: make(chan struct{}, 1), release: make(chan struct{})}
+	stalledCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", http.RoundTripper(stalled))            //nolint:staticcheck // the engine's context key
+	healthyCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", http.RoundTripper(&directTransport{})) //nolint:staticcheck // the engine's context key
+
+	stalledDone := make(chan []byte)
+	go func() { stalledDone <- neoPiFetchModelsDev(stalledCtx, &config.Config{}, auth) }()
+	<-stalled.entered
+	if payload := neoPiFetchModelsDev(healthyCtx, &config.Config{}, auth); string(payload) != `{"siliconflow":{"models":{}}}` {
+		t.Fatalf("healthy transport got %q while another transport stalled", payload)
+	}
+	close(stalled.release)
+	if payload := <-stalledDone; string(payload) != `{"siliconflow":{"models":{}}}` {
+		t.Fatalf("stalled transport got %q once released", payload)
 	}
 }

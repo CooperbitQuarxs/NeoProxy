@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -43,9 +44,32 @@ type neoPiCatalogFetch struct {
 	err     error
 }
 
-// neoPiModelsDevSessions holds a session per effective proxy route, as NeoPi
-// scopes sessions to the fetch implementation that owns the network.
+// neoPiModelsDevSessions holds a session per network route (see
+// neoPiCatalogRoute), as NeoPi scopes sessions to the fetch implementation
+// that owns the network.
 var neoPiModelsDevSessions sync.Map
+
+// neoPiCatalogRoute identifies the network a catalog request takes, as
+// NewProxyAwareHTTPClient selects it: the configured proxy, else the
+// context's RoundTripper, else the direct route.
+func neoPiCatalogRoute(ctx context.Context, cfg *config.Config, auth *coreauth.Auth) any {
+	if proxy := helps.EffectiveProxyURL(ctx, cfg, auth); proxy != "" {
+		return "proxy " + proxy
+	}
+	rt := helps.ContextRoundTripper(ctx)
+	if rt == nil {
+		return "direct"
+	}
+	value := reflect.ValueOf(rt)
+	switch value.Kind() {
+	case reflect.Pointer, reflect.Func, reflect.Map, reflect.Chan, reflect.UnsafePointer:
+		return fmt.Sprintf("transport %T %x", rt, value.Pointer())
+	}
+	if value.Comparable() {
+		return rt
+	}
+	return fmt.Sprintf("transport %T", rt)
+}
 
 // neoPiFetchModelsDev is fetchWellKnownModels: the catalog, decompressed when
 // the body is a zstd frame. Callers on one route share a single request and
@@ -54,7 +78,7 @@ var neoPiModelsDevSessions sync.Map
 // fallback does. NeoPi bounds this optional fetch with a deadline; NeoProxy
 // sets none after the connection is established.
 func neoPiFetchModelsDev(ctx context.Context, cfg *config.Config, auth *coreauth.Auth) []byte {
-	value, _ := neoPiModelsDevSessions.LoadOrStore(helps.EffectiveProxyURL(ctx, cfg, auth), &neoPiCatalogSession{})
+	value, _ := neoPiModelsDevSessions.LoadOrStore(neoPiCatalogRoute(ctx, cfg, auth), &neoPiCatalogSession{})
 	session := value.(*neoPiCatalogSession)
 	session.mu.Lock()
 	fetch := session.inflight

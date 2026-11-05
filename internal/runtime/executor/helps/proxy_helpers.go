@@ -50,11 +50,20 @@ func NewProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *clip
 	}
 
 	// Priority 3: Use RoundTripper from context (typically from RoundTripperFor)
-	if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+	if rt := ContextRoundTripper(ctx); rt != nil {
 		httpClient.Transport = rt
 	}
 
 	return httpClient
+}
+
+// ContextRoundTripper is the RoundTripper a context carries for clients
+// without a configured proxy (typically from RoundTripperFor), nil when none.
+func ContextRoundTripper(ctx context.Context) http.RoundTripper {
+	if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+		return rt
+	}
+	return nil
 }
 
 func EffectiveProxyURL(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) string {
