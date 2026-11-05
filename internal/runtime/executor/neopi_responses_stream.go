@@ -17,6 +17,7 @@ import (
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 // neoPiResponsesSubscriptionUsageEvent is Meta's per-turn quota frame. It is
@@ -75,25 +76,41 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 		return ctx, nil, err
 	}
 	body = helps.SetStringIfDifferent(body, "model", baseModel)
+	downstreamEffort := gjson.GetBytes(body, "reasoning.effort")
+	suffixed := thinking.ParseSuffix(req.Model).HasSuffix
+	preThinking := bytes.Clone(body)
 	if body, err = helps.ApplyRequestThinking(body, req, opts, from.String(), neoPiResponsesDialect, e.Identifier(), updatesChanged); err != nil {
-		return ctx, nil, err
+		if downstreamEffort.Type != gjson.String || suffixed {
+			return ctx, nil, err
+		}
+		// An effort outside the model's ladder is not an error for NeoPi: it
+		// clamps it when it builds the request, so the proxy's own ladder
+		// validation is skipped and the client's effort stands.
+		body, err = preThinking, nil
+	}
+	if downstreamEffort.Type == gjson.String && !suffixed {
+		// The effort the client asked for, not the proxy's own clamp of it: NeoPi
+		// clamps to the model's ladder when it builds the request.
+		if restored, errSet := sjson.SetBytes(body, "reasoning.effort", downstreamEffort.String()); errSet == nil {
+			body = restored
+		}
+	}
+	if from == sdktranslator.FormatOpenAIResponse {
+		body = restoreResponsesSourceFields(originalPayload, body)
 	}
 	applyPatch := helps.NewApplyPatchResponsesState(from, originalPayload, originalTranslated)
 	if body, err = helps.NormalizeApplyPatchResponsesRequest(body, originalPayload); err != nil {
 		return ctx, nil, err
 	}
-	if model.Provider == registry.ResponsesMeta || model.Provider == registry.ResponsesMuseCode {
-		// Reasoning envelopes another provider produced never reach api.meta.ai,
-		// and its web_search tool takes fewer fields than the hosted tool's.
-		body = sanitizeOpenAIResponsesReasoningEncryptedContentForMetaBaseURL(ctx, e.Identifier()+" executor", body, model.BaseURL)
-		body = helps.SanitizeMetaWebSearchTools(body)
-	}
+	// Payload rules run exactly once, on the shaped body: the reporter, the
+	// token counter and the transport all read these bytes.
 	ctx = helps.WithPayloadFinalizer(ctx, helps.NewPayloadFinalizer(e.cfg, e.Identifier(), baseModel, to.String(), "", originalTranslated, req, opts))
 	_, token := e.neoPiResponsesCreds(auth)
 	conversation, options := openaiwire.FromResponses(body, model)
 	options.SessionID = neoPiResponsesSessionID(e.Identifier(), req, opts)
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)
+	shaped.Body = helps.FinalizePayload(ctx, shaped.Body)
 	e.applyTransportHeaders(shaped.Header, auth, model, opts.Headers)
 	return ctx, &neoPiResponsesTurn{
 		request:         shaped,
@@ -129,8 +146,7 @@ func (e *NeoPiResponsesExecutor) runNeoPi(ctx context.Context, auth *cliproxyaut
 		URL: turn.request.URL, Method: http.MethodPost, Headers: turn.request.Header.Clone(), Body: turn.request.Body, Provider: e.Identifier(),
 	})
 	runner := &openaiwire.Turn{
-		Request:  turn.request,
-		Finalize: func(body []byte) []byte { return helps.FinalizePayload(ctx, body) },
+		Request: turn.request,
 		Do: func(request *http.Request) (*http.Response, error) {
 			response, err := do(request)
 			if err == nil {
@@ -151,6 +167,10 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesError(err error) error {
 			return wrapMetaUpstreamError(httpErr.Status, httpErr.Body)
 		}
 		return statusErr{code: httpErr.Status, msg: string(httpErr.Body)}
+	}
+	var inBand *openaiwire.InBandError
+	if errors.As(err, &inBand) {
+		return statusErr{code: inBand.Status, msg: inBand.Message}
 	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
@@ -204,7 +224,7 @@ func (s *neoPiResponsesStream) translate(event []byte) (chunks [][]byte, complet
 	helps.AppendAPIResponseChunk(s.ctx, s.e.cfg, event)
 	switch gjson.GetBytes(event, "type").String() {
 	case "response.completed", "response.incomplete", "response.done":
-		s.usage.Observe(helps.ParseCodexUsage(event))
+		s.usage.Observe(neoPiResponsesUsage(event))
 	}
 	bridgeErr := statusErr{code: http.StatusBadGateway, msg: helps.ApplyPatchUpstreamErrorMessage}
 	var lines [][]byte
@@ -259,7 +279,7 @@ func (e *NeoPiResponsesExecutor) executeNeoPi(ctx context.Context, auth *cliprox
 	}
 	turn.reporter = helps.NewExecutorUsageReporter(ctx, e, turn.baseModel, auth)
 	defer turn.reporter.TrackFailure(ctx, &err)
-	turn.reporter.SetTranslatedReasoningEffort(helps.FinalizePayload(ctx, turn.request.Body), neoPiResponsesDialect)
+	turn.reporter.SetTranslatedReasoningEffort(turn.request.Body, neoPiResponsesDialect)
 	stream := &neoPiResponsesStream{ctx: ctx, e: e, req: req, turn: turn}
 	var completed []byte
 	errRun := e.runNeoPi(ctx, auth, turn, func(event []byte) error {
@@ -311,7 +331,7 @@ func (e *NeoPiResponsesExecutor) streamNeoPi(ctx context.Context, auth *cliproxy
 	}
 	turn.reporter = helps.NewExecutorUsageReporter(ctx, e, turn.baseModel, auth)
 	defer turn.reporter.TrackFailure(ctx, &err)
-	turn.reporter.SetTranslatedReasoningEffort(helps.FinalizePayload(ctx, turn.request.Body), neoPiResponsesDialect)
+	turn.reporter.SetTranslatedReasoningEffort(turn.request.Body, neoPiResponsesDialect)
 	stream := &neoPiResponsesStream{ctx: ctx, e: e, req: req, turn: turn, streaming: true}
 	out := make(chan cliproxyexecutor.StreamChunk, 64)
 	started := make(chan error, 1)

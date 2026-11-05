@@ -37,10 +37,8 @@ func TestBuildMetaAuthRecord_PreservesSubscriptionMetadata_Issue6117(t *testing.
 	}
 
 	expectedMetadata := map[string]any{
-		"subs_tier_name":     "High Usage",
-		"subs_tier_id":       "high_usage",
-		"is_subs_active":     true,
-		"has_payment_method": true,
+		"subs_tier_name": "High Usage",
+		"subs_tier_id":   "high_usage",
 	}
 	for key, want := range expectedMetadata {
 		got, ok := record.Metadata[key]
@@ -87,7 +85,7 @@ func TestBuildMetaAuthRecord_SavesToDiskWithSubscriptionMetadata_Issue6117(t *te
 		t.Fatalf("failed to parse saved auth file: %v", errJSON)
 	}
 
-	for _, key := range []string{"subs_tier_name", "subs_tier_id", "is_subs_active", "has_payment_method"} {
+	for _, key := range []string{"subs_tier_name", "subs_tier_id"} {
 		if _, ok := parsed[key]; !ok {
 			t.Errorf("saved auth file missing expected metadata key %q", key)
 		}

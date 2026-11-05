@@ -15,7 +15,6 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -86,17 +85,10 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 		return nil, nil, accessErr(http.StatusBadRequest, "The base URL is not a valid address.")
 	}
 	req.Header = header
-	if registry.ResponsesProviderForBaseURL(base) != "" {
-		// NeoPi's models-endpoint validation (validateApiKeyAgainstModelsEndpoint):
-		// fetch's default Accept and Bun's User-Agent, nothing else.
-		req.Header.Set("Accept", "*/*")
-		req.Header.Set("User-Agent", openaiwire.BunUserAgent)
-	} else {
-		req.Header.Set("Accept", "application/json")
-		// Some providers sit behind bot protection that rejects Go's default
-		// User-Agent with a 403 page (Nous Portal does), which would read as a bad key.
-		req.Header.Set("User-Agent", "NeoProxy")
-	}
+	req.Header.Set("Accept", "application/json")
+	// Some providers sit behind bot protection that rejects Go's default
+	// User-Agent with a 403 page (Nous Portal does), which would read as a bad key.
+	req.Header.Set("User-Agent", "NeoProxy")
 	resp, err := accessHTTPClient.Do(req)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "Client.Timeout") {
@@ -179,6 +171,9 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 // dropped so they never reach the model list. routes carries the API each
 // model is served over (see modelRoutes).
 func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred, key string) (string, []string, map[string]modelRoute, error) {
+	if registry.ResponsesProviderForBaseURL(base) != "" {
+		return base, nil, nil, validateResponsesKey(ctx, base, key)
+	}
 	if info.ID == "zai" {
 		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
 	}
