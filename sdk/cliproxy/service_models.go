@@ -204,7 +204,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	case "nous-portal":
 		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
-		models = registry.GetMetaModels()
+		models = s.registerNeoPiDiscovered(metaDiscoveryFor(a), a)
 		if entry := resolveConfigMetaKeyForConfig(cfg, a); entry != nil {
 			if len(entry.Models) > 0 {
 				models = buildMetaConfigModels(entry)
@@ -260,7 +260,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					return false
 				}
 				isCompatAuth = true
-				ms := s.umansModelsFor(a, buildOpenAICompatibilityConfigModels(compat))
+				ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, buildOpenAICompatibilityConfigModels(compat)))
 				if providerKey == "" {
 					providerKey = "openai-compatibility"
 				}
@@ -286,7 +286,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					if providerKey == "" {
 						providerKey = "openai-compatibility"
 					}
-					ms := s.umansModelsFor(a, cached.models)
+					ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, cached.models))
 					if len(ms) > 0 {
 						ms = s.appendPluginModels(providerKey, ms, nil)
 						published = s.registerResolvedModelsForAuthFenced(a, fence, providerKey, applyModelPrefixes(ms, a.Prefix, cfg.ForceModelPrefix))

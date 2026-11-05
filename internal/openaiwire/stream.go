@@ -24,8 +24,6 @@ const (
 	// OPENAI_RESPONSES_MAX_TRANSIENT_STREAM_RETRIES and its delay.
 	maxTransientStreamRetries = 1
 	transientStreamRetryDelay = 500 * time.Millisecond
-	// firstEventTimeout is the default first-event watchdog.
-	firstEventTimeout = 300 * time.Second
 )
 
 var (
@@ -134,10 +132,10 @@ func isTransportFailure(err error) bool {
 // attempt opens the stream and relays it; live reports whether any event was
 // handed to emit.
 func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error) (live bool, err error) {
+	// Keep the caller's cancellation, but impose no local response timeout:
+	// a connection may be established long before response headers arrive.
 	attemptCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	watchdog := time.AfterFunc(firstEventTimeout, cancel)
-	defer watchdog.Stop()
 	response, err := neopiretry.Do(attemptCtx, func(int) (*http.Response, error) {
 		request, errRequest := http.NewRequestWithContext(attemptCtx, http.MethodPost, t.Request.URL, bytes.NewReader(body))
 		if errRequest != nil {
@@ -197,9 +195,18 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 			return io.EOF
 		}
 		if !json.Valid(frame) {
+			if inBand := classifyInBandText(string(frame)); inBand != nil {
+				return inBand
+			}
 			return &StreamError{Message: "provider sent a non-JSON stream frame: " + string(frame)}
 		}
-		watchdog.Stop()
+		if text := gjson.ParseBytes(frame); text.Type == gjson.String {
+			// A double-encoded proxy page: a throttle fails, anything else is no event.
+			if inBand := classifyInBandText(text.String()); inBand != nil {
+				return inBand
+			}
+			return nil
+		}
 		event := gjson.ParseBytes(frame)
 		kind := event.Get("type").String()
 		if kind == "error" || kind == "response.failed" {

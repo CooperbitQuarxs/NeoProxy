@@ -21,6 +21,7 @@ import (
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
+	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xai"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
@@ -52,10 +53,11 @@ const (
 )
 
 type quotaEntry struct {
-	windows []Window // last good reading
-	goodAt  time.Time
-	failing bool
-	gen     uint64 // request generation that produced this entry
+	windows   []Window        // last good reading
+	metaUsage *metaauth.Usage // accepted Muse report for idle-window carry-over
+	goodAt    time.Time
+	failing   bool
+	gen       uint64 // request generation that produced this entry
 }
 
 // quotaProber caches provider-reported windows by engine auth ID.
@@ -163,6 +165,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "kimi"
 	case "devin":
 		return "devin"
+	case "meta":
+		return "meta"
 	case "cursor":
 		return "cursor"
 	case factorydroid.Provider:
@@ -183,6 +187,10 @@ func tokenPlanCookie(a *coreauth.Auth) string {
 func quotaAccessToken(a *coreauth.Auth) string {
 	if a == nil {
 		return ""
+	}
+	if a.Provider == "meta" {
+		// A Muse sign-in is read with its account token, not the minted key.
+		return metaDeviceToken(a)
 	}
 	// The Token Plan usage report authenticates with the console session, not
 	// the inference key.
@@ -597,7 +605,7 @@ func factoryDroidUsageWindows(provider string, usage *factorydroid.Usage) []Wind
 	return out
 }
 
-// fetch asks the provider for the account's current windows.
+// fetch asks stateless providers for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
 	if token == "" {
@@ -708,15 +716,27 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
 
-// refresh fetches and caches one account. A failure keeps the last good reading.
+// refresh fetches and caches one account. Transient failures keep the last good
+// reading; definitive Muse auth/subscription failures invalidate it.
 // A result older than the stored one (a slow poll overtaken by a manual refresh)
-// is dropped, so a newer reading is never overwritten.
+// is dropped, so neither its windows nor its carry-over report can be published.
 func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Time) error {
 	q.mu.Lock()
 	q.gen++
 	gen := q.gen
+	previousMetaUsage := q.entries[a.ID].metaUsage
 	q.mu.Unlock()
-	windows, err := q.fetch(ctx, a, now)
+	var windows []Window
+	var metaUsage *metaauth.Usage
+	var err error
+	if quotaProvider(a) == "meta" {
+		metaUsage, err = fetchMetaUsage(ctx, q.clientFor(a), a, previousMetaUsage, now)
+		if err == nil {
+			windows = metaUsageWindows(metaUsage)
+		}
+	} else {
+		windows, err = q.fetch(ctx, a, now)
+	}
 	q.mu.Lock()
 	entry := q.entries[a.ID]
 	if entry.gen > gen {
@@ -725,8 +745,11 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 	}
 	wasFailing := entry.failing
 	if err == nil {
-		entry = quotaEntry{windows: windows, goodAt: now, gen: gen}
+		entry = quotaEntry{windows: windows, metaUsage: metaUsage, goodAt: now, gen: gen}
 	} else {
+		if isDefinitiveMetaUsageError(err) {
+			entry = quotaEntry{}
+		}
 		entry.failing = true
 		entry.gen = gen
 		var lostAccess *factorydroid.Error

@@ -9,6 +9,7 @@ import (
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -327,6 +328,19 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 			s.coreManager.RegisterExecutor(executor.NewZaiExecutor(compatProviderKey, cfg))
 			return
 		}
+		if registry.ResponsesProviderForBaseURL(a.Attributes["base_url"]) != "" {
+			// NeoPi serves Sakana and Abliteration keys (and keys at Meta's Model
+			// API address) itself, over its generic openai-responses transport.
+			if !forceReplace {
+				if existing, ok := s.coreManager.Executor(compatProviderKey); ok {
+					if responses, isResponses := existing.(*executor.NeoPiResponsesExecutor); isResponses && responses.UsesConfig(cfg) {
+						return
+					}
+				}
+			}
+			s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor(compatProviderKey, cfg))
+			return
+		}
 		if umansauth.IsBaseURL(a.Attributes["base_url"]) {
 			// NeoPi serves Umans keys itself over Anthropic Messages.
 			if !forceReplace {
@@ -384,7 +398,7 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 	case "factory-droid":
 		s.coreManager.RegisterExecutor(executor.NewFactoryDroidExecutor(cfg))
 	case "meta":
-		s.coreManager.RegisterExecutor(executor.NewMetaExecutor(cfg))
+		s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor("meta", cfg))
 	case "cursor":
 		s.coreManager.RegisterExecutor(executor.NewCursorExecutor(cfg))
 	case "nous-portal":

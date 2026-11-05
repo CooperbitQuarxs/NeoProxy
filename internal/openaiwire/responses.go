@@ -8,6 +8,7 @@ package openaiwire
 import (
 	"encoding/json"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
@@ -20,11 +21,19 @@ import (
 const openAIMaxOutputTokens = 64000
 
 // Context is the conversation a downstream Responses request carries: its
-// instructions, its input items (replayed as native history) and its tools.
+// instructions, input items and tools.
 type Context struct {
 	SystemPrompts []string
 	Input         []json.RawMessage
 	Tools         []json.RawMessage
+	// ReconstructAssistantHistory selects the Responses server boundary, whose
+	// assistant messages become completed output_text items rather than native
+	// replay. Set after FromResponses; false preserves native replay semantics.
+	ReconstructAssistantHistory bool
+	// NativeUserHistory preserves user/developer image references replayed from
+	// a Responses provider payload, bypassing the constructed-content vision
+	// guard. Set after FromResponses only for native Responses source history.
+	NativeUserHistory bool
 }
 
 // Options are the OpenAIResponsesOptions NeoProxy derives from a downstream body.
@@ -89,6 +98,8 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 	switch summary := reasoning.Get("summary"); {
 	case summary.Type == gjson.Null && summary.Exists():
 		opts.SummarySet = true
+	case summary.Type == gjson.String && summary.String() == "none":
+		opts.SummarySet = true
 	case summary.Type == gjson.String:
 		opts.ReasoningSummary, opts.SummarySet = summary.String(), true
 	}
@@ -115,6 +126,46 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 		}
 	}
 	return ctx, opts
+}
+
+// NormalizeMandatoryReasoning is streamSimple's
+// normalizeMandatoryReasoningOptions: a mandatory-reasoning model asked for
+// no effort, or for none, runs at its default supported effort unless it
+// suppresses thinking provider-side. Providers NeoPi reaches through
+// streamOpenAIResponses directly skip it.
+func NormalizeMandatoryReasoning(model *registry.NeoPiModel, opts *Options) {
+	if model == nil || !model.Reasoning || model.Thinking == nil || !model.Thinking.RequiresEffort || model.Thinking.SuppressWhenOff ||
+		(opts.Effort != "" && !opts.DisableReasoning) {
+		return
+	}
+	if floor := neoPiFloorEffort(model); floor != "" {
+		opts.Effort, opts.DisableReasoning = floor, false
+	}
+}
+
+// neoPiThinkingEfforts is THINKING_EFFORTS, least to most intensive.
+var neoPiThinkingEfforts = []string{"minimal", "low", "medium", "high", "xhigh", "max"}
+
+// neoPiFloorEffort is defaultSupportedEffort: the effort routed to the
+// row's default wire id, else the lowest effort it supports.
+func neoPiFloorEffort(model *registry.NeoPiModel) string {
+	efforts := model.Thinking.Efforts
+	if routing := model.Thinking.EffortRouting; routing != nil && model.RequestModelID != "" {
+		for _, effort := range neoPiThinkingEfforts {
+			if slices.Contains(efforts, effort) && routing[effort] == model.RequestModelID {
+				return effort
+			}
+		}
+	}
+	for _, effort := range neoPiThinkingEfforts {
+		if slices.Contains(efforts, effort) {
+			return effort
+		}
+	}
+	if len(efforts) > 0 {
+		return efforts[0]
+	}
+	return ""
 }
 
 // reasoningPolicy is the reasoning half of resolveOpenAICompatPolicy.
@@ -200,7 +251,8 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 // body NeoPi streams for model.
 func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.RawMessage {
 	compat := model.Compat
-	input := buildInput(ctx.Input, compat)
+	input := omitUnsupportedImages(ctx.Input, model, ctx.NativeUserHistory)
+	input = buildInput(input, compat, ctx.ReconstructAssistantHistory)
 	var instructions string
 	if len(ctx.SystemPrompts) > 0 {
 		if model.Reasoning && compat.SupportsDeveloperRole {
