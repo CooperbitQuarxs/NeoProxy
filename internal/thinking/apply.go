@@ -654,6 +654,60 @@ func ExtractReasoningEffort(body []byte, provider, model string) string {
 	return reasoningEffortFromConfig(config)
 }
 
+// ExplicitReasoningEffort is ExtractReasoningEffort limited to an effort the
+// request names: a level, none or auto, with the same precedence (a
+// Responses update, then the model suffix, then the body). A token budget
+// names no effort and reads as empty.
+func ExplicitReasoningEffort(body []byte, provider, model string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	named := func(config ThinkingConfig) string {
+		if config.Mode == ModeBudget {
+			return ""
+		}
+		return reasoningEffortFromConfig(config)
+	}
+	if isResponsesFormat(provider) {
+		if update := extractConfigurationUpdateConfig(body); hasThinkingConfig(update) {
+			return named(update)
+		}
+	}
+	if suffix := ParseSuffix(model); suffix.HasSuffix {
+		if budget, ok := ParseNumericSuffix(suffix.RawSuffix); ok && budget > 0 {
+			return ""
+		}
+		return reasoningEffortFromSuffix(suffix)
+	}
+	if provider == "gemini" {
+		return geminiNamedEffort(body)
+	}
+	config := extractThinkingConfigForUsage(body, provider)
+	if !hasThinkingConfig(config) && (provider == "openai-response" || provider == "openai") {
+		config = extractCodexUsageConfig(body)
+	}
+	return named(config)
+}
+
+// geminiNamedEffort is the effort a Gemini request names as the native
+// request reader (googlewire.FromGemini) reads it: the first existing of each
+// camelCase/snake_case container and level, and only a string level, which is
+// lowercased. A budget, or a level of any other type, names none.
+func geminiNamedEffort(body []byte) string {
+	first := func(value gjson.Result, names ...string) gjson.Result {
+		for _, name := range names {
+			if found := value.Get(name); found.Exists() {
+				return found
+			}
+		}
+		return gjson.Result{}
+	}
+	generation := first(gjson.ParseBytes(body), "generationConfig", "generation_config")
+	level := first(first(generation, "thinkingConfig", "thinking_config"), "thinkingLevel", "thinking_level")
+	if level.Type != gjson.String {
+		return ""
+	}
+	return strings.ToLower(level.Str)
+}
+
 // ExtractTranslatedReasoningEffort returns the final provider payload's thinking
 // setting as a canonical reasoning_effort label for usage logging.
 func ExtractTranslatedReasoningEffort(body []byte, provider string) string {

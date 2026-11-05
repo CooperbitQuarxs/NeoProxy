@@ -24,8 +24,6 @@ const (
 	// OPENAI_RESPONSES_MAX_TRANSIENT_STREAM_RETRIES and its delay.
 	maxTransientStreamRetries = 1
 	transientStreamRetryDelay = 500 * time.Millisecond
-	// firstEventTimeout is the default first-event watchdog.
-	firstEventTimeout = 300 * time.Second
 )
 
 var (
@@ -58,6 +56,7 @@ type StreamError struct {
 	// Event is the failure frame, when the server sent one.
 	Event      []byte
 	incomplete bool
+	retryable  bool
 }
 
 func (e *StreamError) Error() string { return e.Message }
@@ -66,6 +65,20 @@ func (e *StreamError) Error() string { return e.Message }
 func IsIncompleteStream(err error) bool {
 	var streamErr *StreamError
 	return errors.As(err, &streamErr) && streamErr.incomplete
+}
+
+// FailureEvent returns the upstream terminal failure frame, including through
+// wrapped errors. Text-only failures and incomplete streams have no frame.
+func FailureEvent(err error) []byte {
+	var inBand *InBandError
+	if errors.As(err, &inBand) {
+		return inBand.Event
+	}
+	var streamErr *StreamError
+	if errors.As(err, &streamErr) {
+		return streamErr.Event
+	}
+	return nil
 }
 
 // Turn sends one shaped request with NeoPi's transport policy.
@@ -100,6 +113,47 @@ func terminalEvent(kind string) bool {
 	return false
 }
 
+// responseFailure keeps the source terminal-error envelope distinct from the
+// in-band throttle probe. In particular, server_error has no implied HTTP
+// status: its original code/message supplies the transient retry flag.
+func responseFailure(event gjson.Result, frame []byte) error {
+	kind := event.Get("type").String()
+	response := event.Get("response")
+	status := response.Get("status").String()
+	if kind != "response.failed" && (!terminalEvent(kind) || status != "failed" && status != "cancelled") {
+		if terminalEvent(kind) && status == "incomplete" && response.Get("incomplete_details.reason").String() == "content_filter" {
+			return &StreamError{Message: "incomplete: content_filter", Event: frame}
+		}
+		return nil
+	}
+	details := response.Get("incomplete_details")
+	if !details.Exists() || details.Type == gjson.Null {
+		if inBand := classifyInBandFrame(frame); inBand != nil {
+			return inBand
+		}
+	}
+	failure := response.Get("error")
+	if !failure.Exists() || failure.Type == gjson.Null {
+		failure = response.Get("status_details.error")
+	}
+	message := "Unknown error (no error details in response)"
+	if failure.Exists() && failure.Type != gjson.Null {
+		code, detail := failure.Get("code").String(), failure.Get("message").String()
+		if code == "" {
+			code = "unknown"
+		}
+		if detail == "" {
+			detail = "no message"
+		}
+		message = code + ": " + detail
+	} else if reason := details.Get("reason").String(); reason != "" {
+		message = "incomplete: " + reason
+	} else if reason := response.Get("status_details.reason"); kind != "response.failed" && reason.Type == gjson.String && reason.String() != "" {
+		message = "status_details: " + reason.String()
+	}
+	return &StreamError{Message: message, Event: frame, retryable: !providerMalformedOutput.MatchString(message) && providerRetryableMessage(message)}
+}
+
 // Run streams the turn's events to emit. Events before the first
 // replay-unsafe event are held so one transient stream failure can be retried
 // without the client seeing a duplicate, as NeoPi buffers its attempt stream.
@@ -114,8 +168,10 @@ func (t *Turn) Run(ctx context.Context, emit func([]byte) error) error {
 	for attempt := 0; ; attempt++ {
 		live, err := t.attempt(ctx, body, emit)
 		var streamErr *StreamError
+		var inBand *InBandError
 		retryable := err != nil && !live && attempt < maxTransientStreamRetries && ctx.Err() == nil &&
-			(errors.As(err, &streamErr) && streamErr.incomplete || isTransportFailure(err))
+			(errors.As(err, &streamErr) && (streamErr.incomplete || streamErr.retryable) ||
+				errors.As(err, &inBand) && inBand.retryable || isTransportFailure(err))
 		if !retryable {
 			return err
 		}
@@ -128,16 +184,17 @@ func (t *Turn) Run(ctx context.Context, emit func([]byte) error) error {
 func isTransportFailure(err error) bool {
 	var httpErr *HTTPError
 	var streamErr *StreamError
-	return !errors.As(err, &httpErr) && !errors.As(err, &streamErr) && !errors.Is(err, context.Canceled)
+	var inBand *InBandError
+	return !errors.As(err, &httpErr) && !errors.As(err, &streamErr) && !errors.As(err, &inBand) && !errors.Is(err, context.Canceled)
 }
 
 // attempt opens the stream and relays it; live reports whether any event was
 // handed to emit.
 func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error) (live bool, err error) {
+	// Keep the caller's cancellation, but impose no local response timeout:
+	// a connection may be established long before response headers arrive.
 	attemptCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	watchdog := time.AfterFunc(firstEventTimeout, cancel)
-	defer watchdog.Stop()
 	response, err := neopiretry.Do(attemptCtx, func(int) (*http.Response, error) {
 		request, errRequest := http.NewRequestWithContext(attemptCtx, http.MethodPost, t.Request.URL, bytes.NewReader(body))
 		if errRequest != nil {
@@ -197,24 +254,57 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 			return io.EOF
 		}
 		if !json.Valid(frame) {
+			if inBand := classifyInBandText(string(frame)); inBand != nil {
+				return inBand
+			}
 			return &StreamError{Message: "provider sent a non-JSON stream frame: " + string(frame)}
 		}
-		watchdog.Stop()
+		if text := gjson.ParseBytes(frame); text.Type == gjson.String {
+			// A double-encoded proxy page: a throttle fails, anything else is no event.
+			if inBand := classifyInBandText(text.String()); inBand != nil {
+				return inBand
+			}
+			return nil
+		}
 		event := gjson.ParseBytes(frame)
 		kind := event.Get("type").String()
-		if kind == "error" || kind == "response.failed" {
-			if errFlush := flush(); errFlush != nil {
-				return errFlush
+		if failure := responseFailure(event, frame); failure != nil {
+			return failure
+		}
+		if !terminalEvent(kind) {
+			if inBand := classifyInBandFrame(frame); inBand != nil {
+				return inBand
 			}
-			live = true
-			message := event.Get("message").String()
-			if message == "" {
-				message = event.Get("response.error.message").String()
+			if kind == "error" || event.Get("error").Exists() ||
+				event.Get("code").Exists() || event.Get("message").Exists() ||
+				readInBandStatus(event.Get("status")) != 0 || inBandNonRetryableCode.MatchString(normalizeInBandCode(event.Get("type"))) {
+				if kind == "error" {
+					failure := event.Get("error")
+					if !failure.Exists() || failure.Type == gjson.Null {
+						failure = event
+					}
+					code, detail := "unknown", "no message"
+					if value := failure.Get("code"); value.Exists() && value.Type != gjson.Null {
+						code = value.String()
+					}
+					if value := failure.Get("message"); value.Exists() && value.Type != gjson.Null {
+						detail = value.String()
+					}
+					message := "Error Code " + code + ": " + detail
+					return &StreamError{Message: message, Event: frame, retryable: !providerMalformedOutput.MatchString(message) && providerRetryableMessage(message)}
+				}
+				message := event.Get("error.message").String()
+				if message == "" {
+					message = event.Get("message").String()
+				}
+				if message == "" {
+					message = event.Get("response.error.message").String()
+				}
+				if message == "" {
+					message = "An unknown error occurred"
+				}
+				return &StreamError{Message: message, Event: frame, retryable: providerRetryableMessage(message)}
 			}
-			if message == "" {
-				message = "An unknown error occurred"
-			}
-			return &StreamError{Message: message, Event: frame}
 		}
 		if terminalEvent(kind) {
 			sawTerminal = true
@@ -224,7 +314,12 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 		}
 		held = append(held, frame)
 		if live {
-			return flush()
+			if errFlush := flush(); errFlush != nil {
+				return errFlush
+			}
+			if sawTerminal {
+				return io.EOF
+			}
 		}
 		return nil
 	}

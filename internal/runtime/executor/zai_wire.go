@@ -84,6 +84,9 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 // forced tool choice); interleaved thinking needs its beta unless the model
 // displays thinking natively off a signing route.
 func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile neoPiProfile) http.Header {
+	if profile.thirdParty.factory != nil {
+		return neoPiThirdPartyHeaderSet(neoPiFactoryBetas(body, profile), session, profile)
+	}
 	var betas []string
 	tagOnly := profile.thirdParty.adaptiveTagOnly
 	adaptivePin := profile.Thinking.Mode == "anthropic-adaptive" && !tagOnly &&
@@ -108,6 +111,70 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 			break
 		}
 	}
+	return neoPiThirdPartyHeaderSet(betas, session, profile)
+}
+
+// neoPiFactoryBetas is the beta list NeoPi's Anthropic transport builds for a
+// Factory Droid attempt: the caller betas streamMessagesWire passes (tool
+// streaming, fallback credit), fast mode, the route's effortBeta, control
+// betas, server-side fallback and interleaved thinking at client build, then
+// the effort, binding and context-management betas the finalized body needs.
+func neoPiFactoryBetas(body []byte, profile neoPiProfile) []string {
+	factory := profile.thirdParty.factory
+	var betas []string
+	add := func(beta string) {
+		for _, existing := range betas {
+			if existing == beta {
+				return
+			}
+		}
+		betas = append(betas, beta)
+	}
+	if factory.toolStreamingBeta && gjson.GetBytes(body, "tools.#").Int() > 0 {
+		add("fine-grained-tool-streaming-2025-05-14")
+	}
+	if len(factory.fallbacks) > 0 {
+		add("fallback-credit-2026-06-01")
+	}
+	if factory.fastMode {
+		add("fast-mode-2026-02-01")
+	}
+	if factory.effortBeta && factory.thinking.OptionEffort != "" {
+		add("effort-2025-11-24")
+	}
+	if profile.Compat.SupportsTurnScopedSystem {
+		add("mid-conversation-system-clear-at-2026-08-21")
+	}
+	if profile.Compat.SupportsMidConversationToolChanges {
+		add("mid-conversation-tool-changes-2026-07-01")
+	}
+	if profile.Compat.SupportsPerMessageEffort {
+		add("mid-conversation-output-config-2026-07-01")
+	}
+	if len(factory.fallbacks) > 0 {
+		add("server-side-fallback-2026-06-01")
+	}
+	if factory.thinking.Interleaved && (profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing) {
+		add("interleaved-thinking-2025-05-14")
+	}
+	if factory.effortBeta && gjson.GetBytes(body, "output_config.effort").Exists() {
+		add("effort-2025-11-24")
+	}
+	if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+		add("thinking-binding-controls-2026-08-01")
+	}
+	for _, edit := range gjson.GetBytes(body, "context_management.edits").Array() {
+		if edit.Get("type").String() == "clear_thinking_20251015" {
+			add("context-management-2025-06-27")
+			break
+		}
+	}
+	return betas
+}
+
+// neoPiThirdPartyHeaderSet is the API-key header set with the given betas and
+// the provider's identity headers over it.
+func neoPiThirdPartyHeaderSet(betas []string, session string, profile neoPiProfile) http.Header {
 	h := make(http.Header)
 	h.Set("Accept", "text/event-stream")
 	h.Set("Accept-Encoding", "gzip, deflate, br, zstd")
@@ -174,6 +241,31 @@ func neoPiVertexRawPredictBody(body []byte) []byte {
 func neoPiForcedToolChoice(body []byte) bool {
 	kind := gjson.GetBytes(body, "tool_choice.type").String()
 	return kind == "any" || kind == "tool"
+}
+
+// neoPiDropThinkingHistory is convertAnthropicMessages' dropAllThinking:
+// assistant turns replay without thinking or redacted_thinking blocks.
+func neoPiDropThinkingHistory(input []byte) []byte {
+	messages := gjson.GetBytes(input, "messages")
+	if !messages.IsArray() {
+		return input
+	}
+	out := make([]json.RawMessage, 0, len(messages.Array()))
+	for _, message := range messages.Array() {
+		content := message.Get("content")
+		if message.Get("role").String() != "assistant" || !content.IsArray() {
+			out = append(out, json.RawMessage(message.Raw))
+			continue
+		}
+		blocks := make([]json.RawMessage, 0, len(content.Array()))
+		for _, block := range content.Array() {
+			if kind := block.Get("type").String(); kind != "thinking" && kind != "redacted_thinking" {
+				blocks = append(blocks, json.RawMessage(block.Raw))
+			}
+		}
+		out = append(out, neoPiSetRaw([]byte(message.Raw), "content", jsjson.Marshal(blocks)))
+	}
+	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
 }
 
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a

@@ -541,7 +541,7 @@ func (h *ClaudeCodeAPIHandler) toClaudeError(msg *interfaces.ErrorMessage) claud
 			errText = http.StatusText(status)
 		}
 		if msg.Error != nil {
-			if v := strings.TrimSpace(claudeErrorText(msg.Error)); v != "" {
+			if v := clienterror.ErrorBody(msg.Error); v != "" {
 				errText = v
 			}
 		}
@@ -621,20 +621,6 @@ func (h *ClaudeCodeAPIHandler) WriteErrorResponse(c *gin.Context, msg *interface
 	_, _ = c.Writer.Write(body)
 }
 
-func claudeErrorText(err error) string {
-	if err == nil {
-		return ""
-	}
-	type responseBodyProvider interface {
-		ResponseBody() []byte
-	}
-	var responseBody responseBodyProvider
-	if errors.As(err, &responseBody) && responseBody != nil && len(responseBody.ResponseBody()) > 0 {
-		return string(responseBody.ResponseBody())
-	}
-	return err.Error()
-}
-
 func claudeErrorDetailFromText(status int, errText string) (string, string) {
 	message := strings.TrimSpace(errText)
 	if message == "" {
@@ -642,30 +628,54 @@ func claudeErrorDetailFromText(status int, errText string) (string, string) {
 	}
 	errType := claudeErrorTypeFromStatus(status)
 
-	var payload map[string]any
-	if json.Valid([]byte(message)) {
-		if err := json.Unmarshal([]byte(message), &payload); err == nil {
-			if e, ok := payload["error"].(map[string]any); ok {
-				if t, ok := e["type"].(string); ok && strings.TrimSpace(t) != "" {
-					errType = strings.TrimSpace(t)
-				}
-				if m, ok := e["message"].(string); ok && strings.TrimSpace(m) != "" {
-					message = strings.TrimSpace(m)
-				} else if c, ok := e["code"].(string); ok && strings.TrimSpace(c) != "" {
-					message = strings.TrimSpace(c)
-				}
-			} else {
-				if t, ok := payload["type"].(string); ok && strings.TrimSpace(t) != "" && strings.TrimSpace(t) != "error" {
-					errType = strings.TrimSpace(t)
-				}
-				if m, ok := payload["message"].(string); ok && strings.TrimSpace(m) != "" {
-					message = strings.TrimSpace(m)
+	// Serialized provider events are never a fallback message. Select only the
+	// error leaf, including Responses terminal aliases and status_details.error.
+	if strings.HasPrefix(message, "{") || strings.HasPrefix(message, "[") || json.Valid([]byte(message)) {
+		fallback := http.StatusText(status)
+		var payload map[string]any
+		decoder := json.NewDecoder(strings.NewReader(message))
+		decoder.UseNumber()
+		if errDecode := decoder.Decode(&payload); errDecode != nil {
+			return errType, fallback
+		}
+		node := payload
+		if nested, ok := payload["error"].(map[string]any); ok {
+			node = nested
+		} else if response, ok := payload["response"].(map[string]any); ok {
+			node, _ = response["error"].(map[string]any)
+			if node == nil {
+				if details, ok := response["status_details"].(map[string]any); ok {
+					node, _ = details["error"].(map[string]any)
 				}
 			}
 		}
+		// Copy only the fields Claude exposes; all upstream metadata is dropped.
+		// Provider event names and foreign categories are not Claude error types.
+		typed := false
+		if t, ok := node["type"].(string); ok {
+			switch t = strings.TrimSpace(t); t {
+			case "invalid_request_error", "authentication_error", "billing_error", "permission_error",
+				"not_found_error", "conflict_error", "request_too_large", "rate_limit_error",
+				"timeout_error", "api_error", "overloaded_error":
+				errType, typed = t, true
+			}
+		}
+		message = fallback
+		if m, ok := node["message"].(string); ok && strings.TrimSpace(m) != "" {
+			message = strings.TrimSpace(m)
+			// Responses failures often carry only a code, not a Claude type.
+			// Keep that actionable identifier without exposing the raw envelope.
+			if !typed {
+				if code, ok := node["code"].(string); ok && strings.TrimSpace(code) != "" {
+					message = strings.TrimSpace(code) + ": " + message
+				}
+			}
+		} else if code, ok := node["code"].(string); ok && strings.TrimSpace(code) != "" {
+			message = strings.TrimSpace(code)
+		}
 	}
 
-	return errType, message
+	return errType, handlers.SanitizeUpstreamErrorText(message)
 }
 
 func claudeErrorTypeFromStatus(status int) string {

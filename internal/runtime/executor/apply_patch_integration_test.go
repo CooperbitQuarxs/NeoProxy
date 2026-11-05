@@ -287,7 +287,7 @@ func TestApplyPatchResponsesInvalidTerminalUsage(t *testing.T) {
 			case "xai":
 				exec = NewXAIExecutor(&config.Config{})
 			case "meta":
-				exec = NewMetaExecutor(&config.Config{})
+				exec = NewNeoPiResponsesExecutor("meta", &config.Config{})
 			}
 			auth := &cliproxyauth.Auth{ID: "task6-invalid-terminal", Provider: provider, Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 			checkUsage := task6CaptureFailureUsage(t, auth.ID)
@@ -337,8 +337,6 @@ data: {"type":"response.completed","response":{"output":[{"type":"function_call"
 		stream   bool
 		compact  bool
 	}{
-		{name: "meta-direct", provider: "meta", body: `{"object":"response","output":[{"type":"function_call","id":"c","name":"apply_patch","arguments":"{}"}],"usage":{"input_tokens":5,"output_tokens":3}}`},
-		{name: "meta-direct-event", provider: "meta", body: `{"type":"response.completed","response":{"output":[{"type":"function_call","id":"c","name":"apply_patch","arguments":"{}"}],"usage":{"input_tokens":5,"output_tokens":3}}}`},
 		{name: "xai-compact", provider: "xai", body: `{"id":"r","output":[{"type":"function_call","id":"c","name":"apply_patch","arguments":"{}"}],"usage":{"input_tokens":5,"output_tokens":3}}`, compact: true},
 		{name: "meta-sse", provider: "meta", body: sseBody, stream: true},
 		{name: "xai-sse", provider: "xai", body: sseBody, stream: true},
@@ -359,7 +357,7 @@ data: {"type":"response.completed","response":{"output":[{"type":"function_call"
 
 			var exec cliproxyauth.ProviderExecutor
 			if tc.provider == "meta" {
-				exec = NewMetaExecutor(&config.Config{})
+				exec = NewNeoPiResponsesExecutor("meta", &config.Config{})
 			} else {
 				exec = NewXAIExecutor(&config.Config{})
 			}
@@ -431,7 +429,7 @@ func TestApplyPatchHTTPGatewayErrorMatrix(t *testing.T) {
 				case "xai":
 					exec = NewXAIExecutor(&config.Config{})
 				case "meta":
-					exec = NewMetaExecutor(&config.Config{})
+					exec = NewNeoPiResponsesExecutor("meta", &config.Config{})
 				}
 				auth := &cliproxyauth.Auth{ID: "task6-http-" + provider + mode, Provider: exec.Identifier(), Attributes: map[string]string{"api_key": "test", "base_url": server.URL}}
 				if provider == "claude-oauth" {

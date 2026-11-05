@@ -8,6 +8,7 @@ package openaiwire
 import (
 	"encoding/json"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
@@ -20,11 +21,19 @@ import (
 const openAIMaxOutputTokens = 64000
 
 // Context is the conversation a downstream Responses request carries: its
-// instructions, its input items (replayed as native history) and its tools.
+// instructions, input items and tools.
 type Context struct {
 	SystemPrompts []string
 	Input         []json.RawMessage
 	Tools         []json.RawMessage
+	// ReconstructAssistantHistory selects the Responses server boundary, whose
+	// assistant messages become completed output_text items rather than native
+	// replay. Set after FromResponses; false preserves native replay semantics.
+	ReconstructAssistantHistory bool
+	// NativeUserHistory preserves user/developer image references replayed from
+	// a Responses provider payload, bypassing the constructed-content vision
+	// guard. Set after FromResponses only for native Responses source history.
+	NativeUserHistory bool
 }
 
 // Options are the OpenAIResponsesOptions NeoProxy derives from a downstream body.
@@ -44,6 +53,12 @@ type Options struct {
 	ServiceTier      string
 	ToolChoice       json.RawMessage
 	Include          []string
+	// IncludeEncryptedReasoning is options.includeEncryptedReasoning: when
+	// set it replaces compat.includeEncryptedReasoning.
+	IncludeEncryptedReasoning *bool
+	// ExtraBody is options.extraBody, assigned over the finished params as
+	// Object.assign does: a present key keeps its place, a new key appends.
+	ExtraBody []jsjson.Field
 }
 
 // FromResponses maps a downstream Responses body onto NeoPi's Context and
@@ -89,6 +104,8 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 	switch summary := reasoning.Get("summary"); {
 	case summary.Type == gjson.Null && summary.Exists():
 		opts.SummarySet = true
+	case summary.Type == gjson.String && summary.String() == "none":
+		opts.SummarySet = true
 	case summary.Type == gjson.String:
 		opts.ReasoningSummary, opts.SummarySet = summary.String(), true
 	}
@@ -115,6 +132,46 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 		}
 	}
 	return ctx, opts
+}
+
+// NormalizeMandatoryReasoning is streamSimple's
+// normalizeMandatoryReasoningOptions: a mandatory-reasoning model asked for
+// no effort, or for none, runs at its default supported effort unless it
+// suppresses thinking provider-side. Providers NeoPi reaches through
+// streamOpenAIResponses directly skip it.
+func NormalizeMandatoryReasoning(model *registry.NeoPiModel, opts *Options) {
+	if model == nil || !model.Reasoning || model.Thinking == nil || !model.Thinking.RequiresEffort || model.Thinking.SuppressWhenOff ||
+		(opts.Effort != "" && !opts.DisableReasoning) {
+		return
+	}
+	if floor := neoPiFloorEffort(model); floor != "" {
+		opts.Effort, opts.DisableReasoning = floor, false
+	}
+}
+
+// neoPiThinkingEfforts is THINKING_EFFORTS, least to most intensive.
+var neoPiThinkingEfforts = []string{"minimal", "low", "medium", "high", "xhigh", "max"}
+
+// neoPiFloorEffort is defaultSupportedEffort: the effort routed to the
+// row's default wire id, else the lowest effort it supports.
+func neoPiFloorEffort(model *registry.NeoPiModel) string {
+	efforts := model.Thinking.Efforts
+	if routing := model.Thinking.EffortRouting; routing != nil && model.RequestModelID != "" {
+		for _, effort := range neoPiThinkingEfforts {
+			if slices.Contains(efforts, effort) && routing[effort] == model.RequestModelID {
+				return effort
+			}
+		}
+	}
+	for _, effort := range neoPiThinkingEfforts {
+		if slices.Contains(efforts, effort) {
+			return effort
+		}
+	}
+	if len(efforts) > 0 {
+		return efforts[0]
+	}
+	return ""
 }
 
 // reasoningPolicy is the reasoning half of resolveOpenAICompatPolicy.
@@ -179,6 +236,9 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 	policy := reasoningPolicy{modelSupported: modelSupported, requested: requested, enabled: enabled,
 		omitEffort: compat.OmitReasoningEffort || !compat.SupportsReasoningEffort, disableMode: compat.ReasoningDisableMode,
 		includeEncrypted: compat.IncludeEncryptedReasoning}
+	if opts.IncludeEncryptedReasoning != nil {
+		policy.includeEncrypted = *opts.IncludeEncryptedReasoning
+	}
 	if enabled {
 		policy.wireEffort = mapEffort(model, compat, requested)
 	}
@@ -200,7 +260,8 @@ func resolveReasoningPolicy(model *registry.NeoPiModel, opts Options, toolChoice
 // body NeoPi streams for model.
 func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.RawMessage {
 	compat := model.Compat
-	input := buildInput(ctx.Input, compat)
+	input := omitUnsupportedImages(ctx.Input, model, ctx.NativeUserHistory)
+	input = buildInput(input, compat, ctx.ReconstructAssistantHistory)
 	var instructions string
 	if len(ctx.SystemPrompts) > 0 {
 		if model.Reasoning && compat.SupportsDeveloperRole {
@@ -217,15 +278,17 @@ func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.
 		}
 	}
 	promptCacheKey := codexwire.NormalizePromptCacheKey(opts.SessionID)
-	params := object{{Name: "model", Value: jsjson.Marshal(model.ID)}, {Name: "input", Value: jsjson.Marshal(input)}}
+	// buildParams' object literal: its keys hold their places even while
+	// undefined, so a later assignment (extraBody) lands where NeoPi's does.
+	params := object{{Name: "model", Value: jsjson.Marshal(model.ID)}, {Name: "input", Value: jsjson.Marshal(input)}, {Name: "instructions"},
+		{Name: "stream", Value: jsjson.Marshal(true)}, {Name: "prompt_cache_key"}, {Name: "prompt_cache_retention"}, {Name: "session_id"},
+		{Name: "store", Value: jsjson.Marshal(false)}, {Name: "stream_options"}}
 	if instructions != "" {
 		params.set("instructions", jsjson.Marshal(instructions))
 	}
-	params.set("stream", jsjson.Marshal(true))
 	if promptCacheKey != "" {
 		params.set("prompt_cache_key", jsjson.Marshal(promptCacheKey))
 	}
-	params.set("store", jsjson.Marshal(false))
 	if compat.SupportsObfuscationOptOut {
 		params.set("stream_options", jsjson.Object(jsjson.Field{Name: "include_obfuscation", Value: jsjson.Marshal(false)}))
 	}
@@ -280,6 +343,9 @@ func BuildResponses(model *registry.NeoPiModel, ctx Context, opts Options) json.
 	applyReasoning(&params, resolveReasoningPolicy(model, opts, toolChoice, len(ctx.Tools) > 0), reasoningSummary(model, opts), func(effort string) string {
 		return mapEffort(model, compat, effort)
 	})
+	for _, field := range opts.ExtraBody {
+		params.set(field.Name, field.Value)
+	}
 	return params.bytes()
 }
 
@@ -359,6 +425,9 @@ func applyReasoning(params *object, policy reasoningPolicy, summary *string, map
 // outputTokens is resolveOpenAIOutputTokenParam followed by
 // applyCommonResponsesSamplingParams' clamp.
 func outputTokens(model *registry.NeoPiModel, requested *float64) (float64, bool) {
+	if model.OmitMaxOutputTokens {
+		return 0, false
+	}
 	compat := model.Compat
 	var value float64
 	switch {

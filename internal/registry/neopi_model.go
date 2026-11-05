@@ -37,6 +37,9 @@ type NeoPiModel struct {
 	thinkingRequiresEffortSet bool
 	// RequestModelID is the default wire id of a collapsed family row.
 	RequestModelID string `json:"requestModelId,omitempty"`
+	// OmitMaxOutputTokens is model.omitMaxOutputTokens: the request carries
+	// no output-token limit, the caller's included.
+	OmitMaxOutputTokens bool `json:"omitMaxOutputTokens,omitempty"`
 	// cost is the row's token tariff (USD per million). NeoProxy bills
 	// nothing from it; NeoPi's variant collapse keeps a thinking pair apart
 	// when both members are priced differently.
@@ -47,6 +50,8 @@ type NeoPiModel struct {
 	GoogleCompat *NeoPiGoogleCompat `json:"googleCompat,omitempty"`
 	// Cursor is the cursor-agent routing NeoPi's discovery resolves.
 	Cursor *NeoPiCursor `json:"cursor,omitempty"`
+	// FactoryDroid is the account scope a factory-droid-agent row carries.
+	FactoryDroid *NeoPiFactoryDroid `json:"factoryDroid,omitempty"`
 }
 
 // NeoPiGoogleCompat is the resolved compat NeoPi's Google request builders read
@@ -341,6 +346,11 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 			CursorModelParameters: m.Cursor.ModelParameters, CursorModelRoutes: m.Cursor.ModelRoutes}).Clone()
 		out.Cursor = &NeoPiCursor{MaxMode: spec.CursorMaxMode, MaxModeRoutes: spec.CursorMaxModeRoutes, ModelParameters: spec.CursorModelParameters,
 			ModelRoutes: spec.CursorModelRoutes, RequiresToolSchemaProjection: m.Cursor.RequiresToolSchemaProjection}
+	}
+	if m.FactoryDroid != nil {
+		scope := *m.FactoryDroid
+		scope.APIProviders = slices.Clone(m.FactoryDroid.APIProviders)
+		out.FactoryDroid = &scope
 	}
 	out.CompatConfig = maps.Clone(m.CompatConfig)
 	return &out

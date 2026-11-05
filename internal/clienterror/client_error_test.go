@@ -26,6 +26,32 @@ func (e responseBodyError) Error() string        { return "upstream request fail
 func (e responseBodyError) StatusCode() int      { return e.status }
 func (e responseBodyError) ResponseBody() []byte { return []byte(e.body) }
 
+func TestIsRequestFaultResponseBodyContract(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{"request_code", 502, `{"error":{"code":"invalid_request_error"}}`, true},
+		{"request_type", 502, `{"response":{"error":{"type":"invalid_request_error"}}}`, true},
+		{"authentication", 401, `{"error":{"type":"authentication_error","code":"invalid_request_error"}}`, false},
+		{"model_not_found", 400, `{"error":{"type":"invalid_request_error","code":"model_not_found"}}`, false},
+		{"payment", 402, `{"error":{"code":"invalid_request_error"}}`, false},
+		{"rate_limit", 429, `{"error":{"code":"invalid_request_error"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := fmt.Errorf("outer: %w", responseBodyError{status: tc.status, body: tc.body})
+			if got := IsRequestFault(0, err); got != tc.want {
+				t.Errorf("IsRequestFault() = %t, want %t", got, tc.want)
+			}
+			if tc.name == "authentication" && !hasAuthenticationErrorBody(err) {
+				t.Error("structured authentication_error not recognized through wrapper")
+			}
+		})
+	}
+}
+
 func TestHTTPStatusFromError(t *testing.T) {
 	tests := []struct {
 		name string

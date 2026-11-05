@@ -14,6 +14,7 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
+	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -124,6 +125,9 @@ var oauthRoutes = map[string]route{
 	"grok-build": {target: "grok-build"},
 	"kimi-code":  {target: "kimi"},
 	"devin":      {target: "devin"},
+	// NeoPi's Muse Code sign-in (the Meta account device flow plus the Model
+	// API key its subscription mints); never expires and has no refresh.
+	"muse-code": {target: "meta"},
 	// NeoPi's Nous Portal extension stores its device sign-in as an oauth
 	// credential (access, refresh, expires); imported refresh-locked as usual.
 	"nous-portal": {target: "nous-portal"},
@@ -138,6 +142,9 @@ var oauthRoutes = map[string]route{
 	"kilo":              {kind: KindAPIKey, target: "kilo"},
 	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
 	"cursor":            {target: "cursor"},
+	// Factory's WorkOS device sign-in keeps its account scope (organization,
+	// residency, inference region) beside the tokens.
+	"factory-droid": {target: "factory-droid"},
 	// Snowflake's browser sign-in keeps the account it signed in at in
 	// enterpriseUrl.
 	"snowflake":      {target: "snowflake"},
@@ -416,6 +423,29 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["base_url"] = cursorwire.DefaultBaseURL
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
+	case "factory-droid":
+		meta["access_token"] = access
+		meta["auth_kind"] = "oauth"
+		for key, field := range map[string]string{"account_id": "accountId", "org_id": "orgId", "active_organization_id": "activeOrganizationId",
+			"region": "region", "inference_region": "inferenceRegion"} {
+			setNonEmpty(meta, key, str(c.data, field))
+		}
+	case "meta":
+		// NeoPi's muse-code credential is one JSON bearer holding the Meta
+		// account token and the Model API key its subscription minted.
+		var wrapped struct {
+			OAuthAccessToken string `json:"oauthAccessToken"`
+			APIKey           string `json:"apiKey"`
+		}
+		if err := json.Unmarshal([]byte(access), &wrapped); err != nil || strings.TrimSpace(wrapped.OAuthAccessToken) == "" || strings.TrimSpace(wrapped.APIKey) == "" {
+			return AuthFile{}, fmt.Errorf("%w: NeoPi's Muse Code credential is not a minted-key bearer; sign in again", ErrNotImportable)
+		}
+		meta["access_token"] = strings.TrimSpace(wrapped.APIKey)
+		meta["api_key"] = strings.TrimSpace(wrapped.APIKey)
+		meta["dca_token"] = strings.TrimSpace(wrapped.OAuthAccessToken)
+		meta["base_url"] = metaauth.DefaultAPIBaseURL
+		meta["auth_kind"] = "oauth"
+		setNonEmpty(meta, "account_id", str(c.data, "accountId"))
 	case "snowflake":
 		meta["access_token"] = access
 		meta["enterprise_url"] = str(c.data, "enterpriseUrl")
@@ -503,17 +533,22 @@ func planOf(c Credential, r route) string {
 }
 
 func expiresAt(c Credential) time.Time {
+	var at time.Time
 	switch v := c.data["expires"].(type) {
 	case float64:
 		if v > 0 {
-			return time.UnixMilli(int64(v))
+			at = time.UnixMilli(int64(v))
 		}
 	case json.Number:
 		if n, err := v.Int64(); err == nil && n > 0 {
-			return time.UnixMilli(n)
+			at = time.UnixMilli(n)
 		}
 	}
-	return time.Time{}
+	// NeoPi's NEVER_EXPIRES (muse-code, zai): no instant a calendar can print.
+	if at.Year() > 9999 {
+		return time.Time{}
+	}
+	return at
 }
 
 func str(m map[string]any, key string) string {

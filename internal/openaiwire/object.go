@@ -8,7 +8,8 @@ import (
 )
 
 // object mirrors a JavaScript object: assigning an existing key keeps its
-// position, a new key is appended, and deletion removes it.
+// position, a new key is appended, and deletion removes it. A key with no
+// value is declared but undefined: it holds its place and is not serialized.
 type object []jsjson.Field
 
 func (o object) index(name string) int {

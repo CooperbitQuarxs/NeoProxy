@@ -82,10 +82,7 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 			if info == nil || info.ID == "" {
 				continue
 			}
-			modelID := info.ID
-			if !strings.HasPrefix(modelID, a.Provider+"/") {
-				modelID = a.Provider + "/" + modelID
-			}
+			modelID := inventoryModelID(a.Provider, info.ID)
 			account.ModelIDs = append(account.ModelIDs, modelID)
 			if _, exists = models[modelID]; exists {
 				continue
@@ -272,4 +269,13 @@ func validID(id string) error {
 		return fmt.Errorf("invalid identifier")
 	}
 	return nil
+}
+
+// inventoryModelID is the pool's id for a model an account registered: the
+// registered id under its provider's namespace.
+func inventoryModelID(provider, registered string) string {
+	if strings.HasPrefix(registered, provider+"/") {
+		return registered
+	}
+	return provider + "/" + registered
 }

@@ -1034,7 +1034,7 @@ func (m *Manager) MarkResult(ctx context.Context, result Result) {
 			} else {
 				clearAuthStateOnSuccess(auth, now)
 			}
-		} else {
+		} else if !isNeoPiResponsesNotFoundResult(auth, result.Error) {
 			if modelKey != "" {
 				if !shouldSkipCredentialCooldown(result.Error) {
 					disableCooling := m.cooldownDisabledForAuth(auth)
@@ -1992,6 +1992,10 @@ func resultErrorFromError(err error) *Error {
 			resultErr.Code = transientTransportErrorCode
 		}
 	}
+	var responsesNotFound interface{ NeoPiResponsesNotFound() bool }
+	if errors.As(err, &responsesNotFound) && responsesNotFound.NeoPiResponsesNotFound() && resultErr.HTTPStatus == http.StatusNotFound {
+		resultErr.Code = ErrorCodeNeoPiResponsesNotFound
+	}
 	return resultErr
 }
 
@@ -2725,6 +2729,23 @@ func isRequestInvalidError(err error) bool {
 		}
 	}
 	return false
+}
+
+// NeoPi's generic Responses providers do not turn a 404 into credential or
+// model cooling. Compatibility entries have arbitrary names, so identify those
+// gateways by the same catalog endpoint used to select their executor.
+func isNeoPiResponsesNotFoundResult(auth *Auth, resultErr *Error) bool {
+	if statusCodeFromResult(resultErr) != http.StatusNotFound {
+		return false
+	}
+	if resultErr.Code == ErrorCodeNeoPiResponsesNotFound {
+		return true
+	}
+	if auth == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(auth.Provider), registry.ResponsesMeta) ||
+		registry.ResponsesProviderForBaseURL(auth.Attributes["base_url"]) != ""
 }
 
 func applyAuthFailureState(auth *Auth, resultErr *Error, retryAfter *time.Duration, now time.Time, disableCooling bool) {

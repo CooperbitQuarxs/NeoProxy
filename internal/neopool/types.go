@@ -70,6 +70,10 @@ type Window struct {
 	Used       float64 `json:"used"`
 	StartsAt   int64   `json:"startsAt"`
 	ResetsAt   int64   `json:"resetsAt"`
+	// Models scopes a provider window to the models that draw on it
+	// (inventory model ids); empty applies it to every model of the account.
+	// Factory Droid's Core and Standard pools each gate only their own models.
+	Models []string `json:"models,omitempty"`
 }
 type Snapshot struct {
 	Providers []Provider `json:"providers"`
