@@ -145,3 +145,25 @@ func TestGitHubCopilotDiscoveryMatchesNeoPi(t *testing.T) {
 		})
 	}
 }
+
+// The models a Copilot sign-in enables are NeoPi's: each bundled row's wire
+// id, once, in bundle order, as loginGitHubCopilot derived them (the auth
+// package's capture of NeoPi's own sign-in).
+func TestGitHubCopilotPolicyModelsMatchNeoPi(t *testing.T) {
+	data, err := os.ReadFile("../auth/githubcopilot/testdata/neopi_github_copilot_auth.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var capture struct {
+		ModelIDs []string `json:"modelIds"`
+	}
+	if err = json.Unmarshal(data, &capture); err != nil {
+		t.Fatal(err)
+	}
+	if len(capture.ModelIDs) == 0 {
+		t.Fatal("capture names no enabled models")
+	}
+	if got := GitHubCopilotPolicyModelIDs(); !reflect.DeepEqual(got, capture.ModelIDs) {
+		t.Errorf("policy models = %v,\nNeoPi enabled %v", got, capture.ModelIDs)
+	}
+}
