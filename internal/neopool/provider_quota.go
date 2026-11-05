@@ -18,6 +18,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/clinepass"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/commandcode"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
@@ -155,9 +156,13 @@ func quotaProvider(a *coreauth.Auth) string {
 	if umansauth.IsBaseURL(a.Attributes["base_url"]) {
 		return "umans"
 	}
-	// NeoPi meters every ClinePass key with its plan quota route.
-	if catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider {
+	// NeoPi meters every ClinePass and Command Code key with its account's
+	// usage route.
+	switch catalogProviderID(a.Provider, a.Attributes["compat_name"]) {
+	case clinepass.Provider:
 		return clinepass.Provider
+	case commandcode.Provider:
+		return commandcode.Provider
 	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
@@ -211,7 +216,8 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		return cookie
 	}
 	token, _ := a.Metadata["access_token"].(string)
-	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"]) || catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider) {
+	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"]) ||
+		catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider || catalogProviderID(a.Provider, a.Attributes["compat_name"]) == commandcode.Provider) {
 		token = a.Attributes["api_key"]
 	}
 	if token == "" && a.Provider == "devin" {
@@ -443,6 +449,38 @@ func clinePassUsageWindows(usage *clinepass.Usage) []Window {
 		w := percentWindow(kinds[limit.WindowID], limit.Used, startsAt, limit.ResetsAt)
 		w.Known = limit.WindowID != "30d"
 		out = append(out, w)
+	}
+	return out
+}
+
+// commandCodeUsageWindows adapts NeoPi's Command Code report the way its
+// rotation reads it: the 5h and weekly credit windows rank and gate the
+// account (an exceeded window is exhausted whatever its fraction; one
+// without a cap is reported but unknown to routing), and a credit balance
+// at or below zero exhausts it.
+func commandCodeUsageWindows(usage *commandcode.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "7d": "week"}
+	for _, limit := range usage.Limits {
+		kind := kinds[limit.WindowID]
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		switch {
+		case limit.Status == "exhausted":
+			out = append(out, percentWindow(kind, 100, startsAt, limit.ResetsAt))
+		case limit.UsedFraction != nil:
+			out = append(out, percentWindow(kind, *limit.UsedFraction*100, startsAt, limit.ResetsAt))
+		default:
+			out = append(out, Window{Kind: kind, Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+		}
+	}
+	if usage.Balance <= 0 {
+		out = append(out, percentWindow("month", 100, time.Time{}, time.Time{}))
 	}
 	return out
 }
@@ -725,6 +763,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return clinePassUsageWindows(usage), nil
+	case commandcode.Provider:
+		usage, err := commandcode.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return commandCodeUsageWindows(usage), nil
 	case "kimi":
 		// NeoPi skips the probe while the stored token is expired; the next
 		// poll carries the refreshed one.
