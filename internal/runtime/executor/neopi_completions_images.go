@@ -74,7 +74,7 @@ func (e *NeoPiCompletionsExecutor) executeImage(ctx context.Context, auth *clipr
 	if err != nil {
 		return resp, err
 	}
-	client := reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0))
+	client := reporter.TrackHTTPClient(e.httpClient(ctx, auth))
 	path := openAICompatImagesGenerationsPath
 	if edit {
 		path = openAICompatImagesEditsPath

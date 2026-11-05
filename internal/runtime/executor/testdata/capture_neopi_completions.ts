@@ -30,6 +30,11 @@ const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
 const { seedModels } = await import(root + "/pi-catalog/src/compat/providers.ts");
+// Cloudflare AI Gateway routes each model per request (api-routes): its rows
+// are exported, and captured, as that transport prepares them.
+const { cloudflareAiGatewayTransport } = await import(root + "/pi-ai/src/registry/cloudflare-ai-gateway.ts");
+const prepareModel = (provider: string, model: any) =>
+	provider === "cloudflare-ai-gateway" ? cloudflareAiGatewayTransport.prepareModel(model) : model;
 const cacheDir = mkdtempSync(join(tmpdir(), "neopi-completions-"));
 
 // Providers NeoPi bundles no rows for discover their whole roster; their
@@ -230,6 +235,14 @@ function representatives(models: any[]): any[] {
 	return [...seen.values()].slice(0, maxRepresentatives);
 }
 
+// transportEnv is the provider-transport environment set for this capture,
+// undefined when none is.
+const TRANSPORT_ENV = ["SNOWFLAKE_ACCOUNT", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_GATEWAY_ID"];
+const transportEnv = (): Record<string, string> | undefined => {
+	const env = Object.fromEntries(TRANSPORT_ENV.filter(name => process.env[name]).map(name => [name, process.env[name]!]));
+	return Object.keys(env).length > 0 ? env : undefined;
+};
+
 const apiKeyFor = (provider: string) =>
 	provider === "alibaba-token-plan"
 		? "sk-sp-fixturekey00000001"
@@ -238,7 +251,7 @@ const apiKeyFor = (provider: string) =>
 			: `fixture-key-${provider}-00000001`;
 
 for (const provider of providers) {
-	const bundled = getBundledModels(provider);
+	const bundled = getBundledModels(provider).map((model: any) => prepareModel(provider, model));
 	const discovered = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : { models: [] };
 	const listed = discovered.models;
 	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
@@ -280,6 +293,8 @@ for (const provider of providers) {
 		input: model.input,
 		contextWindow: model.contextWindow ?? 0,
 		maxTokens: model.maxTokens ?? 0,
+		// The wire id a row's transport sends (Cloudflare's stripped namespace).
+		...(model.requestModelId && model.requestModelId !== model.id ? { requestModelId: model.requestModelId } : {}),
 		...(model.thinking ? { thinking: model.thinking } : {}),
 		...(model.kind ? { kind: model.kind } : {}),
 		...(model.headers ? { headers: model.headers } : {}),
@@ -428,8 +443,9 @@ for (const provider of providers) {
 				apiKey,
 				sessionId,
 				...(discovered.listing ? { listing: discovered.listing } : {}),
-				// The environment a provider transport read (Snowflake's account).
-				...(process.env.SNOWFLAKE_ACCOUNT ? { env: { SNOWFLAKE_ACCOUNT: process.env.SNOWFLAKE_ACCOUNT } } : {}),
+				// The environment provider transports read (Snowflake's account,
+				// Cloudflare's account and gateway ids).
+				...(transportEnv() ? { env: transportEnv() } : {}),
 				...(discovered.modelsDev ? { modelsDev: discovered.modelsDev } : {}),
 				...(discovered.lmStudioV0 ? { lmStudioV0: discovered.lmStudioV0, lmStudioV1: discovered.lmStudioV1 } : {}),
 				fixtures,

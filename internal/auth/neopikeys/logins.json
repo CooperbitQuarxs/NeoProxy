@@ -360,6 +360,9 @@
 		},
 		"snowflake": {
 			"name": "Snowflake Cortex"
+		},
+		"cloudflare-ai-gateway": {
+			"name": "Cloudflare AI Gateway"
 		}
 	}
 }

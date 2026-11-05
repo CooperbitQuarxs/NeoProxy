@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -33,7 +34,7 @@ var neoPiCompletionsProviders = []string{
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
-	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake",
+	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -299,6 +300,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiSiliconFlowModels(ctx, cfg, auth, provider, key, base)
 		case "lm-studio":
 			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key, base)
+		case "cloudflare-ai-gateway":
+			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
 			if neoPiIsXiaomiTokenPlanKey(key) {
 				return fetchNeoPiXiaomiTokenPlanModels(ctx, cfg, auth, key)
@@ -318,6 +321,39 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		}
 		return models, nil
 	}
+}
+
+// fetchNeoPiCloudflareModels is cloudflareAiGatewayModelManagerOptions'
+// listing: GET <base>/v1/models with Anthropic's discovery headers and the
+// stored credential as the key, on the account's configured endpoint, else on
+// NeoPi's Anthropic gateway base. That base keeps its <account>/<gateway>
+// placeholders, where NeoPi's listing never reaches an account and it keeps
+// the bundled roster; that roster is served without sending the credential
+// there.
+func fetchNeoPiCloudflareModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key, configured string) ([]*ModelInfo, error) {
+	const provider = "cloudflare-ai-gateway"
+	base := registry.NeoPiCloudflareListingBase(configured)
+	if registry.NeoPiCloudflarePlaceholders(base) {
+		return registry.NeoPiCompletionsBundledModels(provider, provider), nil
+	}
+	endpoint := base
+	if !strings.HasSuffix(endpoint, "/v1") {
+		endpoint += "/v1"
+	}
+	endpoint += "/models"
+	header := http.Header{}
+	anthropicnpi.SetDiscoveryHeaders(header, key)
+	// The stored credential rides in X-Api-Key, which net/http copies onto a
+	// redirect to any origin; that hop must not carry it.
+	body, err := neoPiDiscoveryFetch(ctx, cfg, auth, provider, endpoint, header, "X-Api-Key", "Authorization", "cf-aig-authorization")
+	if err != nil {
+		return nil, err
+	}
+	models, err := registry.NeoPiCompletionsListing(provider, base, body)
+	if err != nil {
+		return nil, fmt.Errorf("%s models: %s: %w", provider, endpoint, err)
+	}
+	return models, nil
 }
 
 // neoPiIsXiaomiTokenPlanKey is isXiaomiTokenPlanKey.
@@ -432,8 +468,9 @@ func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.A
 }
 
 // neoPiDiscoveryFetch GETs a discovery endpoint with header, under the
-// runtime's User-Agent unless header names one.
-func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header) ([]byte, error) {
+// runtime's User-Agent unless header names one. The named credential headers
+// are dropped from any redirect hop that leaves the endpoint's origin.
+func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -442,7 +479,7 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", neoPiBunUserAgent)
 	}
-	resp, err := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0).Do(req)
+	resp, err := helps.GuardCredentialRedirects(helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0), credentialHeaders...).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s models: %w", provider, err)
 	}

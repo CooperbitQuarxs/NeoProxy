@@ -19,6 +19,11 @@ const providers = (process.env.NEOPI_PROVIDERS ?? "").split(",").filter(Boolean)
 if (providers.length === 0) throw new Error("NEOPI_PROVIDERS is required");
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
+// Cloudflare AI Gateway routes each model per request; its rows are captured
+// as that transport prepares them.
+const { cloudflareAiGatewayTransport } = await import(root + "/pi-ai/src/registry/cloudflare-ai-gateway.ts");
+const prepareModel = (provider: string, model: any) =>
+	provider === "cloudflare-ai-gateway" ? cloudflareAiGatewayTransport.prepareModel(model) : model;
 
 const apiKey = "sk-anthropic-rows-capture-000000000000";
 const sessionId = "capture-session-anthropic-rows-0001";
@@ -100,7 +105,7 @@ const outDir = join(import.meta.dir, "neopi_anthropic");
 mkdirSync(outDir, { recursive: true });
 try {
 	for (const provider of providers) {
-		const rows = (getBundledModels(provider) as any[]).filter(model => model.api === "anthropic-messages");
+		const rows = (getBundledModels(provider) as any[]).map(model => prepareModel(provider, model)).filter(model => model.api === "anthropic-messages");
 		if (rows.length === 0) throw new Error(`${provider} bundles no anthropic-messages rows`);
 		const scenarios: any[] = [];
 		const add = (model: any, name: string, turns: Turn[], opts: any, extra: { system?: string; tools?: any[] } = {}) => {

@@ -96,6 +96,9 @@ type NeoPiThinking struct {
 	DefaultLevel  string            `json:"defaultLevel,omitempty"`
 	// EffortBudgets maps an effort to its thinking-token budget (budget mode).
 	EffortBudgets map[string]int `json:"effortBudgets,omitempty"`
+	// PrefixBinding models bind thinking blocks to their conversation prefix
+	// (thinking.block_binding) where the endpoint supports binding controls.
+	PrefixBinding bool `json:"prefixBinding,omitempty"`
 }
 
 // NeoPiAnthropicCompat is the resolved compat NeoPi's Anthropic Messages
@@ -124,6 +127,9 @@ type NeoPiAnthropicCompat struct {
 	SupportsPerMessageEffort           bool `json:"supportsPerMessageEffort"`
 	SupportsThinkingBindingControls    bool `json:"supportsThinkingBindingControls"`
 	SupportsBetweenToolsThinking       bool `json:"supportsBetweenToolsThinking"`
+	// DisabledThinking is how an adaptive model's thinking-off request goes
+	// out ("disabled", "omit", "adaptive", "between-tools"; empty for the default).
+	DisabledThinking string `json:"disabledThinking,omitempty"`
 }
 
 // NeoPiCompletionsCompat is the resolved compat NeoPi's OpenAI Completions

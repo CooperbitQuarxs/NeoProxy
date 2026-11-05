@@ -102,7 +102,7 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 					if string(body) != fixture.RawBody {
 						t.Errorf("body:\n got %s\nwant %s", body, fixture.RawBody)
 					}
-					headers := neoPiCompletionsHeaders(context.Background(), auth, nil, capture.APIKey, row, capture.SessionID)
+					headers := exec.requestHeaders(context.Background(), auth, nil, exec.apiKey(auth), row, capture.SessionID)
 					want := map[string]string{}
 					for name, value := range fixture.Headers {
 						if name == "host" || name == "content-length" {

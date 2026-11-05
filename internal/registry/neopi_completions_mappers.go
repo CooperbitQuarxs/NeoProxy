@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/tidwall/gjson"
@@ -914,4 +915,117 @@ func neoPiMapZenMux(entry gjson.Result, defaults neoPiSpec, openAIBase string) n
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), defaults.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), defaults.maxTokens)
 	return spec
+}
+
+// NeoPiCloudflareListingBase is the base cloudflareAiGatewayModelManagerOptions
+// lists from (normalizeAnthropicBaseUrl): the account's configured endpoint,
+// else NeoPi's Anthropic gateway base. The catalog's own base, which a key
+// added from the dashboard carries, configures no endpoint.
+func NeoPiCloudflareListingBase(configured string) string {
+	value := strings.TrimSpace(configured)
+	if value == "" || strings.TrimSuffix(value, "/") == NeoPiCompletionsListingBase(cloudflare.Provider) {
+		return cloudflare.GatewayBase + "/anthropic"
+	}
+	return strings.TrimSuffix(value, "/")
+}
+
+// NeoPiCloudflarePlaceholders reports a base whose gateway placeholders no
+// request has filled; NeoPi's listing there never reaches an account.
+func NeoPiCloudflarePlaceholders(base string) bool {
+	return strings.Contains(base, "<account>") || strings.Contains(base, "<gateway>")
+}
+
+// neoPiMapCloudflare is cloudflareAiGatewayModelManagerOptions' mapModel (an
+// Anthropic Messages row on the listing base, named by display_name), routed
+// as cloudflareAiGatewayTransport.prepareModel routes it (neoPiCloudflareRoute).
+func neoPiMapCloudflare(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel, baseURL string) neoPiSpec {
+	spec := neoPiMapWithBundledReference(entry, defaults, reference)
+	spec.name = neoPiModelName(entry.Get("display_name"), spec.name)
+	spec.api, spec.baseURL, spec.requestModelID = neopicompat.APIAnthropicMessages, baseURL, ""
+	if route, ok := neoPiCloudflareRoute(spec.id, baseURL); ok {
+		spec.baseURL = route.baseURL
+		if route.api == neopicompat.APIAnthropicMessages {
+			spec.requestModelID = route.requestModelID
+		} else {
+			spec.api = ""
+			if route.stripped {
+				spec.requestModelID = route.requestModelID
+			}
+		}
+	}
+	return spec
+}
+
+// neoPiCloudflareRouting is one route of NeoPi's Cloudflare api-routes.
+type neoPiCloudflareRouting struct {
+	api            string
+	baseURL        string
+	requestModelID string
+	// stripped marks a route that strips its prefix (anthropic/, openai/);
+	// requestModelID is meaningful only then.
+	stripped bool
+}
+
+// neoPiCloudflareRoute is apiRouteFor("cloudflare-ai-gateway", id) with
+// prepareModel's endpoint choice: anthropic/ ids ride Anthropic Messages under
+// their prefix-stripped id with periods as hyphens, openai/ ids ride Chat
+// Completions under their prefix-stripped id, and workers-ai/ ids ride Chat
+// Completions under their own id. A base still on the gateway's placeholders
+// moves to the route's own gateway base; any other base is kept.
+func neoPiCloudflareRoute(id, baseURL string) (neoPiCloudflareRouting, bool) {
+	routeBase := func(route string) string {
+		if NeoPiCloudflarePlaceholders(baseURL) {
+			return cloudflare.GatewayBase + route
+		}
+		return baseURL
+	}
+	switch {
+	case strings.HasPrefix(id, "anthropic/"):
+		return neoPiCloudflareRouting{api: neopicompat.APIAnthropicMessages, baseURL: routeBase("/anthropic"),
+			requestModelID: strings.ReplaceAll(strings.TrimPrefix(id, "anthropic/"), ".", "-"), stripped: true}, true
+	case strings.HasPrefix(id, "openai/"):
+		return neoPiCloudflareRouting{api: neopicompat.APIOpenAICompletions, baseURL: routeBase("/openai"),
+			requestModelID: strings.TrimPrefix(id, "openai/"), stripped: true}, true
+	case strings.HasPrefix(id, "workers-ai/"):
+		return neoPiCloudflareRouting{api: neopicompat.APIOpenAICompletions, baseURL: routeBase("/compat")}, true
+	}
+	return neoPiCloudflareRouting{}, false
+}
+
+// NeoPiCloudflarePrepareModel is cloudflareAiGatewayTransport.prepareModel,
+// which NeoPi runs on every request's row, bundled, discovered or configured:
+// a routed id moves to its route's transport, endpoint and wire id. The
+// Anthropic route keeps the rest of the row as is; a row moved onto Chat
+// Completions is rebuilt through NeoPi's compat engine from its authored
+// compat. A row already on its route is returned unchanged. Nil when the
+// compat engine cannot build the routed row, as NeoPi's buildModel throws.
+func NeoPiCloudflarePrepareModel(row *NeoPiModel) *NeoPiModel {
+	if row == nil {
+		return nil
+	}
+	route, ok := neoPiCloudflareRoute(row.ID, row.BaseURL)
+	if !ok {
+		return row
+	}
+	if route.api == neopicompat.APIAnthropicMessages {
+		if row.API == route.api && row.BaseURL == route.baseURL && row.RequestModelID == route.requestModelID {
+			return row
+		}
+		prepared := row.Clone()
+		prepared.API, prepared.BaseURL, prepared.RequestModelID = route.api, route.baseURL, route.requestModelID
+		return prepared
+	}
+	if row.API == route.api && row.BaseURL == route.baseURL && row.RequestModelID == route.requestModelID {
+		return row
+	}
+	spec := neoPiReferenceSpec(row.ID, row)
+	spec.api, spec.baseURL = "", route.baseURL
+	if route.stripped {
+		spec.requestModelID = route.requestModelID
+	}
+	prepared, err := neoPiBuildRow(row.Provider, route.baseURL, &spec)
+	if err != nil {
+		return nil
+	}
+	return prepared
 }

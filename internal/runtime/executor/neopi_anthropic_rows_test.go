@@ -82,14 +82,15 @@ func TestNeoPiAnthropicRowsReplayNeoPiRequests(t *testing.T) {
 					if info.NeoPi.API != "anthropic-messages" || info.NeoPi.BaseURL != fixture.BaseURL {
 						t.Fatalf("row %s: %s at %s, NeoPi anthropic-messages at %s", fixture.Model, info.NeoPi.API, info.NeoPi.BaseURL, fixture.BaseURL)
 					}
-					rowURL, err := url.Parse(fixture.BaseURL)
+					requested, err := url.Parse(fixture.RequestedURL)
 					if err != nil {
 						t.Fatal(err)
 					}
-					// The row as registered, served from the capture server.
+					// The row as registered, served from the capture server at the
+					// endpoint NeoPi's transport resolved for it.
 					routed := *info
 					routed.NeoPi = info.NeoPi.Clone()
-					routed.NeoPi.BaseURL = server.URL + rowURL.Path
+					routed.NeoPi.BaseURL = server.URL + strings.TrimSuffix(requested.Path, "/v1/messages")
 					var downstream bytes.Buffer
 					if err := json.Compact(&downstream, fixture.Downstream); err != nil {
 						t.Fatal(err)
@@ -106,10 +107,6 @@ func TestNeoPiAnthropicRowsReplayNeoPiRequests(t *testing.T) {
 					}
 					if sent.method != fixture.Method {
 						t.Errorf("method = %s, want %s", sent.method, fixture.Method)
-					}
-					requested, err := url.Parse(fixture.RequestedURL)
-					if err != nil {
-						t.Fatal(err)
 					}
 					if sent.path != requested.RequestURI() {
 						t.Errorf("path = %s, want %s", sent.path, requested.RequestURI())
