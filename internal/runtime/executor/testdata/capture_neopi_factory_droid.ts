@@ -149,7 +149,7 @@ const geminiDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 		if (turn.kind === "user")
 			return { role: "user", parts: turn.image ? [{ text: turn.text }, { inlineData: { mimeType: "image/png", data: png } }] : [{ text: turn.text }] };
 		if (turn.kind === "call") return { role: "model", parts: [{ functionCall: { name: "lookup", args: { term: "a" } } }] };
-		return { role: "user", parts: [{ functionResponse: { name: "lookup", response: { result: turn.text } } }] };
+		return { role: "user", parts: [{ functionResponse: { name: "lookup", response: { output: turn.text } } }] };
 	});
 	const body: any = { contents };
 	if (extra.system) body.systemInstruction = { parts: [{ text: extra.system }] };
@@ -157,7 +157,7 @@ const geminiDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 	const generationConfig: any = {};
 	if (opts.maxTokens) generationConfig.maxOutputTokens = opts.maxTokens;
 	if (opts.temperature !== undefined) generationConfig.temperature = opts.temperature;
-	if (opts.disableReasoning) generationConfig.thinkingConfig = { thinkingLevel: "minimal" };
+	if (opts.disableReasoning) generationConfig.thinkingConfig = { thinkingBudget: 0 };
 	else if (opts.reasoning) generationConfig.thinkingConfig = { thinkingLevel: opts.reasoning };
 	if (Object.keys(generationConfig).length) body.generationConfig = generationConfig;
 	return body;
