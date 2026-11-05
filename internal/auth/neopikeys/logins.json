@@ -334,6 +334,29 @@
 				"kind": "models-endpoint",
 				"url": "https://zenmux.ai/api/v1/models"
 			}
+		},
+		"minimax": {
+			"name": "MiniMax"
+		},
+		"minimax-cn": {
+			"name": "MiniMax (China)"
+		},
+		"minimax-code": {
+			"name": "MiniMax Token Plan (International)",
+			"validate": {
+				"kind": "anthropic-messages",
+				"label": "MiniMax Token Plan",
+				"baseUrl": "https://api.minimax.io/anthropic",
+				"model": "MiniMax-M3"
+			}
+		},
+		"minimax-code-cn": {
+			"name": "MiniMax Token Plan (China)",
+			"validate": {
+				"kind": "anthropic-messages",
+				"baseUrl": "https://api.minimaxi.com/anthropic",
+				"model": "MiniMax-M3"
+			}
 		}
 	}
 }

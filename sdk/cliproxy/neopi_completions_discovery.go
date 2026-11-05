@@ -33,6 +33,7 @@ var neoPiCompletionsProviders = []string{
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
+	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by

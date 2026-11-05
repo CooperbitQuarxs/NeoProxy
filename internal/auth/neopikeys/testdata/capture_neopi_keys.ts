@@ -50,6 +50,7 @@ const providers = [
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "cline-pass",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn", "zenmux",
+	"minimax-code", "minimax-code-cn",
 ];
 const statuses = [
 	{ name: "ok" },
