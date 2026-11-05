@@ -144,12 +144,12 @@ func TestWorkflowWireMatchesNeoPi(t *testing.T) {
 		}
 	}
 	for _, entry := range capture.CreateBodies {
-		if got := string(CreateBody(entry.NamespaceID, entry.Options.ProjectID, entry.Options.Goal)); got != entry.Body {
+		if got := string(CreateBody("", entry.NamespaceID, entry.Options.ProjectID, entry.Options.Goal)); got != entry.Body {
 			t.Fatalf("CreateBody = %s, NeoPi %s", got, entry.Body)
 		}
 	}
 	for _, entry := range capture.DirectAccessBodies {
-		if got := string(DirectAccessBody(entry.RootNamespaceID, entry.ProjectID)); got != entry.Body {
+		if got := string(DirectAccessBody("", entry.RootNamespaceID, entry.ProjectID)); got != entry.Body {
 			t.Fatalf("DirectAccessBody = %s, NeoPi %s", got, entry.Body)
 		}
 	}

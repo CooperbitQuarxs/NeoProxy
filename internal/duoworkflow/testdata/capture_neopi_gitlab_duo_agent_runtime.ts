@@ -119,7 +119,7 @@ const result = (id: string, content: string) => ({ role: "tool", tool_call_id: i
 const body = (messages: unknown[], tools?: unknown[]) => ({ model: "claude_sonnet_4_6_vertex", messages, ...(tools ? { tools } : {}) });
 const stuck = checkpoint([request("What's the weather?"), reasoning("r1", "Let me look.")], "RUNNING");
 
-const scenarios: { name: string; turns: unknown[]; script: Frame[][][] }[] = [
+const scenarios: { name: string; turns: unknown[]; script: Frame[][][]; env?: Record<string, string> }[] = [
 	{
 		name: "text",
 		turns: [body([system, { role: "user", content: "Hi" }])],
@@ -195,6 +195,35 @@ const scenarios: { name: string; turns: unknown[]; script: Frame[][][] }[] = [
 			[[checkpoint([request("What's the weather?"), agent("c1", "Sunny again.")], "FINISHED")]],
 		],
 	},
+	{
+		// NeoPi reads the definition from the environment on every turn.
+		name: "definition",
+		env: { GITLAB_DUO_WORKFLOW_DEFINITION: "chat" },
+		turns: [body([system, { role: "user", content: "Chat flow" }])],
+		script: [[[checkpoint([request("Chat flow"), agent("a1", "Chatting")], "FINISHED")]]],
+	},
+	{
+		// tool_choice "none" keeps the tools out of the start request.
+		name: "tool-choice-none",
+		turns: [{ ...body([system, ask], [lookup]), tool_choice: "none" }],
+		script: [[[checkpoint([request("What's the weather?"), agent("a1", "No tools.")], "FINISHED")]]],
+	},
+	{
+		// Leaked reasoning markup, its open tag split across checkpoints, is healed into thinking.
+		name: "leaked-thinking",
+		turns: [body([system, { role: "user", content: "Think aloud" }])],
+		script: [[[
+			checkpoint([request("Think aloud"), agent("a1", "<thi")], "RUNNING"),
+			checkpoint([request("Think aloud"), agent("a1", "<think>ponder")], "RUNNING"),
+			checkpoint([request("Think aloud"), agent("a1", "<think>pondering</think>Answer")], "FINISHED"),
+		]]],
+	},
+	{
+		// A bare close as the turn's only content was reasoning behind an implied open.
+		name: "implied-thinking",
+		turns: [body([system, { role: "user", content: "Implied" }])],
+		script: [[[checkpoint([request("Implied"), agent("a1", "pondering</think>Done")], "FINISHED")]]],
+	},
 ];
 
 const summarize = (message: any) => ({
@@ -212,6 +241,7 @@ let scenarioIndex = 0;
 for (const scenario of scenarios) {
 	script = scenario.script;
 	sockets = [];
+	for (const [name, value] of Object.entries(scenario.env ?? {})) process.env[name] = value;
 	const providerSessionState = new Map();
 	const turns: any[] = [];
 	for (const turnBody of scenario.turns) {
@@ -222,6 +252,8 @@ for (const scenario of scenarios) {
 		const events: any[] = [];
 		let final: any = null;
 		const stream = streamSimple(model, parsed.context, {
+			// The gateway hands parseRequest's options (tool_choice among them) to the stream.
+			...parsed.options,
 			// A key per scenario keeps NeoPi's per-account namespace cache apart.
 			apiKey: `gitlab-oauth-runtime-${scenarioIndex}`,
 			sessionId: `session-${scenario.name}`,
@@ -249,7 +281,8 @@ for (const scenario of scenarios) {
 			final,
 		});
 	}
-	out.push({ name: scenario.name, apiKey: `gitlab-oauth-runtime-${scenarioIndex}`, script: scenario.script, turns });
+	for (const name of Object.keys(scenario.env ?? {})) delete process.env[name];
+	out.push({ name: scenario.name, apiKey: `gitlab-oauth-runtime-${scenarioIndex}`, ...(scenario.env ? { env: scenario.env } : {}), script: scenario.script, turns });
 	scenarioIndex++;
 }
 restServer.stop(true);

@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	// WorkflowDefinition is the inline ambient flow every NeoPi request runs.
+	// WorkflowDefinition is the inline ambient flow every NeoPi request runs
+	// unless GITLAB_DUO_WORKFLOW_DEFINITION names another.
 	WorkflowDefinition = "ambient"
 	clientType         = "node-websocket"
 	// languageServerVersion is the GitLab language server the socket names.
@@ -50,12 +51,15 @@ type StartMetadata struct {
 	ProjectID       string
 	NamespaceID     string
 	RootNamespaceID string
+	// Definition is the workflow definition; "" is WorkflowDefinition.
+	Definition string
 }
 
 // StartRequest is GitLabDuoWorkflowStartRequest, kept as its parts so the
 // approval form can be derived from it.
 type StartRequest struct {
 	WorkflowID       string
+	Definition       string
 	Goal             string
 	WorkflowMetadata string
 	MCPTools         []MCPTool
@@ -95,7 +99,7 @@ func BuildStartRequest(workflowID, modelID string, ctx *cursorwire.Context, tool
 		fields = append(fields, jsjson.Field{Name: "rootNamespaceId", Value: jsjson.Marshal(RestNamespaceID(metadata.RootNamespaceID))})
 	}
 	fields = append(fields, jsjson.Field{Name: "selectedModelIdentifier", Value: jsjson.Marshal(selected)})
-	request := &StartRequest{WorkflowID: workflowID, Goal: goal(ctx), WorkflowMetadata: string(jsjson.Object(fields...)), SystemPrompt: system}
+	request := &StartRequest{WorkflowID: workflowID, Definition: definitionOrDefault(metadata.Definition), Goal: goal(ctx), WorkflowMetadata: string(jsjson.Object(fields...)), SystemPrompt: system}
 	for _, tool := range tools {
 		request.MCPTools = append(request.MCPTools, mcpTool(tool))
 	}
@@ -126,7 +130,7 @@ func (r *StartRequest) JSON(approval bool) json.RawMessage {
 	fields := []jsjson.Field{
 		{Name: "workflowID", Value: jsjson.Marshal(r.WorkflowID)},
 		{Name: "clientVersion", Value: jsjson.Marshal("1.0")},
-		{Name: "workflowDefinition", Value: jsjson.Marshal(WorkflowDefinition)},
+		{Name: "workflowDefinition", Value: jsjson.Marshal(r.Definition)},
 		{Name: "goal", Value: jsjson.Marshal(goalText)},
 		{Name: "workflowMetadata", Value: jsjson.Marshal(r.WorkflowMetadata)},
 		{Name: "additional_context", Value: json.RawMessage("[]")},
@@ -333,12 +337,12 @@ func ToolResultAnswer(message cursorwire.Message) json.RawMessage {
 
 // CreateBody is buildGitLabDuoWorkflowCreateBody: an IDE workflow with tool
 // privileges, scoped to the project when there is one, else the namespace.
-func CreateBody(namespaceID, projectID, goal string) json.RawMessage {
+func CreateBody(definition, namespaceID, projectID, goal string) json.RawMessage {
 	field := func(name string, value any) jsjson.Field {
 		return jsjson.Field{Name: name, Value: jsjson.Marshal(value)}
 	}
 	fields := []jsjson.Field{
-		field("workflow_definition", WorkflowDefinition),
+		field("workflow_definition", definitionOrDefault(definition)),
 		field("environment", "ide"),
 		field("allow_agent_to_request_user", false),
 		field("agent_privileges", []int{6}),
@@ -355,15 +359,24 @@ func CreateBody(namespaceID, projectID, goal string) json.RawMessage {
 }
 
 // DirectAccessBody is buildGitLabDuoWorkflowDirectAccessBody.
-func DirectAccessBody(rootNamespaceID, projectID string) json.RawMessage {
+func DirectAccessBody(definition, rootNamespaceID, projectID string) json.RawMessage {
 	fields := []jsjson.Field{
-		{Name: "workflow_definition", Value: jsjson.Marshal(WorkflowDefinition)},
+		{Name: "workflow_definition", Value: jsjson.Marshal(definitionOrDefault(definition))},
 		{Name: "root_namespace_id", Value: jsjson.Marshal(graphQLRootNamespaceID(rootNamespaceID))},
 	}
 	if projectID != "" {
 		fields = append(fields, jsjson.Field{Name: "project_id", Value: jsjson.Marshal(projectID)})
 	}
 	return jsjson.Object(fields...)
+}
+
+// definitionOrDefault is the `= GITLAB_DUO_WORKFLOW_DEFINITION` default of
+// NeoPi's builders.
+func definitionOrDefault(definition string) string {
+	if definition == "" {
+		return WorkflowDefinition
+	}
+	return definition
 }
 
 // SocketOptions are what the workflow WebSocket is scoped to.

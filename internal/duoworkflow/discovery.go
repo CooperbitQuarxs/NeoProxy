@@ -76,6 +76,9 @@ type DiscoveryConfig struct {
 	ProjectID   string
 	ProjectPath string
 	Client      *http.Client
+	// UserAgent is the User-Agent the requests carry; "" is Bun's own. The
+	// runtime's discovery goes through NeoPi's transport fetch instead.
+	UserAgent string
 }
 
 // ModelRef is a model GitLab offers a namespace.
@@ -336,7 +339,11 @@ func do(ctx context.Context, config DiscoveryConfig, method, url string, body []
 	req.Header.Set("Authorization", "Bearer "+config.APIKey)
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", bunUserAgent)
+	userAgent := config.UserAgent
+	if userAgent == "" {
+		userAgent = bunUserAgent
+	}
+	req.Header.Set("User-Agent", userAgent)
 	client := config.Client
 	if client == nil {
 		client = http.DefaultClient
