@@ -43,6 +43,10 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		party.efforts = append([]string(nil), thinking.Efforts...)
 		party.requiresEffort = thinking.RequiresEffort
 		party.effortMap = thinking.EffortMap
+		party.adaptiveTagOnly = thinking.Mode == "anthropic-adaptive" && len(thinking.Efforts) > 0
+		for _, effort := range thinking.Efforts {
+			party.adaptiveTagOnly = party.adaptiveTagOnly && thinking.EffortMap[effort] == "adaptive"
+		}
 	}
 	// NeoPi keys this on the provider: Kimi shares its affinity identity
 	// across its two transports.
@@ -78,9 +82,10 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 // displays thinking natively off a signing route.
 func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile neoPiProfile) http.Header {
 	var betas []string
-	adaptivePin := profile.Thinking.Mode == "anthropic-adaptive" &&
+	tagOnly := profile.thirdParty.adaptiveTagOnly
+	adaptivePin := profile.Thinking.Mode == "anthropic-adaptive" && !tagOnly &&
 		(!thinking || profile.Compat.SupportsForcedToolChoice && neoPiForcedToolChoice(body))
-	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking || adaptivePin) {
+	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking && !tagOnly || adaptivePin) {
 		betas = append(betas, "effort-2025-11-24")
 	}
 	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing {

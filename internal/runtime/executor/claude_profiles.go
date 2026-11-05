@@ -73,6 +73,10 @@ type neoPiThirdParty struct {
 	signing bool
 	// effortMap is thinking.effortMap: the wire effort an effort level sends.
 	effortMap map[string]string
+	// adaptiveTagOnly is usesAdaptiveThinkingTagOnly: every effort maps to
+	// "adaptive" (MiniMax), so thinking.type adaptive is the whole control
+	// surface: no output effort, no effort beta, no adaptive-only pin.
+	adaptiveTagOnly bool
 	// modelID selects the dialect demoted thinking is rendered in.
 	modelID string
 	// gatewayWebSearch keeps a web_search tool definition and tool_choice

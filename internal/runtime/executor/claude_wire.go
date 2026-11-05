@@ -436,6 +436,10 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		if effort == "minimal" {
 			effort = "low"
 		}
+		// "adaptive" is a sentinel: thinking.type carries it, no effort does.
+		if effort == "adaptive" {
+			effort = ""
+		}
 	}
 	var wireThinking json.RawMessage
 	if profile.Thinking.Mode == "anthropic-adaptive" {
@@ -455,10 +459,15 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 				wireThinking = json.RawMessage(`{"type":"between_tools"}`)
 				effort = ""
 			default:
-				if profile.Compat.SupportsBetweenToolsThinking {
+				switch {
+				case party != nil && party.adaptiveTagOnly:
+					// Not adaptive-only: a tag-only model turns thinking off.
+					wireThinking = json.RawMessage(`{"type":"disabled"}`)
+					effort = ""
+				case profile.Compat.SupportsBetweenToolsThinking:
 					wireThinking = json.RawMessage(`{"type":"between_tools"}`)
 					effort = ""
-				} else {
+				default:
 					effort = "low"
 				}
 			}
@@ -568,7 +577,8 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if choice := gjson.GetBytes(body, "tool_choice.type").String(); choice == "any" || choice == "tool" {
 		body = neoPiDelete(body, "thinking")
 		body = neoPiDelete(body, "context_management")
-		if profile.Thinking.Mode == "anthropic-adaptive" {
+		// A tag-only model has no effort field to pin.
+		if profile.Thinking.Mode == "anthropic-adaptive" && (party == nil || !party.adaptiveTagOnly) {
 			body = neoPiSet(body, "output_config.effort", "low")
 		} else {
 			body = neoPiDelete(body, "output_config.effort")
