@@ -225,9 +225,122 @@ for (const id of ["gemini-3.1-pro-preview", "gemini-2.5-flash"]) {
 	add(id, "user-text-blocks", [{ kind: "user", blocks: [text("One."), text("  "), text("Two.")] }], { reasoning: first });
 }
 
+// Native Gemini requests (source format gemini) are read directly, so thought
+// parts and signatures survive. Each scenario pairs the generateContent body a
+// Gemini client sends NeoProxy with the NeoPi context it stands for.
+const nativeScenarios: any[] = [];
+const addNative = (id: string, name: string, downstream: any, context: any, options: any = {}) => {
+	nativeScenarios.push({ name: `${id}/native-${name}`, model: id, context, options, downstream, format: "gemini" });
+};
+const own = (model: any, content: any[], stopReason = "toolUse") => assistant(model, true, content, stopReason);
+const funcDecl = { name: lookup.name, description: lookup.description, parametersJsonSchema: lookup.parameters };
+for (const id of ["gemini-3.1-pro-preview", "gemini-2.5-flash"]) {
+	const model = row(id);
+	const level = id.startsWith("gemini-3") ? "low" : "medium";
+	const thinkingConfig = id.startsWith("gemini-3") ? { thinkingLevel: "LOW", includeThoughts: true } : { thinkingBudget: 8192, includeThoughts: true };
+	const gen = { thinkingConfig };
+	const sig = signature;
+	addNative(id, "signed-thought-call", {
+		contents: [
+			{ role: "user", parts: [{ text: "Use lookup." }] },
+			{ role: "model", parts: [{ thought: true, text: "Need lookup.", thoughtSignature: sig }, { functionCall: { name: "lookup", args: { term: "a" } }, thoughtSignature: sig }] },
+			{ role: "user", parts: [{ functionResponse: { name: "lookup", response: { output: "Found." } } }] },
+		],
+		tools: [{ functionDeclarations: [funcDecl] }],
+		generationConfig: gen,
+	}, {
+		messages: [
+			user("Use lookup."),
+			own(model, [{ type: "thinking", thinking: "Need lookup.", thinkingSignature: sig }, { type: "toolCall", id: "call_1", name: "lookup", arguments: { term: "a" }, thoughtSignature: sig }]),
+			toolResult("call_1", "lookup", [{ type: "text", text: "Found." }]),
+		],
+		tools: [lookup],
+	}, { reasoning: level });
+	addNative(id, "signature-only-thought", {
+		contents: [
+			{ role: "user", parts: [{ text: "Hi." }] },
+			{ role: "model", parts: [{ thought: true, text: "", thoughtSignature: sig }, { text: "Answer.", thoughtSignature: sig }] },
+			{ role: "user", parts: [{ text: "Next." }] },
+		],
+		generationConfig: gen,
+	}, {
+		messages: [
+			user("Hi."),
+			own(model, [{ type: "thinking", thinking: "", thinkingSignature: sig }, { type: "text", text: "Answer.", textSignature: sig }], "stop"),
+			user("Next."),
+		],
+	}, { reasoning: level });
+	addNative(id, "unsigned-thought", {
+		contents: [
+			{ role: "user", parts: [{ text: "Hi." }] },
+			{ role: "model", parts: [{ thought: true, text: "Hmm." }, { text: "Answer." }] },
+			{ role: "user", parts: [{ text: "Next." }] },
+		],
+		generationConfig: gen,
+	}, {
+		messages: [user("Hi."), own(model, [{ type: "thinking", thinking: "Hmm.", thinkingSignature: "" }, { type: "text", text: "Answer." }], "stop"), user("Next.")],
+	}, { reasoning: level });
+	addNative(id, "hide-thoughts", {
+		contents: [{ role: "user", parts: [{ text: "Say hello." }] }],
+		generationConfig: { thinkingConfig: { ...thinkingConfig, includeThoughts: false } },
+	}, { messages: [user("Say hello.")] }, { reasoning: level, hideThinkingSummary: true });
+	addNative(id, "cached-content", {
+		contents: [{ role: "user", parts: [{ text: "Say hello." }] }],
+		cachedContent: "cachedContents/abc123",
+		generationConfig: gen,
+	}, { messages: [user("Say hello.")] }, { reasoning: level, cachedContent: "cachedContents/abc123" });
+	addNative(id, "system-and-config", {
+		systemInstruction: { parts: [{ text: "Be brief." }, { text: "Second." }] },
+		contents: [{ role: "user", parts: [{ text: "Use lookup." }] }],
+		tools: [{ functionDeclarations: [funcDecl] }],
+		toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["lookup"] } },
+		generationConfig: { ...gen, temperature: 0.4, topP: 0.8, topK: 20, maxOutputTokens: 700 },
+	}, { systemPrompt: ["Be brief.", "Second."], messages: [user("Use lookup.")], tools: [lookup] }, { reasoning: level, temperature: 0.4, topP: 0.8, topK: 20, maxTokens: 700, toolChoice: { type: "tool", name: "lookup" } });
+	addNative(id, "error-and-orphan-results", {
+		contents: [
+			{ role: "user", parts: [{ text: "Use lookup." }] },
+			{ role: "model", parts: [{ functionCall: { name: "lookup", args: { term: "a" } }, thoughtSignature: sig }] },
+			{ role: "user", parts: [{ functionResponse: { name: "lookup", response: { error: "Boom." } } }] },
+			{ role: "user", parts: [{ functionResponse: { name: "ghost", response: { output: "late" } } }] },
+			{ role: "user", parts: [{ text: "Continue." }] },
+		],
+		tools: [{ functionDeclarations: [funcDecl] }],
+		generationConfig: gen,
+	}, {
+		messages: [
+			user("Use lookup."),
+			own(model, [{ type: "toolCall", id: "call_1", name: "lookup", arguments: { term: "a" }, thoughtSignature: sig }]),
+			toolResult("call_1", "lookup", [{ type: "text", text: "Boom." }], true),
+			toolResult("call_2", "ghost", [{ type: "text", text: "late" }]),
+			user("Continue."),
+		],
+		tools: [lookup],
+	}, { reasoning: level });
+	addNative(id, "inline-image", {
+		contents: [{ role: "user", parts: [{ text: "Describe." }, { inlineData: { mimeType: "image/png", data: png } }] }],
+		generationConfig: gen,
+	}, { messages: [user([{ type: "text", text: "Describe." }, { type: "image", data: png, mimeType: "image/png" }])] }, { reasoning: level });
+	addNative(id, "foreign-signature", {
+		contents: [
+			{ role: "user", parts: [{ text: "Use lookup." }] },
+			{ role: "model", parts: [{ thought: true, text: "Claude thought.", thoughtSignature: "CAISqwIKiAEIEBgCKkBHRlRBsNiptQUWfPoOhuQKwi5LnncZVO9bB5jqOs76D7uBtgktML0zqJtNmLHXHHcgD6lk4MQu4QBXzFd1lbC3Mg5jbGF1ZGUtZmFibGUtNTgBQgh0aGlua2luZ1okZDk3NDM5NzUtNGJiMC00OTM2LTllMjgtZDViMGQyMWJkYzQ4EgxCGh+XVFFFeySAjtAaDL/A1LltGu6MMJ+eXSIwsN0oBpDrqLv22UBfkMnTotnIbkvkOyb9xZHgigG6OZVHaI3gThm+maLKmgO5PrFLKlDFYp+YZksy/wKwszJlnLTPzAK+NUlfzagOE1ymtZTXhAYK260XyFYmg/te/C231+Fr/hoX+EJoUBnrn0gD7hqMISOT+TaFEuOXYsN517GfaxgB" }, { functionCall: { name: "lookup", args: { term: "a" } } }] },
+			{ role: "user", parts: [{ functionResponse: { name: "lookup", response: { output: "Found." } } }] },
+		],
+		tools: [{ functionDeclarations: [funcDecl] }],
+		generationConfig: gen,
+	}, {
+		messages: [
+			user("Use lookup."),
+			assistant(model, false, [{ type: "thinking", thinking: "Claude thought.", thinkingSignature: "" }, { type: "toolCall", id: "call_1", name: "lookup", arguments: { term: "a" } }]),
+			toolResult("call_1", "lookup", [{ type: "text", text: "Found." }]),
+		],
+		tools: [lookup],
+	}, { reasoning: level });
+}
+
 const fixtures: any[] = [];
 try {
-	for (const scenario of scenarios) {
+	for (const scenario of [...scenarios, ...nativeScenarios]) {
 		captured = [];
 		const model = row(scenario.model);
 		let requestedURL = "";
@@ -243,7 +356,7 @@ try {
 		if (result.stopReason !== "stop") throw new Error(`Capture ${scenario.name} failed: ${result.errorMessage}`);
 		if (captured.length !== 1) throw new Error(`Capture ${scenario.name} saw ${captured.length} requests`);
 		const request = captured[0];
-		fixtures.push({ name: scenario.name, model: scenario.model, options: scenario.options, downstream: scenario.downstream, requestedURL, ...request, body: JSON.parse(request.rawBody) });
+		fixtures.push({ name: scenario.name, model: scenario.model, format: scenario.format ?? "openai", options: scenario.options, downstream: scenario.downstream, requestedURL, ...request, body: JSON.parse(request.rawBody) });
 	}
 	console.log(JSON.stringify({ source: 'NeoPi OWN streamSimple over getBundledModels("google")', apiKey, sessionId, fixtures }, null, 2));
 } finally {

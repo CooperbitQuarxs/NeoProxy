@@ -2,11 +2,11 @@ package googlewire
 
 import (
 	"encoding/json"
+	translatorcommon "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/common"
 	"net/url"
 	"path"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
 	"github.com/tidwall/gjson"
 )
 
@@ -52,10 +52,10 @@ func dataURLImage(raw string) (mime, data, uri string) {
 	return mime, "", raw
 }
 
-func openAIBlocks(content gjson.Result) []Block {
+func openAIBlocks(content gjson.Result, drops *translatorcommon.UserTurnDrops) []Block {
 	var blocks []Block
 	for _, item := range content.Array() {
-		switch item.Get("type").String() {
+		switch kind := item.Get("type").String(); kind {
 		case "text", "input_text", "output_text":
 			blocks = append(blocks, Block{Type: BlockText, Text: item.Get("text").String()})
 		case "image_url", "input_image":
@@ -68,6 +68,12 @@ func openAIBlocks(content gjson.Result) []Block {
 			}
 			mime, data, uri := dataURLImage(raw)
 			blocks = append(blocks, Block{Type: BlockImage, MimeType: mime, Data: data, URL: uri})
+		default:
+			// NeoPi's context holds only text and images; a part with no
+			// equivalent is refused when it would leave a user turn empty.
+			if drops != nil {
+				drops.Drop(kind)
+			}
 		}
 	}
 	return blocks
@@ -78,7 +84,7 @@ func joinedText(content gjson.Result) string {
 		return content.String()
 	}
 	var texts []string
-	for _, block := range openAIBlocks(content) {
+	for _, block := range openAIBlocks(content, nil) {
 		if block.Type == BlockText {
 			texts = append(texts, block.Text)
 		}
@@ -97,6 +103,7 @@ func joinedText(content gjson.Result) string {
 func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 	root := gjson.ParseBytes(body)
 	var ctx Context
+	var drops translatorcommon.UserTurnDrops
 	toolNames := map[string]string{}
 	for _, msg := range root.Get("messages").Array() {
 		switch role := msg.Get("role").String(); role {
@@ -107,7 +114,9 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 			if content.Type == gjson.String {
 				ctx.Messages = append(ctx.Messages, Message{Role: RoleUser, IsString: true, Text: content.String()})
 			} else {
-				ctx.Messages = append(ctx.Messages, Message{Role: RoleUser, Content: openAIBlocks(content)})
+				blocks := openAIBlocks(content, &drops)
+				drops.EndTurn(len(blocks))
+				ctx.Messages = append(ctx.Messages, Message{Role: RoleUser, Content: blocks})
 			}
 		case "assistant":
 			out := Message{Role: RoleAssistant, Provider: foreignProvider, API: model.API, Model: model.ID, StopReason: "stop"}
@@ -135,7 +144,7 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 						value := signature.String()
 						if model.NormalizeSignature != nil {
 							var ok bool
-							if value, ok = model.NormalizeSignature(value); !ok {
+							if value, ok = model.NormalizeSignature(value, true); !ok {
 								continue
 							}
 						}
@@ -187,13 +196,9 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 	case "none", "off":
 		opts.DisableReasoning = true
 	default:
-		var levels []string
-		if model.Thinking != nil {
-			levels = model.Thinking.Efforts
-		}
-		if model.Reasoning && len(levels) > 0 {
-			opts.Reasoning = codexwire.ClampEffort(levels, effort)
-		} else if model.Reasoning {
+		// NeoPi's Google mapper requires the effort to be on the model's ladder
+		// (MapOptions reports it otherwise); it never clamps.
+		if model.Reasoning {
 			opts.Reasoning = effort
 		}
 	}
@@ -213,12 +218,18 @@ func FromOpenAIChat(body []byte, model *Model) (Context, Options, error) {
 		}
 	}
 	opts.ServiceTier = root.Get("service_tier").String()
-	return ctx, opts, nil
+	for _, name := range []string{"cachedContent", "cached_content"} {
+		if value := root.Get(name); value.Type == gjson.String && value.String() != "" {
+			opts.CachedContent = value.String()
+			break
+		}
+	}
+	return ctx, opts, drops.Err()
 }
 
 func toolResultBlocks(content gjson.Result) []Block {
 	if content.Type == gjson.String {
 		return []Block{{Type: BlockText, Text: content.String()}}
 	}
-	return openAIBlocks(content)
+	return openAIBlocks(content, nil)
 }

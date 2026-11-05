@@ -111,7 +111,7 @@ type Model struct {
 	// NormalizeSignature, when set, decides whether a thought signature a
 	// downstream client replays is Google's (returning its replayable form);
 	// a signature another provider minted leaves the turn foreign.
-	NormalizeSignature func(signature string) (string, bool)
+	NormalizeSignature func(signature string, functionCall bool) (string, bool)
 }
 
 func (m *Model) supportsImages() bool {

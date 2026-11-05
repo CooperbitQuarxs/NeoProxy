@@ -143,3 +143,56 @@ func TestNormalizeToolCallIDReplacesAndCaps(t *testing.T) {
 		t.Fatalf("len = %d", len(got))
 	}
 }
+
+func TestStreamChunkErrorFallsBackToStatus(t *testing.T) {
+	if got := StreamChunkError([]byte(`{"error":{"status":"RESOURCE_EXHAUSTED"}}`)).Error(); got != "Google API stream error: RESOURCE_EXHAUSTED" {
+		t.Fatalf("got %s", got)
+	}
+	if got := StreamChunkError([]byte(`{"error":{}}`)).Error(); got != "Google API stream error: unknown error" {
+		t.Fatalf("got %s", got)
+	}
+}
+
+// String.prototype.trim keeps U+0085 and removes U+FEFF; strings.TrimSpace does the opposite.
+func TestJSTrimSemantics(t *testing.T) {
+	if jsTrim("\u0085") != "\u0085" || jsTrim("\ufeff") != "" || jsTrim(" \u00a0x\u2003") != "x" {
+		t.Fatal("jsTrim is not String.prototype.trim")
+	}
+}
+
+func TestMapOptionsTinyCapFallbackKeepsServiceTier(t *testing.T) {
+	model := &Model{ID: "gemini-2.5-flash", Provider: "google", Reasoning: true, MaxTokens: 1000,
+		Thinking: &Thinking{Efforts: []string{"high"}, Mode: "budget", EffortBudgets: map[string]int{"high": 24576}}}
+	cap := 100
+	resolved, err := MapOptions(model, Options{Reasoning: "high", MaxTokens: &cap, ServiceTier: "flex"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Thinking == nil || resolved.Thinking.Enabled || !resolved.SendServiceTier {
+		t.Fatalf("resolved = %+v", resolved)
+	}
+}
+
+func TestCachedContentRejectsIncompatibleFields(t *testing.T) {
+	model := gemini3()
+	resolved, _ := MapOptions(model, Options{CachedContent: "cachedContents/x"})
+	_, err := BuildBody(model, Context{SystemPrompts: []string{"s"}, Messages: []Message{{Role: RoleUser, IsString: true, Text: "hi"}}}, resolved, nil)
+	if err == nil || !strings.Contains(err.Error(), "systemInstruction") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestFromGeminiReadsSignedThoughtAndResults(t *testing.T) {
+	model := gemini3()
+	model.NormalizeSignature = func(signature string, _ bool) (string, bool) { return signature, signature == "EggKBgEMOdbHNA==" }
+	ctx, _, err := FromGemini([]byte(`{"contents":[{"role":"user","parts":[{"text":"go"}]},{"role":"model","parts":[{"thought":true,"text":"t","thoughtSignature":"EggKBgEMOdbHNA=="},{"functionCall":{"name":"f","args":{}}}]},{"role":"user","parts":[{"functionResponse":{"name":"f","response":{"error":"bad"}}}]}]}`), model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ctx.Messages) != 3 || ctx.Messages[1].Provider != "google" || ctx.Messages[1].Content[0].Type != BlockThinking || ctx.Messages[1].Content[0].Signature == "" {
+		t.Fatalf("messages = %+v", ctx.Messages)
+	}
+	if result := ctx.Messages[2]; result.Role != RoleToolResult || !result.IsError || result.ToolCallID != ctx.Messages[1].Content[1].ID {
+		t.Fatalf("result = %+v", result)
+	}
+}

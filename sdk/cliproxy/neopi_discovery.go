@@ -50,7 +50,7 @@ var (
 
 	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
 	// overlays the listing, so its bundled catalog stays authoritative.
-	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 6 * time.Hour, retry: 5 * time.Minute, timeout: 30 * time.Second,
+	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 30 * time.Second,
 		bundled: registry.GoogleBundledModels, fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
 	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, googleDiscovery}

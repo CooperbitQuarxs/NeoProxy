@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,32 +14,37 @@ import (
 	"testing"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v8/internal/googlewire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
+	"github.com/tidwall/gjson"
 )
 
 // geminiCapture is testdata/gemini_npi_capture.json.gz: NeoPi's OWN
 // streamSimple run over its bundled google rows against a loopback server, one
-// request per scenario, beside the downstream Chat Completions request a
-// client sends NeoProxy for it.
+// request per scenario, beside the downstream request a client sends NeoProxy
+// for it (an OpenAI Chat body, or a native Gemini body for format "gemini").
 type geminiCapture struct {
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
 	Fixtures  []struct {
-		Name         string            `json:"name"`
-		Model        string            `json:"model"`
-		RequestedURL string            `json:"requestedURL"`
-		Headers      map[string]string `json:"headers"`
-		RawBody      string            `json:"rawBody"`
-		Downstream   json.RawMessage   `json:"downstream"`
+		Name       string            `json:"name"`
+		Model      string            `json:"model"`
+		Format     string            `json:"format"`
+		Method     string            `json:"method"`
+		Path       string            `json:"path"`
+		Headers    map[string]string `json:"headers"`
+		RawBody    string            `json:"rawBody"`
+		Downstream json.RawMessage   `json:"downstream"`
 	} `json:"fixtures"`
 }
 
-// Every captured NeoPi request is reproduced byte for byte: URL, headers and
-// body, for each thinking mode, tool, image, tool-result and retry shape.
+// Every captured NeoPi request is reproduced by the request NeoProxy actually
+// sends: method, path and query, headers and body, for each thinking mode,
+// tool, image, tool-result and signed-thought history shape, read by an
+// httptest server behind Execute.
 func TestGeminiNeoPiRequestParity(t *testing.T) {
 	file, err := os.Open("testdata/gemini_npi_capture.json.gz")
 	if err != nil {
@@ -60,42 +66,54 @@ func TestGeminiNeoPiRequestParity(t *testing.T) {
 	if len(capture.Fixtures) == 0 {
 		t.Fatal("capture has no fixtures")
 	}
-	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": capture.APIKey}}
+	var sent struct {
+		method, uri string
+		header      http.Header
+		contentLen  int64
+		body        []byte
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent.method, sent.uri, sent.header, sent.contentLen = r.Method, r.URL.RequestURI(), r.Header.Clone(), r.ContentLength
+		sent.body, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"Captured."}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":1,"totalTokenCount":4}}`+"\n\n")
+	}))
+	defer server.Close()
+	exec := NewGeminiExecutor(&config.Config{})
+	// The capture's base URL is the default Gemini one, version included; a
+	// configured base is used verbatim, so the test base carries the version too.
+	auth := &cliproxyauth.Auth{ID: "parity", Provider: "gemini", Attributes: map[string]string{"api_key": capture.APIKey, "base_url": server.URL + "/v1beta"}}
 	for _, fixture := range capture.Fixtures {
 		t.Run(fixture.Name, func(t *testing.T) {
-			row := registry.GoogleNeoPiModelFor(fixture.Model)
-			if row == nil || row.ID != fixture.Model {
-				t.Fatalf("row = %+v, want model %s", row, fixture.Model)
-			}
 			// Translators hand the shaper compact JSON.
 			var downstream bytes.Buffer
 			if err = json.Compact(&downstream, fixture.Downstream); err != nil {
 				t.Fatal(err)
 			}
-			wire := neoPiGoogleWireModel(row)
-			neoPiContext, options, err := googlewire.FromOpenAIChat(downstream.Bytes(), wire)
-			if err != nil {
+			format := sdktranslator.FormatOpenAI
+			if fixture.Format == "gemini" {
+				format = sdktranslator.FormatGemini
+			}
+			req := cliproxyexecutor.Request{Model: fixture.Model, Payload: downstream.Bytes()}
+			if _, err = exec.Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: format}); err != nil {
 				t.Fatal(err)
 			}
-			resolved, err := googlewire.MapOptions(wire, options)
-			if err != nil {
-				t.Fatal(err)
+			if sent.method != fixture.Method {
+				t.Errorf("method = %s, want %s", sent.method, fixture.Method)
 			}
-			body, err := googlewire.BuildBody(wire, neoPiContext, resolved, nil)
-			if err != nil {
-				t.Fatal(err)
+			if sent.uri != fixture.Path {
+				t.Errorf("uri = %s, want %s", sent.uri, fixture.Path)
 			}
-			url := geminiNeoPiBaseURL(auth, row) + "/models/" + row.ID + ":streamGenerateContent?alt=sse"
-			if url != fixture.RequestedURL {
-				t.Errorf("url = %s, want %s", url, fixture.RequestedURL)
+			if string(sent.body) != fixture.RawBody {
+				t.Errorf("body:\n got %s\nwant %s", sent.body, fixture.RawBody)
 			}
-			if string(body) != fixture.RawBody {
-				t.Errorf("body:\n got %s\nwant %s", body, fixture.RawBody)
+			// content-length is compared as the body length Go's server reports;
+			// host differs by construction (loopback vs the Google host) and
+			// connection is transport-owned (Bun stamps keep-alive on HTTP/1.1, Go's
+			// transport manages it and forbids it on the HTTP/2 Google is served over).
+			if sent.contentLen != int64(len(fixture.RawBody)) {
+				t.Errorf("content-length = %d, want %d", sent.contentLen, len(fixture.RawBody))
 			}
-			headers := neoPiGoogleHeaders(context.Background(), auth, nil, capture.APIKey)
-			// `connection` is transport-owned: Bun's fetch stamps keep-alive on
-			// HTTP/1.1, Go's transport manages it and forbids it on the HTTP/2 the
-			// Gemini API is served over.
 			want := map[string]string{}
 			for name, value := range fixture.Headers {
 				if name != "host" && name != "content-length" && name != "connection" {
@@ -103,21 +121,20 @@ func TestGeminiNeoPiRequestParity(t *testing.T) {
 				}
 			}
 			got := map[string]string{}
-			for name, values := range headers {
+			for name, values := range sent.header {
 				got[strings.ToLower(name)] = strings.Join(values, ", ")
 			}
+			delete(got, "content-length")
 			for name, value := range want {
 				if got[name] != value {
 					t.Errorf("header %s = %q, want %q", name, got[name], value)
 				}
 			}
-			delete(got, "connection")
 			for name := range got {
 				if _, ok := want[name]; !ok {
 					t.Errorf("extra header %s = %q", name, got[name])
 				}
 			}
-			var _ http.Header = headers
 		})
 	}
 }
@@ -174,7 +191,7 @@ func TestGeminiNeoPiEmptyResponseIsRetried(t *testing.T) {
 		if attempts == 2 {
 			text = "real"
 		}
-		_, _ = io.WriteString(w, `data: {"candidates":[{"content":{"parts":[{"text":"`+text+`"}]},"finishReason":"STOP"}]}`+"\n\n")
+		_, _ = io.WriteString(w, `data: {"candidates":[{"content":{"parts":[{"text":"`+text+`"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":1,"candidatesTokenCount":1,"totalTokenCount":2}}`+"\n\n")
 	})
 	req, opts := geminiChatRequest()
 	result, err := exec.ExecuteStream(context.Background(), auth, req, opts)
@@ -184,6 +201,13 @@ func TestGeminiNeoPiEmptyResponseIsRetried(t *testing.T) {
 	text, streamErr := drainGeminiStream(t, result)
 	if streamErr != nil || attempts != 2 || !strings.Contains(text, "real") {
 		t.Fatalf("attempts=%d err=%v text=%s", attempts, streamErr, text)
+	}
+	// The empty attempt's terminal chunk is held back: one finish, after the answer.
+	if n := strings.Count(text, `"finish_reason":"stop"`); n != 1 {
+		t.Fatalf("terminal chunks = %d, want 1:\n%s", n, text)
+	}
+	if strings.Index(text, `"finish_reason":"stop"`) < strings.Index(text, "real") {
+		t.Fatalf("finish precedes the answer:\n%s", text)
 	}
 }
 
@@ -253,5 +277,125 @@ func TestFetchGoogleModelsPagesAndOverlays(t *testing.T) {
 	}
 	if found["imagen-4"] != nil {
 		t.Fatal("non-generateContent models must be skipped")
+	}
+}
+
+// Discovery failures never carry the key-bearing request URL.
+func TestFetchGoogleModelsErrorDoesNotLeakKey(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := listener.Addr().String()
+	listener.Close() // a refused port
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaFAKEKEYFORTEST", "base_url": "http://" + address + "/v1beta"}}
+	_, err = FetchGoogleModels(context.Background(), &config.Config{}, auth)
+	if err == nil {
+		t.Fatal("want an error from a refused port")
+	}
+	if strings.Contains(err.Error(), "AIzaFAKEKEYFORTEST") || strings.Contains(err.Error(), "key=") {
+		t.Fatalf("error leaks the key: %v", err)
+	}
+}
+
+// A malformed listing is a failed refresh (the cache keeps its previous
+// catalog); entries that fail NeoPi's schema are skipped, not fatal.
+func TestFetchGoogleModelsValidatesListing(t *testing.T) {
+	for name, body := range map[string]string{
+		"not json":      `{"models":[`,
+		"not an object": `[]`,
+		"models a map":  `{"models":{}}`,
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, body)
+		}))
+		auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest", "base_url": server.URL}}
+		if _, err := FetchGoogleModels(context.Background(), &config.Config{}, auth); err == nil {
+			t.Errorf("%s: want an error", name)
+		}
+		server.Close()
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"models":[{"name":"models/mixed-pro","supportedGenerationMethods":["generateContent",3]},{"name":7,"supportedGenerationMethods":["generateContent"]},"junk",{"name":"models/ok-pro","supportedGenerationMethods":["generateContent"]}]}`)
+	}))
+	defer server.Close()
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "AIzaTest", "base_url": server.URL}}
+	models, err := FetchGoogleModels(context.Background(), &config.Config{}, auth)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]bool{}
+	for _, model := range models {
+		ids[model.ID] = true
+	}
+	if !ids["ok-pro"] || ids["mixed-pro"] || ids["7"] {
+		t.Fatalf("ids = %v", ids)
+	}
+}
+
+// PrepareRequest on the public executor clears a stale key and fails closed.
+func TestGeminiNeoPiPrepareRequestFailsClosedWithoutKey(t *testing.T) {
+	exec := NewGeminiExecutor(&config.Config{})
+	request, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1/x", nil)
+	request.Header.Set("x-goog-api-key", "stale")
+	request.Header.Set("Authorization", "Bearer stale")
+	err := exec.PrepareRequest(request, &cliproxyauth.Auth{Attributes: map[string]string{}})
+	if err == nil {
+		t.Fatal("PrepareRequest without a key must fail")
+	}
+	if request.Header.Get("x-goog-api-key") != "" || request.Header.Get("Authorization") != "" {
+		t.Fatalf("stale credential survived: %v", request.Header)
+	}
+	if err = exec.PrepareRequest(request, &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "fresh"}}); err != nil || request.Header.Get("x-goog-api-key") != "fresh" {
+		t.Fatalf("err=%v header=%v", err, request.Header)
+	}
+}
+
+// Production usage uses NeoPi's mapper: a missing prompt count is inferred and
+// a cache count above the prompt is clamped.
+func TestGeminiNeoPiUsageNormalization(t *testing.T) {
+	detail := helps.ParseGeminiUsage(geminiNormalizeUsage([]byte(`{"usageMetadata":{"candidatesTokenCount":10,"thoughtsTokenCount":5,"totalTokenCount":115}}`)))
+	if detail.InputTokens != 100 {
+		t.Fatalf("inferred input = %d, want 100", detail.InputTokens)
+	}
+	detail = helps.ParseGeminiUsage(geminiNormalizeUsage([]byte(`{"usageMetadata":{"promptTokenCount":50,"cachedContentTokenCount":80,"candidatesTokenCount":1,"totalTokenCount":51}}`)))
+	if detail.InputTokens != 50 || detail.CacheReadTokens != 50 {
+		t.Fatalf("clamped usage = %+v", detail)
+	}
+}
+
+func geminiSentBody(t *testing.T, source sdktranslator.Format, payload string) gjson.Result {
+	t.Helper()
+	var sent []byte
+	exec, auth := geminiTestExecutor(t, func(w http.ResponseWriter, r *http.Request) {
+		sent, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, `data: {"candidates":[{"content":{"parts":[{"text":"ok"}]},"finishReason":"STOP"}]}`+"\n\n")
+	})
+	req := cliproxyexecutor.Request{Model: "gemini-3-flash-preview", Payload: []byte(payload)}
+	if _, err := exec.Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: source}); err != nil {
+		t.Fatal(err)
+	}
+	return gjson.ParseBytes(sent)
+}
+
+// An explicit summary opt-out and a cached-content name reach the wire from an
+// OpenAI Chat request, as they do from a native one.
+func TestGeminiNeoPiChatSummaryOptOutAndCachedContent(t *testing.T) {
+	got := geminiSentBody(t, sdktranslator.FormatOpenAI, `{"messages":[{"role":"user","content":"hi"}],"reasoning_effort":"low","extra_body":{"google":{"thinking_config":{"include_thoughts":false}}},"cachedContent":"cachedContents/abc"}`)
+	if got.Get("generationConfig.thinkingConfig.includeThoughts").Bool() {
+		t.Fatalf("includeThoughts must be false: %s", got.Raw)
+	}
+	if got.Get("cachedContent").String() != "cachedContents/abc" {
+		t.Fatalf("cachedContent lost: %s", got.Raw)
+	}
+}
+
+// A native request keeps same-model signed thinking, signature-only parts included.
+func TestGeminiNeoPiNativeSignedThoughtSurvives(t *testing.T) {
+	sig := testNativeGemini3ThoughtSignature()
+	got := geminiSentBody(t, sdktranslator.FormatGemini, `{"contents":[{"role":"user","parts":[{"text":"hi"}]},{"role":"model","parts":[{"thought":true,"text":"","thoughtSignature":"`+sig+`"},{"text":"Hello","thoughtSignature":"`+sig+`"}]},{"role":"user","parts":[{"text":"more"}]}]}`)
+	if !got.Get("contents.1.parts.0.thought").Bool() || got.Get("contents.1.parts.0.thoughtSignature").String() != sig || got.Get("contents.1.parts.1.thoughtSignature").String() != sig {
+		t.Fatalf("signed thought lost: %s", got.Get("contents").Raw)
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	internalsignature "github.com/router-for-me/CLIProxyAPI/v8/internal/signature"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	translatorcommon "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/common"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
@@ -76,20 +77,21 @@ func geminiNeoPiRow(req cliproxyexecutor.Request, model string) *registry.NeoPiM
 	return registry.GoogleNeoPiModelFor(model)
 }
 
-// geminiNeoPiBaseURL is NeoPi's model.baseUrl: a configured base replaces it,
-// taking the API version segment with it.
+// geminiDefaultHost is the bare Google host the dashboard stores as an
+// account's base URL; it stands for NeoPi's own default base, version included.
+const geminiDefaultHost = "https://generativelanguage.googleapis.com"
+
+// geminiNeoPiBaseURL is NeoPi's model.baseUrl: the row's, which a configured
+// base replaces verbatim (trailing slashes trimmed, no version appended).
 func geminiNeoPiBaseURL(auth *cliproxyauth.Auth, row *registry.NeoPiModel) string {
 	if auth != nil && auth.Attributes != nil {
-		if custom := strings.TrimRight(strings.TrimSpace(auth.Attributes["base_url"]), "/"); custom != "" {
-			last := custom[strings.LastIndex(custom, "/")+1:]
-			if last == "v1" || last == "v1beta" || last == "v1alpha" {
-				return custom
-			}
-			return custom + "/v1beta"
+		custom := strings.TrimRight(strings.TrimSpace(auth.Attributes["base_url"]), "/")
+		if custom != "" && !strings.EqualFold(custom, geminiDefaultHost) {
+			return custom
 		}
 	}
 	if row != nil && strings.TrimSpace(row.BaseURL) != "" {
-		return strings.TrimRight(row.BaseURL, "/")
+		return strings.TrimRight(strings.TrimSpace(row.BaseURL), "/")
 	}
 	return registry.GoogleBaseURL
 }
@@ -119,11 +121,14 @@ func (e *NeoPiGoogleExecutor) PrepareRequest(req *http.Request, auth *cliproxyau
 	if req == nil {
 		return nil
 	}
-	key := e.hooks.Key(auth)
-	if key != "" {
-		req.Header.Set("x-goog-api-key", key)
-	}
+	req.Header.Del("x-goog-api-key")
 	req.Header.Del("Authorization")
+	key := e.hooks.Key(auth)
+	if key == "" {
+		// NeoPi refuses to generate without a key rather than sending another credential.
+		return statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no API key"}
+	}
+	req.Header.Set("x-goog-api-key", key)
 	applyGeminiHeaders(req, auth)
 	return nil
 }
@@ -154,6 +159,11 @@ func (e *NeoPiGoogleExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 // CountTokens estimates locally from the Chat Completions form; NeoPi never
 // calls Google's countTokens.
 func (e *NeoPiGoogleExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	// Refuse exactly what generation would refuse (an unsupported part, a
+	// missing key) before estimating.
+	if _, err := e.prepare(ctx, auth, req, opts, false); err != nil {
+		return cliproxyexecutor.Response{}, err
+	}
 	return e.counter.CountTokens(ctx, auth, req, opts)
 }
 
@@ -162,8 +172,12 @@ func neoPiGoogleWireModel(row *registry.NeoPiModel) *googlewire.Model {
 	model := &googlewire.Model{
 		ID: row.ID, Provider: row.Provider, API: row.API, Input: row.Input,
 		Reasoning: row.Reasoning, MaxTokens: row.MaxTokens, NameMaxLength: 128,
-		NormalizeSignature: func(signature string) (string, bool) {
-			return internalsignature.CompatibleSignatureForProviderBlock(internalsignature.SignatureProviderGemini, signature, internalsignature.SignatureBlockKindGeminiFunctionCall)
+		NormalizeSignature: func(signature string, functionCall bool) (string, bool) {
+			kind := internalsignature.SignatureBlockKindGeminiModelPart
+			if functionCall {
+				kind = internalsignature.SignatureBlockKindGeminiFunctionCall
+			}
+			return internalsignature.CompatibleSignatureForProviderBlock(internalsignature.SignatureProviderGemini, signature, kind)
 		},
 	}
 	if model.Provider == "" {
@@ -211,17 +225,53 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 	if len(opts.OriginalRequest) > 0 {
 		original = opts.OriginalRequest
 	}
-	originalTranslated, translated, err := helps.TranslateRequestPairReturningError(ctx, opts.Headers, e.cfg, opts.SourceFormat, sdktranslator.FormatOpenAI, row.ID, original, req.Payload, stream, helps.APIKeyModelIsCompat(req))
-	if err != nil {
-		return nil, err
+	// A native Gemini request is read directly (thought parts and signatures
+	// survive); every other dialect goes through the OpenAI Chat form.
+	native := opts.SourceFormat == sdktranslator.FormatGemini
+	// Interactions has no OpenAI translator; its Gemini translation is read the
+	// same way as a native body.
+	geminiShaped := native || opts.SourceFormat == sdktranslator.FormatInteractions
+	target := sdktranslator.FormatOpenAI
+	if geminiShaped {
+		target = sdktranslator.FormatGemini
 	}
-	translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "openai", e.Identifier())
+	var originalTranslated, translated []byte
+	var err error
+	if native {
+		// The Gemini→Gemini normalizer sanitizes signatures (dropping a foreign
+		// thought signature loses the turn's provenance) and attaches safety
+		// settings NeoPi never sends, so a native body is read as sent.
+		originalTranslated, translated = original, req.Payload
+	} else {
+		originalTranslated, translated, err = helps.TranslateRequestPairReturningError(ctx, opts.Headers, e.cfg, opts.SourceFormat, target, row.ID, original, req.Payload, stream, helps.APIKeyModelIsCompat(req))
+		if err != nil {
+			return nil, err
+		}
+	}
+	translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), target.String(), e.Identifier())
 	if err != nil {
 		return nil, err
 	}
 	wire := neoPiGoogleWireModel(row)
-	neoPiContext, options, err := googlewire.FromOpenAIChat(translated, wire)
+	var neoPiContext googlewire.Context
+	var options googlewire.Options
+	if geminiShaped {
+		neoPiContext, options, err = googlewire.FromGemini(translated, wire)
+	} else {
+		neoPiContext, options, err = googlewire.FromOpenAIChat(translated, wire)
+		// "none" effort is thinking off (a mandatory-reasoning model then clamps to
+		// its floor with summaries); only an explicit summary opt-out under an
+		// active effort is NeoPi's hideThinkingSummary.
+		implicitOff := strings.EqualFold(strings.TrimSpace(gjson.GetBytes(original, "reasoning_effort").String()), "none")
+		if options.Reasoning != "" && !options.DisableReasoning && !implicitOff && thinking.ExtractSummaryConfig(original, opts.SourceFormat.String()).Mode == thinking.SummaryDisabled {
+			options.HideThinkingSummary = true
+		}
+	}
 	if err != nil {
+		var unsupported *translatorcommon.UnsupportedPartError
+		if errors.As(err, &unsupported) {
+			return nil, err
+		}
 		return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
 	}
 	resolved, err := googlewire.MapOptions(wire, options)
@@ -230,6 +280,10 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 	}
 	body, err := googlewire.BuildBody(wire, neoPiContext, resolved, nil)
 	if err != nil {
+		var validation *googlewire.ValidationError
+		if errors.As(err, &validation) {
+			return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
+		}
 		return nil, err
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.Identifier(), row.ID, "gemini", "", originalTranslated, req, opts)(body)
@@ -252,14 +306,19 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 // the client default the runtime sets for every request.
 func neoPiGoogleHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string) http.Header {
 	headers := make(http.Header)
+	// NeoPi spreads the key first, then model.headers and options.headers, so a
+	// configured header of the same name wins.
+	headers.Set("x-goog-api-key", key)
 	if auth != nil {
 		request := (&http.Request{Header: headers}).WithContext(ctx)
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes, incoming)
 	}
+	// The stream request then forces its own Content-Type and Accept.
 	headers.Set("Accept", "text/event-stream")
-	headers.Set("Accept-Encoding", "gzip, deflate, br, zstd")
 	headers.Set("Content-Type", "application/json")
-	headers.Set("x-goog-api-key", key)
+	if headers.Get("Accept-Encoding") == "" {
+		headers.Set("Accept-Encoding", "gzip, deflate, br, zstd")
+	}
 	if headers.Get("User-Agent") == "" {
 		headers.Set("User-Agent", openaiwire.NeoPiUserAgent)
 	}
@@ -303,12 +362,13 @@ func (e *NeoPiGoogleExecutor) open(ctx context.Context, auth *cliproxyauth.Auth,
 		response.Body.Close()
 	}
 	helps.AppendAPIResponseChunk(ctx, e.cfg, data)
-	helps.LogWithRequestID(ctx).Debugf("gemini: upstream error %d: %s", response.StatusCode, googlewire.ExtractErrorMessage(string(data), response.StatusCode))
+	message := fmt.Sprintf("Google API error (%d): %s", response.StatusCode, googlewire.ExtractErrorMessage(string(data), response.StatusCode))
+	helps.LogWithRequestID(ctx).Debugf("gemini: upstream error: %s", message)
 	var retryAfter *time.Duration
 	if delay, ok := neoPiRetryAfter(response.Header, time.Now()); ok {
 		retryAfter = &delay
 	}
-	return nil, statusErr{code: response.StatusCode, msg: string(data), retryAfter: retryAfter}
+	return nil, statusErr{code: response.StatusCode, msg: message, retryAfter: retryAfter}
 }
 
 // geminiChunk is one decoded generateContent stream chunk, reduced to what the
@@ -411,7 +471,7 @@ func (e *NeoPiGoogleExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 		}
 		_, errScan := scanGeminiStream(ctx, e.cfg, response.Body, func(chunk geminiChunk) error {
 			if len(chunk.payload) > 0 {
-				if detail, ok := helps.ParseGeminiStreamUsage(chunk.payload); ok {
+				if detail, ok := helps.ParseGeminiStreamUsage(geminiNormalizeUsage(chunk.payload)); ok {
 					streamUsage.Observe(detail, true)
 				}
 			}
@@ -454,10 +514,10 @@ func (e *NeoPiGoogleExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 	}
 	if errPayload, okErr := helps.TranslatedClaudeErrorPayload(format, out); okErr {
 		err = statusErr{code: http.StatusBadGateway, msg: errPayload}
-		reporter.PublishFailureWithDetail(ctx, helps.ParseGeminiUsage(data), err)
+		reporter.PublishFailureWithDetail(ctx, helps.ParseGeminiUsage(geminiNormalizeUsage(data)), err)
 		return result, err
 	}
-	reporter.Publish(ctx, helps.ParseGeminiUsage(data))
+	reporter.Publish(ctx, helps.ParseGeminiUsage(geminiNormalizeUsage(data)))
 	if format == sdktranslator.FormatOpenAIResponse {
 		out = helps.EnsureResponsesUsageDetails(out)
 	}
@@ -520,9 +580,14 @@ func (e *NeoPiGoogleExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				streamErr = errOpen
 				break
 			}
-			meaningful, streamErr = scanGeminiStream(ctx, e.cfg, response.Body, func(chunk geminiChunk) error {
+			// Chunks from the first finishReason on may belong to an empty answer
+			// that is retried: NeoPi holds its terminal `done` until the retry loop
+			// ends, so they are held until the attempt is known to be non-empty.
+			var held [][]byte
+			attemptMeaningful := false
+			_, streamErr = scanGeminiStream(ctx, e.cfg, response.Body, func(chunk geminiChunk) error {
 				if len(chunk.payload) > 0 {
-					if detail, ok := helps.ParseGeminiStreamUsage(chunk.payload); ok {
+					if detail, ok := helps.ParseGeminiStreamUsage(geminiNormalizeUsage(chunk.payload)); ok {
 						streamUsage.Observe(detail, true)
 					}
 				}
@@ -535,9 +600,17 @@ func (e *NeoPiGoogleExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				if chunk.finish != "" {
 					finish = chunk.finish
 				}
+				if chunk.meaningful {
+					attemptMeaningful = true
+				}
 				reporter.ObserveResponseModel(chunk.payload)
+				if len(held) > 0 || chunk.finish != "" && !attemptMeaningful {
+					held = append(held, bytes.Clone(chunk.payload))
+					return nil
+				}
 				return emit(chunk.payload)
 			})
+			meaningful = attemptMeaningful
 			response.Body.Close()
 			if errors.Is(streamErr, errApplyPatchStop) {
 				helps.StopApplyPatchStream(ctx, param, reporter, out, gatewayErr)
@@ -550,6 +623,15 @@ func (e *NeoPiGoogleExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 				break
 			}
 			if finish == "MAX_TOKENS" || meaningful {
+				for _, payload := range held {
+					if streamErr = emit(payload); streamErr != nil {
+						break
+					}
+				}
+				if errors.Is(streamErr, errApplyPatchStop) {
+					helps.StopApplyPatchStream(ctx, param, reporter, out, gatewayErr)
+					return
+				}
 				break
 			}
 			if attempt >= maxEmptyStreamRetries {
@@ -728,14 +810,31 @@ func geminiAggregateChunks(chunks [][]byte) []byte {
 	return jsjson.Object(fields...)
 }
 
-// FetchGoogleModels is NeoPi's fetchGeminiModels: GET /v1beta/models?key=… with
-// pageSize 100, up to 25 pages, de-duplicated by id. NeoPi treats a transport
-// or protocol failure as "no answer" and keeps its bundled rows, so a failure
-// here is returned as an error (the discovery cache keeps the bundle) and a
-// listing without usable rows yields the bundle unchanged.
+// geminiQueryEscape is URLSearchParams serialization: unreserved bytes are
+// *-._ and alphanumerics, space is "+", everything else is percent-encoded.
+func geminiQueryEscape(value string) string {
+	var out strings.Builder
+	for _, b := range []byte(value) {
+		switch {
+		case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9', b == '*', b == '-', b == '.', b == '_':
+			out.WriteByte(b)
+		case b == ' ':
+			out.WriteByte('+')
+		default:
+			fmt.Fprintf(&out, "%%%02X", b)
+		}
+	}
+	return out.String()
+}
+
+// FetchGoogleModels is NeoPi's fetchGeminiModels: GET /models?key=… with
+// pageSize 100, up to 25 pages, de-duplicated by id. NeoPi treats any
+// transport or protocol failure as "no answer" and keeps what it had, so a
+// failure here is an error (the discovery cache keeps the previous catalog).
+// The key rides in the URL, so errors never carry the request URL.
 func FetchGoogleModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) ([]*registry.ModelInfo, error) {
 	key := geminiAPIKey(auth)
-	if key == "" {
+	if strings.TrimSpace(key) == "" {
 		return nil, fmt.Errorf("gemini models: credential has no API key")
 	}
 	base := geminiNeoPiBaseURL(auth, nil)
@@ -744,40 +843,76 @@ func FetchGoogleModels(ctx context.Context, cfg *config.Config, auth *cliproxyau
 	seen := map[string]bool{}
 	token := ""
 	for page := 0; page < 25; page++ {
-		url := base + "/models?key=" + neturl.QueryEscape(key) + "&pageSize=100"
+		url := base + "/models?key=" + geminiQueryEscape(key) + "&pageSize=100"
 		if token != "" {
-			url += "&pageToken=" + neturl.QueryEscape(token)
+			url += "&pageToken=" + geminiQueryEscape(token)
 		}
 		request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("gemini models: build request failed")
 		}
 		response, err := client.Do(request)
 		if err != nil {
+			var urlErr *neturl.Error
+			if errors.As(err, &urlErr) {
+				err = urlErr.Err
+			}
 			return nil, fmt.Errorf("gemini models: %w", err)
 		}
 		body, errRead := io.ReadAll(io.LimitReader(response.Body, 8<<20))
 		response.Body.Close()
 		if errRead != nil {
-			return nil, fmt.Errorf("gemini models: %w", errRead)
+			return nil, fmt.Errorf("gemini models: read response: %w", errRead)
 		}
 		if response.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("gemini models: %s returned HTTP %d", base+"/models", response.StatusCode)
+			return nil, fmt.Errorf("gemini models: %s/models returned HTTP %d", base, response.StatusCode)
+		}
+		if !gjson.ValidBytes(body) {
+			return nil, fmt.Errorf("gemini models: response is not JSON")
 		}
 		payload := gjson.ParseBytes(body)
-		for _, item := range payload.Get("models").Array() {
-			listing = append(listing, item)
+		if !payload.IsObject() {
+			return nil, fmt.Errorf("gemini models: response is not an object")
 		}
-		next := strings.TrimSpace(payload.Get("nextPageToken").String())
-		if next == "" || seen[next] {
+		if models := payload.Get("models"); models.Exists() {
+			if !models.IsArray() {
+				return nil, fmt.Errorf("gemini models: models is not an array")
+			}
+			listing = append(listing, models.Array()...)
+		}
+		next := payload.Get("nextPageToken")
+		token = ""
+		if next.Type == gjson.String {
+			token = strings.TrimSpace(next.String())
+		}
+		if token == "" || seen[token] {
 			break
 		}
-		seen[next] = true
-		token = next
+		seen[token] = true
 	}
-	models := registry.GoogleModels(listing)
-	if len(models) == 0 {
-		return nil, fmt.Errorf("gemini models: %s listed no usable models", base+"/models")
+	return registry.GoogleModels(listing), nil
+}
+
+// geminiNormalizeUsage rewrites a payload's usageMetadata the way NeoPi's
+// mapGoogleUsage reads it: a missing promptTokenCount falls back to
+// total - candidates - thoughts and cachedContentTokenCount is clamped to the
+// prompt, so NeoProxy's accounting never sees a negative or inflated input.
+func geminiNormalizeUsage(payload []byte) []byte {
+	root := gjson.ParseBytes(payload)
+	node := root.Get("usageMetadata")
+	if !node.IsObject() {
+		return payload
 	}
-	return models, nil
+	input, _, cacheRead, _, _ := googlewire.MapUsage(node)
+	fields := []jsjson.Field{
+		{Name: "promptTokenCount", Value: jsjson.Marshal(input + cacheRead)},
+		{Name: "cachedContentTokenCount", Value: jsjson.Marshal(cacheRead)},
+		{Name: "candidatesTokenCount", Value: jsjson.Marshal(node.Get("candidatesTokenCount").Int())},
+		{Name: "thoughtsTokenCount", Value: jsjson.Marshal(node.Get("thoughtsTokenCount").Int())},
+		{Name: "totalTokenCount", Value: jsjson.Marshal(node.Get("totalTokenCount").Int())},
+	}
+	if toolUse := node.Get("toolUsePromptTokenCount"); toolUse.Exists() {
+		fields = append(fields, jsjson.Field{Name: "toolUsePromptTokenCount", Value: jsjson.Marshal(toolUse.Int())})
+	}
+	return jsjson.Object(jsjson.Field{Name: "usageMetadata", Value: jsjson.Object(fields...)})
 }

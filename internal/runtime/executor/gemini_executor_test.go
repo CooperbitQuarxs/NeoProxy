@@ -57,7 +57,7 @@ func TestGeminiExecutorInteractionsWithGeminiAPIKeyUsesGeminiEndpoint(t *testing
 	if errExecute != nil {
 		t.Fatalf("Execute() error = %v", errExecute)
 	}
-	if gotPath != "/v1beta/models/gemini-3.5-flash:streamGenerateContent" {
+	if gotPath != "/models/gemini-3.5-flash:streamGenerateContent" {
 		t.Fatalf("path = %q, want Gemini streamGenerateContent endpoint", gotPath)
 	}
 	if gotRevision != "" {
@@ -1243,8 +1243,8 @@ func TestGeminiExecutorClaudeMalformedFunctionCallReturnsRetryableError(t *testi
 	if strings.Contains(streamText, `"stop_reason":"refusal"`) {
 		t.Fatalf("stream unexpectedly emitted stop_reason refusal:\n%s", streamText)
 	}
-	if !strings.Contains(streamText, "event: error\n") || !strings.Contains(streamText, `"type":"api_error"`) {
-		t.Fatalf("stream missing retryable api_error event:\n%s", streamText)
+	if !strings.Contains(streamErr.Error(), "MALFORMED_FUNCTION_CALL") {
+		t.Fatalf("stream error = %q, want NeoPi's finish-reason failure", streamErr.Error())
 	}
 	assertMalformedFunctionCallFailedUsage(t, capture.records)
 }

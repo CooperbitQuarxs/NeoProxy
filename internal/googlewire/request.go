@@ -199,6 +199,7 @@ func MapOptions(model *Model, opts Options) (Resolved, error) {
 		budget = *maxTokens - minOutputTokens
 		if budget <= 0 {
 			out.Thinking = thinkingOff(model)
+			out.SendServiceTier = true
 			return out, nil
 		}
 	}
@@ -225,7 +226,7 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 	var systemParts []json.RawMessage
 	for _, prompt := range ctx.SystemPrompts {
 		prompt = toWellFormed(prompt)
-		if strings.TrimSpace(prompt) != "" {
+		if jsTrim(prompt) != "" {
 			systemParts = append(systemParts, jsjson.Object(field("text", str(prompt))))
 		}
 	}
@@ -250,6 +251,22 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 		}
 	}
 	if resolved.CachedContent != "" {
+		if jsTrim(resolved.CachedContent) == "" {
+			return nil, &ValidationError{Message: "cachedContent must not be blank"}
+		}
+		var incompatible []string
+		if len(systemParts) > 0 {
+			incompatible = append(incompatible, "systemInstruction")
+		}
+		if tools != nil {
+			incompatible = append(incompatible, "tools")
+		}
+		if len(ctx.Tools) > 0 && (resolved.ToolChoice.Mode == "none" || resolved.ToolChoice.Mode == "any" || resolved.ToolChoice.Mode == "named") {
+			incompatible = append(incompatible, "toolConfig")
+		}
+		if len(incompatible) > 0 {
+			return nil, &ValidationError{Message: "cachedContent cannot be combined with request-level " + strings.Join(incompatible, ", ")}
+		}
 		fields = append(fields, field("cachedContent", str(resolved.CachedContent)))
 	}
 	if model.Provider == "google" && resolved.SendServiceTier && shouldSendServiceTier(resolved.ServiceTier) {
@@ -286,3 +303,8 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 	}
 	return jsjson.Object(fields...), nil
 }
+
+// ValidationError is NeoPi's ValidationError: a request the caller must fix.
+type ValidationError struct{ Message string }
+
+func (e *ValidationError) Error() string { return e.Message }

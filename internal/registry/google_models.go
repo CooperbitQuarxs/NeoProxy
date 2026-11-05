@@ -109,7 +109,7 @@ func GoogleModels(listing []gjson.Result) []*ModelInfo {
 		// mergeDynamicModel: the live name wins unless it is the bare id, a live
 		// limit wins unless absent (or the 4096 placeholder), images and
 		// reasoning are additive.
-		if name := strings.TrimSpace(dynamic.Name); name != "" && !(name == id && existing.Name != id) {
+		if name := jsTrim(dynamic.Name); name != "" && !(name == id && existing.Name != id) {
 			existing.Name = name
 		}
 		existing.ContextWindow = googlePreferLimit(dynamic.ContextWindow, existing.ContextWindow)
@@ -131,8 +131,22 @@ func GoogleModels(listing []gjson.Result) []*ModelInfo {
 // a row on its bundled reference when there is one, else built from the id.
 // ok is false for entries that cannot generate content.
 func GoogleDiscoveredModel(item gjson.Result) (NeoPiModel, bool) {
-	id := strings.TrimPrefix(strings.TrimSpace(item.Get("name").String()), "models/")
-	if id == "" || !googleSupportsGenerateContent(item.Get("supportedGenerationMethods")) {
+	// NeoPi's item schema: an object whose supportedGenerationMethods, when
+	// present, is an all-string array; name and displayName that are not
+	// strings read as absent.
+	if !item.IsObject() {
+		return NeoPiModel{}, false
+	}
+	methods := item.Get("supportedGenerationMethods")
+	if methods.Exists() && !googleAllStrings(methods) {
+		return NeoPiModel{}, false
+	}
+	var rawName string
+	if value := item.Get("name"); value.Type == gjson.String {
+		rawName = value.String()
+	}
+	id := strings.TrimPrefix(jsTrim(rawName), "models/")
+	if id == "" || !googleSupportsGenerateContent(methods) {
 		return NeoPiModel{}, false
 	}
 	reference := GoogleBundledNeoPiModel(id)
@@ -142,7 +156,10 @@ func GoogleDiscoveredModel(item gjson.Result) (NeoPiModel, bool) {
 	}
 	contextWindow := googlePositive(item.Get("inputTokenLimit"), refContext)
 	maxTokens := googlePositive(item.Get("outputTokenLimit"), refMax)
-	name := strings.TrimSpace(item.Get("displayName").String())
+	name := ""
+	if value := item.Get("displayName"); value.Type == gjson.String {
+		name = jsTrim(value.String())
+	}
 	if reference != nil {
 		if name == "" {
 			name = reference.Name
@@ -155,6 +172,29 @@ func GoogleDiscoveredModel(item gjson.Result) (NeoPiModel, bool) {
 		name = id
 	}
 	return GoogleBuildDiscovered(id, name, contextWindow, maxTokens), true
+}
+
+func googleAllStrings(methods gjson.Result) bool {
+	if !methods.IsArray() {
+		return false
+	}
+	for _, method := range methods.Array() {
+		if method.Type != gjson.String {
+			return false
+		}
+	}
+	return true
+}
+
+// jsTrim is String.prototype.trim.
+func jsTrim(value string) string {
+	return strings.TrimFunc(value, func(r rune) bool {
+		switch r {
+		case '\t', '\n', '\v', '\f', '\r', ' ', '\u00a0', '\u1680', '\u2028', '\u2029', '\u202f', '\u205f', '\u3000', '\ufeff':
+			return true
+		}
+		return r >= '\u2000' && r <= '\u200a'
+	})
 }
 
 func googleSupportsGenerateContent(methods gjson.Result) bool {

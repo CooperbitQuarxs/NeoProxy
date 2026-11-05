@@ -61,7 +61,7 @@ func RenderDemotedThinking(modelID, text string) string {
 func toWellFormed(text string) string { return strings.ToValidUTF8(text, "\uFFFD") }
 
 func isMalformedToolCall(block Block, maxLength int) bool {
-	if strings.TrimSpace(block.ID) == "" {
+	if jsTrim(block.ID) == "" {
 		return true
 	}
 	return len(utf16.Encode([]rune(block.Name))) > maxLength || !googleToolNamePattern.MatchString(block.Name)
@@ -394,7 +394,7 @@ func TransformMessages(messages []Message, model *Model) []Message {
 				}
 				var texts []string
 				for _, part := range msg.Content {
-					if part.Type == BlockText && strings.TrimSpace(part.Text) != "" {
+					if part.Type == BlockText && jsTrim(part.Text) != "" {
 						texts = append(texts, part.Text)
 					}
 				}
@@ -439,7 +439,7 @@ func transformAssistant(msg Message, model *Model, idMap map[string]string) Mess
 				content = append(content, sanitized)
 				continue
 			}
-			if strings.TrimSpace(sanitized.Text) == "" {
+			if jsTrim(sanitized.Text) == "" {
 				continue
 			}
 			if isSame {
@@ -468,7 +468,7 @@ func transformAssistant(msg Message, model *Model, idMap map[string]string) Mess
 		}
 	}
 	if n := len(content); n > 0 && content[n-1].Type == BlockText && content[n-1].Demoted {
-		content[n-1].Text = strings.TrimRight(content[n-1].Text, " \t\n\r\f\v\u00a0\u2028\u2029\ufeff")
+		content[n-1].Text = jsTrimEnd(content[n-1].Text)
 	}
 	msg.Content = content
 	return msg

@@ -127,7 +127,7 @@ func ConvertMessages(model *Model, messages []Message) []json.RawMessage {
 		switch msg.Role {
 		case RoleUser, RoleDeveloper:
 			if msg.IsString {
-				if strings.TrimSpace(msg.Text) == "" {
+				if jsTrim(msg.Text) == "" {
 					continue
 				}
 				contents = append(contents, &content{role: "user", parts: []*part{{raw: jsjson.Object(field("text", str(toWellFormed(msg.Text))))}}})
@@ -139,7 +139,7 @@ func ConvertMessages(model *Model, messages []Message) []json.RawMessage {
 				switch {
 				case item.Type == BlockText:
 					text := toWellFormed(item.Text)
-					if strings.TrimSpace(text) == "" {
+					if jsTrim(text) == "" {
 						continue
 					}
 					parts = append(parts, &part{raw: jsjson.Object(field("text", str(text)))})
@@ -163,7 +163,7 @@ func ConvertMessages(model *Model, messages []Message) []json.RawMessage {
 			for _, block := range msg.Content {
 				switch block.Type {
 				case BlockText:
-					if strings.TrimSpace(block.Text) == "" {
+					if jsTrim(block.Text) == "" {
 						continue
 					}
 					signature := resolveThoughtSignature(isSame, block.Signature)
@@ -174,7 +174,7 @@ func ConvertMessages(model *Model, messages []Message) []json.RawMessage {
 					parts = append(parts, &part{raw: jsjson.Object(fields...)})
 				case BlockThinking:
 					signature := resolveThoughtSignature(isSame, block.Signature)
-					if strings.TrimSpace(block.Text) == "" && signature == "" {
+					if jsTrim(block.Text) == "" && signature == "" {
 						continue
 					}
 					if model.Compat.DropUnsignedThinking && signature == "" {

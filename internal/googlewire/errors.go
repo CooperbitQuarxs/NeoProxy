@@ -56,12 +56,15 @@ func (e *StreamError) StatusCode() int { return e.Code }
 func StreamChunkError(payload []byte) error {
 	errorBody := gjson.GetBytes(payload, "error")
 	message, status := errorBody.Get("message").String(), errorBody.Get("status").String()
-	detail := message
+	// message && status ? "message (status)" : message || status || "unknown error"
+	detail := "unknown error"
 	switch {
 	case message != "" && status != "":
 		detail = message + " (" + status + ")"
-	case message == "" && status == "":
-		detail = "unknown error"
+	case message != "":
+		detail = message
+	case status != "":
+		detail = status
 	}
 	residue := ""
 	if details := errorBody.Get("details"); details.IsArray() && len(details.Array()) > 0 {
