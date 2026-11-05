@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -575,18 +576,30 @@ func cursorUsageWindows(usage *cursorauth.Usage) []Window {
 // factoryDroidUsageWindows adapts NeoPi's Factory Droid report the way its
 // ranking strategy gates on it: each subscription pool (Standard credits,
 // Droid Core) gates only the models it bills (quota-tiers), so every pool
-// window is scoped to that pool's models. The extra usage balance is not a
-// gate (a funded balance does not establish permission to use it).
-func factoryDroidUsageWindows(provider string, usage *factorydroid.Usage) []Window {
+// window is scoped to that pool's models, under every inventory id the
+// account registered them as (an OAuth alias or forced prefix renames one).
+// The extra usage balance is not a gate (a funded balance does not establish
+// permission to use it).
+func factoryDroidUsageWindows(a *coreauth.Auth, usage *factorydroid.Usage) []Window {
 	out := []Window{}
 	if usage == nil {
 		return out
 	}
+	registered := registry.GetGlobalRegistry().GetModelsForClient(a.ID)
 	kinds := map[string]string{"5h": "5h", "weekly": "week", "monthly": "month"}
 	for _, pool := range []string{"standard", "core"} {
+		billed := registry.FactoryDroidPoolModels(pool)
 		var models []string
-		for _, id := range registry.FactoryDroidPoolModels(pool) {
-			models = append(models, provider+"/"+id)
+		for _, id := range billed {
+			models = append(models, inventoryModelID(a.Provider, id))
+		}
+		for _, info := range registered {
+			if info == nil || info.NeoPi == nil || !slices.Contains(billed, info.NeoPi.ID) {
+				continue
+			}
+			if id := inventoryModelID(a.Provider, info.ID); !slices.Contains(models, id) {
+				models = append(models, id)
+			}
 		}
 		for _, limit := range usage.Limits {
 			if limit.Window == nil || !strings.HasPrefix(limit.ID, "factory-droid:"+pool+":") {
@@ -715,7 +728,7 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 		if err != nil {
 			return nil, err
 		}
-		return factoryDroidUsageWindows(a.Provider, usage), nil
+		return factoryDroidUsageWindows(a, usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
