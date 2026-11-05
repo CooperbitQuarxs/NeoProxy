@@ -91,6 +91,7 @@ var apiKeyRoutes = map[string]route{
 	"xiaomi":                {target: "xiaomi"},
 	"singularityapi-dev":    {target: "singularityapi-dev"},
 	"singularityapi-tech":   {target: "singularityapi-tech"},
+	"charm-hyper":           {target: "charm-hyper"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -110,10 +111,13 @@ var oauthRoutes = map[string]route{
 	"nous-portal": {target: "nous-portal"},
 	// Z.ai's sign-in mints a durable API key into the access field; there is
 	// nothing to refresh, so it imports as an ordinary API key.
-	"zai":               {kind: KindAPIKey, target: "zai"},
-	"google-gemini-cli": {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
-	"cursor":            {target: "cursor"},
-	"github-copilot":    {reason: "NeoProxy has no GitHub Copilot engine."},
+	"zai": {kind: KindAPIKey, target: "zai"},
+	// The Coding Plan sign-in stores the pasted key in access and the
+	// endpoint it chose (International, China or custom) in enterpriseUrl.
+	"alibaba-coding-plan": {kind: KindAPIKey, target: "alibaba-coding-plan"},
+	"google-gemini-cli":   {reason: "NeoProxy has no Gemini CLI subscription engine yet; add a Gemini API key instead."},
+	"cursor":              {target: "cursor"},
+	"github-copilot":      {reason: "NeoProxy has no GitHub Copilot engine."},
 }
 
 func routeFor(c Credential) route {
@@ -277,11 +281,15 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
 	baseURL, cookie := c.baseURL, ""
-	if c.Provider == "alibaba-token-plan" {
+	switch c.Provider {
+	case "alibaba-token-plan":
 		// The region the key belongs to (NeoProxy tries it first) and the
 		// console cookie behind NeoPi's quota reporting.
 		key, _ := parseTokenPlanKey(str(c.data, "key"))
 		baseURL, cookie = key.baseURL, key.cookie
+	case "alibaba-coding-plan":
+		// The endpoint the sign-in chose and validated the key against.
+		baseURL = strings.TrimRight(strings.TrimSpace(str(c.data, "enterpriseUrl")), "/")
 	}
 	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r), Cookie: cookie}, nil
 }

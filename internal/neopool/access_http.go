@@ -432,7 +432,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		}
 	} else {
 		preferred = req.BaseURL
-		if info.ID == "alibaba-token-plan" && strings.TrimSpace(preferred) != "" {
+		if len(catalogRegions(info.ID)) > 0 && strings.TrimSpace(preferred) != "" {
 			preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
 			if !slices.Contains(catalogRegions(info.ID), preferred) {
 				if p.Role != neo.RoleAdmin {
@@ -440,7 +440,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 				}
 				u, parseErr := url.Parse(preferred)
 				if parseErr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-					return AccessItem{}, accessErr(http.StatusBadRequest, "Enter a valid custom Token Plan base URL.")
+					return AccessItem{}, accessErr(http.StatusBadRequest, "Enter a valid custom %s base URL.", info.Name)
 				}
 			}
 		}

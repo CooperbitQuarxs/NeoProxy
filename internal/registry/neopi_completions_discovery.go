@@ -583,6 +583,8 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 		case "singularityapi-tech":
 			// The lane roster answers bare ids; rows keep the defaults.
 			spec = defaults
+		case "charm-hyper":
+			spec = neoPiMapCharmHyper(entry, defaults)
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}

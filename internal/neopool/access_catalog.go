@@ -107,6 +107,9 @@ var (
 const (
 	qwenTokenPlanIntlURL = "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
 	qwenTokenPlanCNURL   = "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+	// The Alibaba Coding Plan sign-in's International and China endpoints.
+	alibabaCodingPlanIntlURL = "https://coding-intl.dashscope.aliyuncs.com/v1"
+	alibabaCodingPlanCNURL   = "https://coding.dashscope.aliyuncs.com/v1"
 )
 
 // Default monthly values when nothing more specific is known.
@@ -320,6 +323,14 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey("https://api.singularityapi.dev/v1", "sk-sapi-...", "https://app.singularityapi.dev"), Plans: []ProviderPlan{}},
 	{ID: "singularityapi-tech", Name: "SingularityAPI Reserved Lanes", Vendor: "SingularityAPI", Hue: 280, Chroma: tintChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.singularityapi.tech/v1", "sk-...", "https://app.singularityapi.tech/compute/billing"), Plans: []ProviderPlan{}},
+	{ID: "charm-hyper", Name: "Charm Hyper", Vendor: "Charm", Hue: 330, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://hyper.charm.land/v1", "sk-hyper-...", "https://hyper.charm.land/"), Plans: []ProviderPlan{}},
+	// The Coding Plan sign-in picks the International or China endpoint (or,
+	// for an administrator, a custom one) and checks the key there.
+	{ID: "alibaba-coding-plan", Name: "Alibaba Coding Plan", Vendor: "Alibaba Cloud", Hue: 25, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey:  openAIKey(alibabaCodingPlanIntlURL, "sk-... (International or China key)", "https://modelstudio.console.alibabacloud.com/"),
+		Plans:   []ProviderPlan{},
+		regions: []string{alibabaCodingPlanIntlURL, alibabaCodingPlanCNURL}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

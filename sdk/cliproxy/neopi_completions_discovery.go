@@ -31,7 +31,7 @@ var neoPiCompletionsProviders = []string{
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
-	"singularityapi-dev", "singularityapi-tech",
+	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -221,13 +221,7 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 			base = bundleBase
 		}
 	}
-	if provider == "singularityapi-dev" || provider == "singularityapi-tech" {
-		return key, registry.NeoPiSingularityAPIBaseURL(provider, base), nil
-	}
-	if base == "" {
-		base = registry.NeoPiCompletionsListingBase(provider)
-	}
-	return key, strings.TrimSuffix(base, "/"), nil
+	return key, registry.NeoPiV1BaseURL(provider, base), nil
 }
 
 // parseAlibabaTokenPlanKey is parseAlibabaTokenPlanCredential: the token and

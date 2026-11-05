@@ -44,6 +44,12 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base, preferred, k
 		// tp-/ttp- key, which discovery and inference then reach on their own.
 		return base, true, neoPiKeyFailure(info, xiaomi.ValidateKey(ctx, accessHTTPClient, key))
 	}
+	if info.ID == "alibaba-coding-plan" {
+		// loginAlibabaCodingPlan: the chosen endpoint (International unless
+		// another is named) checks the key, and the account keeps it.
+		accepted := neopikeys.AlibabaCodingPlanBaseURL(preferred)
+		return accepted, true, neoPiKeyFailure(info, neopikeys.AlibabaCodingPlanLogin(accepted).Validate(ctx, accessHTTPClient, key))
+	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {
 		return "", false, nil

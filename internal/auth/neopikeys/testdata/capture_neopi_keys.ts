@@ -11,6 +11,7 @@ if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: { type: "json" } })).default as any;
 const { createApiKeyLogin } = await import(root + "/pi-ai/src/registry/engine/api-key.ts");
 const { loginAlibabaTokenPlan } = await import(root + "/pi-ai/src/registry/oauth/alibaba-token-plan.ts");
+const { loginAlibabaCodingPlan } = await import(root + "/pi-ai/src/registry/oauth/alibaba-coding-plan.ts");
 
 const nativeFetch = globalThis.fetch;
 let spec: any;
@@ -48,7 +49,7 @@ const providers = [
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "cline-pass",
-	"singularityapi-dev", "singularityapi-tech",
+	"singularityapi-dev", "singularityapi-tech", "charm-hyper",
 ];
 const statuses = [
 	{ name: "ok" },
@@ -95,13 +96,22 @@ async function run(provider: string, label: string, scenario: any, input: string
 		else delete process.env[name];
 	}
 	let result: any;
+	// loginAlibabaCodingPlan validates with the global fetch, so it is pointed
+	// at the capture server for the run: no request may leave the machine.
+	globalThis.fetch = captureFetch as typeof fetch;
 	try {
 		const policy = rules.auth.providers.find((entry: any) => entry.id === provider);
-		const login = provider === "alibaba-token-plan" ? loginAlibabaTokenPlan : createApiKeyLogin(policy.login, policy.name);
+		const login =
+			provider === "alibaba-token-plan"
+				? loginAlibabaTokenPlan
+				: provider === "alibaba-coding-plan"
+					? loginAlibabaCodingPlan
+					: createApiKeyLogin(policy.login, policy.name);
 		result = { value: await login(options) };
 	} catch (error) {
 		result = { error: String(error instanceof Error ? error.message : error), errorName: (error as any)?.name, errorStatus: (error as any)?.status ?? null };
 	} finally {
+		globalThis.fetch = nativeFetch;
 		for (const name of envNames) {
 			if (saved[name] === undefined) delete process.env[name];
 			else process.env[name] = saved[name];
@@ -140,7 +150,16 @@ try {
 	await run("alibaba-token-plan", "empty-key", {}, "", ["1", "", ""]);
 	await run("alibaba-token-plan", "bad-cookie", {}, tokenKey, ["1", tokenKey, "justonecookievalue"]);
 	await run("alibaba-token-plan", "bad-cookie-china", {}, tokenKey, ["2", tokenKey, "=novalue; name="]);
-	console.log(JSON.stringify({ source: "NeoPi OWN createApiKeyLogin + loginAlibabaTokenPlan", key, scenarios }, null, 2));
+	// Coding Plan: endpoint prompt, then the key, checked by a chat probe on
+	// the International or China endpoint or a models probe on a custom one.
+	const codingKey = "sk-fixture0123456789";
+	await run("alibaba-coding-plan", "intl-default", {}, codingKey, ["", codingKey]);
+	await run("alibaba-coding-plan", "china", {}, codingKey, ["2", codingKey]);
+	await run("alibaba-coding-plan", "custom-url", {}, codingKey, ["3", "https://coding.example.invalid/v1//", codingKey]);
+	await run("alibaba-coding-plan", "intl-http-401", { status: 401, body: { error: { message: "Incorrect API key provided", code: "invalid_api_key" } } }, codingKey, ["1", codingKey]);
+	await run("alibaba-coding-plan", "custom-http-401", { status: 401, body: { error: { message: "unauthorized" } } }, codingKey, ["3", "https://coding.example.invalid/v1", codingKey]);
+	await run("alibaba-coding-plan", "china-http-500", { status: 500, body: "boom" }, codingKey, ["2", codingKey]);
+	console.log(JSON.stringify({ source: "NeoPi OWN createApiKeyLogin + loginAlibabaTokenPlan + loginAlibabaCodingPlan", key, scenarios }, null, 2));
 } finally {
 	server.stop(true);
 }

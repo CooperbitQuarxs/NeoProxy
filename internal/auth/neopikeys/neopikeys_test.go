@@ -29,18 +29,52 @@ type keysCapture struct {
 		Provider     string            `json:"provider"`
 		Label        string            `json:"label"`
 		Input        string            `json:"input"`
+		Answers      []string          `json:"answers"`
 		Env          *string           `json:"env"`
 		EnvVars      map[string]string `json:"envVars"`
 		Status       int               `json:"status"`
 		Body         json.RawMessage   `json:"body"`
 		NetworkError bool              `json:"networkError"`
 		Result       struct {
-			Value     string `json:"value"`
-			Error     string `json:"error"`
-			ErrorName string `json:"errorName"`
+			Value     captureValue `json:"value"`
+			Error     string       `json:"error"`
+			ErrorName string       `json:"errorName"`
 		} `json:"result"`
 		Requests []capturedRequest `json:"requests"`
 	} `json:"scenarios"`
+}
+
+// captureValue is a login's result: the key, or for a sign-in that returns a
+// credential, its access key and the endpoint it chose (enterpriseUrl).
+type captureValue struct {
+	Key, BaseURL string
+}
+
+func (v *captureValue) UnmarshalJSON(raw []byte) error {
+	if len(raw) > 0 && raw[0] == '"' {
+		return json.Unmarshal(raw, &v.Key)
+	}
+	var credential struct {
+		Access        string `json:"access"`
+		EnterpriseURL string `json:"enterpriseUrl"`
+	}
+	if err := json.Unmarshal(raw, &credential); err != nil {
+		return err
+	}
+	v.Key, v.BaseURL = credential.Access, credential.EnterpriseURL
+	return nil
+}
+
+// codingPlanBase is the endpoint the Coding Plan sign-in's answers choose:
+// 2 is China, 3 a custom URL, anything else International.
+func codingPlanBase(answers []string) string {
+	switch {
+	case len(answers) > 0 && strings.TrimSpace(answers[0]) == "2":
+		return AlibabaCodingPlanCNURL
+	case len(answers) > 1 && strings.TrimSpace(answers[0]) == "3":
+		return answers[1]
+	}
+	return AlibabaCodingPlanIntlURL
 }
 
 // redirect sends every request to a loopback server and keeps the original URL.
@@ -85,6 +119,9 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 	checked := 0
 	for _, scenario := range capture.Scenarios {
 		login, ok := LoginFor(scenario.Provider)
+		if scenario.Provider == "alibaba-coding-plan" {
+			login, ok = AlibabaCodingPlanLogin(codingPlanBase(scenario.Answers)), true
+		}
 		if !ok {
 			continue
 		}
@@ -140,8 +177,11 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 			}
 			validateErr := login.Validate(context.Background(), &http.Client{Transport: rt}, key)
 
-			if scenario.Result.Value != "" && key != scenario.Result.Value {
-				t.Errorf("key = %q, want %q", key, scenario.Result.Value)
+			if want := scenario.Result.Value; want.Key != "" && key != want.Key {
+				t.Errorf("key = %q, want %q", key, want.Key)
+			}
+			if want := scenario.Result.Value.BaseURL; want != "" && AlibabaCodingPlanBaseURL(codingPlanBase(scenario.Answers)) != want {
+				t.Errorf("endpoint = %q, want %q", AlibabaCodingPlanBaseURL(codingPlanBase(scenario.Answers)), want)
 			}
 			if len(seen) != len(scenario.Requests) {
 				t.Fatalf("requests = %d, want %d", len(seen), len(scenario.Requests))
@@ -165,7 +205,7 @@ func TestKeyEntryMatchesNeoPiCapture(t *testing.T) {
 					}
 				}
 			}
-			if scenario.Result.Value != "" {
+			if scenario.Result.Value.Key != "" {
 				if validateErr != nil {
 					t.Fatalf("Validate() = %v, want success", validateErr)
 				}
