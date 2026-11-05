@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopidialect"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/tidwall/gjson"
@@ -27,7 +28,12 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 	var profile neoPiProfile
 	profile.Reasoning = model.Reasoning
 	profile.MaxTokens = int64(model.MaxTokens)
-	party := &neoPiThirdParty{images: false}
+	if profile.MaxTokens <= 0 {
+		// A discovered row without an output cap: NeoPi's Anthropic provider
+		// allows 64000 (anthropic.ts maxAllowedTokens).
+		profile.MaxTokens = 64000
+	}
+	party := &neoPiThirdParty{images: false, modelID: model.ID}
 	for _, input := range model.Input {
 		party.images = party.images || input == "image"
 	}
@@ -54,6 +60,8 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Compat.InjectClaudeCodeInstruction = compat.InjectClaudeCodeInstruction
 		party.outputEffort = compat.SupportsOutputEffort
 		party.toolResultID = compat.RequiresToolResultID
+		party.escapeToolNames = compat.EscapeBuiltinToolNames
+		party.replayUnsigned = compat.ReplayUnsignedThinking
 	}
 	profile.thirdParty = party
 	return profile
@@ -100,7 +108,8 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a
 // non-Anthropic model to downstream Messages turns: blank user turns drop,
 // user and tool_result content is rebuilt for the model's input modalities,
-// and a tool_result carries the `id` alias the provider requires.
+// a tool_result carries the `id` alias the provider requires, and unsigned
+// assistant thinking the model cannot replay is demoted to text.
 func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	root := gjson.ParseBytes(input)
 	messages := root.Get("messages")
@@ -109,6 +118,10 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	}
 	out := make([]json.RawMessage, 0, len(messages.Array()))
 	for _, message := range messages.Array() {
+		if message.Get("role").String() == "assistant" {
+			out = append(out, neoPiThirdPartyAssistant(message, party))
+			continue
+		}
 		if message.Get("role").String() != "user" {
 			out = append(out, json.RawMessage(message.Raw))
 			continue
@@ -158,6 +171,55 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 		out = append(out, neoPiSetRaw(raw, "content", jsjson.Marshal(blocks)))
 	}
 	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
+}
+
+// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay. In
+// a turn with signed thinking, or for a model that does not replay unsigned
+// thinking, an unsigned block is demoted to text (renderDemotedThinking) and
+// a blank one dropped. Otherwise every blank thinking block is dropped and an
+// unsigned one is replayed as a thinking block with an empty signature.
+func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json.RawMessage {
+	content := message.Get("content")
+	if !content.IsArray() {
+		return json.RawMessage(message.Raw)
+	}
+	unsigned := func(block gjson.Result) bool {
+		return strings.TrimSpace(block.Get("signature").String()) == ""
+	}
+	hasSigned := false
+	for _, block := range content.Array() {
+		if block.Get("type").String() == "thinking" && !unsigned(block) {
+			hasSigned = true
+		}
+	}
+	demote := hasSigned || !party.replayUnsigned
+	changed := false
+	blocks := make([]json.RawMessage, 0, len(content.Array()))
+	for _, block := range content.Array() {
+		if block.Get("type").String() != "thinking" {
+			blocks = append(blocks, json.RawMessage(block.Raw))
+			continue
+		}
+		thinking := block.Get("thinking").String()
+		blank := strings.TrimSpace(thinking) == ""
+		switch {
+		case demote && !unsigned(block):
+			blocks = append(blocks, json.RawMessage(block.Raw))
+		case blank:
+			changed = true
+		case demote:
+			changed = true
+			blocks = append(blocks, neoPiTextBlock(neopidialect.RenderDemotedThinking(party.modelID, thinking)))
+		default:
+			wire := jsjson.Object(jsjson.Field{Name: "type", Value: jsjson.Marshal("thinking")}, jsjson.Field{Name: "thinking", Value: jsjson.Marshal(thinking)}, jsjson.Field{Name: "signature", Value: jsjson.Marshal("")})
+			changed = changed || string(wire) != block.Raw
+			blocks = append(blocks, wire)
+		}
+	}
+	if !changed {
+		return json.RawMessage(message.Raw)
+	}
+	return neoPiSetRaw([]byte(message.Raw), "content", jsjson.Marshal(blocks))
 }
 
 // neoPiThirdPartyContent is convertContentBlocks: a text-only model gets one

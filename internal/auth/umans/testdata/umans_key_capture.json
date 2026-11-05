@@ -1,0 +1,14 @@
+{
+  "source": "NeoPi OWN validateAnthropicCompatibleApiKey for auth rule umans",
+  "apiKey": "sk-umans-key-capture-0000",
+  "request": {
+    "url": "https://api.code.umans.ai/v1/messages",
+    "method": "POST",
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+      "x-api-key": "sk-umans-key-capture-0000"
+    },
+    "body": "{\"model\":\"umans-coder\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}],\"max_tokens\":1}"
+  }
+}
