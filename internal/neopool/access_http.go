@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -274,11 +275,8 @@ func (h *HTTP) accessDelete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// APIKeyRequest is POST /v8/neo/access/api-key. BaseURL is honoured only for
-// providers with an editable address (custom servers, self-hosted gateways) and
-// only for administrators: choosing an upstream that the server will call with
-// a key is an administrative decision. For a provider with regional endpoints it
-// only selects which known region is tried first.
+// APIKeyRequest is POST /v8/neo/access/api-key. Custom upstream addresses
+// require administrator authority; Token Plan also accepts a selected region.
 type APIKeyRequest struct {
 	Provider   string   `json:"provider"`
 	APIKey     string   `json:"apiKey"`
@@ -287,6 +285,9 @@ type APIKeyRequest struct {
 	OwnerID    string   `json:"ownerId"`
 	PlanID     string   `json:"planId"`
 	MonthlyUSD *float64 `json:"monthlyUSD"`
+	// Cookie is QwenCloud Token Plan's optional console Cookie header, which
+	// enables its quota reporting (NeoPi's credential bundle `cookie`).
+	Cookie string `json:"cookie"`
 }
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
@@ -392,7 +393,10 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	if !ok || info.APIKey == nil {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "%q does not take API keys here. Choose a provider from the list.", req.Provider)
 	}
-	key := strings.TrimSpace(req.APIKey)
+	key, err := normalizeNeoPiKey(info, strings.TrimSpace(req.APIKey))
+	if err != nil {
+		return AccessItem{}, err
+	}
 	if key == "" && !info.APIKey.KeyOptional {
 		return AccessItem{}, accessErr(http.StatusBadRequest, "Paste the %s API key. Keys look like %s.", info.Name, info.APIKey.KeyHint)
 	}
@@ -428,8 +432,24 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 		}
 	} else {
 		preferred = req.BaseURL
+		if info.ID == "alibaba-token-plan" && strings.TrimSpace(preferred) != "" {
+			preferred = strings.TrimRight(strings.TrimSpace(preferred), "/")
+			if !slices.Contains(catalogRegions(info.ID), preferred) {
+				if p.Role != neo.RoleAdmin {
+					return AccessItem{}, accessErr(http.StatusForbidden, "Only an administrator can add a server by URL, because NeoProxy will send requests to it.")
+				}
+				u, parseErr := url.Parse(preferred)
+				if parseErr != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+					return AccessItem{}, accessErr(http.StatusBadRequest, "Enter a valid custom Token Plan base URL.")
+				}
+			}
+		}
 	}
 	base, models, routes, err := validateCatalogKey(ctx, info, strings.TrimRight(base, "/"), preferred, key)
+	if err != nil {
+		return AccessItem{}, err
+	}
+	cookie, err := neoPiConsoleCookie(info, req.Cookie, base)
 	if err != nil {
 		return AccessItem{}, err
 	}
@@ -437,7 +457,7 @@ func (h *HTTP) AddAPIKey(ctx context.Context, p neo.Principal, req APIKeyRequest
 	if info.engine == "" {
 		spec = coreauth.AccountKey{Provider: "openai-compatibility", APIKey: key, BaseURL: base, CompatName: h.compatName(info.ID, base, req.Label), Models: models,
 			Dialect: info.dialect, SessionHeader: info.sessionHeader, ModelRoutes: accountModelRoutes(routes),
-			RequestScopedErrors: info.upstreamErrors, Headers: info.headers}
+			RequestScopedErrors: info.upstreamErrors, Headers: info.headers, ConsoleCookie: cookie}
 	}
 	record, err := h.management.CreateAccountAPIKey(coreauth.WithAccountLoginOwner(ctx, p.UserID), spec)
 	if err != nil {

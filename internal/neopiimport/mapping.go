@@ -38,32 +38,53 @@ type route struct {
 // key paths; the rest are OpenAI-compatible entries with fixed base URLs, except
 // the self-hosted Marineris gateway whose address comes from the profile.
 var apiKeyRoutes = map[string]route{
-	"openai":             {target: "codex"},
-	"anthropic":          {target: "claude"},
-	"google":             {target: "gemini"},
-	"xai":                {target: "xai"},
-	"meta":               {target: "meta"},
-	"openrouter":         {target: "openrouter"},
-	"deepseek":           {target: "deepseek"},
-	"groq":               {target: "groq"},
-	"mistral":            {target: "mistral"},
-	"together":           {target: "together"},
-	"fireworks":          {target: "fireworks"},
-	"cerebras":           {target: "cerebras"},
-	"moonshot":           {target: "moonshot"},
-	"zai":                {target: "zai"},
-	"nanogpt":            {target: "nanogpt"},
-	"huggingface":        {target: "huggingface"},
-	"nvidia":             {target: "nvidia"},
-	"vercel-ai-gateway":  {target: "vercel-ai-gateway"},
-	"nous-portal":        {target: "nous-portal"},
-	"marineris":          {target: "marineris"},
-	"opencode-go":        {target: "opencode-go"},
-	"opencode-zen":       {target: "opencode-zen"},
-	"alibaba-token-plan": {target: "alibaba-token-plan"},
-	"sakana":             {target: "sakana"},
-	"abliteration":       {target: "abliteration"},
-	"umans":              {target: "umans"},
+	"openai":                {target: "codex"},
+	"anthropic":             {target: "claude"},
+	"google":                {target: "gemini"},
+	"xai":                   {target: "xai"},
+	"meta":                  {target: "meta"},
+	"openrouter":            {target: "openrouter"},
+	"deepseek":              {target: "deepseek"},
+	"groq":                  {target: "groq"},
+	"mistral":               {target: "mistral"},
+	"together":              {target: "together"},
+	"fireworks":             {target: "fireworks"},
+	"cerebras":              {target: "cerebras"},
+	"moonshot":              {target: "moonshot"},
+	"zai":                   {target: "zai"},
+	"nanogpt":               {target: "nanogpt"},
+	"huggingface":           {target: "huggingface"},
+	"nvidia":                {target: "nvidia"},
+	"vercel-ai-gateway":     {target: "vercel-ai-gateway"},
+	"nous-portal":           {target: "nous-portal"},
+	"marineris":             {target: "marineris"},
+	"opencode-go":           {target: "opencode-go"},
+	"opencode-zen":          {target: "opencode-zen"},
+	"alibaba-token-plan":    {target: "alibaba-token-plan"},
+	"sakana":                {target: "sakana"},
+	"abliteration":          {target: "abliteration"},
+	"umans":                 {target: "umans"},
+	"aiand":                 {target: "aiand"},
+	"baseten":               {target: "baseten"},
+	"coralbricks":           {target: "coralbricks"},
+	"deepinfra":             {target: "deepinfra"},
+	"firepass":              {target: "firepass"},
+	"gmi-cloud":             {target: "gmi-cloud"},
+	"helmcode":              {target: "helmcode"},
+	"inception":             {target: "inception"},
+	"novita":                {target: "novita"},
+	"qianfan":               {target: "qianfan"},
+	"qwen-portal":           {target: "qwen-portal"},
+	"sambanova":             {target: "sambanova"},
+	"stepfun":               {target: "stepfun"},
+	"synthetic":             {target: "synthetic"},
+	"venice":                {target: "venice"},
+	"wafer-serverless":      {target: "wafer-serverless"},
+	"xiaomi-token-plan-sgp": {target: "xiaomi-token-plan-sgp"},
+	"xiaomi-token-plan-ams": {target: "xiaomi-token-plan-ams"},
+	"xiaomi-token-plan-cn":  {target: "xiaomi-token-plan-cn"},
+	"yolo-auto":             {target: "yolo-auto"},
+	"zhipu-coding-plan":     {target: "zhipu-coding-plan"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -235,6 +256,9 @@ type APIKey struct {
 	// outside the credential; empty means the catalog's fixed address.
 	BaseURL string
 	Label   string
+	// Cookie is the QwenCloud Token Plan console Cookie header NeoPi stores
+	// beside the key; it only enables quota reporting.
+	Cookie string
 }
 
 // BuildAPIKey returns the catalog entry for an importable API-key credential.
@@ -246,13 +270,14 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	baseURL := c.baseURL
+	baseURL, cookie := c.baseURL, ""
 	if c.Provider == "alibaba-token-plan" {
-		// The region the key belongs to; NeoProxy tries it first.
+		// The region the key belongs to (NeoProxy tries it first) and the
+		// console cookie behind NeoPi's quota reporting.
 		key, _ := parseTokenPlanKey(str(c.data, "key"))
-		baseURL = key.baseURL
+		baseURL, cookie = key.baseURL, key.cookie
 	}
-	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r)}, nil
+	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r), Cookie: cookie}, nil
 }
 
 // AuthFile is an imported subscription in the engine's native auth-file format.

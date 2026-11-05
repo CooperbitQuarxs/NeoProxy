@@ -33,6 +33,9 @@ type AccountKey struct {
 	ModelRoutes   map[string]AccountModelRoute
 	// Headers are static request headers for a new openai-compatibility entry.
 	Headers map[string]string
+	// ConsoleCookie is the provider console's Cookie header stored with an
+	// openai-compatibility key for provider usage reporting only.
+	ConsoleCookie string
 }
 
 // AccountModelRoute is one model's upstream API and optional base URL.
