@@ -246,10 +246,11 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 			const note = h("div");
 			const submit = async (e) => {
 				const raw = code.trim();
-				let value = raw;
-				try { value = new URL(raw).searchParams.get("code") ?? raw; } catch { /* not a URL: the code itself */ }
+				let value = raw, pasted = null;
+				try { value = new URL(raw).searchParams.get("code") ?? raw; pasted = raw; } catch { /* not a URL: the code itself */ }
 				await busy(e.currentTarget, async () => {
-					try { await neo.loginCallback({ provider: p.id, state: r.state, code: value }); replace(note, notice("info", "", "Code sent. Waiting for the provider to confirm.")); }
+					// The pasted address goes along so its state is checked against this sign-in's.
+					try { await neo.loginCallback({ provider: p.id, state: r.state, code: value, ...(pasted ? { redirect_url: pasted } : {}) }); replace(note, notice("info", "", "Code sent. Waiting for the provider to confirm.")); }
 					catch (err) { replace(note, notice("bad", "", err.message)); }
 				});
 			};
@@ -259,7 +260,7 @@ export function openAddAccess({ session, catalog = [], people = [], initial = {}
 				r.user_code ? h("div", { class: "pa-code" }, h("span", { class: "pa-detail" }, verify ? ["Open ", h("a", { href: verify, target: "_blank", rel: "noopener noreferrer" }, verify.replace(/^https?:\/\//, "")), " on any machine and enter this code"] : `Confirm this code on ${site}'s page`), h("span", { class: "pa-code-value mono" }, r.user_code), btn("Copy", { cls: "sm", onClick: async () => { if (await copyText(r.user_code)) toast("Code copied"); else toast("Could not copy", "bad"); } })) : null,
 				r.url && !device ? h("p", { class: "pa-detail" }, "No tab opened? ", h("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "Open the sign-in page", icon("external", 12))) : null,
 				flow === "code"
-					? h("div", { class: "pa-stack" }, h("p", { class: "pa-detail" }, "After you approve, ", site, " tries to open its own app at an address starting with ", h("code", null, "zcode://"), ". Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the “Failed to launch” message."), pasteRow("zcode://zai-auth/callback?code=…", true))
+					? h("div", { class: "pa-stack" }, h("p", { class: "pa-detail" }, "After you approve, ", site, " tries to open its own app at an address starting with ", h("code", null, (sub.callback ?? "").replace(/:\/\/.*$/, "://")), ". Copy that address from the prompt or the address bar. If the browser hides it, open the developer console (F12): it is in the “Failed to launch” message."), pasteRow(sub.callback ?? "The address the sign-in hands off to, or just the code", true))
 					: device ? null : h("div", { class: "pa-stack pa-fallback" }, h("p", { class: "pa-detail" }, "If this page doesn't continue after you approve, copy the address your browser ends up on and paste it here."), pasteRow("The address your browser ends up on, or just the code", false)),
 				note,
 				h("div", { class: "pa-actions" }, btn("Start over", { onClick: () => { stop(); dead = false; idle(); } })),

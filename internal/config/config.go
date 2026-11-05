@@ -140,6 +140,10 @@ type Config struct {
 	// MetaKey defines Meta API key configurations using the same structure as Codex API keys.
 	MetaKey []MetaKey `yaml:"meta-api-key" json:"meta-api-key"`
 
+	// GitLabDuoAgentKey defines GitLab personal access tokens served as GitLab
+	// Duo Agent (NeoPi's GITLAB_TOKEN), in the Codex API key structure.
+	GitLabDuoAgentKey []GitLabDuoAgentKey `yaml:"gitlab-duo-agent-api-key" json:"gitlab-duo-agent-api-key"`
+
 	// XAI configures provider-wide xAI request behavior.
 	XAI XAIConfig `yaml:"xai" json:"xai"`
 

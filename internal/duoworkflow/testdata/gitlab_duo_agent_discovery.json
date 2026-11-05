@@ -1,0 +1,1387 @@
+{
+  "source": "NeoPi OWN gitlab-duo-agent discovery (fetchGitLabDuoWorkflowModels, discoverGitLabDuoWorkflowRuntimeNamespace)",
+  "apiKey": "glpat-discovery-capture",
+  "fallback": {
+    "id": "claude_sonnet_4_6_vertex",
+    "name": "Claude Sonnet 4.6 - Vertex",
+    "api": "gitlab-duo-agent",
+    "provider": "gitlab-duo-agent",
+    "baseUrl": "https://gitlab.com",
+    "reasoning": false,
+    "input": [
+      "text"
+    ],
+    "supportsTools": true,
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "contextWindow": 1000000,
+    "maxTokens": null
+  },
+  "scenarios": [
+    {
+      "name": "groups-preferred-paged",
+      "env": {},
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":null}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/103\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"},{\"ref\":\"  \"},{\"name\":\"nameless\"},{\"name\":\"\",\"ref\":\"gemini_2_5_pro\"}],\"pinnedModel\":null}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/103\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},\"selectableModels\":[{\"name\":\"Claude Sonnet 4.6\",\"ref\":\"claude_sonnet_4_6_vertex\"},{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"},{\"ref\":\"  \"},{\"name\":\"nameless\"},{\"name\":\"\",\"ref\":\"gemini_2_5_pro\"}],\"pinnedModel\":null}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "claude_sonnet_4_6_vertex",
+            "name": "Claude Sonnet 4.6",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "103"
+          },
+          {
+            "id": "gpt_5",
+            "name": "GPT-5",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 400000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "103"
+          },
+          {
+            "id": "gemini_2_5_pro",
+            "name": "gemini_2_5_pro",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "103"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "102",
+          "namespacePath": "beta",
+          "source": "group"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "groups-pinned",
+      "env": {},
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Haiku\",\"ref\":\"claude_haiku_4_5\"},\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}],\"pinnedModel\":{\"name\":\"Claude Opus\",\"ref\":\"claude_opus_4_8\"}}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Claude Haiku\",\"ref\":\"claude_haiku_4_5\"},\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}],\"pinnedModel\":{\"name\":\"Claude Opus\",\"ref\":\"claude_opus_4_8\"}}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "claude_opus_4_8",
+            "name": "Claude Opus",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "102"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "102",
+          "namespacePath": "beta",
+          "source": "group"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "groups-default-only",
+      "env": {},
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Mystery\",\"ref\":\"mystery_model\"},\"selectableModels\":[]}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"defaultModel\":{\"name\":\"Mystery\",\"ref\":\"mystery_model\"},\"selectableModels\":[]}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "mystery_model",
+            "name": "Mystery",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 200000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "102"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "102",
+          "namespacePath": "beta",
+          "source": "group"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "namespace-override",
+      "env": {
+        "GITLAB_DUO_NAMESPACE_ID": "555"
+      },
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/555\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/555\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "gpt_5",
+            "name": "GPT-5",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 400000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "555"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups/555",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"id\":555,\"full_path\":\"override-group\",\"root_namespace_id\":500}"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "500",
+          "namespacePath": "override-group",
+          "source": "override"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "namespace-override-gid-without-models",
+      "env": {
+        "GITLAB_DUO_NAMESPACE_ID": "gid://gitlab/Group/556"
+      },
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/556\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":null}}"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":null}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/103\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/103\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "gpt_5",
+            "name": "GPT-5",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 400000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "103"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups/556",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 404,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"404 Not Found\"}"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "gid://gitlab/Group/556",
+          "source": "override"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "project-numeric-graphql-root",
+      "env": {
+        "GITLAB_DUO_PROJECT_ID": "4242"
+      },
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/projects/4242",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"id\":4242,\"path_with_namespace\":\"team/sub/app\",\"namespace\":{\"id\":77,\"full_path\":\"team/sub\"}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "220",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query omp_gitlabDuoWorkflowProjectRootNamespace($fullPath: ID!) {\\n  project(fullPath: $fullPath) {\\n    namespace {\\n      id\\n      rootAncestor { id }\\n    }\\n  }\\n}\",\"variables\":{\"fullPath\":\"team/sub/app\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"project\":{\"namespace\":{\"id\":\"gid://gitlab/Group/77\",\"rootAncestor\":{\"id\":\"gid://gitlab/Group/70\"}}}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "295",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "295",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "gpt_5",
+            "name": "GPT-5",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 400000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "gid://gitlab/Group/70"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/projects/4242",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"id\":4242,\"path_with_namespace\":\"team/sub/app\",\"namespace\":{\"id\":77,\"full_path\":\"team/sub\"}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "220",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query omp_gitlabDuoWorkflowProjectRootNamespace($fullPath: ID!) {\\n  project(fullPath: $fullPath) {\\n    namespace {\\n      id\\n      rootAncestor { id }\\n    }\\n  }\\n}\",\"variables\":{\"fullPath\":\"team/sub/app\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"project\":{\"namespace\":{\"id\":\"gid://gitlab/Group/77\",\"rootAncestor\":{\"id\":\"gid://gitlab/Group/70\"}}}}}"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "gid://gitlab/Group/70",
+          "source": "project"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "project-path-rest-root",
+      "env": {},
+      "config": {
+        "projectPath": "team/app"
+      },
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/projects/team%2Fapp",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"id\":9,\"path_with_namespace\":\"team/app\",\"namespace\":{\"id\":70,\"root_namespace_id\":70}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "295",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "295",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/70\"}}",
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"data\":{\"aiChatAvailableModels\":{\"selectableModels\":[{\"name\":\"GPT-5\",\"ref\":\"gpt_5\"}]}}}"
+            }
+          }
+        ],
+        "result": [
+          {
+            "id": "gpt_5",
+            "name": "GPT-5",
+            "api": "gitlab-duo-agent",
+            "provider": "gitlab-duo-agent",
+            "baseUrl": "https://gitlab.com",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 400000,
+            "maxTokens": null,
+            "supportsTools": true,
+            "gitlabDuoWorkflowRootNamespaceId": "70"
+          }
+        ],
+        "error": null
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/projects/team%2Fapp",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"id\":9,\"path_with_namespace\":\"team/app\",\"namespace\":{\"id\":70,\"root_namespace_id\":70}}"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "70",
+          "projectPath": "team/app",
+          "source": "project"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "graphql-failure",
+      "env": {},
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/102\"}}",
+            "response": {
+              "status": 500,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"boom\"}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/103\"}}",
+            "response": {
+              "status": 500,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"boom\"}"
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://gitlab.com/api/graphql",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-length": "296",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "body": "{\"query\":\"query lsp_aiChatAvailableModels($rootNamespaceId: GroupID!) {\\n  aiChatAvailableModels(rootNamespaceId: $rootNamespaceId) {\\n    defaultModel { name ref }\\n    selectableModels { name ref }\\n    pinnedModel { name ref }\\n  }\\n}\",\"variables\":{\"rootNamespaceId\":\"gid://gitlab/Group/101\"}}",
+            "response": {
+              "status": 500,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"boom\"}"
+            }
+          }
+        ],
+        "result": null,
+        "error": "Unable to find a GitLab Duo Workflow namespace with available models. Set GITLAB_DUO_NAMESPACE_ID to a root namespace with Duo model access."
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": "2"
+              },
+              "body": "[{\"id\":101,\"full_path\":\"alpha\",\"path\":\"alpha\"},{\"id\":102,\"full_path\":\"beta\",\"path\":\"beta\",\"duo_features_enabled\":true}]"
+            }
+          },
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=2",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 200,
+              "headers": {
+                "content-type": "application/json",
+                "x-next-page": ""
+              },
+              "body": "[{\"id\":103,\"full_path\":\"gamma\",\"path\":\"gamma\",\"duo_core_features_enabled\":true},{\"name\":\"no id\"}]"
+            }
+          }
+        ],
+        "result": {
+          "rootNamespaceId": "102",
+          "namespacePath": "beta",
+          "source": "group"
+        },
+        "error": null
+      }
+    },
+    {
+      "name": "groups-unauthorized",
+      "env": {},
+      "config": {},
+      "models": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 401,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"401 Unauthorized\"}"
+            }
+          }
+        ],
+        "result": null,
+        "error": "Unable to find a GitLab Duo Workflow namespace with available models. Set GITLAB_DUO_NAMESPACE_ID to a root namespace with Duo model access."
+      },
+      "runtime": {
+        "requests": [
+          {
+            "method": "GET",
+            "url": "https://gitlab.com/api/v4/groups?top_level_only=true&per_page=100&order_by=name&sort=asc&page=1",
+            "headers": {
+              "accept": "application/json",
+              "accept-encoding": "gzip, deflate, br, zstd",
+              "authorization": "Bearer glpat-discovery-capture",
+              "connection": "keep-alive",
+              "content-type": "application/json",
+              "user-agent": "Bun/1.3.14"
+            },
+            "response": {
+              "status": 401,
+              "headers": {
+                "content-type": "application/json"
+              },
+              "body": "{\"message\":\"401 Unauthorized\"}"
+            }
+          }
+        ],
+        "result": null,
+        "error": "Unable to find a GitLab Duo Workflow namespace. Set GITLAB_DUO_NAMESPACE_ID to a root namespace or GITLAB_DUO_PROJECT_ID to a GitLab project."
+      }
+    }
+  ]
+}

@@ -114,6 +114,8 @@ var apiKeyRoutes = map[string]route{
 	"commandcode":           {target: "commandcode"},
 	// A GitLab personal access token (GITLAB_TOKEN) is the account's key.
 	"gitlab-duo": {target: "gitlab-duo"},
+	// GITLAB_TOKEN stored for GitLab Duo Agent stays the agent's own key.
+	"gitlab-duo-agent": {target: "gitlab-duo-agent"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.
@@ -157,6 +159,8 @@ var oauthRoutes = map[string]route{
 	// GitLab Duo's browser sign-in: GitLab rotates its refresh token, so
 	// NeoProxy never refreshes NeoPi's (imported refresh-locked as usual).
 	"gitlab-duo": {target: "gitlab-duo"},
+	// GitLab Duo Agent's VS Code sign-in, refresh-locked the same way.
+	"gitlab-duo-agent": {target: "gitlab-duo-agent"},
 }
 
 func routeFor(c Credential) route {
@@ -461,7 +465,7 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		meta["access_token"] = access
 		setNonEmpty(meta, "enterprise_url", str(c.data, "enterpriseUrl"))
 		setNonEmpty(meta, "api_endpoint", str(c.data, "apiEndpoint"))
-	case "gitlab-duo":
+	case "gitlab-duo", "gitlab-duo-agent":
 		meta["access_token"] = access
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)

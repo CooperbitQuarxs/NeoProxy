@@ -227,6 +227,7 @@ func baselineExecutorAuths() []*coreauth.Auth {
 		"factory-droid",
 		"github-copilot",
 		"gitlab-duo",
+		"gitlab-duo-agent",
 		"meta",
 		"cursor",
 		"nous-portal",
@@ -417,6 +418,8 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 		s.coreManager.RegisterExecutor(executor.NewGitHubCopilotExecutor(cfg))
 	case "gitlab-duo":
 		s.coreManager.RegisterExecutor(executor.NewGitLabDuoExecutor("gitlab-duo", cfg))
+	case "gitlab-duo-agent":
+		s.coreManager.RegisterExecutor(executor.NewGitLabDuoAgentExecutor(cfg))
 	case "meta":
 		s.coreManager.RegisterExecutor(executor.NewNeoPiResponsesExecutor("meta", cfg))
 	case "cursor":

@@ -383,6 +383,8 @@ func NormalizeOAuthProvider(provider string) (string, error) {
 		return "snowflake", nil
 	case "gitlab-duo", "gitlab":
 		return "gitlab-duo", nil
+	case "gitlab-duo-agent":
+		return "gitlab-duo-agent", nil
 	default:
 		return "", errUnsupportedOAuthFlow
 	}

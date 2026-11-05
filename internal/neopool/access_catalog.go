@@ -33,6 +33,9 @@ type ProviderSubscription struct {
 	// Site names where the person signs in when that isn't the vendor
 	// (Cursor, not Anysphere); the dashboard falls back to Vendor.
 	Site string `json:"site,omitempty"`
+	// Callback is, for the "code" flow, the shape of the address the
+	// provider hands off to (its app's scheme), shown as the paste example.
+	Callback string `json:"callback,omitempty"`
 }
 
 // ProviderAPIKey describes how a pay-as-you-go key is validated and routed.
@@ -187,7 +190,7 @@ func (s *ProviderSubscription) at(site string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid, github-copilot, gitlab-duo).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid, github-copilot, gitlab-duo, gitlab-duo-agent).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -231,6 +234,13 @@ var providerCatalog = []ProviderInfo{
 		Subscription: browser("Opens GitLab's sign-in in a new tab. NeoProxy keeps the sign-in refreshed.").at("GitLab"),
 		APIKey:       openAIKey(gitlabduo.BaseURL, "Personal access token with the api scope, glpat-... (not checked before it is added)", "https://gitlab.com/-/user_settings/personal_access_tokens"),
 		Plans:        []ProviderPlan{}},
+	// GitLab Duo Agent: NeoPi's sign-in with GitLab's VS Code application,
+	// whose redirect opens VS Code (the person pastes that address back), or
+	// a personal access token (GITLAB_TOKEN) kept as the agent's own key.
+	{ID: gitlabduo.AgentProvider, Name: "GitLab Duo Agent", Vendor: "GitLab", Hue: 40, Chroma: tintChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: (&ProviderSubscription{Flow: "code", Callback: gitlabduo.AgentRedirectURI + "?code=…", Note: "Opens GitLab's sign-in for its VS Code extension in a new tab. GitLab then hands off to VS Code, so copy that vscode:// address (or the code in it) and paste it here. NeoProxy keeps the sign-in refreshed."}).at("GitLab"),
+		APIKey:       openAIKey(gitlabduo.BaseURL, "Personal access token with the api scope, glpat-... (not checked before it is added)", "https://gitlab.com/-/user_settings/personal_access_tokens"),
+		Plans:        []ProviderPlan{}, engine: gitlabduo.AgentProvider},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),
 		Plans:        []ProviderPlan{}},
@@ -269,7 +279,7 @@ var providerCatalog = []ProviderInfo{
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
 	// does; the general api/paas/v4 endpoint bills pay-as-you-go balance instead.
 	{ID: "zai", Name: "Z.ai", Vendor: "Zhipu AI", Hue: 190, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
-		Subscription: (&ProviderSubscription{Flow: "code", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates or reuses the durable API key NeoPi uses, named \"oh-my-pi\"; it never expires."}).at("Z.ai"),
+		Subscription: (&ProviderSubscription{Flow: "code", Callback: "zcode://zai-auth/callback?code=…", Note: "Opens Z.ai's sign-in in a new tab. Z.ai then hands off to its ZCode app, so copy that zcode:// address (or the code in it) and paste it here. NeoProxy creates or reuses the durable API key NeoPi uses, named \"oh-my-pi\"; it never expires."}).at("Z.ai"),
 		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},

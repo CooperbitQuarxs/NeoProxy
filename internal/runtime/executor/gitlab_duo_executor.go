@@ -224,7 +224,7 @@ func (e *GitLabDuoExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth
 	}
 	// GitLab rotates the refresh token: one grant per token at a time.
 	value, err, _ := e.refresh.Do(auth.ID+"\x00"+credential.Refresh, func() (any, error) {
-		refreshed, errRefresh := gitlabduo.Refresh(ctx, helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0), credential.Refresh)
+		refreshed, errRefresh := gitlabduo.Duo.Refresh(ctx, helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0), credential.Refresh)
 		if errRefresh != nil {
 			return nil, errRefresh
 		}
@@ -233,7 +233,7 @@ func (e *GitLabDuoExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth
 		if next.Metadata == nil {
 			next.Metadata = map[string]any{}
 		}
-		for key, field := range gitlabduo.Metadata(refreshed) {
+		for key, field := range gitlabduo.Duo.Metadata(refreshed) {
 			next.Metadata[key] = field
 		}
 		next.LastRefreshedAt = time.Now()

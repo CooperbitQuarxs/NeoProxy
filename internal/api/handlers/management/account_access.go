@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/watcher/synthesizer"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -44,7 +45,7 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 		return nil, err
 	}
 	for _, a := range existing {
-		if key != "" && a.Attributes["api_key"] == key {
+		if key != "" && a.Attributes["api_key"] == key && !gitlabTokenPair(k, a) {
 			h.mu.Unlock()
 			return nil, coreauth.ErrAccountKeyConflict
 		}
@@ -61,6 +62,8 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 		next.XAIKey = append(next.XAIKey, config.CodexKey{APIKey: key, BaseURL: "https://api.x.ai/v1"})
 	case "meta":
 		next.MetaKey = append(next.MetaKey, config.CodexKey{APIKey: key, BaseURL: "https://api.meta.ai/v1"})
+	case "gitlab-duo-agent":
+		next.GitLabDuoAgentKey = append(next.GitLabDuoAgentKey, config.GitLabDuoAgentKey{APIKey: key, BaseURL: "https://gitlab.com"})
 	case "openai-compatibility":
 		name := strings.TrimSpace(k.CompatName)
 		base := strings.TrimRight(strings.TrimSpace(k.BaseURL), "/")
@@ -109,6 +112,17 @@ func (h *Handler) CreateAccountAPIKey(ctx context.Context, k coreauth.AccountKey
 	h.mu.Unlock()
 	h.reloadConfigAfterManagementSave(context.WithoutCancel(ctx), snapshot)
 	return added, nil
+}
+
+// gitlabTokenPair reports a GitLab token one GitLab provider holds being
+// added to the other: NeoPi's GITLAB_TOKEN serves GitLab Duo (a key at
+// GitLab's address) and GitLab Duo Agent alike.
+func gitlabTokenPair(k coreauth.AccountKey, existing *coreauth.Auth) bool {
+	existingAgent := existing.Provider == gitlabduo.AgentProvider
+	existingDuo := !existingAgent && gitlabduo.IsBaseURL(existing.Attributes["base_url"])
+	addingAgent := k.Provider == gitlabduo.AgentProvider
+	addingDuo := k.Provider == "openai-compatibility" && gitlabduo.IsBaseURL(k.BaseURL)
+	return (addingAgent && existingDuo) || (addingDuo && existingAgent)
 }
 
 // appendCompatKey adds key to the openai-compatibility entry named name, creating
@@ -228,7 +242,7 @@ func locateConfigCredential(cfg *config.Config, authID string) (configCredential
 			}
 			return configCredential{}, false
 		}
-		for _, section := range []string{"gemini", "interactions", "claude", "codex", "xai", "meta", "vertex-apikey"} {
+		for _, section := range []string{"gemini", "interactions", "claude", "codex", "xai", "meta", "gitlab-duo-agent", "vertex-apikey"} {
 			if strings.HasPrefix(source, "config:"+section+"[") {
 				return configCredential{section: section, index: index}, true
 			}
@@ -271,6 +285,11 @@ func removeConfigCredential(cfg *config.Config, at configCredential) bool {
 	case "meta":
 		if remove(len(cfg.MetaKey)) {
 			cfg.MetaKey = slices.Delete(cfg.MetaKey, at.index, at.index+1)
+			return true
+		}
+	case "gitlab-duo-agent":
+		if remove(len(cfg.GitLabDuoAgentKey)) {
+			cfg.GitLabDuoAgentKey = slices.Delete(cfg.GitLabDuoAgentKey, at.index, at.index+1)
 			return true
 		}
 	case "vertex-apikey":
