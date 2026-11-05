@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
+	"unicode/utf16"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
@@ -83,13 +85,31 @@ func FactoryDroidIdentityHeaders(id FactoryDroidIdentity) http.Header {
 	return headers
 }
 
-var factoryDroidToolNameInvalid = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+// factoryDroidUnits is a character's JavaScript string length: one UTF-16
+// code unit, two outside the BMP.
+func factoryDroidUnits(r rune) int {
+	if n := utf16.RuneLen(r); n > 0 {
+		return n
+	}
+	return 1
+}
 
 // FactoryDroidSanitizeToolName is sanitizeFactoryDroidToolName: the CLI's
-// [a-zA-Z0-9_-] form, and a name over maxLength keeps its first maxLength-9
-// characters and ends "_" plus 8 hex characters of its SHA-256.
+// [a-zA-Z0-9_-] form, its non-Unicode regex replacing every other UTF-16
+// code unit (so a character outside the BMP becomes two underscores), and a
+// name over maxLength keeps its first maxLength-9 characters and ends "_"
+// plus 8 hex characters of its SHA-256. The result is ASCII, so its byte
+// length is its JavaScript length.
 func FactoryDroidSanitizeToolName(name string, maxLength int) string {
-	sanitized := factoryDroidToolNameInvalid.ReplaceAllString(name, "_")
+	var b strings.Builder
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteString(strings.Repeat("_", factoryDroidUnits(r)))
+	}
+	sanitized := b.String()
 	if len(sanitized) <= maxLength {
 		return sanitized
 	}
@@ -98,9 +118,14 @@ func FactoryDroidSanitizeToolName(name string, maxLength int) string {
 }
 
 // FactoryDroidCompletionsToolName is encodeFactoryDroidCompletionsToolName:
-// chat-completions names go out verbatim unless they exceed maxLength.
+// chat-completions names go out verbatim unless their JavaScript length
+// exceeds maxLength.
 func FactoryDroidCompletionsToolName(name string, maxLength int) string {
-	if len(name) > maxLength {
+	units := 0
+	for _, r := range name {
+		units += factoryDroidUnits(r)
+	}
+	if units > maxLength {
 		return FactoryDroidSanitizeToolName(name, maxLength)
 	}
 	return name
