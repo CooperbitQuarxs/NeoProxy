@@ -119,6 +119,12 @@ func applyPatchTestDeclaration(t *testing.T, protocol string, body []byte) {
 		if !strings.Contains(tool.Get(parameters+".description").String(), "No extra properties allowed") {
 			t.Fatalf("sanitized schema lost the strict contract: %s", tool.Raw)
 		}
+	} else if protocol == "gemini" {
+		// NeoPi's normalizeSchemaForGoogle drops additionalProperties, which Gemini
+		// rejects; a provider that keeps it must keep it closed.
+		if tool.Get(parameters + ".additionalProperties").Bool() {
+			t.Fatalf("Gemini schema permits extra properties: %s", tool.Raw)
+		}
 	} else if !tool.Get(parameters+".additionalProperties").Exists() || tool.Get(parameters+".additionalProperties").Bool() {
 		t.Fatalf("schema permits extra properties: %s", tool.Raw)
 	}
