@@ -146,3 +146,122 @@ func loadGitHubCopilotCapture(t *testing.T, path string) githubCopilotCapture {
 	}
 	return capture
 }
+
+// NeoPi's wrapFetchForCopilotFallback on every Copilot API: a denied chat
+// identity (403, or 400 model_not_supported) is reissued once as the CLI and
+// the working identity is learned for the credential; a learned CLI identity
+// that is denied is reissued once as chat and relearned; a failed retry
+// forgets it; any other 400 and a pinned identity are never reissued.
+func TestGitHubCopilotIdentityFallback(t *testing.T) {
+	const chat, cli = "copilot-chat", "copilot-developer-cli"
+	denied403 := func(w http.ResponseWriter) { w.WriteHeader(http.StatusForbidden) }
+	denied400 := func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"code":"model_not_supported","message":"no"}}`)
+	}
+	other400 := func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"code":"invalid_request_body","message":"no"}}`)
+	}
+	type step struct {
+		deny func(w http.ResponseWriter)
+		// denies is the identity the upstream refuses; "*" refuses both.
+		denies string
+		want   []string
+	}
+	for _, tc := range []struct {
+		name   string
+		pinned string
+		steps  []step
+	}{
+		{"chat 403 learns cli", "", []step{{denied403, chat, []string{chat, cli}}, {denied403, chat, []string{cli}}}},
+		{"chat model_not_supported learns cli", "", []step{{denied400, chat, []string{chat, cli}}, {denied400, chat, []string{cli}}}},
+		{"other 400 is not a denial", "", []step{{other400, chat, []string{chat}}, {other400, chat, []string{chat}}}},
+		{"stale cli relearns chat", "", []step{{denied403, chat, []string{chat, cli}}, {denied403, cli, []string{cli, chat}}, {denied403, cli, []string{chat}}}},
+		{"failed retry forgets", "", []step{{denied403, chat, []string{chat, cli}}, {denied403, "*", []string{cli, chat}}, {denied403, "*", []string{chat, cli}}}},
+		{"pinned identity is kept", chat, []step{{denied403, chat, []string{chat}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("COPILOT_INTEGRATION_ID", tc.pinned)
+			var current step
+			var sent []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				id := r.Header.Get("Copilot-Integration-Id")
+				sent = append(sent, id)
+				if current.denies == "*" || current.denies == id {
+					current.deny(w)
+					return
+				}
+				// A complete stream on each API, so no executor retry adds requests.
+				w.Header().Set("Content-Type", "text/event-stream")
+				switch {
+				case strings.HasSuffix(r.URL.Path, "/messages"):
+					_, _ = io.WriteString(w, githubCopilotMessagesStream)
+				case strings.HasSuffix(r.URL.Path, "/responses"):
+					_, _ = io.WriteString(w, githubCopilotResponsesStream)
+				default:
+					_, _ = io.WriteString(w, githubCopilotCompletionsStream)
+				}
+			}))
+			defer server.Close()
+			for _, wire := range []struct {
+				api, payload string
+				format       sdktranslator.Format
+			}{
+				{"anthropic-messages", `{"max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatClaude},
+				{"openai-completions", `{"messages":[{"role":"user","content":"hi"}]}`, sdktranslator.FormatOpenAI},
+				{"openai-responses", `{"input":"hi"}`, sdktranslator.FormatOpenAIResponse},
+			} {
+				t.Run(wire.api, func(t *testing.T) {
+					row := githubCopilotRowOnAPI(t, wire.api)
+					row.BaseURL = server.URL
+					exec := NewGitHubCopilotExecutor(&config.Config{})
+					// A token per case and API keeps each learned identity its own.
+					auth := &cliproxyauth.Auth{ID: "copilot-fallback", Provider: "github-copilot",
+						Metadata: map[string]any{"type": "github-copilot", "access_token": "ghu_" + strings.ReplaceAll(tc.name, " ", "_") + "_" + wire.api}}
+					payload := []byte(`{"model":"` + row.ID + `",` + wire.payload[1:])
+					for i, s := range tc.steps {
+						current, sent = s, nil
+						_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: row.ID, Payload: payload,
+							Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.GitHubCopilotModelInfo(row)}},
+							cliproxyexecutor.Options{SourceFormat: wire.format, OriginalRequest: payload})
+						if !reflect.DeepEqual(sent, s.want) {
+							t.Fatalf("request %d sent identities %v, want %v", i+1, sent, s.want)
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
+func githubCopilotRowOnAPI(t *testing.T, api string) *registry.NeoPiModel {
+	t.Helper()
+	bundled, err := registry.GitHubCopilotBundledModels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range bundled {
+		if row.API == api {
+			return row.Clone()
+		}
+	}
+	t.Fatalf("no bundled Copilot model on %s", api)
+	return nil
+}
+
+// Complete upstream streams on each Copilot API.
+const (
+	githubCopilotMessagesStream = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"m\",\"content\":[],\"stop_reason\":null,\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n" +
+		"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n" +
+		"event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n" +
+		"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+		"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\n" +
+		"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+	githubCopilotResponsesStream = "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"status\":\"in_progress\",\"output\":[]}}\n\n" +
+		"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}}\n\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"status\":\"completed\",\"output\":[{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"ok\"}]}],\"usage\":{\"input_tokens\":1,\"output_tokens\":1,\"total_tokens\":2}}}\n\n"
+	githubCopilotCompletionsStream = "data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"ok\"},\"finish_reason\":null}]}\n\n" +
+		"data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\n" +
+		"data: [DONE]\n\n"
+)

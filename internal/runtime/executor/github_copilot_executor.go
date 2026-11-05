@@ -41,6 +41,19 @@ type githubCopilotAttempt struct {
 	// explicit is the Copilot-Integration-Id the account configured (a pin
 	// is never second-guessed); it falls back to COPILOT_INTEGRATION_ID.
 	explicit string
+	// cacheKey keys the identity learned for this credential and host;
+	// cached is that identity as the request's headers are built from it,
+	// the snapshot the fallback decides a reverse retry on.
+	cacheKey, cached string
+}
+
+// identityFallback scopes NeoPi's Copilot identity fallback to every client
+// the wire builds for ctx; an explicit identity disables it.
+func (a *githubCopilotAttempt) identityFallback(ctx context.Context) context.Context {
+	pinned := githubcopilot.NormalizeIntegrationID(a.explicit) != ""
+	return helps.WithTransportWrapper(ctx, func(next http.RoundTripper) http.RoundTripper {
+		return helps.GitHubCopilotIdentityFallback(next, pinned, a.cacheKey, a.cached)
+	})
 }
 
 // attempt resolves the request's model row on the credential's endpoint.
@@ -77,7 +90,9 @@ func (e *GitHubCopilotExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexe
 	if githubcopilot.NormalizeIntegrationID(explicit) == "" {
 		explicit = os.Getenv("COPILOT_INTEGRATION_ID")
 	}
-	return &githubCopilotAttempt{row: row, credential: credential, explicit: explicit}, nil
+	cacheKey := helps.GitHubCopilotIntegrationCacheKey(credential, row.BaseURL)
+	return &githubCopilotAttempt{row: row, credential: credential, explicit: explicit, cacheKey: cacheKey,
+		cached: helps.GitHubCopilotCachedIntegrationID(cacheKey)}, nil
 }
 
 // dynamicHeaders is the turn's Copilot identity over headers, NeoPi's
@@ -89,7 +104,7 @@ func (a *githubCopilotAttempt) dynamicHeaders(headers, incoming http.Header, ini
 	for name, values := range githubcopilot.APIHeaders() {
 		headers[name] = values
 	}
-	for name, values := range helps.GitHubCopilotDynamicHeaders(initiator, hasImages, a.explicit, "", a.credential.EnterpriseURL != "") {
+	for name, values := range helps.GitHubCopilotDynamicHeaders(initiator, hasImages, a.explicit, a.cached, a.credential.EnterpriseURL != "") {
 		headers[name] = values
 	}
 }
@@ -168,7 +183,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
-	return wire.Execute(ctx, auth, req, opts)
+	return wire.Execute(a.identityFallback(ctx), auth, req, opts)
 }
 
 // ExecuteStream relays the upstream stream in the client's format.
@@ -181,7 +196,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 	if err != nil {
 		return nil, err
 	}
-	return wire.ExecuteStream(ctx, auth, req, opts)
+	return wire.ExecuteStream(a.identityFallback(ctx), auth, req, opts)
 }
 
 // CountTokens estimates locally from the Chat Completions form.
