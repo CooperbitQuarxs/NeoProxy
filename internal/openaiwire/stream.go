@@ -24,8 +24,6 @@ const (
 	// OPENAI_RESPONSES_MAX_TRANSIENT_STREAM_RETRIES and its delay.
 	maxTransientStreamRetries = 1
 	transientStreamRetryDelay = 500 * time.Millisecond
-	// firstEventTimeout is the default first-event watchdog.
-	firstEventTimeout = 300 * time.Second
 )
 
 var (
@@ -134,10 +132,10 @@ func isTransportFailure(err error) bool {
 // attempt opens the stream and relays it; live reports whether any event was
 // handed to emit.
 func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error) (live bool, err error) {
+	// Keep the caller's cancellation, but impose no local response timeout:
+	// a connection may be established long before response headers arrive.
 	attemptCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	watchdog := time.AfterFunc(firstEventTimeout, cancel)
-	defer watchdog.Stop()
 	response, err := neopiretry.Do(attemptCtx, func(int) (*http.Response, error) {
 		request, errRequest := http.NewRequestWithContext(attemptCtx, http.MethodPost, t.Request.URL, bytes.NewReader(body))
 		if errRequest != nil {
@@ -150,11 +148,6 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 	}, neopiretry.Options{
 		MaxAttempts: maxAttempts,
 		Wait:        t.Wait,
-		OnResponse: func(*http.Response) {
-			// Any headers establish the connection, including retryable errors.
-			// Body reads and retry backoff must not retain the watchdog.
-			watchdog.Stop()
-		},
 		ShouldRetry: func(response *http.Response, text string) bool {
 			if strings.TrimSpace(response.Header.Get("rate_limit_type")) == "max_parallel_requests" || concurrencyAdmissionBody.MatchString(text) {
 				return false

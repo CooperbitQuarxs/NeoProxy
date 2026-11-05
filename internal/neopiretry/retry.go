@@ -268,9 +268,6 @@ type Options struct {
 	DefaultDelay func(attempt int) time.Duration
 	Now          func() time.Time
 	Wait         func(ctx context.Context, delay time.Duration) error
-	// OnResponse runs as soon as each send returns response headers, before
-	// reading a retryable body or waiting to retry.
-	OnResponse func(response *http.Response)
 	// ShouldRetry is the caller's shouldRetryResponse gate over a retryable
 	// status and its body; nil retries every retryable status.
 	ShouldRetry func(response *http.Response, body string) bool
@@ -326,9 +323,6 @@ func Do(ctx context.Context, send func(attempt int) (*http.Response, error), opt
 				return nil, errWait
 			}
 			continue
-		}
-		if opts.OnResponse != nil {
-			opts.OnResponse(response)
 		}
 		if !IsRetryableStatus(response.StatusCode) || attempt+1 >= opts.MaxAttempts {
 			return response, nil

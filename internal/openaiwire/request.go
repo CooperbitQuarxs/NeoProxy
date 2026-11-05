@@ -16,8 +16,8 @@ const NeoPiUserAgent = "npi/" + neopiversion.Version
 // none: every Responses host but xAI (which sets USER_AGENT itself) sees it.
 const BunUserAgent = "Bun/1.3.14"
 
-// firstEventTimeoutSeconds is NeoPi's default first-event watchdog (300s),
-// announced to the server as X-Stainless-Timeout.
+// firstEventTimeoutSeconds preserves NeoPi's X-Stainless-Timeout header.
+// It is a server hint, not a locally enforced response deadline.
 const firstEventTimeoutSeconds = "300"
 
 // Request is one shaped Responses POST.
