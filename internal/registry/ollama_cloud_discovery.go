@@ -151,13 +151,15 @@ func ollamaCloudSpec(id string, entry gjson.Result, show []byte, bundled map[str
 }
 
 // OllamaCloudListing resolves one /api/tags body, fetched from baseURL, and
-// the /api/show body of each listed id (nil when that call failed) into the
-// roster NeoPi's model manager produces: the bundled rows with every listed
-// model merged in, by id and in listing order (a listed id rebuilt over its
-// row, an unknown id added), then thinking pairs collapsed. An unusable body
-// is ErrNeoPiListing, after which the bundled roster stays; a listing naming
-// no model is a *NeoPiEmptyListing.
-func OllamaCloudListing(baseURL string, tags []byte, shows map[string][]byte) ([]*ModelInfo, error) {
+// the /api/show body answering each listing position (shows[i] for the i-th
+// entry, nil when that call failed) into the roster NeoPi's model manager
+// produces: the bundled rows with every listed model merged in, by id and in
+// listing order (a listed id rebuilt over its row, an unknown id added), then
+// thinking pairs collapsed. A duplicate id keeps each occurrence's own answer,
+// as NeoPi's per-entry fetch does. An unusable body is ErrNeoPiListing, after
+// which the bundled roster stays; a listing naming no model is a
+// *NeoPiEmptyListing.
+func OllamaCloudListing(baseURL string, tags []byte, shows [][]byte) ([]*ModelInfo, error) {
 	entries, ids, ok := OllamaCloudTagIDs(tags)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s: unreadable /api/tags body", ErrNeoPiListing, OllamaCloudProvider)
@@ -182,7 +184,11 @@ func OllamaCloudListing(baseURL string, tags []byte, shows map[string][]byte) ([
 		if id == "" {
 			continue
 		}
-		spec, errSpec := ollamaCloudSpec(id, entries[i], shows[id], bundled)
+		var show []byte
+		if i < len(shows) {
+			show = shows[i]
+		}
+		spec, errSpec := ollamaCloudSpec(id, entries[i], show, bundled)
 		if errSpec != nil {
 			return nil, errSpec
 		}

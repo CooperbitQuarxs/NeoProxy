@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -116,10 +117,11 @@ func TestOllamaCloudListingMatchesNeoPi(t *testing.T) {
 			if !reflect.DeepEqual(asked, listed) && !(len(asked) == 0 && len(listed) == 0) {
 				t.Errorf("show ids = %q, want %q", listed, asked)
 			}
-			shows := map[string][]byte{}
-			for id, reply := range tc.Shows {
-				if reply.Status == 200 {
-					shows[id] = rawBody(reply.Body)
+			// The scripted server answered every /api/show by its id.
+			shows := make([][]byte, len(ids))
+			for i, id := range ids {
+				if reply, ok := tc.Shows[id]; ok && reply.Status == 200 {
+					shows[i] = rawBody(reply.Body)
 				}
 			}
 			models, errListing := OllamaCloudListing(base, rawBody(tc.Tags.Body), shows)
@@ -171,5 +173,36 @@ func TestOllamaCloudListingMatchesNeoPi(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A listing that names an id twice keeps each occurrence's own /api/show
+// answer, and the later occurrence merges over the earlier one (NeoPi's
+// per-entry fetch and mergeDynamicModels), whatever order the answers
+// arrived in.
+func TestOllamaCloudListingKeepsEachOccurrencesShow(t *testing.T) {
+	tags := []byte(`{"models":[{"model":"new-model"},{"model":"new-model"}]}`)
+	show := func(context int) []byte {
+		return []byte(`{"capabilities":["completion"],"model_info":{"general.architecture":"x","x.context_length":` + strconv.Itoa(context) + `}}`)
+	}
+	for _, tc := range []struct {
+		first, second, want int
+	}{{32768, 65536, 65536}, {65536, 32768, 32768}} {
+		models, err := OllamaCloudListing("https://ollama.com", tags, [][]byte{show(tc.first), show(tc.second)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got *NeoPiModel
+		for _, info := range models {
+			if info.ID == "new-model" {
+				got = info.NeoPi
+			}
+		}
+		if got == nil {
+			t.Fatalf("answers %d then %d: new-model not listed", tc.first, tc.second)
+		}
+		if got.ContextWindow != tc.want {
+			t.Errorf("answers %d then %d: context %d, want %d", tc.first, tc.second, got.ContextWindow, tc.want)
+		}
 	}
 }

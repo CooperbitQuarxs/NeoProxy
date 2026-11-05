@@ -103,27 +103,25 @@ func FetchOllamaCloudModels(ctx context.Context, cfg *config.Config, auth *clipr
 	if !ok {
 		return registry.OllamaCloudListing(baseURL, tags, nil)
 	}
-	// Promise.all over the entries: one /api/show per listed id, a failed or
-	// refused one leaving that model without metadata.
-	shows := make(map[string][]byte, len(ids))
-	var mu sync.Mutex
+	// Promise.all over the entries: one /api/show per listing position, whose
+	// answer stays with that position (a duplicate id keeps each occurrence's
+	// own), a failed or refused one leaving it without metadata.
+	shows := make([][]byte, len(ids))
 	var wg sync.WaitGroup
-	for _, id := range ids {
+	for i, id := range ids {
 		if id == "" {
 			continue
 		}
 		wg.Add(1)
-		go func(id string) {
+		go func(i int, id string) {
 			defer wg.Done()
 			body := jsjson.Object(jsjson.Field{Name: "model", Value: jsjson.Marshal(id)})
 			status, _, data, err := ollamaCloudDiscoveryRequest(ctx, client, http.MethodPost, baseURL+"/api/show", key, body)
 			if err != nil || status < 200 || status >= 300 {
 				return
 			}
-			mu.Lock()
-			shows[id] = data
-			mu.Unlock()
-		}(id)
+			shows[i] = data
+		}(i, id)
 	}
 	wg.Wait()
 	return registry.OllamaCloudListing(baseURL, tags, shows)
