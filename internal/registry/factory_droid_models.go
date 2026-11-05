@@ -386,6 +386,11 @@ func FactoryDroidModelInfo(row *NeoPiModel) *ModelInfo {
 	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: FactoryDroidProvider, Type: FactoryDroidProvider,
 		DisplayName: model.Name, ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
 		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model}
+	// A generate_image row is served through /v1/images, not chat.
+	if entry := FactoryDroidModelFor(model.ID); entry != nil && entry.Policy.Image {
+		info.Type = OpenAIImageModelType
+		return info
+	}
 	if model.Reasoning && model.Thinking != nil && len(model.Thinking.Efforts) > 0 {
 		info.Thinking = &ThinkingSupport{Levels: slices.Clone(model.Thinking.Efforts), ZeroAllowed: !model.Thinking.RequiresEffort}
 	}

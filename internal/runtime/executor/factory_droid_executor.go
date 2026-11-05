@@ -457,6 +457,9 @@ func (e *FactoryDroidExecutor) wireExecutor(a *factoryDroidAttempt) (factoryDroi
 
 // Execute runs one non-streaming request.
 func (e *FactoryDroidExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	if openAICompatImageEndpointPath(opts) != "" {
+		return e.executeImage(ctx, auth, req, opts)
+	}
 	a, err := e.attempt(auth, req, opts)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
@@ -471,6 +474,9 @@ func (e *FactoryDroidExecutor) Execute(ctx context.Context, auth *cliproxyauth.A
 
 // ExecuteStream relays the upstream stream in the client's format.
 func (e *FactoryDroidExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*cliproxyexecutor.StreamResult, error) {
+	if openAICompatImageEndpointPath(opts) != "" {
+		return nil, statusErr{code: http.StatusBadRequest, msg: "factory-droid: image generation does not stream; send the request without stream"}
+	}
 	a, err := e.attempt(auth, req, opts)
 	if err != nil {
 		return nil, err
