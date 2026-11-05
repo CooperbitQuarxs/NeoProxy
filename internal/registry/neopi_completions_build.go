@@ -10,12 +10,12 @@ import (
 
 // neoPiBuildRow is buildModel for one discovered spec of provider served from
 // baseURL (or the spec's own base URL, when its mapper routes it elsewhere).
-// For an openai-completions, openai-responses or anthropic-messages spec
-// NeoPi's compat engine resolves the row's compat, thinking and reasoning
-// from its id, its authored thinking and its sparse compat (package
-// neopicompat); a runner spec (openai-images, openai-speech) or a Decisions
-// judge (openai-decisions, served by no chat route) carries no policy and is
-// materialized as mapped.
+// For an openai-completions, openai-responses, anthropic-messages or
+// ollama-chat spec NeoPi's compat engine resolves the row's compat, thinking
+// and reasoning from its id, its authored thinking and its sparse compat
+// (package neopicompat); a runner spec (openai-images, openai-speech) or a
+// Decisions judge (openai-decisions, served by no chat route) carries no
+// policy and is materialized as mapped.
 func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, error) {
 	if spec.baseURL != "" {
 		baseURL = spec.baseURL
@@ -26,7 +26,7 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	}
 	api := neopicompat.APIOpenAICompletions
 	switch spec.api {
-	case neopicompat.APIAnthropicMessages, neopicompat.APIOpenAIResponses:
+	case neopicompat.APIAnthropicMessages, neopicompat.APIOpenAIResponses, neopicompat.APIOllamaChat:
 		api = spec.api
 	}
 	policy, err := neopicompat.Resolve(neopicompat.Spec{
@@ -51,6 +51,12 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	case neopicompat.APIOpenAIResponses:
 		row.Compat = &NeoPiCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.Compat)
+	case neopicompat.APIOllamaChat:
+		// The catalog's omit-caller-output-limits assignment, or the spec's.
+		omit, _ := policy.Catalog["omitMaxOutputTokens"].(bool)
+		row.OmitMaxOutputTokens = spec.omitMaxOutputTokens || omit
+		row.OllamaCompat = &NeoPiOllamaCompat{}
+		err = neoPiDecodePolicy(policy.Compat, row.OllamaCompat)
 	default:
 		row.CompletionsCompat = &NeoPiCompletionsCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.CompletionsCompat)

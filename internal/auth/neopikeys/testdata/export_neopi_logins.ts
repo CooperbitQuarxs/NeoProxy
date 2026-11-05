@@ -1,8 +1,8 @@
 // Exports NeoPi's compiled `login "api-key"` rules (catalog/src/compat/rules.json
-// auth.providers) for the providers NeoProxy serves through NeoPi's OpenAI
-// Chat Completions provider, as internal/auth/neopikeys/logins.json. A provider
-// whose keys come only from the environment (no api-key login) is exported with
-// its name alone.
+// auth.providers) for the API-key providers NeoProxy serves through NeoPi's
+// OpenAI Chat Completions provider and its native Ollama chat provider, as
+// internal/auth/neopikeys/logins.json. A provider whose keys come only from the
+// environment (no api-key login) is exported with its name alone.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     bun --preserve-symlinks export_neopi_logins.ts > ../logins.json
@@ -17,6 +17,7 @@ const served = [
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
+	"ollama-cloud",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 // NeoPi names no auth rule for MiniMax China's pay-as-you-go platform; the

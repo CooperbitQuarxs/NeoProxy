@@ -75,6 +75,7 @@ type compiledData struct {
 	ResponsesWireKeys   []string            `json:"responsesWireKeys"`
 	AnthropicWireKeys   []string            `json:"anthropicWireKeys"`
 	GoogleWireKeys      []string            `json:"googleWireKeys"`
+	OllamaWireKeys      []string            `json:"ollamaWireKeys"`
 }
 
 type ruleIndex struct {
@@ -117,6 +118,7 @@ func load() error {
 			APIOpenAIResponses:   keySet(data.ResponsesWireKeys),
 			APIAnthropicMessages: keySet(data.AnthropicWireKeys),
 			APIGoogleVertex:      keySet(data.GoogleWireKeys),
+			APIOllamaChat:        keySet(data.OllamaWireKeys),
 		}
 		index, dataError = buildIndex(data.Cascade)
 	})

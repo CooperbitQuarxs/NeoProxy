@@ -373,6 +373,9 @@
 				"trustForbidden": true,
 				"url": "https://api.commandcode.ai/alpha/whoami"
 			}
+		},
+		"ollama-cloud": {
+			"name": "Ollama Cloud"
 		}
 	}
 }
