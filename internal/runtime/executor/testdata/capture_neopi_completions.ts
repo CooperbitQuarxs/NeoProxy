@@ -428,6 +428,8 @@ for (const provider of providers) {
 				apiKey,
 				sessionId,
 				...(discovered.listing ? { listing: discovered.listing } : {}),
+				// The environment a provider transport read (Snowflake's account).
+				...(process.env.SNOWFLAKE_ACCOUNT ? { env: { SNOWFLAKE_ACCOUNT: process.env.SNOWFLAKE_ACCOUNT } } : {}),
 				...(discovered.modelsDev ? { modelsDev: discovered.modelsDev } : {}),
 				...(discovered.lmStudioV0 ? { lmStudioV0: discovered.lmStudioV0, lmStudioV1: discovered.lmStudioV1 } : {}),
 				fixtures,
