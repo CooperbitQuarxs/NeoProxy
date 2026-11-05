@@ -32,7 +32,29 @@ const managers: Record<string, (config: any) => any> = {
 	nvidia: m.nvidiaModelManagerOptions,
 	together: m.togetherModelManagerOptions,
 	"alibaba-token-plan": m.alibabaTokenPlanModelManagerOptions,
+	aiand: m.aiandModelManagerOptions,
+	baseten: m.basetenModelManagerOptions,
+	coralbricks: m.coralbricksModelManagerOptions,
+	deepinfra: m.deepinfraModelManagerOptions,
+	firepass: m.firepassModelManagerOptions,
+	"gmi-cloud": m.gmiCloudModelManagerOptions,
+	helmcode: m.helmcodeModelManagerOptions,
+	inception: m.inceptionModelManagerOptions,
+	novita: m.novitaModelManagerOptions,
+	qianfan: m.qianfanModelManagerOptions,
+	"qwen-portal": m.qwenPortalModelManagerOptions,
+	sambanova: m.sambanovaModelManagerOptions,
+	stepfun: m.stepfunModelManagerOptions,
+	synthetic: m.syntheticModelManagerOptions,
+	venice: m.veniceModelManagerOptions,
+	"wafer-serverless": m.waferServerlessModelManagerOptions,
+	"xiaomi-token-plan-sgp": (config: any) => m.xiaomiModelManagerOptions({ ...config, providerId: "xiaomi-token-plan-sgp", tokenPlanRegion: "sgp" }),
+	"xiaomi-token-plan-ams": (config: any) => m.xiaomiModelManagerOptions({ ...config, providerId: "xiaomi-token-plan-ams", tokenPlanRegion: "ams" }),
+	"xiaomi-token-plan-cn": (config: any) => m.xiaomiModelManagerOptions({ ...config, providerId: "xiaomi-token-plan-cn", tokenPlanRegion: "cn" }),
+	"yolo-auto": m.yoloAutoModelManagerOptions,
+	"zhipu-coding-plan": m.zhipuCodingPlanModelManagerOptions,
 };
+for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
 const apiKey = "sk-capture-key";
 const cacheDir = mkdtempSync(join(tmpdir(), "neopi-discovery-"));

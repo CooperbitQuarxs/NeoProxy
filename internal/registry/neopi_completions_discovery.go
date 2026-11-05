@@ -134,9 +134,10 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 	baseURL = neoPiNormalizeBase(baseURL)
 	specs, authoritative := neoPiListingSpecs(provider, entries)
 	if authoritative && len(specs) == 0 {
-		// NeoPi serves an empty roster for this cycle only and retries on its
-		// next resolve; a cached empty roster would hide every model.
-		return nil, ErrNeoPiListing
+		// NeoPi serves an empty roster for this cycle and does not cache it
+		// as authoritative; the discovery cache retries it after its retry
+		// interval.
+		return []*ModelInfo{}, nil
 	}
 	return neoPiMergeListing(provider, baseURL, specs, authoritative), nil
 }
@@ -414,7 +415,9 @@ func neoPiIsDeepseekV4Generation(id string) bool {
 // neoPiListingSpecs maps the listing's entries with the provider's mapper and
 // filter, deduplicating by id (the last entry wins).
 func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSpec, authoritative bool) {
-	authoritative = provider == "alibaba-token-plan"
+	if catalog, ok := NeoPiCompletionsProvider(provider); ok {
+		authoritative = catalog.Discovery.ModelsAuthoritative
+	}
 	index := map[string]int{}
 	thinkingBases := map[string]bool{}
 	for _, entry := range entries {

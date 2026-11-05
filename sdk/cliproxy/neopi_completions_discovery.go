@@ -25,6 +25,10 @@ import (
 var neoPiCompletionsProviders = []string{
 	"cerebras", "deepseek", "fireworks", "groq", "huggingface", "mistral",
 	"moonshot", "nanogpt", "nvidia", "together", "alibaba-token-plan",
+	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception",
+	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
+	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
+	"yolo-auto", "zhipu-coding-plan",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -41,15 +45,12 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 	out := make(map[string]*neoPiDiscovery, len(neoPiCompletionsProviders))
 	for _, provider := range neoPiCompletionsProviders {
 		// NeoPi's model manager default 2h cache TTL and 5m retry after a
-		// failure; discovery fetches are bounded at 10s (30s for Fireworks,
-		// whose control-plane catalog is paginated and unbounded in NeoPi).
-		timeout := 10 * time.Second
-		if provider == "fireworks" {
-			timeout = 30 * time.Second
-		}
+		// failure. NeoPi bounds openai-compatible discovery at 10s; the
+		// repository bans deadlines after the connection is up, so the
+		// fetch runs without one.
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
-			ttl:      2 * time.Hour, retry: 5 * time.Minute, timeout: timeout,
+			ttl:      2 * time.Hour, retry: 5 * time.Minute,
 			bundled: func() []*ModelInfo { return registry.NeoPiCompletionsBundledModels(provider, provider) },
 			fetch:   fetchNeoPiCompletionsModels(provider),
 			match:   func(a *coreauth.Auth) bool { return neoPiCompletionsCatalogProvider(a) == provider },

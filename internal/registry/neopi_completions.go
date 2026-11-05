@@ -29,6 +29,14 @@ type NeoPiCompletionsCatalog struct {
 	Compats []*NeoPiCompletionsCompat `json:"compats"`
 	// UnknownCompatIndex is the compat NeoPi resolves for a non-bundled id.
 	UnknownCompatIndex int `json:"unknownCompatIndex"`
+	// Discovery holds the model manager's authority flags: how a provider's
+	// listing replaces its bundled rows (mergeDynamicModels).
+	Discovery struct {
+		ModelsAuthoritative    bool `json:"modelsAuthoritative"`
+		ReasoningAuthoritative bool `json:"reasoningAuthoritative"`
+		InputAuthoritative     bool `json:"inputAuthoritative"`
+		CostAuthoritative      bool `json:"costAuthoritative"`
+	} `json:"discovery"`
 	Models             []struct {
 		ID            string            `json:"id"`
 		Name          string            `json:"name"`

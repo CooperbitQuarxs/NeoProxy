@@ -84,11 +84,6 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				return
 			}
 			if err != nil {
-				if result.Provider == "alibaba-token-plan" && len(result.Models) == 0 {
-					// NeoPi serves an empty roster for one cycle; the port keeps
-					// the bundled one instead (documented divergence).
-					return
-				}
 				t.Fatalf("port rejected a listing NeoPi accepted: %v", err)
 			}
 			byID := map[string]*NeoPiModel{}

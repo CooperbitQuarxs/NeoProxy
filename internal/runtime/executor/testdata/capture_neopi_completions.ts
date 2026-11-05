@@ -28,6 +28,7 @@ mkdirSync(catalogDir, { recursive: true });
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
+const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
 const maxRepresentatives = Number(process.env.MAX_MODELS_PER_PROVIDER ?? 24);
@@ -178,11 +179,21 @@ for (const provider of providers) {
 		...(model.headers ? { headers: model.headers } : {}),
 		completionsCompatIndex: indexOf(model.compat),
 	}));
+	// The model manager's authority flags decide how a listing replaces the
+	// bundled rows (model-manager.ts mergeDynamicModels).
+	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
+	const manager = descriptor?.createModelManagerOptions({ apiKey: "capture" });
 	const catalog = {
 		source: `NeoPi OWN getBundledModels(${JSON.stringify(provider)}) with buildModel for a non-bundled id`,
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
+		discovery: {
+			modelsAuthoritative: !!(manager?.dynamicModelsAuthoritative ?? descriptor?.dynamicModelsAuthoritative),
+			reasoningAuthoritative: !!manager?.dynamicReasoningAuthoritative,
+			inputAuthoritative: !!manager?.dynamicInputAuthoritative,
+			costAuthoritative: !!manager?.dynamicCostAuthoritative,
+		},
 		compats,
 		unknownCompatIndex: indexOf(unknownRow.compat),
 		models: rows,
