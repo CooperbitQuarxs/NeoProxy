@@ -56,6 +56,7 @@ const managers: Record<string, (config: any) => any> = {
 	coreweave: m.coreWeaveModelManagerOptions,
 	"cline-pass": m.clinePassModelManagerOptions,
 	aimlapi: m.aimlApiModelManagerOptions,
+	xiaomi: m.xiaomiModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -251,7 +252,7 @@ function fireworksPages(bundled: string[]): Reply[] {
 // ClinePass reads two hosts at once: Cline's recommended-models roster (the
 // authoritative ids) and OpenRouter's public catalog (enrichment only), so
 // its scenarios answer each host with its own reply.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply };
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -324,7 +325,7 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			{ name: "not an object", replies: [json([1, 2])] },
 		];
 	}
-	return [
+	const generic: Scenario[] = [
 		{ name: "data envelope", replies: [json({ object: "list", data: list })] },
 		{ name: "models envelope", replies: [json({ models: list })] },
 		{ name: "result envelope", replies: [json({ result: list })] },
@@ -336,6 +337,17 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		{ name: "http 500", replies: [json({ error: "boom" }, 500)] },
 		{ name: "not json", replies: [{ status: 200, body: "oops" }] },
 		{ name: "no list", replies: [json({ object: "list" })] },
+	];
+	if (provider !== "xiaomi") return generic;
+	// A Token Plan key on the standard provider walks the regional clusters,
+	// SGP then AMS then CN, until one answers.
+	const tp = "tp-capture-key";
+	return [
+		...generic,
+		{ name: "token plan: sgp", apiKey: tp, replies: [json({ data: list })] },
+		{ name: "token plan: ams after sgp 401", apiKey: tp, replies: [json({ error: "no" }, 401), json({ data: list })] },
+		{ name: "token plan: cn after two failures", apiKey: "ttp-capture-key", replies: [json({ error: "boom" }, 500), { status: 200, body: "oops" }, json({ data: list })] },
+		{ name: "token plan: every region fails", apiKey: tp, replies: [json({ error: "no" }, 401)] },
 	];
 }
 
@@ -380,13 +392,14 @@ for (const [provider, build] of Object.entries(managers)) {
 				: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
-		const options = build({ apiKey, fetch: fetchImpl });
+		const options = build({ apiKey: scenario.apiKey ?? apiKey, fetch: fetchImpl });
 		options.cacheDbPath = join(cacheDir, `${provider}-${results.length}.db`);
 		const resolved = await resolveProviderModels(options, "online");
 		results.push({
 			provider,
 			scenario: scenario.name,
 			replies: scenario.replies,
+			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,

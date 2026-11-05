@@ -88,6 +88,7 @@ var apiKeyRoutes = map[string]route{
 	"coreweave":             {target: "coreweave"},
 	"cline-pass":            {target: "cline-pass"},
 	"aimlapi":               {target: "aimlapi"},
+	"xiaomi":                {target: "xiaomi"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.

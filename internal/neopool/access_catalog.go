@@ -310,6 +310,10 @@ var providerCatalog = []ProviderInfo{
 	// not probed (like Groq and Mistral).
 	{ID: "aimlapi", Name: "AIML API", Vendor: "AIML API", Hue: 320, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.aimlapi.com/v1", "AIML API key", "https://aimlapi.com/app/keys"), Plans: []ProviderPlan{}},
+	// A Token Plan key (tp-/ttp-) pasted here is probed and listed on the
+	// regional clusters, as NeoPi's Xiaomi login does.
+	{ID: "xiaomi", Name: "Xiaomi MiMo", Vendor: "Xiaomi", Hue: 30, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.xiaomimimo.com/v1", "sk-..., tp-..., or ttp-...", "https://platform.xiaomimimo.com/#/console/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

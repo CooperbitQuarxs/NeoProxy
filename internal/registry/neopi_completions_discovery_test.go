@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -23,7 +24,10 @@ type neoPiDiscoveryResult struct {
 	// and OpenRouter's catalog.
 	Roster *neoPiCaptureReply `json:"roster"`
 	Live   *neoPiCaptureReply `json:"live"`
-	Source string             `json:"source"`
+	// APIKey is the scenario's own key, when not the capture's: a Xiaomi
+	// Token Plan key walks the regional clusters.
+	APIKey string `json:"apiKey"`
+	Source string `json:"source"`
 	Models []struct {
 		ID            string         `json:"id"`
 		API           string         `json:"api"`
@@ -270,6 +274,7 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		"coreweave":             {0, 4, 44, nil},
 		"cline-pass":            {3, 16, 20, []string{"CacheControlFormat", "SupportsForcedToolChoice", "SupportsSamplingParams", "SupportsStore"}},
 		"aimlapi":               {1, 6, 5, []string{"DisableReasoningOnForcedToolChoice"}},
+		"xiaomi":                {0, 4, 9, nil},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))
@@ -307,6 +312,21 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 	switch {
 	case result.Provider == "fireworks":
 		return neoPiReplayFireworks(baseURL, result.Replies)
+	case result.Provider == "xiaomi" && (strings.HasPrefix(result.APIKey, "tp-") || strings.HasPrefix(result.APIKey, "ttp-")):
+		// One reply per region tried, SGP then AMS then CN; the last reply
+		// answers every further request.
+		var err error = ErrNeoPiListing
+		for i, region := range []string{"xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn"} {
+			reply := result.Replies[min(i, len(result.Replies)-1)]
+			if reply.Status/100 != 2 {
+				continue
+			}
+			var models []*ModelInfo
+			if models, err = NeoPiCompletionsListing("xiaomi", NeoPiCompletionsListingBase(region), []byte(reply.Body)); err == nil {
+				return models, nil
+			}
+		}
+		return nil, err
 	case result.Roster != nil:
 		if result.Roster.Status/100 != 2 {
 			return nil, ErrNeoPiListing

@@ -528,7 +528,7 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			if neoPiExcludedModel("helmcode", spec.id) {
 				continue
 			}
-		case "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn":
+		case "xiaomi", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn":
 			spec = neoPiMapXiaomiTokenPlan(entry, defaults, reference)
 			if neoPiExcludedModel(provider, spec.id) {
 				continue

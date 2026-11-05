@@ -9,6 +9,7 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xiaomi"
 )
 
 // Providers NeoProxy serves through NeoPi's OpenAI Chat Completions provider
@@ -37,6 +38,11 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base, preferred, k
 	if info.ID == alibabatokenplan.Provider {
 		accepted, err := validateTokenPlanKey(ctx, info, preferred, key)
 		return accepted, true, err
+	}
+	if info.ID == xiaomi.Provider {
+		// loginXiaomi: the standard host, or the Token Plan clusters for a
+		// tp-/ttp- key, which discovery and inference then reach on their own.
+		return base, true, neoPiKeyFailure(info, xiaomi.ValidateKey(ctx, accessHTTPClient, key))
 	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {
