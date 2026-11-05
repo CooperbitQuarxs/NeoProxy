@@ -363,6 +363,16 @@
 		},
 		"cloudflare-ai-gateway": {
 			"name": "Cloudflare AI Gateway"
+		},
+		"commandcode": {
+			"name": "Command Code",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "Command Code",
+				"optional": true,
+				"trustForbidden": true,
+				"url": "https://api.commandcode.ai/alpha/whoami"
+			}
 		}
 	}
 }
