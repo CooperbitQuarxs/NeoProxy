@@ -166,24 +166,67 @@ func TestNeoPiModelsDevCatalogSessionPerTransport(t *testing.T) {
 	defer modelsDev.Close()
 	previous := neoPiModelsDevURL
 	neoPiModelsDevURL = modelsDev.URL
-	resetNeoPiModelsDevSessions()
 	defer func() {
 		neoPiModelsDevURL = previous
 		resetNeoPiModelsDevSessions()
 	}()
-	auth := &coreauth.Auth{ID: "s", Provider: "siliconflow"}
-	stalled := &blockingTransport{entered: make(chan struct{}, 1), release: make(chan struct{})}
-	stalledCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", http.RoundTripper(stalled))            //nolint:staticcheck // the engine's context key
-	healthyCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", http.RoundTripper(&directTransport{})) //nolint:staticcheck // the engine's context key
+	blockingFunc := func(entered, release chan struct{}) http.RoundTripper {
+		return claudeModelsTransport(func(r *http.Request) (*http.Response, error) {
+			entered <- struct{}{}
+			<-release
+			return http.DefaultTransport.RoundTrip(r)
+		})
+	}
+	for _, tc := range []struct {
+		name    string
+		cfg     *config.Config
+		stalled func(entered, release chan struct{}) http.RoundTripper
+		healthy http.RoundTripper
+	}{
+		{"pointer transports", &config.Config{}, func(entered, release chan struct{}) http.RoundTripper {
+			return &blockingTransport{entered: entered, release: release}
+		}, &directTransport{}},
+		{"closures of one type", &config.Config{}, blockingFunc, claudeModelsTransport(http.DefaultTransport.RoundTrip)},
+		{"non-comparable values", &config.Config{}, func(entered, release chan struct{}) http.RoundTripper {
+			return sliceTransport{hops: []string{"stalled"}, entered: entered, release: release}
+		}, sliceTransport{hops: []string{"healthy"}}},
+		// An unbuildable proxy falls back to each context's own transport.
+		{"rejected proxy", &config.Config{SDKConfig: config.SDKConfig{ProxyURL: "ftp://proxy.example"}}, func(entered, release chan struct{}) http.RoundTripper {
+			return &blockingTransport{entered: entered, release: release}
+		}, &directTransport{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resetNeoPiModelsDevSessions()
+			auth := &coreauth.Auth{ID: "s", Provider: "siliconflow"}
+			entered, release := make(chan struct{}, 1), make(chan struct{})
+			stalledCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", tc.stalled(entered, release)) //nolint:staticcheck // the engine's context key
+			healthyCtx := context.WithValue(context.Background(), "cliproxy.roundtripper", tc.healthy)                   //nolint:staticcheck // the engine's context key
+			stalledDone := make(chan []byte)
+			go func() { stalledDone <- neoPiFetchModelsDev(stalledCtx, tc.cfg, auth) }()
+			<-entered
+			if payload := neoPiFetchModelsDev(healthyCtx, tc.cfg, auth); string(payload) != `{"siliconflow":{"models":{}}}` {
+				t.Fatalf("healthy transport got %q while another transport stalled", payload)
+			}
+			close(release)
+			if payload := <-stalledDone; string(payload) != `{"siliconflow":{"models":{}}}` {
+				t.Fatalf("stalled transport got %q once released", payload)
+			}
+		})
+	}
+}
 
-	stalledDone := make(chan []byte)
-	go func() { stalledDone <- neoPiFetchModelsDev(stalledCtx, &config.Config{}, auth) }()
-	<-stalled.entered
-	if payload := neoPiFetchModelsDev(healthyCtx, &config.Config{}, auth); string(payload) != `{"siliconflow":{"models":{}}}` {
-		t.Fatalf("healthy transport got %q while another transport stalled", payload)
+// sliceTransport is a non-comparable value transport; it blocks while its
+// release channel is open.
+type sliceTransport struct {
+	hops    []string
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s sliceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if s.release != nil {
+		s.entered <- struct{}{}
+		<-s.release
 	}
-	close(stalled.release)
-	if payload := <-stalledDone; string(payload) != `{"siliconflow":{"models":{}}}` {
-		t.Fatalf("stalled transport got %q once released", payload)
-	}
+	return http.DefaultTransport.RoundTrip(req)
 }
