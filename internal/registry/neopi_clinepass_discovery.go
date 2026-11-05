@@ -270,7 +270,7 @@ func NeoPiClinePassListing(baseURL string, roster, live []byte) ([]*ModelInfo, e
 			put(neoPiClinePassFreeSpec(public, catalog))
 		}
 	}
-	return neoPiMergeListing(neoPiClinePassProvider, neoPiNormalizeBase(baseURL), specs, true), nil
+	return neoPiMergeListing(neoPiClinePassProvider, neoPiNormalizeBase(baseURL), specs, true)
 }
 
 // neoPiClinePassFallbackSpec is buildClinePassFallbackModel.

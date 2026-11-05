@@ -2,16 +2,20 @@ package neopicompat
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 )
 
 // Spec is the part of a NeoPi ModelSpec the policy resolves from. Thinking
-// and Compat are the spec's own (sparse, JSON-shaped) authored values.
+// and Compat are the spec's own (sparse, JSON-shaped) authored values: a key
+// present with a nil value is an explicit JSON null, and NeoPi's undefined is
+// an absent key, which is how JSON decoding presents them.
 type Spec struct {
 	Provider     string
 	ProviderType string
@@ -119,16 +123,117 @@ func modelMatchesHost(provider, baseURL, host string) bool {
 
 var privateRange172 = regexp.MustCompile(`^172\.(1[6-9]|2[0-9]|3[01])\.`)
 
+// whatwgSpecialSchemes are the WHATWG URL special schemes, whose hosts are
+// normalized (lowercased, IPv4 numbers canonicalized).
+var whatwgSpecialSchemes = map[string]bool{"http": true, "https": true, "ws": true, "wss": true, "ftp": true, "file": true}
+
+// urlHostname is `new URL(baseURL).hostname`: false where the WHATWG parser
+// throws (a relative URL, an invalid IPv4 number). Special-scheme hosts are
+// lowercased and numeric IPv4 forms (127.1, 2130706433, 0x7f.1) canonicalized;
+// IPv6 literals keep their brackets in compressed form.
+func urlHostname(baseURL string) (string, bool) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Opaque != "" {
+		return "", false
+	}
+	hostname := parsed.Hostname()
+	if !whatwgSpecialSchemes[strings.ToLower(parsed.Scheme)] {
+		return hostname, true
+	}
+	if hostname == "" && parsed.Scheme != "file" {
+		return "", false
+	}
+	if strings.Contains(hostname, ":") {
+		ip := net.ParseIP(hostname)
+		if ip == nil {
+			return "", false
+		}
+		return "[" + ip.String() + "]", true
+	}
+	hostname = strings.ToLower(hostname)
+	if !endsInNumber(hostname) {
+		return hostname, true
+	}
+	return parseWHATWGIPv4(hostname)
+}
+
+// endsInNumber is the WHATWG ends-in-a-number checker.
+func endsInNumber(host string) bool {
+	parts := strings.Split(host, ".")
+	if parts[len(parts)-1] == "" {
+		if len(parts) == 1 {
+			return false
+		}
+		parts = parts[:len(parts)-1]
+	}
+	last := parts[len(parts)-1]
+	if last != "" && strings.Trim(last, "0123456789") == "" {
+		return true
+	}
+	if len(last) >= 2 && (last[:2] == "0x" || last[:2] == "0X") {
+		_, err := strconv.ParseUint("0"+last[2:], 16, 64)
+		return last[2:] == "" || err == nil
+	}
+	return false
+}
+
+// parseWHATWGIPv4 is the WHATWG IPv4 parser, returning the dotted form.
+func parseWHATWGIPv4(host string) (string, bool) {
+	parts := strings.Split(host, ".")
+	if parts[len(parts)-1] == "" && len(parts) > 1 {
+		parts = parts[:len(parts)-1]
+	}
+	if len(parts) > 4 {
+		return "", false
+	}
+	numbers := make([]uint64, len(parts))
+	for i, part := range parts {
+		if part == "" {
+			return "", false
+		}
+		base, digits := 10, part
+		switch {
+		case len(part) >= 2 && (part[:2] == "0x" || part[:2] == "0X"):
+			base, digits = 16, part[2:]
+		case len(part) >= 2 && part[0] == '0':
+			base, digits = 8, part[1:]
+		}
+		if digits == "" {
+			numbers[i] = 0
+			continue
+		}
+		value, err := strconv.ParseUint(digits, base, 64)
+		if err != nil {
+			return "", false
+		}
+		numbers[i] = value
+	}
+	for _, value := range numbers[:len(numbers)-1] {
+		if value > 255 {
+			return "", false
+		}
+	}
+	last := numbers[len(numbers)-1]
+	if last >= 1<<(8*(5-len(numbers))) {
+		return "", false
+	}
+	ipv4 := last
+	for i, value := range numbers[:len(numbers)-1] {
+		ipv4 += value << (8 * (3 - i))
+	}
+	return fmt.Sprintf("%d.%d.%d.%d", ipv4>>24, ipv4>>16&0xff, ipv4>>8&0xff, ipv4&0xff), true
+}
+
 // hasLocalLoopbackBaseURL is hasLocalLoopbackBaseUrl.
 func hasLocalLoopbackBaseURL(baseURL string) bool {
 	if baseURL == "" {
 		return false
 	}
-	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Host == "" {
+	hostname, ok := urlHostname(baseURL)
+	if !ok {
 		return false
 	}
-	hostname := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
+	hostname = strings.TrimSuffix(strings.ToLower(hostname), ".")
 	switch hostname {
 	case "localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]":
 		return true
@@ -160,8 +265,8 @@ func isOfficialOpenAIEndpoint(provider, baseURL string) bool {
 	if baseURL == "" {
 		return true
 	}
-	parsed, err := url.Parse(baseURL)
-	return err == nil && parsed.Hostname() == "api.openai.com"
+	hostname, ok := urlHostname(baseURL)
+	return ok && hostname == "api.openai.com"
 }
 
 var localOpenAICompatProviders = map[string]bool{"llama.cpp": true, "lm-studio": true, "vllm": true, "ollama": true}
@@ -400,17 +505,20 @@ func applyWireAxes(compat map[string]any, wire map[string]any) {
 	}
 }
 
-// applyCompatOverrides is applyCompatOverrides: defined override values onto
-// keys the record declares.
+// applyCompatOverrides is applyCompatOverrides: defined override values,
+// explicit nulls included, onto keys the record declares.
 func applyCompatOverrides(compat map[string]any, overrides map[string]any) {
 	for key, value := range overrides {
-		if value == nil {
-			continue
-		}
 		if _, declared := compat[key]; declared {
 			compat[key] = cloneValue(value)
 		}
 	}
+}
+
+// defined is `record[key] !== undefined` for an authored JSON-shaped record.
+func defined(record map[string]any, key string) bool {
+	_, ok := record[key]
+	return ok
 }
 
 func compatReasoning(spec Spec, a axes) bool {
@@ -460,7 +568,7 @@ func fixupOpenAICompat(spec Spec, compat map[string]any, d detection, a axes) {
 			}
 		}
 	}
-	if _, axisDisable := a.wire["reasoningDisableMode"]; spec.Compat["reasoningDisableMode"] == nil && !axisDisable {
+	if _, axisDisable := a.wire["reasoningDisableMode"]; !defined(spec.Compat, "reasoningDisableMode") && !axisDisable {
 		switch {
 		case d.requiresEnabledThinking:
 			compat["reasoningDisableMode"] = "omit"
@@ -473,7 +581,7 @@ func fixupOpenAICompat(spec Spec, compat map[string]any, d detection, a axes) {
 		}
 	}
 	_, axisOmit := a.wire["omitReasoningEffort"]
-	if spec.Compat["omitReasoningEffort"] == nil && !axisOmit && compat["supportsReasoningEffort"] != true {
+	if !defined(spec.Compat, "omitReasoningEffort") && !axisOmit && compat["supportsReasoningEffort"] != true {
 		compat["omitReasoningEffort"] = true
 	}
 
@@ -502,14 +610,14 @@ func fixupOpenAICompat(spec Spec, compat map[string]any, d detection, a axes) {
 	}
 	variant["whenThinking"] = nil
 	applyCompatOverrides(variant, policy)
-	if policy["reasoningDisableMode"] == nil {
+	if !defined(policy, "reasoningDisableMode") {
 		if d.isVenice {
 			variant["reasoningDisableMode"] = "venice-disable-thinking"
 		} else {
 			variant["reasoningDisableMode"] = resolveReasoningDisableMode(variant["thinkingFormat"])
 		}
 	}
-	if policy["omitReasoningEffort"] == nil && variant["supportsReasoningEffort"] != true {
+	if !defined(policy, "omitReasoningEffort") && variant["supportsReasoningEffort"] != true {
 		variant["omitReasoningEffort"] = true
 	}
 	compat["whenThinking"] = variant

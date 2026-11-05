@@ -214,5 +214,5 @@ func neoPiReplayFireworks(baseURL string, replies []neoPiCaptureReply) ([]*Model
 			break
 		}
 	}
-	return NeoPiFireworksListing(baseURL, records), nil
+	return NeoPiFireworksListing(baseURL, records)
 }

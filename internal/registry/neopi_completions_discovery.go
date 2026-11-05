@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"math"
@@ -178,7 +179,7 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 		// interval.
 		return []*ModelInfo{}, nil
 	}
-	return neoPiMergeListing(provider, baseURL, specs, authoritative), nil
+	return neoPiMergeListing(provider, baseURL, specs, authoritative)
 }
 
 // NeoPiFireworksPage parses one page of Fireworks' control-plane catalog
@@ -207,7 +208,7 @@ func NeoPiFireworksPage(body []byte) (records []json.RawMessage, next string, er
 // NeoPiFireworksListing resolves the control-plane records (all pages) into
 // the roster NeoPi's Fireworks manager produces. Unlike the generic
 // providers, Fireworks accepts an empty catalog.
-func NeoPiFireworksListing(baseURL string, records []json.RawMessage) []*ModelInfo {
+func NeoPiFireworksListing(baseURL string, records []json.RawMessage) ([]*ModelInfo, error) {
 	baseURL = neoPiNormalizeBase(baseURL)
 	var specs []neoPiSpec
 	index := map[string]int{}
@@ -728,56 +729,71 @@ func neoPiPreferLimit(discovered, fallback int) int {
 }
 
 // neoPiMergeListing is the model manager's merge of the discovered specs into
-// the bundled roster: a discovered id replaces its bundled row additively,
-// unknown ids are added, and an authoritative provider keeps only what was
-// discovered.
-func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritative bool) []*ModelInfo {
+// the bundled roster: every spec is built first (buildDiscoveredModelSpecs: a
+// spec NeoPi cannot build is skipped, and a listing none of whose specs build
+// fails), then a discovered id replaces its bundled row additively, unknown
+// ids are added, and an authoritative provider keeps only what was
+// discovered. A failed rebuild of a merged row fails the listing, as it does
+// NeoPi's refresh.
+func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritative bool) ([]*ModelInfo, error) {
 	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
 	catalog, _ := NeoPiCompletionsProvider(provider)
-	byID := make(map[string]*neoPiSpec, len(specs))
+	built := make([]*NeoPiModel, 0, len(specs))
+	builtSpecs := make(map[string]*neoPiSpec, len(specs))
+	var firstErr error
 	for i := range specs {
-		byID[specs[i].id] = &specs[i]
+		row, err := neoPiBuildRow(provider, baseURL, &specs[i])
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		built = append(built, row)
+		builtSpecs[row.ID] = &specs[i]
 	}
-	rows := make([]*NeoPiModel, 0, len(neopiCompletionsRows[provider])+len(specs))
+	if len(built) == 0 && firstErr != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrNeoPiListing, provider, firstErr)
+	}
+	byID := make(map[string]*NeoPiModel, len(built))
+	for _, row := range built {
+		byID[row.ID] = row
+	}
+	rows := make([]*NeoPiModel, 0, len(neopiCompletionsRows[provider])+len(built))
 	seen := map[string]bool{}
 	for _, static := range neopiCompletionsRows[provider] {
-		spec := byID[static.ID]
-		if spec == nil {
+		dynamic := byID[static.ID]
+		if dynamic == nil {
 			if !authoritative {
 				rows = append(rows, static.Clone())
 			}
 			continue
 		}
 		seen[static.ID] = true
-		rows = append(rows, neoPiMergedRow(provider, baseURL, catalog, static, spec))
-	}
-	var added []*NeoPiModel
-	for i := range specs {
-		if seen[specs[i].id] {
-			continue
+		merged, err := neoPiMergedRow(provider, baseURL, catalog, static, dynamic, builtSpecs[static.ID])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s: %w", ErrNeoPiListing, provider, err)
 		}
-		// A spec NeoPi cannot build is skipped from the roster.
-		if row, err := neoPiBuildRow(provider, baseURL, &specs[i]); err == nil {
-			added = append(added, row)
+		rows = append(rows, merged)
+	}
+	for _, row := range built {
+		if !seen[row.ID] {
+			rows = append(rows, row)
 		}
 	}
-	rows = neoPiCollapseThinkingPairs(provider, append(rows, added...))
+	rows = neoPiCollapseThinkingPairs(provider, rows)
 	out := make([]*ModelInfo, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, NeoPiCompletionsModelInfo(row, provider))
 	}
-	return out
+	return out, nil
 }
 
 // neoPiMergedRow is mergeDynamicModel for a bundled row the listing names:
-// the discovered spec is built, layered over the bundled row (name, reasoning,
+// the built discovered row is layered over the bundled row (name, reasoning,
 // input and limits by NeoPi's merge rules, the built ladder, and the spec's
 // authored compat or else the bundled row's), and the result built again.
-func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, static *NeoPiModel, spec *neoPiSpec) *NeoPiModel {
-	dynamic, err := neoPiBuildRow(provider, baseURL, spec)
-	if err != nil {
-		return static.Clone()
-	}
+func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, static, dynamic *NeoPiModel, spec *neoPiSpec) (*NeoPiModel, error) {
 	merged := neoPiSpec{id: static.ID, name: neoPiPreferName(dynamic.Name, static.Name, static.ID), requestModelID: static.RequestModelID}
 	if dynamic.RequestModelID != "" {
 		merged.requestModelID = dynamic.RequestModelID
@@ -801,11 +817,7 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 	if merged.compat == nil {
 		merged.compat = maps.Clone(static.CompatConfig)
 	}
-	row, err := neoPiBuildRow(provider, baseURL, &merged)
-	if err != nil {
-		return static.Clone()
-	}
-	return row
+	return neoPiBuildRow(provider, baseURL, &merged)
 }
 
 // neoPiDefaultPairEfforts is DEFAULT_PAIR_EFFORTS.
