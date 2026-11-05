@@ -37,6 +37,12 @@ func neoPiSourceErrorReplayCases() []struct {
 		status  int
 	}{
 		{
+			name:    "type_error_server_error",
+			event:   `{"type":"error","error":{"code":"server_error","message":"synthetic function failure"}}`,
+			code:    "server_error",
+			message: "synthetic function failure",
+		},
+		{
 			name:    "response_failed_server_error",
 			event:   `{"type":"response.failed","response":{"status":"failed","error":{"code":"server_error","message":"synthetic server failure"}}}`,
 			code:    "server_error",
@@ -212,6 +218,9 @@ func TestNeoPiResponsesSourceErrorsPreserveFailureAfterOneReplay(t *testing.T) {
 				} else {
 					if !strings.Contains(consumerErr.Error(), tc.message) || !strings.Contains(consumerErr.Error(), tc.code) {
 						t.Errorf("source error details lost: %v", consumerErr)
+					}
+					if tc.name == "type_error_server_error" && consumerErr != nil && consumerErr.Error() != "Error Code server_error: synthetic function failure" {
+						t.Errorf("source error format = %q", consumerErr.Error())
 					}
 					if tc.status != 0 {
 						if got := statusCodeFromTestError(t, consumerErr); got != tc.status {

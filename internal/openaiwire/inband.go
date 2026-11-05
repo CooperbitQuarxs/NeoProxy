@@ -52,6 +52,8 @@ var (
 	providerCredentialScope   = regexp.MustCompile(`(?i)\bcredential[_ -]scope\b`)
 	providerQuotaReason       = regexp.MustCompile(`(?i)\bquota\b|\bexhausted\b`)
 	providerTransientReason   = regexp.MustCompile(`(?i)capacity|overloaded|529|503|per minute|rate limit|too many requests|presque`)
+	// Malformed output needs an agent corrective reminder, not a replay.
+	providerMalformedOutput = regexp.MustCompile(`(?i)\b(?:malformed[_. ]?(?:function[_. ]?call|response)|unexpected[_. ]?tool[_. ]?call)\b`)
 )
 
 // classifyInBandFrame mirrors readInBandSignal/createInBandProviderError.

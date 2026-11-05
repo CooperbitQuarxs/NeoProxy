@@ -151,7 +151,7 @@ func responseFailure(event gjson.Result, frame []byte) error {
 	} else if reason := response.Get("status_details.reason"); kind != "response.failed" && reason.Type == gjson.String && reason.String() != "" {
 		message = "status_details: " + reason.String()
 	}
-	return &StreamError{Message: message, Event: frame, retryable: providerRetryableMessage(message)}
+	return &StreamError{Message: message, Event: frame, retryable: !providerMalformedOutput.MatchString(message) && providerRetryableMessage(message)}
 }
 
 // Run streams the turn's events to emit. Events before the first
@@ -278,6 +278,21 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 			if kind == "error" || event.Get("error").Exists() ||
 				event.Get("code").Exists() || event.Get("message").Exists() ||
 				readInBandStatus(event.Get("status")) != 0 || inBandNonRetryableCode.MatchString(normalizeInBandCode(event.Get("type"))) {
+				if kind == "error" {
+					failure := event.Get("error")
+					if !failure.Exists() || failure.Type == gjson.Null {
+						failure = event
+					}
+					code, detail := "unknown", "no message"
+					if value := failure.Get("code"); value.Exists() && value.Type != gjson.Null {
+						code = value.String()
+					}
+					if value := failure.Get("message"); value.Exists() && value.Type != gjson.Null {
+						detail = value.String()
+					}
+					message := "Error Code " + code + ": " + detail
+					return &StreamError{Message: message, Event: frame, retryable: !providerMalformedOutput.MatchString(message) && providerRetryableMessage(message)}
+				}
 				message := event.Get("error.message").String()
 				if message == "" {
 					message = event.Get("message").String()

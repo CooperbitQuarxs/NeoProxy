@@ -170,7 +170,7 @@ func xaiNeoPiError(err error) error {
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
 		if len(streamErr.Event) > 0 {
-			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: string(streamErr.Event)}, cause: err}
+			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: streamErr.Message}, cause: err}
 		}
 		return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}, cause: err}
 	}
