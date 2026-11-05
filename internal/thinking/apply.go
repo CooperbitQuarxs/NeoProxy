@@ -677,11 +677,34 @@ func ExplicitReasoningEffort(body []byte, provider, model string) string {
 		}
 		return reasoningEffortFromSuffix(suffix)
 	}
+	if provider == "gemini" {
+		body = geminiCanonicalThinking(body)
+	}
 	config := extractThinkingConfigForUsage(body, provider)
 	if !hasThinkingConfig(config) && (provider == "openai-response" || provider == "openai") {
 		config = extractCodexUsageConfig(body)
 	}
 	return named(config)
+}
+
+// geminiCanonicalThinking re-roots a Gemini request's thinking config under
+// generationConfig.thinkingConfig, reading the generation_config and
+// thinking_config aliases the native request reader accepts (camelCase
+// first), so the leaf parsing stays extractGeminiConfig's own.
+func geminiCanonicalThinking(body []byte) []byte {
+	root := gjson.ParseBytes(body)
+	generation := root.Get("generationConfig")
+	if !generation.Exists() {
+		generation = root.Get("generation_config")
+	}
+	thinking := generation.Get("thinkingConfig")
+	if !thinking.Exists() {
+		thinking = generation.Get("thinking_config")
+	}
+	if !thinking.Exists() {
+		return body
+	}
+	return []byte(`{"generationConfig":{"thinkingConfig":` + thinking.Raw + `}}`)
 }
 
 // ExtractTranslatedReasoningEffort returns the final provider payload's thinking

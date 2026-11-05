@@ -360,6 +360,10 @@ func TestFactoryDroidRejectsUnsupportedEffort(t *testing.T) {
 			"Thinking effort medium is not supported by factory-droid/glm-5.3. Supported efforts: low, high, max", sdktranslator.FormatOpenAI},
 		{"gemini", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinkingLevel":"minimal"}}}`,
 			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
+		{"gemini-snake-containers", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generation_config":{"thinking_config":{"thinking_level":"minimal"}}}`,
+			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
+		{"gemini-snake-thinking-container", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinking_config":{"thinkingLevel":"minimal"}}}`,
+			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
 		{"non-reasoning", "gpt-image-2.5-sunburst", `{"model":"gpt-image-2.5-sunburst","input":"hi","reasoning":{"effort":"high"}}`,
 			"Model factory-droid/gpt-image-2.5-sunburst does not support thinking", sdktranslator.FormatOpenAIResponse},
 	} {
