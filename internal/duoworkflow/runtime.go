@@ -109,21 +109,22 @@ type Request struct {
 	Finalize func([]byte) []byte
 	// Sink receives the turn's events.
 	Sink func(Event)
+	// Dial opens the turn's workflow sockets.
+	Dial Dialer
 }
 
 // Runtime holds the live workflow sessions and the per-account namespace
 // state across turns.
 type Runtime struct {
-	dial     Dialer
 	mu       sync.Mutex
 	sessions map[string]*list.Element
 	lru      *list.List
 	accounts map[string]*accountState
 }
 
-// NewRuntime returns a runtime opening its sockets with dial.
-func NewRuntime(dial Dialer) *Runtime {
-	return &Runtime{dial: dial, sessions: map[string]*list.Element{}, lru: list.New(), accounts: map[string]*accountState{}}
+// NewRuntime returns an empty runtime.
+func NewRuntime() *Runtime {
+	return &Runtime{sessions: map[string]*list.Element{}, lru: list.New(), accounts: map[string]*accountState{}}
 }
 
 type sessionEntry struct {
@@ -613,7 +614,7 @@ func (c *call) open(s *setup, definition string) *socket {
 		ServiceEndpoint:         s.connection.serviceEndpoint,
 	}
 	ws := &socket{loop: &c.sess.mu}
-	ws.conn = c.rt.dial(WebSocketURL(socketBase, options), WebSocketHeaders(s.connection.token, c.baseURL, options, s.connection.headers), ws.deliver)
+	ws.conn = c.req.Dial(WebSocketURL(socketBase, options), WebSocketHeaders(s.connection.token, c.baseURL, options, s.connection.headers), ws.deliver)
 	return ws
 }
 

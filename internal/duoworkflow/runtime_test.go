@@ -82,7 +82,7 @@ func TestRuntimeMatchesNeoPiCapture(t *testing.T) {
 			}
 			sockets := &scriptedSockets{t: t, script: scenario.Script}
 			gitlab := &scriptedGitLab{t: t}
-			runtime := NewRuntime(sockets.dial)
+			runtime := NewRuntime()
 			for index, turn := range scenario.Turns {
 				label := fmt.Sprintf("turn %d", index)
 				parsed, err := cursorwire.ParseOpenAIChat([]byte(turn.Body), func(string) string { return "" })
@@ -98,6 +98,7 @@ func TestRuntimeMatchesNeoPiCapture(t *testing.T) {
 					SessionID: "session-" + scenario.Name, Context: &parsed.Context, Client: &http.Client{Transport: gitlab},
 					Options: Options{ToolChoiceNone: gjson.Get(turn.Body, "tool_choice").String() == "none"},
 					Sink:    func(event Event) { events = append(events, event) },
+					Dial:    sockets.dial,
 				})
 				sockets.settle()
 				gitlab.done()

@@ -1,0 +1,240 @@
+{
+  "source": "NeoPi OWN gitlab-duo-agent rows: buildModel over the fallback seed and buildGitLabDuoWorkflowModelSpec",
+  "fallback": {
+    "id": "claude_sonnet_4_6_vertex",
+    "name": "Claude Sonnet 4.6 - Vertex",
+    "api": "gitlab-duo-agent",
+    "provider": "gitlab-duo-agent",
+    "baseUrl": "https://gitlab.com",
+    "reasoning": false,
+    "input": [
+      "text"
+    ],
+    "supportsTools": true,
+    "cost": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "cacheWrite": 0
+    },
+    "contextWindow": 1000000,
+    "maxTokens": null,
+    "identity": {
+      "class": "anthropic",
+      "family": "sonnet"
+    },
+    "requiresGlyphTokenization": true,
+    "tokenizer": "claude-v3",
+    "supportsComputerUse": false,
+    "omitMaxOutputTokens": true
+  },
+  "discovered": [
+    {
+      "ref": {
+        "name": "Claude Sonnet 4.6",
+        "ref": "claude_sonnet_4_6_vertex"
+      },
+      "row": {
+        "id": "claude_sonnet_4_6_vertex",
+        "name": "Claude Sonnet 4.6",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 1000000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "anthropic",
+          "family": "sonnet"
+        },
+        "requiresGlyphTokenization": true,
+        "tokenizer": "claude-v3",
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    },
+    {
+      "ref": {
+        "name": "Claude Opus 4.8",
+        "ref": "claude_opus_4_8"
+      },
+      "row": {
+        "id": "claude_opus_4_8",
+        "name": "Claude Opus 4.8",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 1000000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "anthropic",
+          "family": "opus"
+        },
+        "requiresGlyphTokenization": true,
+        "tokenizer": "claude-v3",
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    },
+    {
+      "ref": {
+        "name": "Claude Haiku 4.5",
+        "ref": "claude-haiku-4-5"
+      },
+      "row": {
+        "id": "claude-haiku-4-5",
+        "name": "Claude Haiku 4.5",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 200000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "anthropic",
+          "family": "haiku",
+          "revision": "4.5.0"
+        },
+        "requiresGlyphTokenization": true,
+        "tokenizer": "claude-v3",
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    },
+    {
+      "ref": {
+        "name": "Gemini 2.5 Pro",
+        "ref": "gemini_2_5_pro"
+      },
+      "row": {
+        "id": "gemini_2_5_pro",
+        "name": "Gemini 2.5 Pro",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 1000000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "gemini",
+          "family": "pro"
+        },
+        "requiresGlyphTokenization": false,
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    },
+    {
+      "ref": {
+        "name": "GPT-5 Codex",
+        "ref": "gpt_5_codex"
+      },
+      "row": {
+        "id": "gpt_5_codex",
+        "name": "GPT-5 Codex",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 400000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "unknown"
+        },
+        "requiresGlyphTokenization": false,
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    },
+    {
+      "ref": {
+        "name": "Mistral Large",
+        "ref": "mistral_large"
+      },
+      "row": {
+        "id": "mistral_large",
+        "name": "Mistral Large",
+        "api": "gitlab-duo-agent",
+        "provider": "gitlab-duo-agent",
+        "baseUrl": "https://gitlab.com",
+        "reasoning": false,
+        "input": [
+          "text"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 200000,
+        "maxTokens": null,
+        "supportsTools": true,
+        "gitlabDuoWorkflowRootNamespaceId": "70",
+        "identity": {
+          "class": "mistral",
+          "family": "mistral"
+        },
+        "requiresGlyphTokenization": false,
+        "supportsComputerUse": false,
+        "omitMaxOutputTokens": true
+      }
+    }
+  ]
+}

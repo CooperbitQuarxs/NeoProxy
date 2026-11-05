@@ -206,6 +206,8 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	case "gitlab-duo":
 		// NeoPi's bundled roster: GitLab Duo has no discovery.
 		models = applyExcludedModels(registry.GitLabDuoModels(), excluded)
+	case "gitlab-duo-agent":
+		models = applyExcludedModels(s.registerNeoPiDiscovered(gitlabDuoAgentDiscovery, a), excluded)
 	case "nous-portal":
 		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
