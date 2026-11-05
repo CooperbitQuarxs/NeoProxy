@@ -60,9 +60,6 @@ type ProviderInfo struct {
 	// at exactly one of them; validation keeps the first that accepts the key.
 	// APIKey.BaseURL is the first region.
 	regions []string
-	// skipModels are model-id prefixes the provider lists but chat clients
-	// cannot use (image, audio, video and embedding SKUs).
-	skipModels []string
 	// upstreamErrors seeds that openai-compatibility entry's error
 	// classification with provider quirks.
 	upstreamErrors []config.RequestScopedErrorRule
@@ -197,11 +194,11 @@ var providerCatalog = []ProviderInfo{
 	{ID: "mistral", Name: "Mistral", Vendor: "Mistral AI", Hue: 70, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.mistral.ai/v1", "32 letters and digits", "https://console.mistral.ai/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "together", Name: "Together AI", Vendor: "Together AI", Hue: 120, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.together.xyz/v1", "tgp_v1_...", "https://api.together.ai/settings/api-keys"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.together.xyz/v1", "sk-...", "https://api.together.xyz/settings/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "fireworks", Name: "Fireworks AI", Vendor: "Fireworks AI", Hue: 15, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.fireworks.ai/inference/v1", "fw_...", "https://fireworks.ai/account/api-keys"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.fireworks.ai/inference/v1", "fw_...", "https://app.fireworks.ai/settings/users/api-keys"), Plans: []ProviderPlan{}},
 	{ID: "cerebras", Name: "Cerebras", Vendor: "Cerebras", Hue: 95, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://api.cerebras.ai/v1", "csk-...", "https://cloud.cerebras.ai/platform/"), Plans: []ProviderPlan{}},
 	{ID: "moonshot", Name: "Moonshot", Vendor: "Moonshot AI", Hue: 340, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.moonshot.ai/v1", "sk-...", "https://platform.moonshot.ai/console/api-keys"), Plans: []ProviderPlan{}},
 	// Z.ai keys and sign-ins both use the GLM Coding Plan endpoint, as NeoPi
@@ -211,12 +208,11 @@ var providerCatalog = []ProviderInfo{
 		APIKey:       openAIKey(zaiauth.CodingPlanBaseURL, "32 hex digits, a dot, then more", "https://z.ai/manage-apikey/apikey-list"),
 		Plans:        zaiPlans},
 	{ID: "nanogpt", Name: "NanoGPT", Vendor: "NanoGPT", Hue: 150, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-nano-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
+		APIKey: openAIKey("https://nano-gpt.com/api/v1", "sk-...", "https://nano-gpt.com/api"), Plans: []ProviderPlan{}},
 	{ID: "alibaba-token-plan", Name: "QwenCloud Token Plan", Vendor: "Qwen", Hue: 267, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey:     openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
-		Plans:      []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
-		regions:    []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL},
-		skipModels: []string{"fun-asr", "happyhorse-", "qwen-audio-", "qwen-image-", "text-embedding-", "wan"}},
+		APIKey:  openAIKey(qwenTokenPlanIntlURL, "sk-sp-... (International or China key)", "https://home.qwencloud.com/billing/subscription/token-plan-individual"),
+		Plans:   []ProviderPlan{{"lite", "Token Plan Lite", 6}, {"essential", "Token Plan Essential", 10}, {"standard", "Token Plan Standard", 18}, {"pro", "Token Plan Pro", 68}},
+		regions: []string{qwenTokenPlanIntlURL, qwenTokenPlanCNURL}},
 	{ID: "opencode-go", Name: "OpenCode Go", Vendor: "OpenCode", Hue: 242, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey:       openAIKey("https://opencode.ai/zen/go/v1", "oc_... (OpenCode Go key)", "https://opencode.ai/auth"),
 		Plans:        []ProviderPlan{{"go", "Go", 10}, {"go-plus", "Go Plus", 40}, {"go-teams", "Go Teams (per member)", 20}},
@@ -237,7 +233,7 @@ var providerCatalog = []ProviderInfo{
 	// (404 "Function ... Not found for account") or that reached end of life
 	// (410 Gone). Those concern the requested model only, never the whole key.
 	{ID: "nvidia", Name: "NVIDIA NIM", Vendor: "NVIDIA", Hue: 135, Chroma: providerChroma, Methods: []string{"apiKey"},
-		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://build.nvidia.com/settings/api-keys"), Plans: []ProviderPlan{},
+		APIKey: openAIKey("https://integrate.api.nvidia.com/v1", "nvapi-...", "https://org.ngc.nvidia.com/setup/personal-keys"), Plans: []ProviderPlan{},
 		upstreamErrors: []config.RequestScopedErrorRule{
 			{Status: 404, Match: []string{"Not Found", "not found"}, Action: "stop"},
 			{Status: 410, Match: []string{"Gone", "end of life"}, Action: "stop"},

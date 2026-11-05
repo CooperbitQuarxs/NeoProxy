@@ -96,6 +96,14 @@ type NeoPiCompletionsCompat struct {
 	SyntheticReasoningContentFallback            string                  `json:"syntheticReasoningContentFallback,omitempty"`
 	PromptCacheSessionHeader                     string                  `json:"promptCacheSessionHeader,omitempty"`
 	SessionHeader                                string                  `json:"sessionHeader,omitempty"`
+	KimiAPIFormat                                string                  `json:"kimiApiFormat,omitempty"`
+	PromptCacheBreakpointTTL                     string                  `json:"promptCacheBreakpointTtl,omitempty"`
+	StreamRevision                               string                  `json:"streamRevision,omitempty"`
+	UnsupportedSamplingParams                    []string                `json:"unsupportedSamplingParams,omitempty"`
+	TrustExplicitThinkingOnly                    *bool                   `json:"trustExplicitThinkingOnly,omitempty"`
+	SupportsPromptCacheBreakpoints               *bool                   `json:"supportsPromptCacheBreakpoints,omitempty"`
+	StripThinkingHistory                         *bool                   `json:"stripThinkingHistory,omitempty"`
+	OfficialEndpoint                             *bool                   `json:"officialEndpoint,omitempty"`
 	ExtraBody                                    map[string]any          `json:"extraBody,omitempty"`
 	StreamIdleTimeoutMs                          int                     `json:"streamIdleTimeoutMs,omitempty"`
 	StreamFirstEventTimeoutMs                    *int                    `json:"streamFirstEventTimeoutMs,omitempty"`
@@ -114,6 +122,9 @@ type NeoPiCompletionsCompat struct {
 	SupportsNamedToolChoice                      bool                    `json:"supportsNamedToolChoice"`
 	SupportsMultipleSystemMessages               bool                    `json:"supportsMultipleSystemMessages"`
 	SupportsPromptCacheKey                       bool                    `json:"supportsPromptCacheKey"`
+	IncludeEncryptedReasoning                    bool                    `json:"includeEncryptedReasoning"`
+	FilterReasoningHistory                       bool                    `json:"filterReasoningHistory"`
+	RetryWithoutStrictOnGrammarError             bool                    `json:"retryWithoutStrictOnGrammarError"`
 	OmitReasoningEffort                          bool                    `json:"omitReasoningEffort"`
 	DisableReasoningOnForcedToolChoice           bool                    `json:"disableReasoningOnForcedToolChoice"`
 	DisableReasoningOnToolChoice                 bool                    `json:"disableReasoningOnToolChoice"`
@@ -172,6 +183,23 @@ func (c *NeoPiCompletionsCompat) Clone() *NeoPiCompletionsCompat {
 	if c.StreamFirstEventTimeoutMs != nil {
 		timeout := *c.StreamFirstEventTimeoutMs
 		out.StreamFirstEventTimeoutMs = &timeout
+	}
+	out.UnsupportedSamplingParams = slices.Clone(c.UnsupportedSamplingParams)
+	if c.TrustExplicitThinkingOnly != nil {
+		value := *c.TrustExplicitThinkingOnly
+		out.TrustExplicitThinkingOnly = &value
+	}
+	if c.SupportsPromptCacheBreakpoints != nil {
+		value := *c.SupportsPromptCacheBreakpoints
+		out.SupportsPromptCacheBreakpoints = &value
+	}
+	if c.StripThinkingHistory != nil {
+		value := *c.StripThinkingHistory
+		out.StripThinkingHistory = &value
+	}
+	if c.OfficialEndpoint != nil {
+		value := *c.OfficialEndpoint
+		out.OfficialEndpoint = &value
 	}
 	out.ReasoningEffortMap = maps.Clone(c.ReasoningEffortMap)
 	out.ExtraBody = maps.Clone(c.ExtraBody)

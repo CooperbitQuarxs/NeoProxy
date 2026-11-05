@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
@@ -117,6 +118,11 @@ func quotaProvider(a *coreauth.Auth) string {
 	if zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
 		return "zai"
 	}
+	// NeoPi meters a QwenCloud Token Plan key through the console cookie stored
+	// beside it; without one NeoPi shows no usage either.
+	if tokenPlanCookie(a) != "" {
+		return "alibaba-token-plan"
+	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
@@ -138,9 +144,23 @@ func quotaProvider(a *coreauth.Auth) string {
 	return ""
 }
 
+// tokenPlanCookie is the console Cookie header of a QwenCloud Token Plan key,
+// or "" for any other credential.
+func tokenPlanCookie(a *coreauth.Auth) string {
+	if a == nil || catalogProviderID(a.Provider, a.Attributes["compat_name"]) != alibabatokenplan.Provider {
+		return ""
+	}
+	return strings.TrimSpace(a.Attributes["console_cookie"])
+}
+
 func quotaAccessToken(a *coreauth.Auth) string {
 	if a == nil {
 		return ""
+	}
+	// The Token Plan usage report authenticates with the console session, not
+	// the inference key.
+	if cookie := tokenPlanCookie(a); cookie != "" {
+		return cookie
 	}
 	token, _ := a.Metadata["access_token"].(string)
 	if token == "" && zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) {
@@ -294,6 +314,35 @@ func zaiUsageWindows(usage *zaiauth.Usage) []Window {
 	return out
 }
 
+// alibabaTokenPlanUsageWindows adapts NeoPi's Token Plan report the way its
+// ranking strategy reads it: the 5h and 7d credits gate the account, the
+// monthly credits (whose span the console never states) are reported but not
+// known to routing.
+func alibabaTokenPlanUsageWindows(usage *alibabatokenplan.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "7d": "week", "monthly": "month"}
+	for _, limit := range usage.Limits {
+		kind, ok := kinds[limit.WindowID]
+		if !ok {
+			continue
+		}
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() && limit.DurationMs > 0 {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		w := percentWindow(kind, limit.UsedFraction*100, startsAt, limit.ResetsAt)
+		if startsAt.IsZero() {
+			w.StartsAt = 0
+		}
+		w.Known = limit.WindowID != "monthly"
+		out = append(out, w)
+	}
+	return out
+}
+
 // kimiUsageWindows adapts NeoPi's Kimi Code report the way its ranking
 // strategy reads it: the first 5h limit and the first 7d limit gate the
 // account; a limit without a duration spans its window's default. A limit
@@ -426,6 +475,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return xaiUsageWindows(usage), nil
+	case "alibaba-token-plan":
+		usage, err := alibabatokenplan.FetchUsage(ctx, client, token, alibabatokenplan.IsChina(a.Attributes["base_url"]))
+		if err != nil {
+			return nil, err
+		}
+		return alibabaTokenPlanUsageWindows(usage), nil
 	case "zai":
 		usage, err := zaiauth.FetchUsage(ctx, client, token)
 		if err != nil {

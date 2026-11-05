@@ -1,0 +1,1301 @@
+{
+  "source": "NeoPi OWN alibabaTokenPlanUsageProvider",
+  "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+  "scenarios": [
+    {
+      "name": "intl-flat",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-json-string-data",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "Data": "{\"data\":{\"per5HourPercentage\":25,\"per5HourResetTime\":4102444800000,\"per1WeekPercentage\":\"0.5\",\"per1WeekResetTime\":\"4102444800\",\"per1MonthPercentage\":100,\"per1MonthResetTime\":4102444800000}}"
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-datav2",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "DataV2": {
+              "data": {
+                "per5HourPercentage": 25,
+                "per5HourResetTime": 4102444800000,
+                "per1WeekPercentage": "0.5",
+                "per1WeekResetTime": "4102444800",
+                "per1MonthPercentage": 100,
+                "per1MonthResetTime": 4102444800000
+              }
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-csrf-fallback",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"csrf=csrf-fallback; a=b\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "userId": 4242
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "4242",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "4242"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "4242"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "4242"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "csrf=csrf-fallback; a=b",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "csrf=csrf-fallback; a=b",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fallback",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fallback"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-no-csrf",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"a=b\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "a=b",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "a=b",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-requested-with": "XMLHttpRequest"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-monthly-only",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per1MonthPercentage": "0.75",
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.75,
+            "status": "ok",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-fractions",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 0,
+              "per1WeekPercentage": 1,
+              "per1WeekResetTime": -5,
+              "per1MonthPercentage": -1
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": null,
+            "usedFraction": 0,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": null,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-explicit-base",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\",\"baseUrl\":\"https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "qwencloud-console",
+        "accountId": "acct-1",
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": "acct-1"
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": "acct-1"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "china-flat",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\",\"baseUrl\":\"https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1\"}",
+      "session": {
+        "body": "<html><script>window.ALIYUN_CONSOLE_CONFIG={SEC_TOKEN: \"sec-cn\", other: 1}</script></html>"
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "bailian-console",
+        "accountId": null,
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": null
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": null
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": null
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://bailian.console.aliyun.com/cn-beijing?tab=plan",
+          "headers": {
+            "accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "bailian.console.aliyun.com",
+            "referer": "https://bailian.console.aliyun.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://bailian-cs.console.aliyun.com/data/api.json?action=BroadScopeAspnGateway&product=sfm_bailian&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "763",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "bailian-cs.console.aliyun.com",
+            "origin": "https://bailian.console.aliyun.com",
+            "referer": "https://bailian.console.aliyun.com/cn-beijing?tab=plan",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=BroadScopeAspnGateway&region=cn-beijing&sec_token=sec-cn&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22feTraceId%22%3A%22769b9ee1-ee59-49d2-9b2a-c8d6650a47b5%22%2C%22feURL%22%3A%22https%3A%2F%2Fbailian.console.aliyun.com%2Fcn-beijing%3Ftab%3Dplan%23%2Fefm%2Fsubscription%2Ftoken-plan%2Fpersonal%22%2C%22protocol%22%3A%22V2%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22productCode%22%3A%22p_efm%22%2C%22switchUserType%22%3A3%2C%22domain%22%3A%22bailian.console.aliyun.com%22%2C%22consoleSite%22%3A%22BAILIAN_ALIYUN%22%2C%22userNickName%22%3A%22%22%2C%22userPrincipalName%22%3A%22%22%2C%22xsp_lang%22%3A%22zh-CN%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "china-json-string-data",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\",\"baseUrl\":\"https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1\"}",
+      "session": {
+        "body": "<html><script>window.ALIYUN_CONSOLE_CONFIG={SEC_TOKEN: \"sec-cn\", other: 1}</script></html>"
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "Data": "{\"DataV2\":{\"data\":{\"per5HourPercentage\":25,\"per5HourResetTime\":4102444800000,\"per1WeekPercentage\":\"0.5\",\"per1WeekResetTime\":\"4102444800\",\"per1MonthPercentage\":100,\"per1MonthResetTime\":4102444800000}}}"
+          }
+        }
+      },
+      "supported": true,
+      "report": {
+        "source": "bailian-console",
+        "accountId": null,
+        "limits": [
+          {
+            "id": "credits:5h",
+            "windowId": "5h",
+            "durationMs": 18000000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.25,
+            "status": "ok",
+            "accountId": null
+          },
+          {
+            "id": "credits:7d",
+            "windowId": "7d",
+            "durationMs": 604800000,
+            "resetsAt": 4102444800000,
+            "usedFraction": 0.5,
+            "status": "ok",
+            "accountId": null
+          },
+          {
+            "id": "credits:monthly",
+            "windowId": "monthly",
+            "durationMs": null,
+            "resetsAt": 4102444800000,
+            "usedFraction": 1,
+            "status": "exhausted",
+            "accountId": null
+          }
+        ]
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://bailian.console.aliyun.com/cn-beijing?tab=plan",
+          "headers": {
+            "accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "bailian.console.aliyun.com",
+            "referer": "https://bailian.console.aliyun.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://bailian-cs.console.aliyun.com/data/api.json?action=BroadScopeAspnGateway&product=sfm_bailian&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "763",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "bailian-cs.console.aliyun.com",
+            "origin": "https://bailian.console.aliyun.com",
+            "referer": "https://bailian.console.aliyun.com/cn-beijing?tab=plan",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=BroadScopeAspnGateway&region=cn-beijing&sec_token=sec-cn&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22feTraceId%22%3A%2215e45ee5-6ffc-47aa-9bd3-94442d0a5241%22%2C%22feURL%22%3A%22https%3A%2F%2Fbailian.console.aliyun.com%2Fcn-beijing%3Ftab%3Dplan%23%2Fefm%2Fsubscription%2Ftoken-plan%2Fpersonal%22%2C%22protocol%22%3A%22V2%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22productCode%22%3A%22p_efm%22%2C%22switchUserType%22%3A3%2C%22domain%22%3A%22bailian.console.aliyun.com%22%2C%22consoleSite%22%3A%22BAILIAN_ALIYUN%22%2C%22userNickName%22%3A%22%22%2C%22userPrincipalName%22%3A%22%22%2C%22xsp_lang%22%3A%22zh-CN%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "china-no-sec-token",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\",\"baseUrl\":\"https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1\"}",
+      "session": {
+        "body": "<html></html>"
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://bailian.console.aliyun.com/cn-beijing?tab=plan",
+          "headers": {
+            "accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "bailian.console.aliyun.com",
+            "referer": "https://bailian.console.aliyun.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "intl-session-http-error",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "status": 403,
+        "body": {}
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "intl-session-invalid",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {}
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {
+              "per5HourPercentage": 25,
+              "per5HourResetTime": 4102444800000,
+              "per1WeekPercentage": "0.5",
+              "per1WeekResetTime": "4102444800",
+              "per1MonthPercentage": 100,
+              "per1MonthResetTime": 4102444800000
+            }
+          }
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        }
+      ]
+    },
+    {
+      "name": "intl-usage-http-error",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "status": 500,
+        "body": {}
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-usage-unsuccessful",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": false,
+          "data": {}
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-usage-rejected",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": false,
+            "errorCode": "Forbidden.Login"
+          }
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "intl-usage-empty",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\",\"cookie\":\"cna=abc; login_aliyunid_csrf=csrf-fixture; other=1\"}",
+      "session": {
+        "body": {
+          "data": {
+            "secToken": "sec-intl",
+            "accountId": "acct-1"
+          }
+        }
+      },
+      "usage": {
+        "body": {
+          "successResponse": true,
+          "data": {
+            "success": true,
+            "data": {}
+          }
+        }
+      },
+      "supported": true,
+      "report": null,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://home.qwencloud.com/tool/user/info.json",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+          },
+          "body": ""
+        },
+        {
+          "method": "POST",
+          "url": "https://cs-data.qwencloud.com/data/api.json?product=sfm_bailian&action=IntlBroadScopeAspnGateway&api=zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage",
+          "headers": {
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "468",
+            "content-type": "application/x-www-form-urlencoded",
+            "cookie": "cna=abc; login_aliyunid_csrf=csrf-fixture; other=1",
+            "host": "cs-data.qwencloud.com",
+            "origin": "https://home.qwencloud.com",
+            "referer": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "x-csrf-token": "csrf-fixture",
+            "x-requested-with": "XMLHttpRequest",
+            "x-xsrf-token": "csrf-fixture"
+          },
+          "body": "product=sfm_bailian&action=IntlBroadScopeAspnGateway&region=ap-southeast-1&sec_token=sec-intl&params=%7B%22Api%22%3A%22zeldaHttp.apikeyMgr.%2Ftokenplan%2Fpersonal%2Fapi%2Fv2%2Fusage%22%2C%22Data%22%3A%7B%22cornerstoneParam%22%3A%7B%22domain%22%3A%22home.qwencloud.com%22%2C%22consoleSite%22%3A%22QWENCLOUD%22%2C%22console%22%3A%22ONE_CONSOLE%22%2C%22xsp_lang%22%3A%22en-US%22%2C%22protocol%22%3A%22V2%22%2C%22productCode%22%3A%22p_efm%22%7D%7D%2C%22V%22%3A%221.0%22%7D"
+        }
+      ]
+    },
+    {
+      "name": "no-cookie-bare-key",
+      "credential": "sk-sp-fixture0123456789",
+      "session": null,
+      "usage": null,
+      "supported": false,
+      "report": null,
+      "requests": []
+    },
+    {
+      "name": "no-cookie-bundle",
+      "credential": "{\"token\":\"sk-sp-fixture0123456789\"}",
+      "session": null,
+      "usage": null,
+      "supported": false,
+      "report": null,
+      "requests": []
+    }
+  ]
+}

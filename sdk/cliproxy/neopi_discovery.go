@@ -23,6 +23,9 @@ type neoPiDiscovery struct {
 	ttl, retry, timeout time.Duration
 	bundled             func() []*ModelInfo
 	fetch               func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
+	// match reports whether an account is served by this discovery; the zero
+	// value matches the accounts whose provider id is d.provider.
+	match func(*coreauth.Auth) bool
 
 	mu      sync.Mutex
 	entries map[string]*neoPiDiscoveryEntry
@@ -50,6 +53,14 @@ var (
 
 	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery}
 )
+
+// owns reports whether a is served by d.
+func (d *neoPiDiscovery) owns(a *coreauth.Auth) bool {
+	if d.match != nil {
+		return d.match(a)
+	}
+	return a.Provider == d.provider
+}
 
 // models returns the models to register for a and whether its cached listing
 // needs a (re)fetch.
@@ -129,7 +140,7 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 		if s.coreManager == nil {
 			return
 		}
-		if latest, ok := s.coreManager.GetByID(snapshot.ID); ok && latest != nil && !latest.Disabled && latest.Provider == d.provider {
+		if latest, ok := s.coreManager.GetByID(snapshot.ID); ok && latest != nil && !latest.Disabled && d.owns(latest) {
 			s.refreshModelRegistrationForAuth(latest)
 		}
 	}()
@@ -164,7 +175,7 @@ func (s *Service) runNeoPiDiscovery(ctx context.Context) {
 				continue
 			}
 			for _, d := range neoPiDiscoveries {
-				if a.Provider != d.provider {
+				if !d.owns(a) {
 					continue
 				}
 				if _, stale := d.models(a, now); stale {

@@ -303,7 +303,7 @@ func (e *NeoPiCompletionsExecutor) open(ctx context.Context, auth *cliproxyauth.
 			if attempt+1 >= maxAttempts || ctx.Err() != nil {
 				return nil, err
 			}
-			if waitErr := e.wait(ctx, e.retryDelay(attempt, 0, nil)); waitErr != nil {
+			if waitErr := e.wait(ctx, neoPiCompletionsDefaultRetryDelay(attempt)); waitErr != nil {
 				return nil, err
 			}
 			continue
@@ -339,11 +339,14 @@ func (e *NeoPiCompletionsExecutor) open(ctx context.Context, auth *cliproxyauth.
 		}
 		// NeoPi's transport honours a Retry-After hint up to a minute; a longer
 		// one is surfaced instead of slept on.
-		hint, ok := neoPiRetryAfter(response.Header, e.now())
+		hint, ok := neoPiCompletionsRetryHint(response.Header, data, e.now())
 		if ok && hint > time.Minute {
 			return nil, &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 		}
-		if waitErr := e.wait(ctx, e.retryDelay(attempt, hint, response.Header)); waitErr != nil {
+		if !ok {
+			hint = neoPiCompletionsDefaultRetryDelay(attempt)
+		}
+		if waitErr := e.wait(ctx, hint); waitErr != nil {
 			return nil, &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 		}
 	}
@@ -354,12 +357,8 @@ func neoPiRetryableStatus(status int) bool {
 	return status >= 500 || status == http.StatusRequestTimeout || status == http.StatusTooManyRequests
 }
 
-// retryDelay is fetchWithRetry's schedule: the server hint when there is one,
-// else 500ms doubling per attempt, capped at a minute.
-func (e *NeoPiCompletionsExecutor) retryDelay(attempt int, hint time.Duration, _ http.Header) time.Duration {
-	if hint > 0 {
-		return min(hint, time.Minute)
-	}
+// neoPiCompletionsDefaultRetryDelay is fetchWithRetry's fallback schedule.
+func neoPiCompletionsDefaultRetryDelay(attempt int) time.Duration {
 	return time.Duration(math.Min(float64(500*time.Millisecond)*math.Pow(2, float64(attempt)), float64(time.Minute)))
 }
 

@@ -87,6 +87,12 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	if ctx.Err() != nil {
 		return true
 	}
+	// NeoPi's Chat Completions providers resolve their roster by NeoPi's own
+	// discovery and register under the account's runtime key, which differs
+	// from the catalog provider for an OpenAI-compatibility account.
+	if runtimeKey, catalog, ok := neoPiCompletionsIdentity(a); ok {
+		return s.registerNeoPiCompletionsModels(ctx, cfg, a, fence, provider, authKind, runtimeKey, catalog, excluded)
+	}
 	published := true
 	var models []*ModelInfo
 	switch provider {

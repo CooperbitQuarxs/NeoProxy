@@ -233,6 +233,9 @@ type APIKey struct {
 	// outside the credential; empty means the catalog's fixed address.
 	BaseURL string
 	Label   string
+	// Cookie is the QwenCloud Token Plan console Cookie header NeoPi stores
+	// beside the key; it only enables quota reporting.
+	Cookie string
 }
 
 // BuildAPIKey returns the catalog entry for an importable API-key credential.
@@ -244,13 +247,14 @@ func BuildAPIKey(c Credential, now time.Time) (APIKey, error) {
 	if r.kind != KindAPIKey {
 		return APIKey{}, fmt.Errorf("%w: this is a subscription sign-in, not an API key", ErrNotImportable)
 	}
-	baseURL := c.baseURL
+	baseURL, cookie := c.baseURL, ""
 	if c.Provider == "alibaba-token-plan" {
-		// The region the key belongs to; NeoProxy tries it first.
+		// The region the key belongs to (NeoProxy tries it first) and the
+		// console cookie behind NeoPi's quota reporting.
 		key, _ := parseTokenPlanKey(str(c.data, "key"))
-		baseURL = key.baseURL
+		baseURL, cookie = key.baseURL, key.cookie
 	}
-	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r)}, nil
+	return APIKey{Provider: r.target, APIKey: apiKeyValue(c), BaseURL: baseURL, Label: label(c, r), Cookie: cookie}, nil
 }
 
 // AuthFile is an imported subscription in the engine's native auth-file format.
