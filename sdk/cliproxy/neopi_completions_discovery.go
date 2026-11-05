@@ -30,7 +30,7 @@ var neoPiCompletionsProviders = []string{
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception",
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
-	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
+	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -294,6 +294,10 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiFireworksModels(ctx, cfg, auth, key, base)
 		case "cline-pass":
 			return fetchNeoPiClinePassModels(ctx, cfg, auth, base)
+		case "xiaomi":
+			if neoPiIsXiaomiTokenPlanKey(key) {
+				return fetchNeoPiXiaomiTokenPlanModels(ctx, cfg, auth, key)
+			}
 		}
 		endpoint := base + "/models"
 		if query := registry.NeoPiCompletionsListingQuery(provider); len(query) > 0 {
@@ -309,6 +313,32 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		}
 		return models, nil
 	}
+}
+
+// neoPiIsXiaomiTokenPlanKey is isXiaomiTokenPlanKey.
+func neoPiIsXiaomiTokenPlanKey(key string) bool {
+	return strings.HasPrefix(key, "tp-") || strings.HasPrefix(key, "ttp-")
+}
+
+// fetchNeoPiXiaomiTokenPlanModels is xiaomiModelManagerOptions for a Token
+// Plan key on the standard provider: the regional clusters are listed in
+// NeoPi's SGP, AMS, CN order and the first that answers with a usable listing
+// serves the roster from its own host. The account's base URL is ignored, as
+// NeoPi pins Token Plan keys to the clusters.
+func fetchNeoPiXiaomiTokenPlanModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key string) ([]*ModelInfo, error) {
+	var lastErr error
+	for _, region := range []string{"xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn"} {
+		base := strings.TrimSuffix(registry.NeoPiCompletionsListingBase(region), "/")
+		body, err := neoPiDiscoveryGet(ctx, cfg, auth, "xiaomi", base+"/models", key)
+		if err == nil {
+			var models []*ModelInfo
+			if models, err = registry.NeoPiCompletionsListing("xiaomi", base, body); err == nil {
+				return models, nil
+			}
+		}
+		lastErr = fmt.Errorf("xiaomi models: %s: %w", base, err)
+	}
+	return nil, lastErr
 }
 
 // fetchNeoPiClinePassModels is fetchClinePassModels: Cline's recommended-models
