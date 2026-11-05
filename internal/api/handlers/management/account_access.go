@@ -126,14 +126,14 @@ func appendCompatKey(cfg *config.Config, name, base, key string, k coreauth.Acco
 		if strings.TrimRight(strings.TrimSpace(entry.BaseURL), "/") != base || key == "" || len(entry.APIKeyEntries) == 0 {
 			return fmt.Errorf("%w: openai-compatibility entry %q already exists", coreauth.ErrAccountKeyConflict, name)
 		}
-		entry.APIKeyEntries = append(entry.APIKeyEntries, config.OpenAICompatibilityAPIKey{APIKey: key})
+		entry.APIKeyEntries = append(entry.APIKeyEntries, config.OpenAICompatibilityAPIKey{APIKey: key, ConsoleCookie: k.ConsoleCookie})
 		break
 	}
 	if entry == nil {
 		cfg.OpenAICompatibility = append(cfg.OpenAICompatibility, config.OpenAICompatibility{Name: name, BaseURL: base, Models: []config.OpenAICompatibilityModel{}})
 		entry = &cfg.OpenAICompatibility[len(cfg.OpenAICompatibility)-1]
 		if key != "" {
-			entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key}}
+			entry.APIKeyEntries = []config.OpenAICompatibilityAPIKey{{APIKey: key, ConsoleCookie: k.ConsoleCookie}}
 		}
 	}
 	if len(entry.RequestScopedErrors) == 0 && len(k.RequestScopedErrors) > 0 {

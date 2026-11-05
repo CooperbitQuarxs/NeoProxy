@@ -1,10 +1,15 @@
 package neopidialect
 
-import "strings"
+import (
+	"strings"
 
-// scanKind enumerates the in-band scan events of NeoPi's InbandScanEvent that the
-// thinking scanner produces. impliedThinkingEnd is omitted: it is only emitted
-// when the scanner runs with impliedOpen, which StreamMarkupHealing never sets.
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
+)
+
+// scanKind enumerates the in-band scan events of NeoPi's InbandScanEvent the
+// healing scanners produce. impliedThinkingEnd is omitted: it is only emitted
+// when the scanner runs with impliedOpen, which StreamMarkupHealing never
+// sets; toolArgDelta is omitted because healing never reads it.
 type scanKind int
 
 const (
@@ -12,13 +17,18 @@ const (
 	scanThinkingStart
 	scanThinkingDelta
 	scanThinkingEnd
+	scanToolStart
+	scanToolEnd
 )
 
 // scanEvent is one scanner event. text carries the text for scanText and
 // scanThinkingDelta; for scanThinkingEnd it carries the whole block's thinking.
+// name and args describe a tool call (args only on scanToolEnd).
 type scanEvent struct {
 	kind scanKind
 	text string
+	name string
+	args *cursorwire.JSONObject
 }
 
 type reasoningTag struct {

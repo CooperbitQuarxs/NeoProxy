@@ -947,6 +947,11 @@ type OpenAICompatibilityAPIKey struct {
 
 	// Disabled keeps this key configured but excludes it from routing.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+
+	// ConsoleCookie is the provider console's Cookie header, which only
+	// QwenCloud Token Plan quota reporting reads (NeoPi's credential bundle
+	// `cookie`). It is never sent with inference requests.
+	ConsoleCookie string `yaml:"console-cookie,omitempty" json:"console-cookie,omitempty"`
 }
 
 // OpenAICompatibilityModel represents a model configuration for OpenAI compatibility,

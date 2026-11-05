@@ -66,9 +66,8 @@ func TestTokenPlanKeyFindsItsRegionAndSkipsNonChatModels(t *testing.T) {
 		return nil
 	}))
 
-	// Pasted in the dashboard: the China key is rejected by the first
-	// (International) region and accepted by the second.
-	item := itemOf(t, f.json("admin", "POST", "/v8/neo/access/api-key", `{"provider":"alibaba-token-plan","apiKey":"`+tokenPlanChinaKey+`","planId":"lite"}`, 201))
+	// NeoPi probes only the selected China region.
+	item := itemOf(t, f.json("admin", "POST", "/v8/neo/access/api-key", `{"provider":"alibaba-token-plan","apiKey":"`+tokenPlanChinaKey+`","baseUrl":"`+china.URL+`/v1","planId":"lite"}`, 201))
 	if item.Provider != "alibaba-token-plan" || item.Kind != "apiKey" || item.Plan.MonthlyUSD != 6 {
 		t.Fatalf("token plan item: %+v", item)
 	}
@@ -76,19 +75,21 @@ func TestTokenPlanKeyFindsItsRegionAndSkipsNonChatModels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"name: alibaba-token-plan", "base-url: " + china.URL + "/v1", "name: qwen3.7-plus", "name: glm-5.2", "name: deepseek-v4-pro"} {
+	// NeoPi's sign-in keeps no model list with the key; the account serves
+	// NeoPi's catalog and discovery.
+	for _, want := range []string{"name: alibaba-token-plan", "base-url: " + china.URL + "/v1"} {
 		if !strings.Contains(string(cfg), want) {
 			t.Fatalf("engine config lacks %q:\n%s", want, cfg)
 		}
 	}
-	for _, unwanted := range []string{"wan2.7-image", "qwen-image", "qwen-audio", "base-url: " + intl.URL} {
+	for _, unwanted := range []string{"wan2.7-image", "qwen-image", "qwen-audio", "name: qwen3.7-plus", "base-url: " + intl.URL} {
 		if strings.Contains(string(cfg), unwanted) {
 			t.Fatalf("engine config has %q:\n%s", unwanted, cfg)
 		}
 	}
 
 	w := f.do("admin", "POST", "/v8/neo/access/api-key", []byte(`{"provider":"alibaba-token-plan","apiKey":"sk-sp-synthetic-wrong-0033"}`), "")
-	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "every region") {
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "rejected this key") {
 		t.Fatalf("key rejected everywhere: %d %s", w.Code, w.Body.String())
 	}
 }
@@ -96,6 +97,7 @@ func TestTokenPlanKeyFindsItsRegionAndSkipsNonChatModels(t *testing.T) {
 func TestTokenPlanImportFromNeoPiBundle(t *testing.T) {
 	f := newAccessFixture(t)
 	intl, china := newTokenPlanRegion(t, tokenPlanIntlKey), newTokenPlanRegion(t, tokenPlanChinaKey)
+	custom := newTokenPlanRegion(t, "sk-sp-synthetic-custom-0044")
 	t.Cleanup(neopool.SetCatalogRegionsForTest(func(id string) []string {
 		if id == "alibaba-token-plan" {
 			return []string{intl.URL + "/v1", china.URL + "/v1"}
@@ -108,7 +110,7 @@ func TestTokenPlanImportFromNeoPiBundle(t *testing.T) {
 	}
 	profile, _ := neoPiVault(t,
 		[3]any{"alibaba-token-plan", "api_key", bundle(tokenPlanChinaKey, china.URL+"/v1")},
-		[3]any{"alibaba-token-plan", "api_key", bundle("sk-sp-synthetic-elsewhere-0044", "https://token-plan.example.test/compatible-mode/v1")},
+		[3]any{"alibaba-token-plan", "api_key", bundle("sk-sp-synthetic-custom-0044", custom.URL+"/v1")},
 	)
 	raw := f.json("admin", "GET", "/v8/neo/access/import/neopi?profile="+profile, "", 200)
 	assertNoSecrets(t, raw, tokenPlanChinaKey, "synthetic-cookie-secret")
@@ -133,7 +135,7 @@ func TestTokenPlanImportFromNeoPiBundle(t *testing.T) {
 	if err := json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Items) != 1 || result.Items[0].Provider != "alibaba-token-plan" || len(result.Failed) != 1 || result.Failed[0].CredentialID != "2" || !strings.Contains(result.Failed[0].Error, "regional endpoints") {
+	if len(result.Items) != 2 || result.Items[0].Provider != "alibaba-token-plan" || len(result.Failed) != 0 {
 		t.Fatalf("import result = %s", raw)
 	}
 	// The bundle's region is tried first, so the key never reaches another region.
@@ -144,7 +146,9 @@ func TestTokenPlanImportFromNeoPiBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(cfg), "api-key: "+tokenPlanChinaKey) || strings.Contains(string(cfg), "synthetic-cookie-secret") || strings.Contains(string(cfg), `"token"`) {
+	// The bare token is the inference key; the console cookie is stored beside
+	// it for quota reporting, as in NeoPi's credential bundle.
+	if !strings.Contains(string(cfg), "api-key: "+tokenPlanChinaKey) || !strings.Contains(string(cfg), "console-cookie: "+tokenPlanCookieRaw) || strings.Contains(string(cfg), `"token"`) {
 		t.Fatalf("engine config does not hold the bare token:\n%s", cfg)
 	}
 }
