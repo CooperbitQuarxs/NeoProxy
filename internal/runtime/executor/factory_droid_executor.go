@@ -418,20 +418,15 @@ func factoryDroidDecodeToolNames(line []byte, byWire map[string]string) []byte {
 	return append([]byte("data: "), payload...)
 }
 
-// factoryDroidApplyIdentity puts droid's identity headers on a request: NeoPi
-// spreads the caller's headers over the identity set, so the account's
-// configured headers win where they name the same header.
+// factoryDroidApplyIdentity puts droid's identity headers on a request, then
+// the account's configured headers over them: NeoPi spreads the caller's
+// whole header map over the identity set.
 func factoryDroidApplyIdentity(ctx context.Context, auth *cliproxyauth.Auth, incoming, headers, identity http.Header) {
-	configured := make(http.Header)
-	if auth != nil {
-		util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, incoming)
-	}
 	for name, values := range identity {
-		if value := configured.Get(name); value != "" {
-			headers.Set(name, value)
-			continue
-		}
 		headers[name] = values
+	}
+	if auth != nil {
+		util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), auth.Attributes, incoming)
 	}
 }
 

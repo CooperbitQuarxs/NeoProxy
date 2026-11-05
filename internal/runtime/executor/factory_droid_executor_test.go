@@ -293,6 +293,55 @@ func TestFactoryDroidGeminiRejectionKeepsRetryAfter(t *testing.T) {
 	}
 }
 
+// Every Factory wire carries the account's configured headers over droid's
+// identity, as NeoPi spreads the caller's headers over the identity set: a
+// custom gateway's own key reaches the upstream on each of them.
+func TestFactoryDroidSendsConfiguredHeaders(t *testing.T) {
+	for _, tc := range []struct {
+		name, model, payload string
+		format               sdktranslator.Format
+		opts                 func([]byte) cliproxyexecutor.Options
+	}{
+		{name: "messages", model: "claude-opus-5-5", format: sdktranslator.FormatClaude, payload: `{"model":"claude-opus-5-5","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}`},
+		{name: "completions", model: "inkling", format: sdktranslator.FormatOpenAI, payload: `{"model":"inkling","messages":[{"role":"user","content":"hi"}]}`},
+		{name: "responses", model: "gpt-6-astra", format: sdktranslator.FormatOpenAIResponse, payload: `{"model":"gpt-6-astra","input":"hi"}`},
+		{name: "gemini", model: "garnet-07-15", format: sdktranslator.FormatGemini, payload: `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`},
+		{name: "image", model: "gpt-image-2.5-sunburst", payload: `{"model":"gpt-image-2.5-sunburst","prompt":"A red square."}`,
+			opts: func(payload []byte) cliproxyexecutor.Options {
+				return factoryDroidImageOptions("/v1/images/generations", "session", payload)
+			}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var got http.Header
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.Header.Clone()
+				w.WriteHeader(http.StatusBadRequest)
+			}))
+			defer server.Close()
+			entry := registry.FactoryDroidModelFor(tc.model)
+			if entry == nil {
+				t.Fatalf("no registry model %s", tc.model)
+			}
+			row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
+			row.BaseURL = server.URL + "/api"
+			auth := &cliproxyauth.Auth{ID: "factory-droid-gateway", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"},
+				Attributes: map[string]string{"header:X-Custom-Gateway-Key": "required-key"}}
+			req := cliproxyexecutor.Request{Model: tc.model, Payload: []byte(tc.payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
+			opts := cliproxyexecutor.Options{SourceFormat: tc.format, OriginalRequest: []byte(tc.payload)}
+			if tc.opts != nil {
+				opts = tc.opts([]byte(tc.payload))
+			}
+			_, _ = NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, opts)
+			if got == nil {
+				t.Fatal("executor sent no request")
+			}
+			if key := got.Get("X-Custom-Gateway-Key"); key != "required-key" {
+				t.Errorf("X-Custom-Gateway-Key = %q, want the configured required-key", key)
+			}
+		})
+	}
+}
+
 // A region rejection explains itself without excluding the model, keeping
 // the upstream status.
 func TestFactoryDroidRewritesRegionRejection(t *testing.T) {
