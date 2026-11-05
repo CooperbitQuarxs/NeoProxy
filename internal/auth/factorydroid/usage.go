@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/tidwall/gjson"
 )
@@ -178,7 +179,7 @@ func FetchUsage(ctx context.Context, client *http.Client, credential *Credential
 	if credential == nil || strings.TrimSpace(credential.AccessToken) == "" {
 		return nil, errors.New("factory-droid usage: account has no access token")
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, APIBaseURL(credential.Region)+"/api/billing/limits", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, registry.FactoryDroidAPIBaseURL(credential.Region)+"/api/billing/limits", nil)
 	if err != nil {
 		return nil, err
 	}

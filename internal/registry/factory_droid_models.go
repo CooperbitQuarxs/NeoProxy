@@ -194,12 +194,19 @@ type FactoryDroidScope struct {
 	OrgID           string
 }
 
-// FactoryDroidWireBaseURL is factoryDroidWireBaseUrl.
-func FactoryDroidWireBaseURL(wire, region string) string {
-	host := "https://api.factory.ai"
+// FactoryDroidAPIBaseURL is factoryDroidApiBaseUrl: EU accounts are served
+// from the EU region.
+func FactoryDroidAPIBaseURL(region string) string {
 	if region == "eu" {
-		host = "https://api.eu.factory.ai"
+		return "https://api.eu.factory.ai"
 	}
+	return "https://api.factory.ai"
+}
+
+// FactoryDroidWireBaseURL is factoryDroidWireBaseUrl: the per-wire base for
+// an account region; the stream layer appends the path suffix.
+func FactoryDroidWireBaseURL(wire, region string) string {
+	host := FactoryDroidAPIBaseURL(region)
 	switch wire {
 	case "anthropic-messages":
 		return host + "/api/llm/a"
@@ -315,7 +322,7 @@ func factoryDroidAvailable(model *FactoryDroidModel, settings FactoryDroidSettin
 // FactoryDroidSeedModels is factoryDroidSeedModels: the registry narrowed by
 // the availability rule with nothing known about the account yet.
 func FactoryDroidSeedModels(scope FactoryDroidScope) []*NeoPiModel {
-	region := factoryDroidInferenceRegion(scope)
+	region := FactoryDroidInferenceRegion(scope.Region, scope.InferenceRegion)
 	out := []*NeoPiModel{}
 	for i := range factoryDroidRegistry() {
 		model := &factoryDroidRegistry()[i]
@@ -331,7 +338,7 @@ func FactoryDroidSeedModels(scope FactoryDroidScope) []*NeoPiModel {
 // registry narrowed by the account's gates and policy, each row on the live
 // rotation intersected with registry eligibility and explicit blocks.
 func FactoryDroidDiscoveredModels(scope FactoryDroidScope, settings FactoryDroidSettings) []*NeoPiModel {
-	region := factoryDroidInferenceRegion(scope)
+	region := FactoryDroidInferenceRegion(scope.Region, scope.InferenceRegion)
 	out := []*NeoPiModel{}
 	for i := range factoryDroidRegistry() {
 		model := &factoryDroidRegistry()[i]
@@ -397,12 +404,13 @@ func FactoryDroidModelInfo(row *NeoPiModel) *ModelInfo {
 	return info
 }
 
-// factoryDroidInferenceRegion is resolveFactoryDroidInferenceRegion.
-func factoryDroidInferenceRegion(scope FactoryDroidScope) string {
-	if scope.InferenceRegion != "" {
-		return scope.InferenceRegion
+// FactoryDroidInferenceRegion is resolveFactoryDroidInferenceRegion: an
+// explicit scope wins, else EU residency infers EU, else global.
+func FactoryDroidInferenceRegion(region, inferenceRegion string) string {
+	if inferenceRegion != "" {
+		return inferenceRegion
 	}
-	if scope.Region == "eu" {
+	if region == "eu" {
 		return "eu"
 	}
 	return "global"

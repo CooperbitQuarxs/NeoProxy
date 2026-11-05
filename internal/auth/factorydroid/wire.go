@@ -24,42 +24,6 @@ const (
 	WireGoogle      Wire = "google-generate"
 )
 
-// InferenceRegion resolves an account's inference region
-// (resolveFactoryDroidInferenceRegion): an explicit scope wins, else EU
-// residency infers EU, else global.
-func InferenceRegion(region, inferenceRegion string) string {
-	if inferenceRegion != "" {
-		return inferenceRegion
-	}
-	if region == "eu" {
-		return "eu"
-	}
-	return "global"
-}
-
-// APIBaseURL is factoryDroidApiBaseUrl: EU accounts are served from the EU
-// region.
-func APIBaseURL(region string) string {
-	if region == "eu" {
-		return "https://api.eu.factory.ai"
-	}
-	return "https://api.factory.ai"
-}
-
-// WireBaseURL is factoryDroidWireBaseUrl: the per-wire base for an account
-// region; the stream layer appends the path suffix.
-func WireBaseURL(wire Wire, region string) string {
-	host := APIBaseURL(region)
-	switch wire {
-	case WireMessages:
-		return host + "/api/llm/a"
-	case WireGoogle:
-		return host + "/api/llm/g/v1"
-	default:
-		return host + "/api/llm/o/v1"
-	}
-}
-
 // ClientHeaders is factoryDroidClientHeaders: the identity discovery, usage
 // and inference requests share.
 func ClientHeaders(orgID string) http.Header {

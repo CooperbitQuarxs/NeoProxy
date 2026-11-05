@@ -85,10 +85,10 @@ func (e *FactoryDroidExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexec
 	wire := factorydroid.Wire(model.Policy.Wire)
 	// Custom gateways keep their URL; Factory's own hosts follow residency.
 	baseURL := row.BaseURL
-	if baseURL == "" || baseURL == factorydroid.WireBaseURL(wire, "global") || baseURL == factorydroid.WireBaseURL(wire, "eu") {
-		baseURL = factorydroid.WireBaseURL(wire, credential.Region)
+	if baseURL == "" || baseURL == registry.FactoryDroidWireBaseURL(model.Policy.Wire, "global") || baseURL == registry.FactoryDroidWireBaseURL(model.Policy.Wire, "eu") {
+		baseURL = registry.FactoryDroidWireBaseURL(model.Policy.Wire, credential.Region)
 	}
-	inferenceRegion := factorydroid.InferenceRegion(credential.Region, credential.InferenceRegion)
+	inferenceRegion := registry.FactoryDroidInferenceRegion(credential.Region, credential.InferenceRegion)
 	eligible := registry.FactoryDroidRotation(model.Policy, inferenceRegion)
 	candidates := eligible
 	if row.FactoryDroid != nil && row.FactoryDroid.APIProviders != nil {
@@ -143,7 +143,7 @@ func factoryDroidRow(req cliproxyexecutor.Request, model *registry.FactoryDroidM
 	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == registry.FactoryDroidAPI && info.NeoPi.ID == model.ID {
 		return info.NeoPi
 	}
-	region := factorydroid.InferenceRegion(credential.Region, credential.InferenceRegion)
+	region := registry.FactoryDroidInferenceRegion(credential.Region, credential.InferenceRegion)
 	scope := registry.FactoryDroidScope{Region: credential.Region, InferenceRegion: credential.InferenceRegion, OrgID: credential.OrgID}
 	return registry.BuildFactoryDroidModel(model, scope, region, registry.FactoryDroidRotation(model.Policy, region))
 }
@@ -594,7 +594,7 @@ func (e *FactoryDroidExecutor) HttpRequest(ctx context.Context, auth *cliproxyau
 
 // factoryDroidAPIBaseURL is factoryDroidApiBaseUrl; tests point it at a
 // loopback server.
-var factoryDroidAPIBaseURL = factorydroid.APIBaseURL
+var factoryDroidAPIBaseURL = registry.FactoryDroidAPIBaseURL
 
 // FetchFactoryDroidModels is fetchFactoryDroidModels: Factory has no
 // model-listing endpoint, so the registry is narrowed live with the

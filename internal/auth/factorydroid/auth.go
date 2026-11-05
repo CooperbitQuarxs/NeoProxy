@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"golang.org/x/sync/singleflight"
 )
@@ -100,7 +101,7 @@ type Auth struct {
 
 // NewAuth binds the flows to client.
 func NewAuth(client *http.Client) *Auth {
-	return &Auth{client: client, now: time.Now, wait: Wait, deviceURL: DeviceAuthorizationURL, tokenURL: TokenURL, apiBaseURL: APIBaseURL}
+	return &Auth{client: client, now: time.Now, wait: Wait, deviceURL: DeviceAuthorizationURL, tokenURL: TokenURL, apiBaseURL: registry.FactoryDroidAPIBaseURL}
 }
 
 // Wait sleeps for delay unless ctx ends first.
@@ -492,7 +493,7 @@ func (a *Auth) readWhoami(ctx context.Context, identity *Credential, phase strin
 				if carried != nil {
 					carriedInference = carried.InferenceRegion
 				}
-				inference = InferenceRegion(region, carriedInference)
+				inference = registry.FactoryDroidInferenceRegion(region, carriedInference)
 			}
 			resolved := *identity
 			resolved.OrgID, resolved.Region, resolved.InferenceRegion = orgID, region, inference
