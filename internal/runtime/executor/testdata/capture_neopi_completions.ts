@@ -217,6 +217,9 @@ for (const provider of providers) {
 		// The authored sparse compat a discovery merge rebuilds from.
 		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
 		...(model.api === "openai-completions" ? { completionsCompatIndex: indexOf(model.compat) } : {}),
+		// The token tariff: the variant collapse keeps differently priced
+		// thinking pairs apart.
+		cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 },
 	}));
 	// The model manager's authority flags decide how a listing replaces the
 	// bundled rows (model-manager.ts mergeDynamicModels).

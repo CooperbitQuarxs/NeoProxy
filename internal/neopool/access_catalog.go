@@ -347,6 +347,11 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey(alibabaCodingPlanIntlURL, "sk-... (International or China key)", "https://modelstudio.console.alibabacloud.com/").
 			regional(ProviderRegion{"International", alibabaCodingPlanIntlURL}, ProviderRegion{"China", alibabaCodingPlanCNURL}),
 		Plans: []ProviderPlan{}},
+	// Kilo's sign-in approves a device code and hands back the gateway's
+	// bearer token, which the account keeps like a key.
+	{ID: "kilo", Name: "Kilo Gateway", Vendor: "Kilo", Hue: 50, Chroma: providerChroma, Methods: []string{"subscription"},
+		Subscription: device("Opens Kilo in a new tab and shows a code to confirm there. The token it grants lasts a year.").at("Kilo"),
+		Plans:        []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

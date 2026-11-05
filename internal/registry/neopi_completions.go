@@ -55,7 +55,22 @@ type NeoPiCompletionsCatalog struct {
 		Headers       map[string]string `json:"headers"`
 		CompatConfig  map[string]any    `json:"compatConfig"`
 		CompatIndex   int               `json:"completionsCompatIndex"`
+		// Cost is the bundled row's token tariff.
+		Cost NeoPiCost `json:"cost"`
 	} `json:"models"`
+}
+
+// NeoPiCost is NeoPi's TokenCost: USD per million tokens per leg.
+type NeoPiCost struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cacheRead"`
+	CacheWrite float64 `json:"cacheWrite"`
+}
+
+// priced is NeoPi's "input or output is nonzero".
+func (c NeoPiCost) priced() bool {
+	return c.Input != 0 || c.Output != 0
 }
 
 var (
@@ -120,6 +135,7 @@ func loadNeoPiCompletionsCatalogs() {
 				Thinking:                  thinking,
 				CompletionsCompat:         compat,
 				CompatConfig:              row.CompatConfig,
+				cost:                      row.Cost,
 				thinkingRequiresEffortSet: requiresEffortSet,
 			})
 		}

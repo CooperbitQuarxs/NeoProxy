@@ -38,6 +38,8 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 		h.RequestCursorToken(c)
 	case "nous-portal":
 		h.RequestNousToken(c)
+	case "kilo":
+		h.RequestKiloToken(c)
 	default:
 		if !h.ServePluginAuthURL(c) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "provider_not_found"})

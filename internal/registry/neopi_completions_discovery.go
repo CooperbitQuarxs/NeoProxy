@@ -119,6 +119,8 @@ type neoPiSpec struct {
 	// openai-completions ("openai-images"); kind is its authored model kind.
 	api  string
 	kind string
+	// cost is the spec's token tariff (zero for a bare listing row).
+	cost NeoPiCost
 }
 
 // withCompat sets one authored compat override.
@@ -351,6 +353,28 @@ func neoPiPositive(value gjson.Result, fallback int) int {
 	return fallback
 }
 
+// neoPiPerTokenPricingCost is perTokenPricingCost: OpenRouter-style per-token
+// USD rates scaled to per million; a missing or non-positive rate is 0.
+func neoPiPerTokenPricingCost(pricing gjson.Result) NeoPiCost {
+	if !pricing.IsObject() {
+		return NeoPiCost{}
+	}
+	rate := func(keys ...string) float64 {
+		for _, key := range keys {
+			// rates.a ?? rates.b: the first key that is present (not null).
+			if value := pricing.Get(key); value.Exists() && value.Type != gjson.Null {
+				if number, ok := neoPiToNumber(value); ok && number > 0 {
+					return number * 1_000_000
+				}
+				return 0
+			}
+		}
+		return 0
+	}
+	return NeoPiCost{Input: rate("prompt"), Output: rate("completion"),
+		CacheRead: rate("input_cache_read", "input_cache_reads"), CacheWrite: rate("input_cache_write", "input_cache_writes")}
+}
+
 // neoPiModelName is toModelName.
 func neoPiModelName(value gjson.Result, fallback string) string {
 	if value.Type != gjson.String {
@@ -408,7 +432,7 @@ func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
 	spec := neoPiSpec{id: id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
 		contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens, thinking: reference.Thinking.Clone(),
 		compat: maps.Clone(reference.CompatConfig), requestModelID: reference.RequestModelID,
-		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind}
+		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind, cost: reference.cost}
 	if neoPiRunnerAPI(reference.API) {
 		spec.api = reference.API
 	}
@@ -592,6 +616,10 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			spec = defaults
 		case "charm-hyper":
 			spec = neoPiMapCharmHyper(entry, defaults)
+		case "kilo":
+			// kiloModelManagerOptions: the defaults plus the per-token tariff.
+			spec = defaults
+			spec.cost = neoPiPerTokenPricingCost(entry.Get("pricing"))
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}
@@ -860,7 +888,23 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 	if merged.compat == nil {
 		merged.compat = maps.Clone(static.CompatConfig)
 	}
+	costAuthoritative := catalog != nil && catalog.Discovery.CostAuthoritative
+	merged.cost = NeoPiCost{
+		Input:      neoPiPreferDiscoveryCost(dynamic.cost.Input, static.cost.Input, costAuthoritative),
+		Output:     neoPiPreferDiscoveryCost(dynamic.cost.Output, static.cost.Output, costAuthoritative),
+		CacheRead:  neoPiPreferDiscoveryCost(dynamic.cost.CacheRead, static.cost.CacheRead, costAuthoritative),
+		CacheWrite: neoPiPreferDiscoveryCost(dynamic.cost.CacheWrite, static.cost.CacheWrite, costAuthoritative),
+	}
 	return neoPiBuildRow(provider, baseURL, &merged)
+}
+
+// neoPiPreferDiscoveryCost is preferDiscoveryCost: a discovered price wins
+// when positive, or when zero is a price (cost-authoritative discovery).
+func neoPiPreferDiscoveryCost(discovered, fallback float64, zeroIsPrice bool) float64 {
+	if discovered > 0 || zeroIsPrice && discovered == 0 {
+		return discovered
+	}
+	return fallback
 }
 
 // neoPiDefaultPairEfforts is DEFAULT_PAIR_EFFORTS.
@@ -902,6 +946,10 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		if !ok || baseID == row.ID || base == nil || dropped[row.ID] || dropped[base.ID] {
 			continue
 		}
+		if row.cost.priced() && base.cost.priced() && row.cost != base.cost {
+			// deriveThinkingPairFamilies keeps differently priced members apart.
+			continue
+		}
 		if base.Thinking != nil && base.Thinking.EffortRouting != nil {
 			// The base is already collapsed: it wins and the raw member goes.
 			dropped[row.ID] = true
@@ -933,7 +981,7 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		}
 		collapsed := neoPiSpec{id: base.ID, name: base.Name, reasoning: true, input: input,
 			contextWindow: max(base.ContextWindow, row.ContextWindow), maxTokens: max(base.MaxTokens, row.MaxTokens),
-			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID}
+			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID, cost: base.cost}
 		if built, err := neoPiBuildRow(provider, base.BaseURL, &collapsed); err == nil {
 			rebuilt[base.ID] = built
 			byID[base.ID] = built

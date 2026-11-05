@@ -61,6 +61,7 @@ const managers: Record<string, (config: any) => any> = {
 	"singularityapi-tech": m.singularityApiTechModelManagerOptions,
 	"charm-hyper": m.charmHyperModelManagerOptions,
 	"alibaba-coding-plan": m.alibabaCodingPlanModelManagerOptions,
+	kilo: m.kiloModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -274,6 +275,13 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "zz-hyper-none-only", reasoning: { effort_levels: [{ value: "none" }] } },
 			{ id: "zz-hyper-junk", display_name: "  ", context_window: -1, capabilities: "x", reasoning: "x" },
 		],
+		// Kilo prices per token (perTokenPricingCost); rows otherwise keep
+		// the listing defaults.
+		kilo: [
+			{ id: "zz-kilo-priced", name: "Kilo Priced", context_length: 131072, pricing: { prompt: "0.0000006", completion: "0.0000022", input_cache_read: "0.00000015", input_cache_writes: "0.0000007" } },
+			{ id: "zz-kilo-free", pricing: { prompt: "0", completion: "0" } },
+			{ id: "zz-kilo-junk-pricing", pricing: "x" },
+		],
 	};
 	list.push(...(shaped[provider] ?? []));
 	return list;
@@ -309,7 +317,7 @@ function fireworksPages(bundled: string[]): Reply[] {
 // ClinePass reads two hosts at once: Cline's recommended-models roster (the
 // authoritative ids) and OpenRouter's public catalog (enrichment only), so
 // its scenarios answer each host with its own reply.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string };
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -394,6 +402,9 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		{ name: "http 500", replies: [json({ error: "boom" }, 500)] },
 		{ name: "not json", replies: [{ status: 200, body: "oops" }] },
 		{ name: "no list", replies: [json({ object: "list" })] },
+		// Built without a key: a manager with a public listing still fetches
+		// (without Authorization); the others serve the bundled roster.
+		{ name: "no key", keyless: true, replies: [json({ object: "list", data: list })] },
 	];
 	if (provider !== "xiaomi") return generic;
 	// A Token Plan key on the standard provider walks the regional clusters,
@@ -449,7 +460,7 @@ for (const [provider, build] of Object.entries(managers)) {
 				: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
-		const options = build({ apiKey: scenario.apiKey ?? apiKey, fetch: fetchImpl });
+		const options = build({ apiKey: scenario.keyless ? undefined : (scenario.apiKey ?? apiKey), fetch: fetchImpl });
 		options.cacheDbPath = join(cacheDir, `${provider}-${results.length}.db`);
 		const resolved = await resolveProviderModels(options, "online");
 		results.push({
@@ -457,6 +468,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			scenario: scenario.name,
 			replies: scenario.replies,
 			...(scenario.apiKey ? { apiKey: scenario.apiKey } : {}),
+			...(scenario.keyless ? { keyless: true } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,
