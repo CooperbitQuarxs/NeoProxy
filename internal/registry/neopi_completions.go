@@ -41,6 +41,7 @@ type NeoPiCompletionsCatalog struct {
 		ID            string            `json:"id"`
 		Name          string            `json:"name"`
 		API           string            `json:"api"`
+		Kind          string            `json:"kind"`
 		Provider      string            `json:"provider"`
 		BaseURL       string            `json:"baseUrl"`
 		Reasoning     bool              `json:"reasoning"`
@@ -88,11 +89,15 @@ func loadNeoPiCompletionsCatalogs() {
 		providerRows := make([]*NeoPiModel, 0, len(catalog.Models))
 		for i := range catalog.Models {
 			row := catalog.Models[i]
-			if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
-				neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
-				return
+			// An openai-images row carries no completions compat.
+			var compat *NeoPiCompletionsCompat
+			if row.API != "openai-images" {
+				if row.CompatIndex < 0 || row.CompatIndex >= len(catalog.Compats) {
+					neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: compat index %d out of range", name, row.ID, row.CompatIndex)
+					return
+				}
+				compat = catalog.Compats[row.CompatIndex]
 			}
-			compat := catalog.Compats[row.CompatIndex]
 			thinking, requiresEffortSet, thinkingErr := neoPiDecodeThinking(row.Thinking)
 			if thinkingErr != nil {
 				neopiCompletionsLoadErr = fmt.Errorf("registry: %s: %s: %w", name, row.ID, thinkingErr)
@@ -102,6 +107,7 @@ func loadNeoPiCompletionsCatalogs() {
 				ID:                        row.ID,
 				Name:                      row.Name,
 				API:                       row.API,
+				Kind:                      row.Kind,
 				Provider:                  row.Provider,
 				BaseURL:                   row.BaseURL,
 				Reasoning:                 row.Reasoning,
@@ -187,14 +193,31 @@ func NeoPiCompletionsModel(provider, id string) *NeoPiModel {
 	return row
 }
 
-// NeoPiCompletionsModelInfo materializes a NeoPi record as a registered model.
+// NeoPiCompletionsModelInfo materializes a NeoPi record as a registered
+// model: an openai-images row registers as an image model served through
+// /v1/images, every other row as a chat model.
 func NeoPiCompletionsModelInfo(row *NeoPiModel, ownedBy string) *ModelInfo {
 	model := row.Clone()
 	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: ownedBy, Type: "openai-compatibility",
 		DisplayName: model.Name, ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
 		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model}
+	if model.API == "openai-images" {
+		info.Type = OpenAIImageModelType
+		return info
+	}
 	if model.Reasoning && model.Thinking != nil {
 		info.Thinking = &ThinkingSupport{Levels: slices.Clone(model.Thinking.Efforts), ZeroAllowed: !model.Thinking.RequiresEffort || model.Thinking.SuppressWhenOff}
 	}
 	return info
+}
+
+// neoPiServed reports whether NeoProxy serves a NeoPi row: a chat row over
+// Chat Completions, or an image row over openai-images. NeoPi keeps rows of
+// other kinds (a rule-classified image or embedding id still on the
+// completions transport) out of chat, and no runner serves them here.
+func neoPiServed(row *NeoPiModel) bool {
+	if row.API == "openai-images" {
+		return true
+	}
+	return row.Kind == "" || row.Kind == "chat"
 }

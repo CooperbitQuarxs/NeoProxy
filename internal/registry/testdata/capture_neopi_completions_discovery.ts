@@ -57,6 +57,8 @@ const managers: Record<string, (config: any) => any> = {
 	"cline-pass": m.clinePassModelManagerOptions,
 	aimlapi: m.aimlApiModelManagerOptions,
 	xiaomi: m.xiaomiModelManagerOptions,
+	"singularityapi-dev": m.singularityApiDevModelManagerOptions,
+	"singularityapi-tech": m.singularityApiTechModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -221,6 +223,37 @@ function entries(provider: string, bundled: string[]): unknown[] {
 		"zhipu-coding-plan": [
 			{ id: "glm-5.4" }, { id: "glm-5.3-flash" }, { id: "glm-4.7-flash" }, { id: "glm-5v-turbo" }, { id: "glm-5.2-thinking" }, { id: "glm-4" },
 			{ id: "glm-7.1" },
+		],
+		// Per-endpoint capabilities pick each row's transport and limits.
+		"singularityapi-dev": [
+			{
+				id: "deepseek-v4-flash",
+				name: "DeepSeek V4 Flash",
+				capabilities: [
+					{
+						endpoint: "/v1/chat/completions",
+						context_window_tokens: 1048576,
+						maximum_output_tokens: 384000,
+						default_output_tokens: 8192,
+						pricing: { input_per_million_usd: "0.140000000000", output_per_million_usd: "0.280000000000" },
+					},
+				],
+			},
+			{ id: "deepseek-v4-pro", capabilities: [{ endpoint: "/v1/chat/completions", context_window_tokens: "1048576", maximum_output_tokens: -1 }] },
+			{ id: "gpt-5.6-sol", capabilities: [{ endpoint: "/v1/responses" }, { endpoint: "/v1/chat/completions", context_window_tokens: 400000, maximum_output_tokens: 128000 }] },
+			{ id: "flux-1-schnell", name: "FLUX.1 schnell", capabilities: [{ endpoint: "/v1/images/generations", pricing: {} }] },
+			{ id: "gpt-image-2", capabilities: [{ endpoint: "/v1/images/generations" }] },
+			{ id: "flux-pro-1.1" },
+			{ id: "zz-image-new", capabilities: ["bogus", { endpoint: "/v1/images/generations" }] },
+			{ id: "zz-both", capabilities: [{ endpoint: "/v1/images/generations" }, { endpoint: "/v1/chat/completions", context_window_tokens: 64000 }] },
+			{ id: "kimi-k3", capabilities: "not-an-array" },
+			{ id: "glm-5.3", capabilities: [null, 5, { endpoint: "/v1/chat/completions", context_window_tokens: 0 }] },
+		],
+		"singularityapi-tech": [
+			{ id: "deepseek-ai/DeepSeek-V4.1-Flash" },
+			{ id: "deepseek-v4-flash-0731" },
+			{ id: "deepseek-v4.1-flash", name: "  Alias  " },
+			{ id: "zz-lane-new" },
 		],
 	};
 	list.push(...(shaped[provider] ?? []));
@@ -420,6 +453,7 @@ for (const [provider, build] of Object.entries(managers)) {
 				baseUrl: model.baseUrl,
 				compatIndex: compatIndex(model.compat),
 				...(model.thinking ? { thinking: model.thinking } : {}),
+				...(model.kind ? { kind: model.kind } : {}),
 				...(model.supportsTools === false ? { supportsTools: false } : {}),
 			})),
 		});

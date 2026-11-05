@@ -276,6 +276,24 @@
 		},
 		"aimlapi": {
 			"name": "AIML API"
+		},
+		"singularityapi-dev": {
+			"name": "SingularityAPI",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "SingularityAPI",
+				"url": "https://api.singularityapi.dev/v1/models"
+			}
+		},
+		"singularityapi-tech": {
+			"name": "SingularityAPI Reserved Lanes",
+			"normalize": "strip-bearer",
+			"validate": {
+				"kind": "models-endpoint",
+				"label": "SingularityAPI Reserved Lanes",
+				"url": "https://api.singularityapi.tech/v1/models"
+			}
 		}
 	}
 }
