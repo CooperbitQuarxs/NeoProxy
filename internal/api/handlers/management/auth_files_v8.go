@@ -46,6 +46,8 @@ func (h *Handler) StartOAuthV8(c *gin.Context) {
 		h.RequestGitHubCopilotToken(c)
 	case "factory-droid":
 		h.RequestFactoryDroidToken(c)
+	case "gitlab-duo":
+		h.RequestGitLabDuoToken(c)
 	default:
 		if !h.ServePluginAuthURL(c) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "provider_not_found"})

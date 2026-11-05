@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopiid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -91,6 +92,25 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 		session = helps.ProviderSessionUUID(e.Identifier(), req.Metadata, opts.Metadata)
 	}
 	identity := neoPiWireIdentity{SessionID: session, APIKey: true}
+	if provider.oauth {
+		// isOAuth: the installation's device identity, with the account id
+		// the request's metadata names.
+		authDir := ""
+		if e.cfg != nil {
+			authDir = e.cfg.AuthDir
+		}
+		installID, errInstall := neopiid.InstallID(authDir)
+		if errInstall != nil {
+			return nil, errInstall
+		}
+		identity.APIKey, identity.InstallID = false, installID
+		for _, name := range []string{"account_uuid", "accountId", "account_id"} {
+			if value := gjson.GetBytes(translated, "metadata."+name); value.Type == gjson.String && value.String() != "" {
+				identity.AccountID = value.String()
+				break
+			}
+		}
+	}
 	// normalizeAnthropicBaseUrl: an endpoint named with its version (an
 	// account's .../v1) drops it before /v1/messages is appended.
 	base := strings.TrimSuffix(strings.TrimRight(strings.TrimSpace(row.BaseURL), "/"), "/v1")
@@ -132,68 +152,96 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if row.RequestModelID != "" {
 		wireModel = row.RequestModelID
 	}
-	body, headers, err := projectNeoPiAnthropic(translated, wireModel, base, "", identity, profile)
+	finalize := helps.NewPayloadFinalizer(e.cfg, e.Identifier(), model, "claude", "", originalTranslated, req, opts)
+	credential := &anthropicnpi.Credential{APIKey: bearer}
+	path := "/v1/messages"
+	if provider.oauth {
+		credential = &anthropicnpi.Credential{AccessToken: bearer}
+		path += "?beta=true"
+	}
+	// shape is the body and headers at a Claude Code version: an isOAuth
+	// request is shaped again at a version the server requires.
+	shape := func(version string) ([]byte, http.Header, error) {
+		body, headers, err := projectNeoPiAnthropic(translated, wireModel, base, version, identity, profile)
+		if err != nil {
+			return nil, nil, err
+		}
+		body = finalize(body)
+		if provider.oauth {
+			body = neoPiSignBody(body)
+		}
+		neoPiApplyHeaders(headers, auth, opts.Headers, provider.callerHeaders, credential, base, ctx)
+		applyThirdPartyIdentity(headers, provider, bearer, session)
+		if factoryHeaders != nil {
+			// NeoPi spreads the caller's headers over the identity set: the
+			// account's configured headers win where they name the same header.
+			configured := make(http.Header)
+			if auth != nil {
+				util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, opts.Headers)
+			}
+			for name, values := range factoryHeaders {
+				if value := configured.Get(name); value != "" {
+					headers.Set(name, value)
+					continue
+				}
+				headers[name] = values
+			}
+		}
+		if provider.enforceBearer {
+			headers.Set("Authorization", "Bearer "+bearer)
+		}
+		if provider.copilot != nil {
+			// NeoPi's github-copilot branch: its own header set, the model and
+			// dynamic Copilot headers, then the caller's (anthropic.ts:3891-3913).
+			for name := range headers {
+				if strings.HasPrefix(name, "X-Stainless-") || name == "X-App" || name == "X-Api-Key" {
+					delete(headers, name)
+				}
+			}
+			// Copilot's Anthropic proxy takes only the caller's betas (NeoPi's
+			// extraBetas: effort, fast mode, task budget, control and compaction
+			// betas), none the generic SDK builder adds.
+			var kept []string
+			for _, beta := range strings.Split(headers.Get("anthropic-beta"), ",") {
+				switch beta = strings.TrimSpace(beta); beta {
+				case "", "interleaved-thinking-2025-05-14", "context-management-2025-06-27", "fine-grained-tool-streaming-2025-05-14", "fallback-credit-2026-06-01":
+					continue
+				}
+				kept = append(kept, beta)
+			}
+			headers.Del("anthropic-beta")
+			if len(kept) > 0 {
+				headers.Set("anthropic-beta", strings.Join(kept, ","))
+			}
+			headers.Set("Authorization", "Bearer "+bearer)
+			provider.copilot(translated, headers, opts.Headers)
+			if auth != nil {
+				util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), auth.Attributes, opts.Headers)
+			}
+			// applyInferenceHeaders runs over the merged set: the authoritative
+			// conversation id wins over a caller's session header.
+			if identity.SessionID != "" {
+				headers.Set("X-Claude-Code-Session-Id", identity.SessionID)
+			}
+		}
+		if webSearchSet {
+			headers.Set("X-Umans-Websearch-Provider", webSearch)
+		}
+		return body, headers, nil
+	}
+	version := ""
+	if provider.oauth {
+		version = anthropicnpi.WireVersion()
+	}
+	body, headers, err := shape(version)
 	if err != nil {
 		return nil, err
 	}
-	finalize := helps.NewPayloadFinalizer(e.cfg, e.Identifier(), model, "claude", "", originalTranslated, req, opts)
-	body = finalize(body)
-	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
-	applyThirdPartyIdentity(headers, provider, bearer, session)
-	if factoryHeaders != nil {
-		// NeoPi spreads the caller's headers over the identity set: the
-		// account's configured headers win where they name the same header.
-		configured := make(http.Header)
-		if auth != nil {
-			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, opts.Headers)
-		}
-		for name, values := range factoryHeaders {
-			if value := configured.Get(name); value != "" {
-				headers.Set(name, value)
-				continue
-			}
-			headers[name] = values
-		}
+	prepared := &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: place(base + path), model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames || provider.oauth, finalize: finalize}
+	if provider.oauth {
+		// anthropic.ts adopts a required version for any isOAuth token,
+		// rebuilding the request on the credential it already holds.
+		prepared.reshape = func() ([]byte, http.Header, error) { return shape(anthropicnpi.WireVersion()) }
 	}
-	if provider.enforceBearer {
-		headers.Set("Authorization", "Bearer "+bearer)
-	}
-	if provider.copilot != nil {
-		// NeoPi's github-copilot branch: its own header set, the model and
-		// dynamic Copilot headers, then the caller's (anthropic.ts:3891-3913).
-		for name := range headers {
-			if strings.HasPrefix(name, "X-Stainless-") || name == "X-App" || name == "X-Api-Key" {
-				delete(headers, name)
-			}
-		}
-		// Copilot's Anthropic proxy takes only the caller's betas (NeoPi's
-		// extraBetas: effort, fast mode, task budget, control and compaction
-		// betas), none the generic SDK builder adds.
-		var kept []string
-		for _, beta := range strings.Split(headers.Get("anthropic-beta"), ",") {
-			switch beta = strings.TrimSpace(beta); beta {
-			case "", "interleaved-thinking-2025-05-14", "context-management-2025-06-27", "fine-grained-tool-streaming-2025-05-14", "fallback-credit-2026-06-01":
-				continue
-			}
-			kept = append(kept, beta)
-		}
-		headers.Del("anthropic-beta")
-		if len(kept) > 0 {
-			headers.Set("anthropic-beta", strings.Join(kept, ","))
-		}
-		headers.Set("Authorization", "Bearer "+bearer)
-		provider.copilot(translated, headers, opts.Headers)
-		if auth != nil {
-			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: headers}).WithContext(ctx), auth.Attributes, opts.Headers)
-		}
-		// applyInferenceHeaders runs over the merged set: the authoritative
-		// conversation id wins over a caller's session header.
-		if identity.SessionID != "" {
-			headers.Set("X-Claude-Code-Session-Id", identity.SessionID)
-		}
-	}
-	if webSearchSet {
-		headers.Set("X-Umans-Websearch-Provider", webSearch)
-	}
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: place(base + "/v1/messages"), model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
+	return prepared, nil
 }

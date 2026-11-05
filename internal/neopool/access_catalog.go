@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	kiloauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
@@ -186,7 +187,7 @@ func (s *ProviderSubscription) at(site string) *ProviderSubscription {
 }
 
 // providerCatalog lists only sign-ins whose engine handler exists
-// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid, github-copilot).
+// (management StartOAuthV8: claude, codex, antigravity, kimi, xai, grok-build, devin, meta, zai, cursor, nous-portal, factory-droid, github-copilot, gitlab-duo).
 // gemini-cli, qwen and iflow have no handler and are therefore key-only or absent.
 var providerCatalog = []ProviderInfo{
 	{ID: "codex", Name: "ChatGPT / Codex", Vendor: "OpenAI", Hue: 165, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
@@ -224,6 +225,12 @@ var providerCatalog = []ProviderInfo{
 		Fields: []ProviderField{{ID: "enterprise_url", Label: "GitHub Enterprise", Placeholder: "github.com", Hint: "Leave blank for github.com, or enter your GitHub Enterprise URL or domain.",
 			Optional: true}},
 		Plans: []ProviderPlan{}},
+	// GitLab Duo: NeoPi's browser sign-in at gitlab.com, or a personal
+	// access token (GITLAB_TOKEN), which NeoPi never checks.
+	{ID: gitlabduo.Provider, Name: "GitLab Duo", Vendor: "GitLab", Hue: 40, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: browser("Opens GitLab's sign-in in a new tab. NeoProxy keeps the sign-in refreshed.").at("GitLab"),
+		APIKey:       openAIKey(gitlabduo.BaseURL, "Personal access token with the api scope, glpat-... (not checked before it is added)", "https://gitlab.com/-/user_settings/personal_access_tokens"),
+		Plans:        []ProviderPlan{}},
 	{ID: "devin", Name: "Devin", Vendor: "Cognition", Hue: 205, Chroma: providerChroma, Methods: []string{"subscription"},
 		Subscription: browser("Opens Devin's sign-in in a new tab.").at("Devin"),
 		Plans:        []ProviderPlan{}},

@@ -658,7 +658,9 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		}
 		body = neoPiSet(body, "max_tokens", limit)
 	}
-	if party != nil {
+	// An OAuth bearer on another provider's endpoint (GitLab Duo's proxy)
+	// takes the Claude Code header set, as NeoPi's OAuth client builds it.
+	if party != nil && identity.APIKey {
 		headers := neoPiThirdPartyHeaders(body, headerSession, enabled, profile)
 		if rawPredict {
 			body = neoPiVertexRawPredictBody(body)

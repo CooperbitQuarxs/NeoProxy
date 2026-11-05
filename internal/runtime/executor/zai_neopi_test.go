@@ -65,7 +65,7 @@ func TestZaiNeoPiRequestParity(t *testing.T) {
 				base := strings.TrimRight(row.BaseURL, "/")
 				body, headers, err = projectNeoPiAnthropic(downstream.Bytes(), row.ID, base, "", neoPiWireIdentity{SessionID: capture.SessionID, APIKey: true}, neoPiThirdPartyProfile(row))
 				if err == nil {
-					neoPiApplyHeaders(headers, auth, nil, &anthropicnpi.Credential{APIKey: capture.APIKey}, base, context.Background())
+					neoPiApplyHeaders(headers, auth, nil, nil, &anthropicnpi.Credential{APIKey: capture.APIKey}, base, context.Background())
 				}
 				url = base + "/v1/messages"
 			default:

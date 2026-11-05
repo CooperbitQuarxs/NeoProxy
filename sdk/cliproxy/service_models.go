@@ -203,6 +203,9 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 		models = applyExcludedModels(s.registerNeoPiDiscovered(factoryDroidDiscovery, a), excluded)
 	case "github-copilot":
 		models = applyExcludedModels(s.registerNeoPiDiscovered(githubCopilotDiscovery, a), excluded)
+	case "gitlab-duo":
+		// NeoPi's bundled roster: GitLab Duo has no discovery.
+		models = applyExcludedModels(registry.GitLabDuoModels(), excluded)
 	case "nous-portal":
 		models = applyExcludedModels(nousModelsForAuth(ctx, cfg, a), excluded)
 	case "meta":
@@ -262,7 +265,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					return false
 				}
 				isCompatAuth = true
-				ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, buildOpenAICompatibilityConfigModels(compat)))
+				ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, gitlabDuoModelsFor(a, buildOpenAICompatibilityConfigModels(compat))))
 				if providerKey == "" {
 					providerKey = "openai-compatibility"
 				}
@@ -288,7 +291,7 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 					if providerKey == "" {
 						providerKey = "openai-compatibility"
 					}
-					ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, cached.models))
+					ms := s.neoPiResponsesModelsFor(a, s.umansModelsFor(a, gitlabDuoModelsFor(a, cached.models)))
 					if len(ms) > 0 {
 						ms = s.appendPluginModels(providerKey, ms, nil)
 						published = s.registerResolvedModelsForAuthFenced(a, fence, providerKey, applyModelPrefixes(ms, a.Prefix, cfg.ForceModelPrefix))
