@@ -107,8 +107,13 @@ func TestApplyPatchRepairResponsesSourceTerminalHTTP(t *testing.T) {
 					}
 					output = append(output, chunk.Payload...)
 				}
-				if bytes.Contains(output, []byte("response.failed")) || !bytes.Contains(output, []byte("valid patch")) || bytes.Count(output, []byte("[DONE]")) != 1 {
-					t.Fatalf("legal source terminal/first DONE lost: %s", output)
+				terminal := mode
+				if provider == "meta" && mode == "response.done" {
+					terminal = "response.completed"
+				}
+				if bytes.Contains(output, []byte("response.failed")) || !bytes.Contains(output, []byte("valid patch")) ||
+					bytes.Count(output, []byte(`"type":"`+terminal+`"`)) != 1 || bytes.Contains(output, []byte("[DONE]")) {
+					t.Fatalf("terminal response was not delivered exactly once before stopping: %s", output)
 				}
 			})
 		}
