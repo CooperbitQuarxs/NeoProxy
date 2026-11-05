@@ -131,9 +131,12 @@ func fallbackEfforts(spec Spec, compat map[string]any) []string {
 }
 
 // defaultThinkingMode is defaultThinkingMode for the ported APIs; thinking-mode
-// rules override it.
+// rules override it. Gemini 3+'s google-level is such a rule.
 func defaultThinkingMode(spec Spec, facts identityFacts) string {
-	if spec.API != APIAnthropicMessages {
+	switch spec.API {
+	case APIGoogleVertex:
+		return "budget"
+	case APIOpenAICompletions:
 		return "effort"
 	}
 	if facts.is("anthropic") {

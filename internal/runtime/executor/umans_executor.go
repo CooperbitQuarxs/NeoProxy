@@ -35,7 +35,7 @@ func NewUmansExecutor(provider string, cfg *config.Config) *UmansExecutor {
 		catalog: func(_ *cliproxyauth.Auth, req cliproxyexecutor.Request, model string) *registry.NeoPiModel {
 			return umansDiscoveredModel(req, model)
 		},
-		bearer:           umansAPIKey,
+		credential:       neoPiAccountBearer(umansAPIKey),
 		apiKeyHeader:     true,
 		gatewayWebSearch: umansauth.WebSearch,
 	}

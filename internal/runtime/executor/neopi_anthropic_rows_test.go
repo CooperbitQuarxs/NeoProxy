@@ -30,7 +30,10 @@ type neoPiAnthropicRowsCapture struct {
 	Provider  string `json:"provider"`
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
-	Fixtures  []struct {
+	// Env is the environment NeoPi's provider transport read while capturing
+	// (Vertex's project, location and access token).
+	Env      map[string]string `json:"env"`
+	Fixtures []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`
 		BaseURL      string            `json:"baseUrl"`
@@ -67,6 +70,9 @@ func TestNeoPiAnthropicRowsReplayNeoPiRequests(t *testing.T) {
 	for _, file := range files {
 		capture := loadNeoPiAnthropicRowsCapture(t, file)
 		t.Run(capture.Provider, func(t *testing.T) {
+			for name, value := range capture.Env {
+				t.Setenv(name, value)
+			}
 			rows := map[string]*registry.ModelInfo{}
 			for _, info := range registry.NeoPiCompletionsBundledModels(capture.Provider, capture.Provider) {
 				rows[info.ID] = info
