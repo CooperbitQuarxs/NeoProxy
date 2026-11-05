@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -95,12 +96,36 @@ func task6Executor(provider string) cliproxyauth.ProviderExecutor {
 	case "gemini-interactions":
 		return NewGeminiInteractionsExecutor(cfg)
 	case "vertex":
-		return NewGeminiVertexExecutor(cfg)
+		return task6LocalVertex{NewVertexExecutor(cfg)}
 	case "antigravity":
 		return NewAntigravityExecutor(cfg)
 	default:
 		return NewOpenAICompatExecutor(provider, cfg)
 	}
+}
+
+// task6LocalVertex serves the Vertex executor from the account's base_url:
+// Vertex's endpoint is fixed by its location, so the local upstream stands
+// in for that host through the request transport, on every path a gateway
+// or a direct call takes.
+type task6LocalVertex struct{ *VertexExecutor }
+
+func (e task6LocalVertex) local(ctx context.Context, auth *cliproxyauth.Auth) context.Context {
+	target, errParse := url.Parse(auth.Attributes["base_url"])
+	if errParse != nil || target.Host == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, "cliproxy.roundtripper", issue6258RedirectTransport{target: target, base: http.DefaultTransport})
+}
+
+func (e task6LocalVertex) ForAPIKey() cliproxyauth.ProviderExecutor { return e }
+
+func (e task6LocalVertex) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	return e.VertexExecutor.Execute(e.local(ctx, auth), auth, req, opts)
+}
+
+func (e task6LocalVertex) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*cliproxyexecutor.StreamResult, error) {
+	return e.VertexExecutor.ExecuteStream(e.local(ctx, auth), auth, req, opts)
 }
 
 func assertTask6PatchError(t *testing.T, err error) {

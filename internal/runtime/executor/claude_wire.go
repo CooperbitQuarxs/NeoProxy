@@ -496,8 +496,9 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	} else if off {
 		wireThinking = json.RawMessage(`{"type":"disabled"}`)
 	}
-	// Only budget mode carries no effort; adaptive and budget+effort send it.
-	if party != nil && profile.Thinking.Mode == "budget" {
+	// Only budget mode carries no effort; adaptive and budget+effort send it,
+	// on a model whose compat accepts output_config.effort at all.
+	if party != nil && (profile.Thinking.Mode == "budget" || !party.outputEffort) {
 		effort = ""
 	}
 	if profile.Thinking.PrefixBinding && profile.Compat.SupportsThinkingBindingControls {
@@ -512,10 +513,11 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 			wireThinking = neoPiSet(wireThinking, "block_binding.prefix_mismatch_behavior", binding)
 		}
 	}
+	rawPredict := party != nil && party.vertexRawPredict
 	var contextManagement json.RawMessage
 	if configured := root.Get("context_management"); configured.Exists() {
 		contextManagement = []byte(configured.Raw)
-	} else if kind := gjson.GetBytes(wireThinking, "type").String(); profile.Compat.SupportsContextManagement && (kind == "adaptive" || kind == "enabled") {
+	} else if kind := gjson.GetBytes(wireThinking, "type").String(); profile.Compat.SupportsContextManagement && !rawPredict && (kind == "adaptive" || kind == "enabled") {
 		contextManagement = json.RawMessage(`{"edits":[{"type":"clear_thinking_20251015","keep":"all"}]}`)
 	}
 	var outputConfig json.RawMessage
@@ -548,7 +550,12 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if len(tools) > 0 || !identity.APIKey || root.Get("tools").IsArray() {
 		wireTools = jsjson.Marshal(tools)
 	}
-	fields := []jsjson.Field{{Name: "model", Value: jsjson.Marshal(model)}, {Name: "messages", Value: jsjson.Marshal(messages)}, {Name: "system", Value: wireSystem}, {Name: "tools", Value: wireTools}, {Name: "metadata", Value: metadata}, {Name: "max_tokens", Value: jsjson.Marshal(maxTokens)}, {Name: "thinking", Value: wireThinking}, {Name: "context_management", Value: contextManagement}, {Name: "output_config", Value: outputConfig}, {Name: "stream", Value: jsjson.Marshal(true)}}
+	// Vertex rawPredict carries the control betas in the body, ahead of stream.
+	var bodyBetas json.RawMessage
+	if betas := neoPiControlBetas(profile); rawPredict && len(betas) > 0 {
+		bodyBetas = jsjson.Marshal(betas)
+	}
+	fields := []jsjson.Field{{Name: "model", Value: jsjson.Marshal(model)}, {Name: "messages", Value: jsjson.Marshal(messages)}, {Name: "system", Value: wireSystem}, {Name: "tools", Value: wireTools}, {Name: "metadata", Value: metadata}, {Name: "max_tokens", Value: jsjson.Marshal(maxTokens)}, {Name: "thinking", Value: wireThinking}, {Name: "context_management", Value: contextManagement}, {Name: "output_config", Value: outputConfig}, {Name: "anthropic_beta", Value: bodyBetas}, {Name: "stream", Value: jsjson.Marshal(true)}}
 	for _, name := range []string{"stop_sequences", "service_tier", "speed", "fallbacks", "fallback_credit_token"} {
 		if value := root.Get(name); value.Exists() {
 			fields = append(fields, jsjson.Field{Name: name, Value: []byte(value.Raw)})
@@ -577,8 +584,9 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 	if choice := gjson.GetBytes(body, "tool_choice.type").String(); choice == "any" || choice == "tool" {
 		body = neoPiDelete(body, "thinking")
 		body = neoPiDelete(body, "context_management")
-		// A tag-only model has no effort field to pin.
-		if profile.Thinking.Mode == "anthropic-adaptive" && (party == nil || !party.adaptiveTagOnly) {
+		// A tag-only model has no effort field to pin, nor does a model whose
+		// compat refuses output_config.effort.
+		if profile.Thinking.Mode == "anthropic-adaptive" && (party == nil || !party.adaptiveTagOnly && party.outputEffort) {
 			body = neoPiSet(body, "output_config.effort", "low")
 		} else {
 			body = neoPiDelete(body, "output_config.effort")
@@ -593,7 +601,11 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		body = neoPiSet(body, "max_tokens", limit)
 	}
 	if party != nil {
-		return body, neoPiThirdPartyHeaders(body, headerSession, enabled, profile), nil
+		headers := neoPiThirdPartyHeaders(body, headerSession, enabled, profile)
+		if rawPredict {
+			body = neoPiVertexRawPredictBody(body)
+		}
+		return body, headers, nil
 	}
 	return body, neoPiHeaders(body, headerSession, version, enabled, len(tools) > 0, base, profile, identity.APIKey), nil
 }

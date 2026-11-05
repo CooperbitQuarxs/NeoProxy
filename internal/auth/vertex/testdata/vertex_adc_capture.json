@@ -1,0 +1,698 @@
+{
+  "source": "NeoPi OWN pi-ai providers/google-auth getVertexAccessToken",
+  "now": 1793880000000,
+  "results": [
+    {
+      "name": "env-access-token",
+      "env": {
+        "GOOGLE_CLOUD_ACCESS_TOKEN": "ya29.env-token"
+      },
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [],
+      "calls": 1,
+      "requests": [],
+      "tokens": [
+        "ya29.env-token"
+      ]
+    },
+    {
+      "name": "env-cloudsdk-access-token",
+      "env": {
+        "CLOUDSDK_AUTH_ACCESS_TOKEN": "ya29.cloudsdk-token"
+      },
+      "file": null,
+      "userAdc": null,
+      "replies": [],
+      "calls": 1,
+      "requests": [],
+      "tokens": [
+        "ya29.cloudsdk-token"
+      ]
+    },
+    {
+      "name": "service-account",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.sa-token",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [
+        "ya29.sa-token"
+      ]
+    },
+    {
+      "name": "service-account-no-key-id",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.sa-token",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.qSWh70OulqumMQ3CXqpylHLtTuNAcut-KO-W3fs-qiUuyt2DqIZXKsktOMY76kOw4rajZjZa4Gb8e15914uOCPRiB2CryCwc-ifRGo_oJmS0UPaBL1DwsAin6VMN5b4FbA2W8I1RcQUY8oldY6RtvkCNpjvJJ2Aei7oGS1j_dv2dfjZNgsaxYIZbzClFQbx6zpEzq7bbj3hMBPTDi7eSJ0eUBH-6xkWoCIs4Yzt-KRKI_iP_5prRq07aVRARdkiWKF_QKvTwxNBCQT1fwbA7Xhm3nKGVy9XGVyD7a0wJFMnzcR40FH6nxohUCwMp3VSq3Q1hUbYq6rgkNv7Hmj4PSw"
+        }
+      ],
+      "tokens": [
+        "ya29.sa-token"
+      ]
+    },
+    {
+      "name": "service-account-cached",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.sa-token",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 2,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [
+        "ya29.sa-token",
+        "ya29.sa-token"
+      ]
+    },
+    {
+      "name": "service-account-within-skew-refetches",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.short",
+            "expires_in": 30,
+            "token_type": "Bearer"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.second",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 2,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        },
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [
+        "ya29.short",
+        "ya29.second"
+      ]
+    },
+    {
+      "name": "service-account-custom-skew",
+      "env": {
+        "GOOGLE_VERTEX_REFRESH_SKEW_MS": "10000"
+      },
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.short",
+            "expires_in": 30,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 2,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [
+        "ya29.short",
+        "ya29.short"
+      ]
+    },
+    {
+      "name": "service-account-exchange-fails",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 400,
+          "body": {
+            "error": "invalid_grant",
+            "error_description": "Invalid JWT Signature."
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [],
+      "error": "Google OAuth token exchange failed (400): {\"error\":\"invalid_grant\",\"error_description\":\"Invalid JWT Signature.\"}"
+    },
+    {
+      "name": "authorized-user",
+      "env": {},
+      "file": {
+        "type": "authorized_user",
+        "client_id": "fixture-client.apps.googleusercontent.com",
+        "client_secret": "fixture-client-secret",
+        "refresh_token": "1//fixture-refresh-token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.user-token",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "client_id=fixture-client.apps.googleusercontent.com&client_secret=fixture-client-secret&refresh_token=1%2F%2Ffixture-refresh-token&grant_type=refresh_token"
+        }
+      ],
+      "tokens": [
+        "ya29.user-token"
+      ]
+    },
+    {
+      "name": "authorized-user-exchange-fails",
+      "env": {},
+      "file": {
+        "type": "authorized_user",
+        "client_id": "fixture-client.apps.googleusercontent.com",
+        "client_secret": "fixture-client-secret",
+        "refresh_token": "1//fixture-refresh-token"
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 401,
+          "body": {
+            "error": "invalid_client"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "client_id=fixture-client.apps.googleusercontent.com&client_secret=fixture-client-secret&refresh_token=1%2F%2Ffixture-refresh-token&grant_type=refresh_token"
+        }
+      ],
+      "tokens": [],
+      "error": "Google OAuth token exchange failed (401): {\"error\":\"invalid_client\"}"
+    },
+    {
+      "name": "impersonated-from-service-account",
+      "env": {},
+      "file": {
+        "type": "impersonated_service_account",
+        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+        "source_credentials": {
+          "type": "service_account",
+          "project_id": "fixture-project",
+          "private_key_id": "fixture-key-id-0001",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+          "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+          "client_id": "100000000000000000001",
+          "token_uri": "https://oauth2.googleapis.com/token"
+        }
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.source",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "accessToken": "ya29.impersonated",
+            "expireTime": "2026-11-05T13:00:00Z"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        },
+        {
+          "method": "POST",
+          "url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+          "headers": {
+            "authorization": "Bearer ya29.source",
+            "content-type": "application/json"
+          },
+          "body": "{\"delegates\":[],\"scope\":[\"https://www.googleapis.com/auth/cloud-platform\"],\"lifetime\":\"3600s\"}"
+        }
+      ],
+      "tokens": [
+        "ya29.impersonated"
+      ]
+    },
+    {
+      "name": "impersonated-from-user-with-delegates",
+      "env": {},
+      "file": {
+        "type": "impersonated_service_account",
+        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+        "source_credentials": {
+          "type": "authorized_user",
+          "client_id": "fixture-client.apps.googleusercontent.com",
+          "client_secret": "fixture-client-secret",
+          "refresh_token": "1//fixture-refresh-token"
+        },
+        "delegates": [
+          "projects/-/serviceAccounts/delegate@fixture-project.iam.gserviceaccount.com"
+        ]
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.source",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "accessToken": "ya29.impersonated",
+            "expireTime": "2026-11-05T12:30:00Z"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "client_id=fixture-client.apps.googleusercontent.com&client_secret=fixture-client-secret&refresh_token=1%2F%2Ffixture-refresh-token&grant_type=refresh_token"
+        },
+        {
+          "method": "POST",
+          "url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+          "headers": {
+            "authorization": "Bearer ya29.source",
+            "content-type": "application/json"
+          },
+          "body": "{\"delegates\":[\"projects/-/serviceAccounts/delegate@fixture-project.iam.gserviceaccount.com\"],\"scope\":[\"https://www.googleapis.com/auth/cloud-platform\"],\"lifetime\":\"3600s\"}"
+        }
+      ],
+      "tokens": [
+        "ya29.impersonated"
+      ]
+    },
+    {
+      "name": "impersonated-exchange-fails",
+      "env": {},
+      "file": {
+        "type": "impersonated_service_account",
+        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+        "source_credentials": {
+          "type": "service_account",
+          "project_id": "fixture-project",
+          "private_key_id": "fixture-key-id-0001",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+          "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+          "client_id": "100000000000000000001",
+          "token_uri": "https://oauth2.googleapis.com/token"
+        }
+      },
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.source",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        },
+        {
+          "status": 403,
+          "body": {
+            "error": {
+              "code": 403,
+              "message": "Permission denied."
+            }
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        },
+        {
+          "method": "POST",
+          "url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/target-sa@fixture-project.iam.gserviceaccount.com:generateAccessToken",
+          "headers": {
+            "authorization": "Bearer ya29.source",
+            "content-type": "application/json"
+          },
+          "body": "{\"delegates\":[],\"scope\":[\"https://www.googleapis.com/auth/cloud-platform\"],\"lifetime\":\"3600s\"}"
+        }
+      ],
+      "tokens": [],
+      "error": "Google Impersonation token exchange failed (403): {\"error\":{\"code\":403,\"message\":\"Permission denied.\"}}"
+    },
+    {
+      "name": "user-adc",
+      "env": {},
+      "file": null,
+      "userAdc": {
+        "type": "authorized_user",
+        "client_id": "fixture-client.apps.googleusercontent.com",
+        "client_secret": "fixture-client-secret",
+        "refresh_token": "1//fixture-refresh-token"
+      },
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.user-adc",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "client_id=fixture-client.apps.googleusercontent.com&client_secret=fixture-client-secret&refresh_token=1%2F%2Ffixture-refresh-token&grant_type=refresh_token"
+        }
+      ],
+      "tokens": [
+        "ya29.user-adc"
+      ]
+    },
+    {
+      "name": "credentials-file-beats-user-adc",
+      "env": {},
+      "file": {
+        "type": "service_account",
+        "project_id": "fixture-project",
+        "private_key_id": "fixture-key-id-0001",
+        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC1K6YKGS0dDCxy\nCOByu8U5l+FwCwOV4j/3f7Pmce6rVw8Y685gRLP5BRYWQJaSl1rB4RcXjN+LzKmr\nshcnkB25j63JAghBTthA1K7Fds72a98aGHgKnIXZHppHnSHBghCZ+cSSdQ4Bs0xW\nhqTnXnDoDcjFQ3IU6CDHsAKH0TPPNQR7eXLN/zE/KKtqM6Oeo9uYE0IQ/mbmZR1M\ns311gGneiaSySOD+ss5RfPVTdx7KtLoBya65vBTsWgheYMUwnqgjdGSFnl1FuPbk\nZ1JpWJ5us/FWgqBS6a3ejSt8ZxmYutLTUcFQShNZx40xOeZZGsBnKkwLhtNB5df9\n5wJZX2MZAgMBAAECggEAAjYtvS4R6qAR9f7qftq7YBYnm1VBFmjIMzU7gkbLXSCv\nZ3Rvz6WgZPv1SUaBfWQ3CF/0cZYc9QE7Dtnk1eJuIHb9mL3LUWvHsKFACcWnELj1\nT2WI0p1W9h/H455VEbO3eupisPnYQXhO6GKqpkSVKtoJ5JxBCw+14GYt87qVBV9O\nWWnxjtlfDo9QsyxDNUJHm/j26pSMTBYPHnBeJhYQjnLyIjZhZTXRIH/7+fqOLzan\n6gTfqAgK/+/9zMLbh9VrAV6IFl6fjfZQvUUTGUHJJdp+3uYgWWkVzOdF2ESBih7a\nSwztQzB7KHX93vQ04AP1jFVCu85B9s/STZWdH7BfMQKBgQDZ9hIffdKTWlL4IXgS\nsvOXiDjlBP2MnT0EaBtLLMVKrZ5A621BnMYkKDx3AVvE6TBsiL8c2ZExY+ZnTAEb\nqZtretPpNqriHgwOU9lOETDilDLv9fc+p2LQ7SW4ikD8U616EuZD7M9g/DbV0W73\nJuIFWm+0U2by9UOhu7q6gQyPkQKBgQDUyd3IF+t6F1OOrS3x5TnjNoHiNliKaDAL\nZqU1KlS1TIRvcg7MfAdNVMz8rDLYJfbegKs2RVM8me8AChIGtvW+FH1MIQ8155Lf\nOzErqbHS39uVDng8ht6k8xZVdFmPXrZCQ4eCGQuT+OjHZAjMl/ZydA0j7kIAWv6t\nUog1j/tnCQKBgHcgOZmCoFOu+0foqwK1UdORPV9WkemHivDcoYY9yvrc13Ct+8Hv\nmI/sedelI24E8VVwi9uNwgBXlHcCoFxpH6vnruh4237IY1h1VYCIfspnq0thiKdy\nvtxnsMUisw/2AAuHRtj7FgDw+Ft2owpr8v5wBjttlgfWKwe7XfxPSfkxAoGAYPk6\nXJUiGHsG9m/QD3xi3DycBqazxSfkNV3rDoajIhikBlIZknE3trNd1Az6Au2SSyai\nYFJJs8WHWSI9wteguKaHz6kFUJCfq6JDL13fj3W7kXuNqi/gyZWK6RjkM+V69Eno\nOI8HasE1/KCHLg5XHyPqVSSg6Z6OkBibwKVEclkCgYAU/+o6zUTweku+wS5woCC6\nPuK1ESiHvk3W0dKghzXZ4wxqB3MjkYh0k25Cq35MgKN/oT4HrTv1xLtJZ0OsIMFR\n7Dv6BqV+DK8RfCqra161boqKpypKfK9dTKNSfs8oCI42RVxBgQb5tLoBMZpMgmGP\nxL/kPodVwDHwARfVhia3uQ==\n-----END PRIVATE KEY-----\n",
+        "client_email": "fixture-sa@fixture-project.iam.gserviceaccount.com",
+        "client_id": "100000000000000000001",
+        "token_uri": "https://oauth2.googleapis.com/token"
+      },
+      "userAdc": {
+        "type": "authorized_user",
+        "client_id": "fixture-client.apps.googleusercontent.com",
+        "client_secret": "fixture-client-secret",
+        "refresh_token": "1//fixture-refresh-token"
+      },
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.sa-token",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://oauth2.googleapis.com/token",
+          "headers": {
+            "content-type": "application/x-www-form-urlencoded"
+          },
+          "body": "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImZpeHR1cmUta2V5LWlkLTAwMDEifQ.eyJpc3MiOiJmaXh0dXJlLXNhQGZpeHR1cmUtcHJvamVjdC5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsInNjb3BlIjoiaHR0cHM6Ly93d3cuZ29vZ2xlYXBpcy5jb20vYXV0aC9jbG91ZC1wbGF0Zm9ybSIsImF1ZCI6Imh0dHBzOi8vb2F1dGgyLmdvb2dsZWFwaXMuY29tL3Rva2VuIiwiZXhwIjoxNzkzODgzNjAwLCJpYXQiOjE3OTM4ODAwMDB9.dw8fLt0Bgz_pll3BH-j8mqhAY1NpMTio6culip9LxAkE1HpT0r_I7KgbXc9D1I6hmNvKRudXrVy02Or2MDrDZMMGH_uEDCI-BJ9cvXne6KAUQyYxgpcCp3QlI16MlX1M_T3qq0W0UJsW70VQFMxC9tBr5b8rBz_MBOOrHHxCFyWKxIdN6ym8zrJt9zSXU532oFVdcUKCbIZprgqPL5KBZkdsn2NwZG8gxBLFkCgRb6AFOBCO5ZTEVtsBmeo-rZieRE8PCAGJI72nH3AiSxYNRoKwI_I4DPWsJCsFVCrcmkTeAffaTIZcGyToY1TohNI06kUtVEWlANhfc7ZrQuj4pw"
+        }
+      ],
+      "tokens": [
+        "ya29.sa-token"
+      ]
+    },
+    {
+      "name": "credentials-file-missing",
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "<home>/missing.json"
+      },
+      "file": null,
+      "userAdc": null,
+      "replies": [],
+      "calls": 1,
+      "requests": [],
+      "tokens": [],
+      "error": "GOOGLE_APPLICATION_CREDENTIALS points to a missing file: <home>/missing.json"
+    },
+    {
+      "name": "metadata",
+      "env": {},
+      "file": null,
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "access_token": "ya29.metadata",
+            "expires_in": 3599,
+            "token_type": "Bearer"
+          }
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+          "headers": {
+            "metadata-flavor": "Google"
+          },
+          "body": ""
+        }
+      ],
+      "tokens": [
+        "ya29.metadata"
+      ]
+    },
+    {
+      "name": "metadata-not-ok",
+      "env": {},
+      "file": null,
+      "userAdc": null,
+      "replies": [
+        {
+          "status": 404,
+          "body": "Not Found"
+        }
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+          "headers": {
+            "metadata-flavor": "Google"
+          },
+          "body": ""
+        }
+      ],
+      "tokens": [],
+      "error": "Vertex AI requires Application Default Credentials. Set GOOGLE_APPLICATION_CREDENTIALS, run `gcloud auth application-default login`, or run on a GCE/Cloud Run instance with a service account."
+    },
+    {
+      "name": "no-credentials",
+      "env": {},
+      "file": null,
+      "userAdc": null,
+      "replies": [
+        "network-error"
+      ],
+      "calls": 1,
+      "requests": [
+        {
+          "method": "GET",
+          "url": "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+          "headers": {
+            "metadata-flavor": "Google"
+          },
+          "body": ""
+        }
+      ],
+      "tokens": [],
+      "error": "Vertex AI requires Application Default Credentials. Set GOOGLE_APPLICATION_CREDENTIALS, run `gcloud auth application-default login`, or run on a GCE/Cloud Run instance with a service account."
+    }
+  ]
+}

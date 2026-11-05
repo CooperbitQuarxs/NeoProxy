@@ -41,14 +41,26 @@ func applyThirdPartyIdentity(headers http.Header, provider *neoPiThirdPartyProvi
 	}
 }
 
+// neoPiAccountBearer is a credential hook for an endpoint whose bearer is
+// the account's own key or token, on the row's own URL.
+func neoPiAccountBearer(read func(*cliproxyauth.Auth) string) func(context.Context, *cliproxyauth.Auth) (string, func(string) string, error) {
+	return func(_ context.Context, auth *cliproxyauth.Auth) (string, func(string) string, error) {
+		bearer := strings.TrimSpace(read(auth))
+		if bearer == "" {
+			return "", nil, statusErr{code: http.StatusUnauthorized, msg: "account has no credential"}
+		}
+		return bearer, func(url string) string { return url }, nil
+	}
+}
+
 // prepareThirdParty shapes an Anthropic Messages request for a model NeoPi
 // serves over Anthropic Messages on another provider's endpoint, with that
 // provider's bearer and identity headers.
 func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*neoPiPrepared, error) {
 	provider := e.thirdParty
-	bearer := strings.TrimSpace(provider.bearer(auth))
-	if bearer == "" {
-		return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no credential"}
+	bearer, place, err := provider.credential(ctx, auth)
+	if err != nil {
+		return nil, err
 	}
 	model := thinking.ParseSuffix(req.Model).ModelName
 	row := provider.catalog(auth, req, model)
@@ -116,8 +128,11 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
+	if provider.enforceBearer {
+		headers.Set("Authorization", "Bearer "+bearer)
+	}
 	if webSearchSet {
 		headers.Set("X-Umans-Websearch-Provider", webSearch)
 	}
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
+	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: place(base + "/v1/messages"), model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
 }

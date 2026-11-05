@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -300,20 +301,26 @@ func TestCustomMagicHeaders_GeminiInteractions(t *testing.T) {
 	}
 }
 
-func TestCustomMagicHeaders_GeminiVertex(t *testing.T) {
+func TestCustomMagicHeaders_Vertex(t *testing.T) {
 	var gotHeaders http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeaders = r.Header.Clone()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"vertex-response"}]}}]}`))
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"vertex-response\"}]},\"finishReason\":\"STOP\"}]}\n\n"))
 	}))
 	defer server.Close()
+	target, errParse := url.Parse(server.URL)
+	if errParse != nil {
+		t.Fatal(errParse)
+	}
+	// Vertex's endpoint is fixed by its location; the capture server stands
+	// in for that host.
+	ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", issue6258RedirectTransport{target: target, base: http.DefaultTransport})
 
-	executor := NewGeminiVertexExecutor(&config.Config{})
+	executor := NewVertexExecutor(&config.Config{})
 	auth := &cliproxyauth.Auth{
 		Provider: "vertex",
 		Attributes: map[string]string{
-			"base_url":                        server.URL,
 			"api_key":                         "vertex-api-key",
 			"header:X-Claude-Code-Session-Id": "$ABC",
 			"header:X-Missing":                "$NONEXISTENT",
@@ -331,7 +338,7 @@ func TestCustomMagicHeaders_GeminiVertex(t *testing.T) {
 		},
 	}
 
-	_, err := executor.Execute(context.Background(), auth, req, opts)
+	_, err := executor.Execute(ctx, auth, req, opts)
 	if err != nil {
 		t.Fatalf("Execute() error = %v", err)
 	}

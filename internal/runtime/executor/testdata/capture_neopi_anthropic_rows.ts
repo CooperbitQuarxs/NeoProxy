@@ -26,6 +26,7 @@ const prepareModel = (provider: string, model: any) =>
 	provider === "cloudflare-ai-gateway" ? cloudflareAiGatewayTransport.prepareModel(model) : model;
 
 const apiKey = "sk-anthropic-rows-capture-000000000000";
+const CAPTURE_ENV = ["GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION", "GOOGLE_VERTEX_LOCATION", "VERTEX_LOCATION", "GOOGLE_CLOUD_ACCESS_TOKEN"];
 const sessionId = "capture-session-anthropic-rows-0001";
 const events = [
 	{ type: "message_start", message: { id: "msg_capture", type: "message", role: "assistant", model: "capture", content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: 3, output_tokens: 0 } } },
@@ -160,7 +161,22 @@ try {
 			if (captured.length !== 1) throw new Error(`Capture ${provider} ${scenario.name} saw ${captured.length} requests`);
 			fixtures.push({ name: scenario.name, model: model.id, baseUrl: model.baseUrl, options: scenario.options, downstream: scenario.downstream, requestedURL, ...captured[0] });
 		}
-		await Bun.write(join(outDir, `${provider}.json.gz`), Bun.gzipSync(JSON.stringify({ source: `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)}) anthropic-messages rows`, provider, apiKey, sessionId, fixtures })));
+		// The environment a provider transport reads (Vertex's project,
+		// location and access token).
+		const env = Object.fromEntries(CAPTURE_ENV.filter(name => process.env[name]).map(name => [name, process.env[name]!]));
+		await Bun.write(
+			join(outDir, `${provider}.json.gz`),
+			Bun.gzipSync(
+				JSON.stringify({
+					source: `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)}) anthropic-messages rows`,
+					provider,
+					apiKey,
+					sessionId,
+					...(Object.keys(env).length > 0 ? { env } : {}),
+					fixtures,
+				}),
+			),
+		);
 		console.log(`${provider}: ${rows.length} rows, ${fixtures.length} fixtures`);
 	}
 } finally {
