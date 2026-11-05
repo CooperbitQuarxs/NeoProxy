@@ -14,20 +14,29 @@ const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: 
 const { AXES, API_COMPAT_RECORDS } = await import(root + "/pi-catalog/src/compat/axes.ts");
 const { KNOWN_HOSTS } = await import(root + "/pi-catalog/src/hosts.ts");
 
-const completionsRecords: string[] = API_COMPAT_RECORDS["openai-completions"];
-const completionsWireKeys = Object.values(AXES as Record<string, any>)
-	.filter(axis => axis.set === "wire" && axis.records?.some((record: string) => completionsRecords.includes(record)))
-	.map(axis => axis.key);
+const wireKeysFor = (api: string): string[] => {
+	const records: string[] = API_COMPAT_RECORDS[api];
+	return [
+		...new Set(
+			Object.values(AXES as Record<string, any>)
+				.filter(axis => axis.set === "wire" && axis.records?.some((record: string) => records.includes(record)))
+				.map(axis => axis.key as string),
+		),
+	];
+};
+const completionsWireKeys = wireKeysFor("openai-completions");
+const anthropicWireKeys = wireKeysFor("anthropic-messages");
 
 const out = join(dirname(new URL(import.meta.url).pathname), "..", "compat_rules.json.gz");
 writeFileSync(
 	out,
 	Bun.gzipSync(
 		JSON.stringify({
-			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions wire keys",
+			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions and anthropic-messages wire keys",
 			cascade: rules.cascade.rules,
 			hosts: KNOWN_HOSTS,
-			completionsWireKeys: [...new Set(completionsWireKeys)],
+			completionsWireKeys,
+			anthropicWireKeys,
 		}),
 	),
 );

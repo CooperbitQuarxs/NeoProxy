@@ -42,10 +42,12 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		profile.Thinking.SupportsDisplay = thinking.SupportsDisplay
 		party.efforts = append([]string(nil), thinking.Efforts...)
 		party.requiresEffort = thinking.RequiresEffort
+		party.effortMap = thinking.EffortMap
 	}
 	// NeoPi keys this on the provider: Kimi shares its affinity identity
 	// across its two transports.
 	party.promptCacheUserID = model.Provider == "kimi-code"
+	party.ownStream = model.Provider == "kimi-code"
 	if compat := model.AnthropicCompat; compat != nil {
 		profile.Compat.SupportsContextManagement = compat.SupportsContextManagement
 		profile.Compat.SupportsEagerToolInputStreaming = compat.SupportsEagerToolInputStreaming
@@ -62,6 +64,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		party.toolResultID = compat.RequiresToolResultID
 		party.escapeToolNames = compat.EscapeBuiltinToolNames
 		party.replayUnsigned = compat.ReplayUnsignedThinking
+		party.signing = compat.SigningEndpoint && !compat.OfficialEndpoint
 	}
 	profile.thirdParty = party
 	return profile
@@ -69,13 +72,18 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 
 // neoPiThirdPartyHeaders is buildAnthropicHeaders for an API key on a
 // non-Anthropic endpoint: Bearer auth (applied later), NeoPi's own user agent
-// and only the betas the request's fields need.
+// and only the betas the request's fields need. The effort beta rides a
+// requested effort and an adaptive-only model's pinned one (thinking off, or a
+// forced tool choice); interleaved thinking needs its beta unless the model
+// displays thinking natively off a signing route.
 func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile neoPiProfile) http.Header {
 	var betas []string
-	if thinking && profile.Reasoning && profile.thirdParty.outputEffort {
+	adaptivePin := profile.Thinking.Mode == "anthropic-adaptive" &&
+		(!thinking || profile.Compat.SupportsForcedToolChoice && neoPiForcedToolChoice(body))
+	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking || adaptivePin) {
 		betas = append(betas, "effort-2025-11-24")
 	}
-	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay {
+	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing {
 		betas = append(betas, "interleaved-thinking-2025-05-14")
 	}
 	for _, edit := range gjson.GetBytes(body, "context_management.edits").Array() {
@@ -105,11 +113,19 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 	return h
 }
 
+// neoPiForcedToolChoice is isForcedToolChoice over the wire request: a
+// tool_choice that makes the model call a tool.
+func neoPiForcedToolChoice(body []byte) bool {
+	kind := gjson.GetBytes(body, "tool_choice.type").String()
+	return kind == "any" || kind == "tool"
+}
+
 // neoPiThirdPartyMessages applies NeoPi's convertMessages content rules for a
 // non-Anthropic model to downstream Messages turns: blank user turns drop,
 // user and tool_result content is rebuilt for the model's input modalities,
-// a tool_result carries the `id` alias the provider requires, and unsigned
-// assistant thinking the model cannot replay is demoted to text.
+// a tool_result carries the `id` alias the provider requires, unsigned
+// assistant thinking the model cannot replay is demoted to text (or dropped),
+// and an assistant turn left with no blocks is skipped.
 func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	root := gjson.ParseBytes(input)
 	messages := root.Get("messages")
@@ -119,7 +135,11 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	out := make([]json.RawMessage, 0, len(messages.Array()))
 	for _, message := range messages.Array() {
 		if message.Get("role").String() == "assistant" {
-			out = append(out, neoPiThirdPartyAssistant(message, party))
+			converted := neoPiThirdPartyAssistant(message, party)
+			if content := gjson.GetBytes(converted, "content"); content.IsArray() && len(content.Array()) == 0 {
+				continue
+			}
+			out = append(out, converted)
 			continue
 		}
 		if message.Get("role").String() != "user" {
@@ -173,11 +193,15 @@ func neoPiThirdPartyMessages(input []byte, party *neoPiThirdParty) []byte {
 	return neoPiSetRaw(input, "messages", jsjson.Marshal(out))
 }
 
-// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay. In
-// a turn with signed thinking, or for a model that does not replay unsigned
-// thinking, an unsigned block is demoted to text (renderDemotedThinking) and
-// a blank one dropped. Otherwise every blank thinking block is dropped and an
-// unsigned one is replayed as a thinking block with an empty signature.
+// neoPiThirdPartyAssistant is convertMessages' assistant thinking replay. On
+// a signing route (transformMessages' same-model replay to a
+// signature-enforcing target) unsigned thinking is dropped, never demoted,
+// and a turn left with no signed thinking drops its redacted thinking too.
+// Elsewhere, in a turn with signed thinking, or for a model that does not
+// replay unsigned thinking, an unsigned block is demoted to text
+// (renderDemotedThinking) and a blank one dropped. Otherwise every blank
+// thinking block is dropped and an unsigned one is replayed as a thinking
+// block with an empty signature.
 func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json.RawMessage {
 	content := message.Get("content")
 	if !content.IsArray() {
@@ -186,17 +210,23 @@ func neoPiThirdPartyAssistant(message gjson.Result, party *neoPiThirdParty) json
 	unsigned := func(block gjson.Result) bool {
 		return strings.TrimSpace(block.Get("signature").String()) == ""
 	}
-	hasSigned := false
+	hasSigned, hasThinking := false, false
 	for _, block := range content.Array() {
-		if block.Get("type").String() == "thinking" && !unsigned(block) {
-			hasSigned = true
+		if block.Get("type").String() == "thinking" {
+			hasThinking = true
+			hasSigned = hasSigned || !unsigned(block)
 		}
 	}
 	demote := hasSigned || !party.replayUnsigned
 	changed := false
 	blocks := make([]json.RawMessage, 0, len(content.Array()))
 	for _, block := range content.Array() {
-		if block.Get("type").String() != "thinking" {
+		kind := block.Get("type").String()
+		if party.signing && (kind == "thinking" && unsigned(block) || kind == "redacted_thinking" && hasThinking && !hasSigned) {
+			changed = true
+			continue
+		}
+		if kind != "thinking" {
 			blocks = append(blocks, json.RawMessage(block.Raw))
 			continue
 		}

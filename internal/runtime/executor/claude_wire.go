@@ -419,6 +419,24 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 			partyBudget, maxTokens = budget, allowance
 		}
 	}
+	// Adaptive thinking spends the same max_tokens as the answer: streamSimple
+	// gives a requested effort's thinking budget on top of a caller's
+	// allowance, within the model cap (Kimi's own stream adds none).
+	if party != nil && enabled && !party.ownStream && profile.Thinking.Mode == "anthropic-adaptive" {
+		if caller := root.Get("max_tokens").Int(); caller > 0 {
+			maxTokens = min(caller+neoPiEffortBudgets[effort], profile.MaxTokens)
+		}
+	}
+	// mapEffortToAnthropicAdaptiveEffort: the wire effort is the row's effort
+	// map entry, and minimal, which the effort field lacks, goes out as low.
+	if party != nil && enabled && effort != "" {
+		if mapped := party.effortMap[effort]; mapped != "" {
+			effort = mapped
+		}
+		if effort == "minimal" {
+			effort = "low"
+		}
+	}
 	var wireThinking json.RawMessage
 	if profile.Thinking.Mode == "anthropic-adaptive" {
 		if enabled {

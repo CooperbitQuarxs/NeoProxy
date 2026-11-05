@@ -72,6 +72,7 @@ type compiledData struct {
 	Cascade             []*rule             `json:"cascade"`
 	Hosts               map[string]hostSpec `json:"hosts"`
 	CompletionsWireKeys []string            `json:"completionsWireKeys"`
+	AnthropicWireKeys   []string            `json:"anthropicWireKeys"`
 }
 
 type ruleIndex struct {
@@ -82,10 +83,12 @@ type ruleIndex struct {
 }
 
 var (
-	dataOnce  sync.Once
-	data      *compiledData
-	index     *ruleIndex
-	wireKeys  map[string]bool
+	dataOnce sync.Once
+	data     *compiledData
+	index    *ruleIndex
+	// wireKeys holds, per API, the wire axis keys axes.ts applies to that
+	// API's compat record.
+	wireKeys  map[string]map[string]bool
 	dataError error
 )
 
@@ -107,13 +110,21 @@ func load() error {
 			dataError = err
 			return
 		}
-		wireKeys = make(map[string]bool, len(data.CompletionsWireKeys))
-		for _, key := range data.CompletionsWireKeys {
-			wireKeys[key] = true
+		wireKeys = map[string]map[string]bool{
+			APIOpenAICompletions: keySet(data.CompletionsWireKeys),
+			APIAnthropicMessages: keySet(data.AnthropicWireKeys),
 		}
 		index, dataError = buildIndex(data.Cascade)
 	})
 	return dataError
+}
+
+func keySet(keys []string) map[string]bool {
+	set := make(map[string]bool, len(keys))
+	for _, key := range keys {
+		set[key] = true
+	}
+	return set
 }
 
 func buildIndex(rules []*rule) (*ruleIndex, error) {

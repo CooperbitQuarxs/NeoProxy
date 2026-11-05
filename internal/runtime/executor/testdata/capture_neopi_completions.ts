@@ -242,23 +242,31 @@ for (const provider of providers) {
 	const discovered = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : { models: [] };
 	const listed = discovered.models;
 	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
-	// Bundled rows NeoProxy serves: Chat Completions, image generation over
-	// openai-images (generateOpenAIImage) and speech over openai-speech
+	// Bundled rows NeoProxy serves: Chat Completions, Anthropic Messages (a
+	// mixed-transport host's Claude rows), image generation over openai-images
+	// (generateOpenAIImage) and speech over openai-speech
 	// (synthesizeOpenAiSpeech).
-	const exported = bundled.filter((model: any) => ["openai-completions", "openai-images", "openai-speech"].includes(model.api));
+	const exported = bundled.filter((model: any) =>
+		["openai-completions", "anthropic-messages", "openai-images", "openai-speech"].includes(model.api),
+	);
 	const skipped = bundled.length - exported.length;
 
 	// Catalog export: deduplicated compats so large rosters stay small.
-	const compats: any[] = [];
-	const compatIndex = new Map<string, number>();
-	const indexOf = (compat: any) => {
-		const key = JSON.stringify(compat);
-		if (!compatIndex.has(key)) {
-			compatIndex.set(key, compats.length);
-			compats.push(compat);
-		}
-		return compatIndex.get(key)!;
+	const dedupe = () => {
+		const list: any[] = [];
+		const index = new Map<string, number>();
+		const indexOf = (compat: any) => {
+			const key = JSON.stringify(compat);
+			if (!index.has(key)) {
+				index.set(key, list.length);
+				list.push(compat);
+			}
+			return index.get(key)!;
+		};
+		return { list, indexOf };
 	};
+	const { list: compats, indexOf } = dedupe();
+	const { list: anthropicCompats, indexOf: anthropicIndexOf } = dedupe();
 	const baseUrl = completions[0]?.baseUrl;
 	const rows = exported.map((model: any) => ({
 		id: model.id,
@@ -276,6 +284,7 @@ for (const provider of providers) {
 		// The authored sparse compat a discovery merge rebuilds from.
 		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
 		...(model.api === "openai-completions" ? { completionsCompatIndex: indexOf(model.compat) } : {}),
+		...(model.api === "anthropic-messages" ? { anthropicCompatIndex: anthropicIndexOf(model.compat) } : {}),
 		// The token tariff: the variant collapse keeps differently priced
 		// thinking pairs apart.
 		cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 },
@@ -315,6 +324,7 @@ for (const provider of providers) {
 			costAuthoritative: !!manager?.dynamicCostAuthoritative,
 		},
 		compats,
+		anthropicCompats,
 		models: rows,
 	};
 	await Bun.write(join(catalogDir, `${provider}.json.gz`), Bun.gzipSync(JSON.stringify(catalog)));

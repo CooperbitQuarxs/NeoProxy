@@ -1,5 +1,6 @@
 // Runs NeoPi's OWN resolveModelPolicy (pi-catalog compat/resolve.ts) over
-// openai-completions specs derived from every bundled completions row: the
+// openai-completions and anthropic-messages specs derived from every bundled
+// row of those APIs: the
 // row as authored (its configured compat, no thinking), the row reported as
 // non-reasoning, the row with its ladder authored explicitly, and two ids the
 // bundle lacks (a namespaced copy and a next revision). Records the compat,
@@ -54,7 +55,7 @@ const run = (label: string, spec: any) => {
 let rows = 0;
 for (const provider of getBundledProviders()) {
 	for (const model of getBundledModels(provider) as any[]) {
-		if (model.api !== "openai-completions") continue;
+		if (model.api !== "openai-completions" && model.api !== "anthropic-messages") continue;
 		rows++;
 		const base = {
 			id: model.id,
@@ -75,6 +76,14 @@ for (const provider of getBundledProviders()) {
 		run("namespaced", { ...base, id: `zz-lab/${model.id}` });
 		const bumped = bumpRevision(model.id);
 		if (bumped) run("next-revision", { ...base, id: bumped });
+		// A gateway path that names a host class (here Fireworks, whose effort
+		// default is Chat Completions only) on every API.
+		const gateway = { ...base, baseUrl: "http://127.0.0.1:8080/fireworks.ai/api/v1" };
+		run("fireworks-path", gateway);
+		if (model.thinking?.efforts?.length) {
+			const { effortRouting: _routing, ...thinking } = model.thinking;
+			run("fireworks-path-explicit-thinking", { ...gateway, thinking });
+		}
 	}
 }
 

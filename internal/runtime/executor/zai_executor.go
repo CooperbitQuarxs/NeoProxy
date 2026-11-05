@@ -40,7 +40,7 @@ func NewZaiExecutor(provider string, cfg *config.Config) *ZaiExecutor {
 	messages := NewClaudeExecutor(cfg)
 	messages.provider = provider
 	messages.thirdParty = &neoPiThirdPartyProvider{
-		catalog: func(_ cliproxyexecutor.Request, model string) *registry.NeoPiModel {
+		catalog: func(_ *cliproxyauth.Auth, _ cliproxyexecutor.Request, model string) *registry.NeoPiModel {
 			return registry.ZaiNeoPiModel(model)
 		},
 		bearer: zaiAPIKey,
