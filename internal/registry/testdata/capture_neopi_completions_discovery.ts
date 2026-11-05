@@ -53,6 +53,8 @@ const managers: Record<string, (config: any) => any> = {
 	"xiaomi-token-plan-cn": (config: any) => m.xiaomiModelManagerOptions({ ...config, providerId: "xiaomi-token-plan-cn", tokenPlanRegion: "cn" }),
 	"yolo-auto": m.yoloAutoModelManagerOptions,
 	"zhipu-coding-plan": m.zhipuCodingPlanModelManagerOptions,
+	coreweave: m.coreWeaveModelManagerOptions,
+	"cline-pass": m.clinePassModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -240,10 +242,73 @@ function fireworksPages(bundled: string[]): Reply[] {
 	return [json(page1), json(page2)];
 }
 
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean };
+// ClinePass reads two hosts at once: Cline's recommended-models roster (the
+// authoritative ids) and OpenRouter's public catalog (enrichment only), so
+// its scenarios answer each host with its own reply.
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply };
+
+function clinePassScenarios(bundled: string[]): Scenario[] {
+	const pass = [
+		...bundled.filter(id => !id.includes("/")).map(id => ({ id: `cline-pass/${id}` })),
+		{ id: "cline-pass/glm-5.3" },
+		{ id: "cline-pass/kimi-k2.6" },
+		{ id: "cline-pass/mimo-v2.5" },
+		{ id: " cline-pass/zz-pass-live " },
+		{ id: "cline-pass/zz-pass-unknown" },
+		{ id: "cline-pass/glm-5.1" },
+		{ id: "cline-pass/claude-sonnet-4-6" },
+		{ id: "cline-pass/gpt-5.4-thinking" },
+		{ id: "cline-pass/" },
+		{ id: "unprefixed-model" },
+		{ id: 5 },
+		{ name: "no id" },
+		null,
+	];
+	const free = [
+		...bundled.filter(id => id.includes("/")).map(id => ({ id })),
+		{ id: "deepseek/deepseek-v4-flash" },
+		{ id: "poolside/laguna-s-2.1:free" },
+		{ id: "cline-free/deepseek-v4.1-flash" },
+		{ id: "qwen/qwen3-coder:free" },
+		{ id: "zz-lab/zz-free-live" },
+		{ id: "zz-lab/zz-free-slug" },
+		{ id: "zz-lab/zz-free-unknown" },
+		{ id: "zz-lab/zz-free-nbsp" },
+		{ id: "[Tag] zz-lab/glm-5.1 [x]" },
+		{ id: "cline-pass/should-skip" },
+		{ id: "glm-5.3" },
+		{ id: "  " },
+		{ id: 7 },
+	];
+	const live = json({
+		data: [
+			{ id: "zz-vendor/zz-pass-live", name: "Vendor: ZZ Pass Live", context_length: 400000, top_provider: { max_completion_tokens: 50000 }, pricing: { prompt: "0.000001", completion: "0.000002", input_cache_read: "0.0000001" }, supported_parameters: ["tools", "reasoning"], architecture: { modality: "text+image->text" } },
+			{ id: "zz-lab/zz-free-live", name: "ZZ Free Live (free)", context_length: 100000, top_provider: { max_completion_tokens: 0 }, pricing: { prompt: "0", completion: "0" }, supported_parameters: ["tools"], architecture: { modality: "text->text" } },
+			{ id: "other/zz-free-slug", name: "Other: Slug Model", context_length: "x", supported_parameters: ["reasoning"] },
+			{ id: "zz-lab/zz-free-nbsp", name: "Vendor:\u00a0NBSP Model (free)\u00a0", supported_parameters: [] },
+			{ id: "zz-vendor/zz-pass-unknown-not", name: "Not it" },
+			{ id: "", name: "blank" },
+			7,
+		],
+	});
+	const both = json({ clinePass: pass, free });
+	return [
+		{ name: "roster + live", replies: [], roster: both, live },
+		{ name: "roster, live down", replies: [], roster: both, live: json({ error: "down" }, 503) },
+		{ name: "roster, live not json", replies: [], roster: both, live: { status: 200, body: "oops" } },
+		{ name: "roster, live empty", replies: [], roster: both, live: json({ data: [] }) },
+		{ name: "pass only", replies: [], roster: json({ clinePass: pass }), live },
+		{ name: "free not array", replies: [], roster: json({ clinePass: pass, free: { id: "x" } }), live },
+		{ name: "no valid pass ids", replies: [], roster: json({ clinePass: [{ id: "unprefixed" }], free }), live },
+		{ name: "missing clinePass", replies: [], roster: json({ free }), live },
+		{ name: "http 500", replies: [], roster: json({ error: "boom" }, 500), live },
+		{ name: "not json", replies: [], roster: { status: 200, body: "oops" }, live },
+	];
+}
 
 function scenarios(provider: string, bundled: string[]): Scenario[] {
 	const list = entries(provider, bundled);
+	if (provider === "cline-pass") return clinePassScenarios(bundled);
 	if (provider === "fireworks") {
 		return [
 			{ name: "control-plane pages", replies: fireworksPages(bundled) },
@@ -302,7 +367,11 @@ for (const [provider, build] of Object.entries(managers)) {
 				query: Object.fromEntries(url.searchParams),
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
 			});
-			const reply = scenario.replies[Math.min(call++, scenario.replies.length - 1)];
+			const reply = scenario.roster
+				? url.hostname === "openrouter.ai"
+					? scenario.live!
+					: scenario.roster
+				: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
 		const options = build({ apiKey, fetch: fetchImpl });
@@ -312,6 +381,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			provider,
 			scenario: scenario.name,
 			replies: scenario.replies,
+			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,
 			stale: resolved.stale,
@@ -383,3 +453,69 @@ const excludeFile = join(dirname(derivedFile), "exclude_models.json");
 writeFileSync(excludeFile, JSON.stringify(rules.behavior.excludeModels));
 console.log(`wrote ${rules.behavior.excludeModels.length} exclude rules to ${excludeFile}`);
 console.log(`wrote ${results.length} scenarios to ${outFile}`);
+
+// ClinePass discovery inputs the Go port embeds: Cline's curated per-id
+// metadata (provider-models/cline-pass.ts) and NeoPi's bundled proxy-reference
+// index (identity/bundled.ts) with the vocabulary its candidate expansion
+// strips, which resolves an id the ClinePass bundle lacks to its upstream row.
+const { CLINE_PASS_MODEL_METADATA } = await import(root + "/pi-catalog/src/provider-models/cline-pass.ts");
+const { getBundledModelReferenceIndex } = await import(root + "/pi-catalog/src/identity/bundled.ts");
+const { discoveryVocabulary, collapseVocabulary } = await import(root + "/pi-catalog/src/compat/taxonomy.ts");
+const referenceIndex = getBundledModelReferenceIndex();
+const referenceRows: any[] = [];
+const referenceRowIndex = new Map<any, number>();
+const referenceRow = (model: any): number => {
+	let index = referenceRowIndex.get(model);
+	if (index === undefined) {
+		index = referenceRows.length;
+		referenceRowIndex.set(model, index);
+		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null });
+	}
+	return index;
+};
+const discovery = discoveryVocabulary();
+const collapse = collapseVocabulary();
+const markerSuffixes = [
+	...discovery.billingVariantSuffixes,
+	...[...discovery.trailingMarkers, ...discovery.referenceOnlyTrailingMarkers].flatMap((marker: string) => [`-${marker}`, `:${marker}`]),
+	...collapse.suffixes.map((rule: any) => rule.suffix),
+	...collapse.routingVariants.map((rule: any) => rule.suffix),
+];
+const clinePassFile = join(dirname(derivedFile), "cline_pass.json.gz");
+// The row NeoPi's ClinePass manager builds for each curated id: its catalog
+// rules derive the effort map and compat from the id, which the port cannot
+// evaluate, and the curated spec fixes everything else about the row.
+const curatedBuilt: Record<string, { thinking: unknown; compat: unknown }> = {};
+for (const [id, metadata] of Object.entries(CLINE_PASS_MODEL_METADATA) as [string, any][]) {
+	const roster = metadata.tier === "free"
+		? { clinePass: [{ id: "cline-pass/zz-anchor" }], free: [{ id }] }
+		: { clinePass: [{ id: `cline-pass/${id}` }] };
+	const fetchImpl = async (input: any) => {
+		const url = new URL(typeof input === "string" ? input : input.url);
+		if (url.hostname === "openrouter.ai") return new Response("unavailable", { status: 503 });
+		return new Response(JSON.stringify(roster), { status: 200, headers: { "content-type": "application/json" } });
+	};
+	const options = m.clinePassModelManagerOptions({ apiKey, fetch: fetchImpl });
+	options.cacheDbPath = join(cacheDir, `cline-pass-curated-${Object.keys(curatedBuilt).length}.db`);
+	const resolved = await resolveProviderModels(options, "online");
+	const model = resolved.models.find((candidate: any) => candidate.id === id);
+	if (!model) throw new Error(`NeoPi built no ClinePass row for curated ${id}`);
+	curatedBuilt[id] = { thinking: model.thinking ?? null, compat: model.compat };
+}
+writeFileSync(
+	clinePassFile,
+	Bun.gzipSync(
+		JSON.stringify({
+			source: "NeoPi OWN pi-catalog provider-models/cline-pass.ts CLINE_PASS_MODEL_METADATA and identity/bundled.ts getBundledModelReferenceIndex",
+			metadata: CLINE_PASS_MODEL_METADATA,
+			curatedBuilt,
+			reference: {
+				markerSuffixes,
+				exact: Object.fromEntries([...referenceIndex.exact].map(([key, model]) => [key, referenceRow(model)])),
+				suffixAlias: Object.fromEntries([...referenceIndex.suffixAlias].map(([key, model]) => [key, referenceRow(model)])),
+				rows: referenceRows,
+			},
+		}),
+	),
+);
+console.log(`wrote ClinePass metadata and ${referenceRows.length} reference rows to ${clinePassFile}`);

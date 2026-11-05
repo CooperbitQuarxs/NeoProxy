@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -28,7 +30,7 @@ var neoPiCompletionsProviders = []string{
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception",
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
-	"yolo-auto", "zhipu-coding-plan",
+	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -267,6 +269,13 @@ const neoPiDiscoveryBodyLimit = 64 << 20
 // neoPiFireworksMaxPages is FIREWORKS_CONTROL_PLANE_MAX_PAGES.
 const neoPiFireworksMaxPages = 25
 
+// ClinePass discovery reads fixed hosts, not the account's base URL; tests
+// point them at a loopback server.
+var (
+	neoPiClinePassModelsURL      = registry.NeoPiClinePassModelsURL
+	neoPiClinePassLiveCatalogURL = registry.NeoPiClinePassLiveCatalogURL
+)
+
 // fetchNeoPiCompletionsModels is NeoPi's fetchDynamicModels for provider:
 // GET <base>/models with an Accept header and the key as a bearer token, or
 // Fireworks' paginated control-plane catalog. A provider whose NeoPi model
@@ -280,8 +289,11 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		if err != nil {
 			return nil, err
 		}
-		if provider == "fireworks" {
+		switch provider {
+		case "fireworks":
 			return fetchNeoPiFireworksModels(ctx, cfg, auth, key, base)
+		case "cline-pass":
+			return fetchNeoPiClinePassModels(ctx, cfg, auth, base)
 		}
 		endpoint := base + "/models"
 		if query := registry.NeoPiCompletionsListingQuery(provider); len(query) > 0 {
@@ -297,6 +309,39 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		}
 		return models, nil
 	}
+}
+
+// fetchNeoPiClinePassModels is fetchClinePassModels: Cline's recommended-models
+// roster, sent with the Cline client identity and no key, beside OpenRouter's
+// public catalog, which only enriches ids the bundle does not know and whose
+// failure leaves the roster unenriched. NeoPi bounds both fetches at five
+// seconds; the repository bans deadlines after the connection is up, so a
+// failed roster cancels the catalog fetch instead of waiting it out.
+func fetchNeoPiClinePassModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, base string) ([]*ModelInfo, error) {
+	liveCtx, cancelLive := context.WithCancel(ctx)
+	defer cancelLive()
+	liveDone := make(chan []byte, 1)
+	go func() {
+		live, err := neoPiDiscoveryFetch(liveCtx, cfg, auth, "cline-pass", neoPiClinePassLiveCatalogURL, http.Header{})
+		if err != nil {
+			live = nil
+		}
+		liveDone <- live
+	}()
+	header := http.Header{}
+	for name, value := range openaiwire.ClinePassClientHeaders("") {
+		header.Set(name, value)
+	}
+	roster, err := neoPiDiscoveryFetch(ctx, cfg, auth, "cline-pass", neoPiClinePassModelsURL, header)
+	if err != nil {
+		return nil, err
+	}
+	live := <-liveDone
+	models, err := registry.NeoPiClinePassListing(base, roster, live)
+	if err != nil {
+		return nil, fmt.Errorf("cline-pass models: %s: %w", neoPiClinePassModelsURL, err)
+	}
+	return models, nil
 }
 
 // fetchNeoPiFireworksModels lists Fireworks' serverless catalog through the
@@ -336,13 +381,29 @@ func fetchNeoPiFireworksModels(ctx context.Context, cfg *config.Config, auth *co
 // neoPiDiscoveryGet sends NeoPi's discovery request and returns the body of a
 // 2xx answer.
 func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint, key string) ([]byte, error) {
+	header := http.Header{}
+	header.Set("Accept", "application/json")
+	header.Set("Authorization", "Bearer "+key)
+	if provider == "coreweave" {
+		// coreWeaveModelManagerOptions sends the W&B project the environment names.
+		if project := openaiwire.ResolveCoreWeaveProject(os.Getenv); project != "" {
+			header.Set(openaiwire.CoreWeaveProjectHeader, project)
+		}
+	}
+	return neoPiDiscoveryFetch(ctx, cfg, auth, provider, endpoint, header)
+}
+
+// neoPiDiscoveryFetch GETs a discovery endpoint with header, under the
+// runtime's User-Agent unless header names one.
+func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+key)
-	req.Header.Set("User-Agent", neoPiBunUserAgent)
+	req.Header = header
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", neoPiBunUserAgent)
+	}
 	resp, err := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s models: %w", provider, err)

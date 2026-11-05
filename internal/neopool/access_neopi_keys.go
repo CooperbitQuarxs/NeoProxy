@@ -65,6 +65,10 @@ func neoPiKeyFailure(info ProviderInfo, err error) error {
 	if err == nil {
 		return nil
 	}
+	if errors.Is(err, neopikeys.ErrCoreWeaveProject) {
+		// NeoPi reads the project from the environment, so the server's must name it.
+		return accessErr(http.StatusServiceUnavailable, "%s needs a W&B project: set COREWEAVE_PROJECT=<team>/<project> in the NeoProxy server's environment and restart it.", info.Name)
+	}
 	var upstream *neopikeys.HTTPError
 	if !errors.As(err, &upstream) {
 		return accessErr(http.StatusBadGateway, "Could not reach %s to check the key. Try again in a moment.", info.Name)

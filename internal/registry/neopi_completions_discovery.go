@@ -138,7 +138,7 @@ func NeoPiCompletionsDiscovers(provider string) bool {
 // with the listing's ids and limits merged in. An unusable body is an error;
 // NeoPi then serves the bundled roster.
 func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInfo, error) {
-	if !NeoPiCompletionsDiscovers(provider) || provider == "fireworks" {
+	if !NeoPiCompletionsDiscovers(provider) || provider == "fireworks" || provider == neoPiClinePassProvider {
 		return nil, ErrNeoPiListing
 	}
 	payload := gjson.ParseBytes(body)

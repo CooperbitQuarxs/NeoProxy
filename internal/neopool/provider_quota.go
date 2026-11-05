@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/clinepass"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
@@ -138,6 +139,10 @@ func quotaProvider(a *coreauth.Auth) string {
 	if umansauth.IsBaseURL(a.Attributes["base_url"]) {
 		return "umans"
 	}
+	// NeoPi meters every ClinePass key with its plan quota route.
+	if catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider {
+		return clinepass.Provider
+	}
 	if a.AuthKind() != coreauth.AuthKindOAuth {
 		return ""
 	}
@@ -180,7 +185,7 @@ func quotaAccessToken(a *coreauth.Auth) string {
 		return cookie
 	}
 	token, _ := a.Metadata["access_token"].(string)
-	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"])) {
+	if token == "" && (zaiauth.IsCodingPlanBaseURL(a.Attributes["base_url"]) || umansauth.IsBaseURL(a.Attributes["base_url"]) || catalogProviderID(a.Provider, a.Attributes["compat_name"]) == clinepass.Provider) {
 		token = a.Attributes["api_key"]
 	}
 	if token == "" && a.Provider == "devin" {
@@ -395,6 +400,27 @@ func umansUsageWindows(usage *umansauth.Usage) []Window {
 	return append(out, percentWindow("5h", *gate.UsedFraction*100, startsAt, gate.ResetsAt))
 }
 
+// clinePassUsageWindows adapts NeoPi's ClinePass plan report: the 5h and
+// weekly windows gate routing, as NeoPi's ranking reads only those; the
+// monthly window is reported but unknown to routing.
+func clinePassUsageWindows(usage *clinepass.Usage) []Window {
+	out := []Window{}
+	if usage == nil {
+		return out
+	}
+	kinds := map[string]string{"5h": "5h", "7d": "week", "30d": "month"}
+	for _, limit := range usage.Limits {
+		startsAt := time.Time{}
+		if !limit.ResetsAt.IsZero() {
+			startsAt = limit.ResetsAt.Add(-time.Duration(limit.DurationMs) * time.Millisecond)
+		}
+		w := percentWindow(kinds[limit.WindowID], limit.Used, startsAt, limit.ResetsAt)
+		w.Known = limit.WindowID != "30d"
+		out = append(out, w)
+	}
+	return out
+}
+
 // kimiUsageWindows adapts NeoPi's Kimi Code report the way its ranking
 // strategy reads it: the first 5h limit and the first 7d limit gate the
 // account; a limit without a duration spans its window's default. A limit
@@ -588,6 +614,12 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return umansUsageWindows(usage), nil
+	case clinepass.Provider:
+		usage, err := clinepass.FetchUsage(ctx, client, a.Attributes["base_url"], token)
+		if err != nil {
+			return nil, err
+		}
+		return clinePassUsageWindows(usage), nil
 	case "kimi":
 		// NeoPi skips the probe while the stored token is expired; the next
 		// poll carries the refreshed one.
