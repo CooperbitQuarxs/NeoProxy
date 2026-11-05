@@ -1,0 +1,2126 @@
+{
+ "source": "NeoPi OWN loginGitHubCopilot",
+ "token": "gho_capturefixturetoken0000000000000000",
+ "modelIds": [
+  "claude-fable-5",
+  "claude-fable-5.1",
+  "claude-haiku-4.5",
+  "claude-haiku-5.5",
+  "claude-opus-4.5",
+  "claude-opus-4.6",
+  "claude-opus-4.7",
+  "claude-opus-4.8",
+  "claude-opus-5",
+  "claude-opus-5.5",
+  "claude-sonnet-4",
+  "claude-sonnet-4.5",
+  "claude-sonnet-4.6",
+  "claude-sonnet-5",
+  "claude-sonnet-5.5",
+  "gemini-2.5-pro",
+  "gemini-3-flash-preview",
+  "gemini-3-pro-preview",
+  "gemini-3.1-pro-preview",
+  "gemini-3.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.7-flash",
+  "gemini-3.8-flash",
+  "gemini-4-argon",
+  "gpt-4.1",
+  "gpt-4o",
+  "gpt-5",
+  "gpt-5-mini",
+  "gpt-5.1",
+  "gpt-5.1-codex",
+  "gpt-5.1-codex-max",
+  "gpt-5.1-codex-mini",
+  "gpt-5.2",
+  "gpt-5.2-codex",
+  "gpt-5.3-codex",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.4-nano",
+  "gpt-5.5",
+  "gpt-5.6-luna",
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-6-astra",
+  "gpt-6-luna",
+  "gpt-6-sol",
+  "gpt-6.1-sol",
+  "gpt-6.1-terra",
+  "grok-4.5",
+  "grok-4.6",
+  "grok-4.7",
+  "grok-code-fast-1",
+  "kimi-k2.7-code",
+  "kimi-k3",
+  "mai-code-1-flash-picker",
+  "mai-code-1.1-flash",
+  "raptor-mini"
+ ],
+ "denied": "claude-fable-5",
+ "scenarios": [
+  {
+   "name": "public",
+   "input": "",
+   "credentials": {
+    "refresh": "gho_capturefixturetoken0000000000000000",
+    "access": "gho_capturefixturetoken0000000000000000",
+    "apiEndpoint": "https://api.individual.githubcopilot.com"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://github.com/login/device/code",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23li8tweQw6odWQebz&scope=read%3Auser"
+    },
+    {
+     "method": "POST",
+     "url": "https://github.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23li8tweQw6odWQebz&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "POST",
+     "url": "https://github.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23li8tweQw6odWQebz&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "POST",
+     "url": "https://github.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23li8tweQw6odWQebz&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "accept": "application/json",
+      "authorization": "token gho_capturefixturetoken0000000000000000",
+      "user-agent": "copilot/1.0.82"
+     },
+     "body": ""
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-haiku-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-haiku-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-developer-cli",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.7/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.8/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-2.5-pro/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3-flash-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3-pro-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.1-pro-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.5-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.6-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.7-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.8-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-4-argon/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-4.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-4o/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex-max/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.2/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.2-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.3-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4-nano/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-luna/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-terra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-astra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-luna/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6.1-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6.1-terra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.7/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-code-fast-1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/kimi-k2.7-code/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/kimi-k3/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/mai-code-1-flash-picker/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/mai-code-1.1-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/raptor-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    }
+   ]
+  },
+  {
+   "name": "enterprise",
+   "input": "https://company.ghe.com/",
+   "credentials": {
+    "refresh": "gho_capturefixturetoken0000000000000000",
+    "access": "gho_capturefixturetoken0000000000000000",
+    "enterpriseUrl": "company.ghe.com",
+    "apiEndpoint": "https://api.individual.githubcopilot.com"
+   },
+   "requests": [
+    {
+     "method": "POST",
+     "url": "https://company.ghe.com/login/device/code",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23ctDVkRmgkPke0Mmm&scope=read%3Auser"
+    },
+    {
+     "method": "POST",
+     "url": "https://company.ghe.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23ctDVkRmgkPke0Mmm&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "POST",
+     "url": "https://company.ghe.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23ctDVkRmgkPke0Mmm&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "POST",
+     "url": "https://company.ghe.com/login/oauth/access_token",
+     "headers": {
+      "accept": "application/json",
+      "content-type": "application/x-www-form-urlencoded",
+      "user-agent": "copilot-developer-action/0.0.1"
+     },
+     "body": "client_id=Ov23ctDVkRmgkPke0Mmm&device_code=dev-code&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code"
+    },
+    {
+     "method": "GET",
+     "url": "https://api.github.com/copilot_internal/user",
+     "headers": {
+      "accept": "application/json",
+      "authorization": "token gho_capturefixturetoken0000000000000000",
+      "user-agent": "copilot/1.0.82"
+     },
+     "body": ""
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-haiku-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-haiku-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-fable-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-developer-cli",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.7/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-4.8/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-opus-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/claude-sonnet-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-2.5-pro/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3-flash-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3-pro-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.1-pro-preview/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.5-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.6-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.7-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-3.8-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gemini-4-argon/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-4.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-4o/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex-max/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.1-codex-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.2/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.2-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.3-codex/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.4-nano/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-luna/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-5.6-terra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-astra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-luna/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6.1-sol/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/gpt-6.1-terra/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.5/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.6/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-4.7/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/grok-code-fast-1/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/kimi-k2.7-code/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/kimi-k3/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/mai-code-1-flash-picker/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/mai-code-1.1-flash/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    },
+    {
+     "method": "POST",
+     "url": "https://api.individual.githubcopilot.com/models/raptor-mini/policy",
+     "headers": {
+      "authorization": "Bearer gho_capturefixturetoken0000000000000000",
+      "content-type": "application/json",
+      "copilot-harness-id": "copilot-sdk",
+      "copilot-integration-id": "copilot-chat",
+      "editor-version": "copilot/1.0.82",
+      "openai-intent": "chat-policy",
+      "user-agent": "copilot/1.0.82",
+      "x-github-api-version": "2026-08-01",
+      "x-initiator": "user",
+      "x-interaction-type": "chat-policy"
+     },
+     "body": "{\"state\":\"enabled\"}"
+    }
+   ]
+  }
+ ]
+}

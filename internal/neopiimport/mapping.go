@@ -147,8 +147,10 @@ var oauthRoutes = map[string]route{
 	"factory-droid": {target: "factory-droid"},
 	// Snowflake's browser sign-in keeps the account it signed in at in
 	// enterpriseUrl.
-	"snowflake":      {target: "snowflake"},
-	"github-copilot": {reason: "NeoProxy has no GitHub Copilot engine."},
+	"snowflake": {target: "snowflake"},
+	// Copilot's device sign-in keeps the GitHub token (its access and refresh
+	// alike) beside its Enterprise domain and plan endpoint.
+	"github-copilot": {target: "github-copilot"},
 }
 
 func routeFor(c Credential) route {
@@ -449,6 +451,10 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 	case "snowflake":
 		meta["access_token"] = access
 		meta["enterprise_url"] = str(c.data, "enterpriseUrl")
+	case "github-copilot":
+		meta["access_token"] = access
+		setNonEmpty(meta, "enterprise_url", str(c.data, "enterpriseUrl"))
+		setNonEmpty(meta, "api_endpoint", str(c.data, "apiEndpoint"))
 	default:
 		return AuthFile{}, fmt.Errorf("%w: no auth-file format for %s", ErrNotImportable, r.target)
 	}

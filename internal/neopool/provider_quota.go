@@ -21,6 +21,7 @@ import (
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	devinauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/devin"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/githubcopilot"
 	kimiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kimi"
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
@@ -113,6 +114,11 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		// NeoPi bounds Factory billing reads only by the caller's signal.
 		key += ":factory-droid"
 		timeout, idleTimeout = 0, 0
+	case a.Provider == githubcopilot.Provider:
+		// Once connected, the Copilot usage probe carries no deadline
+		// (AGENTS.md); NeoPi bounds it by its usage request timeout.
+		key += ":github-copilot"
+		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -176,6 +182,8 @@ func quotaProvider(a *coreauth.Auth) string {
 		return "cursor"
 	case factorydroid.Provider:
 		return factorydroid.Provider
+	case githubcopilot.Provider:
+		return githubcopilot.Provider
 	}
 	return ""
 }
@@ -622,6 +630,36 @@ func factoryDroidUsageWindows(a *coreauth.Auth, usage *factorydroid.Usage) []Win
 	return out
 }
 
+// githubCopilotUsageWindows adapts NeoPi's Copilot report the way its default
+// ranking gates on it (Copilot has no ranking strategy): the premium, chat and
+// completions limits carry no model scope, so each gates every model of the
+// account, and the most consumed governs (remainingUsageFraction). They share
+// one monthly window. An unlimited quota reports no fraction; a report with
+// only such quotas is known but unmeasured.
+func githubCopilotUsageWindows(usage *githubcopilot.Usage) []Window {
+	out := []Window{}
+	if usage == nil || len(usage.Limits) == 0 {
+		return out
+	}
+	fraction, measured := 0.0, false
+	var resets time.Time
+	for _, limit := range usage.Limits {
+		if limit.Window != nil && resets.IsZero() {
+			resets = time.UnixMilli(limit.Window.ResetsAt)
+		}
+		if limit.Amount.UsedFraction != nil && (!measured || *limit.Amount.UsedFraction > fraction) {
+			fraction, measured = *limit.Amount.UsedFraction, true
+		}
+	}
+	if !measured {
+		return append(out, Window{Kind: "month", Source: quotaSourceReported, Unit: "percent", Capacity: 100})
+	}
+	// NeoPi's monthly window names only its reset; its start is unknown.
+	w := percentWindow("month", fraction*100, time.Time{}, resets)
+	w.StartsAt = 0
+	return append(out, w)
+}
+
 // fetch asks stateless providers for the account's current windows.
 func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time) ([]Window, error) {
 	token := quotaAccessToken(a)
@@ -729,6 +767,16 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 			return nil, err
 		}
 		return factoryDroidUsageWindows(a, usage), nil
+	case githubcopilot.Provider:
+		credential, ok := githubcopilot.RecordCredential(a.Metadata)
+		if !ok {
+			return nil, fmt.Errorf("github-copilot usage: sign-in has no token")
+		}
+		usage, err := githubcopilot.FetchUsage(ctx, client, credential)
+		if err != nil {
+			return nil, err
+		}
+		return githubCopilotUsageWindows(usage), nil
 	}
 	return nil, fmt.Errorf("provider has no usage endpoint")
 }
@@ -770,10 +818,13 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 		entry.failing = true
 		entry.gen = gen
 		var lostAccess *factorydroid.Error
-		if quotaProvider(a) == "alibaba-token-plan" || errors.As(err, &lostAccess) && (lostAccess.Status == http.StatusUnauthorized || lostAccess.Status == http.StatusForbidden) {
+		var copilotRefused *githubcopilot.Error
+		if quotaProvider(a) == "alibaba-token-plan" || errors.As(err, &lostAccess) && (lostAccess.Status == http.StatusUnauthorized || lostAccess.Status == http.StatusForbidden) ||
+			errors.As(err, &copilotRefused) && (copilotRefused.Status == http.StatusUnauthorized || copilotRefused.Status == http.StatusForbidden) {
 			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
 			// an expired cookie or refused report makes the windows unknown.
-			// A Factory credential that lost access drops its cached quota.
+			// A Factory or Copilot credential that lost access drops its
+			// cached quota (Copilot's rethrowAuthRejection).
 			entry.goodAt = time.Time{}
 		}
 	}

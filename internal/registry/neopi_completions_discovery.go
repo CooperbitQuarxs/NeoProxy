@@ -942,9 +942,7 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 		merged.requestModelID = dynamic.RequestModelID
 	}
 	// The discovered row's transport and endpoint win.
-	if dynamic.API == neopicompat.APIAnthropicMessages {
-		merged.api = dynamic.API
-	}
+	merged.api = dynamic.API
 	if dynamic.BaseURL != baseURL {
 		merged.baseURL = dynamic.BaseURL
 	}
