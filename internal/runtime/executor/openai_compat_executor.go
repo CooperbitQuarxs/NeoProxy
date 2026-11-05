@@ -1189,8 +1189,10 @@ func openAICompatStreamDataError(payload []byte, eventName string) (statusErr, b
 }
 
 type statusErr struct {
-	code             int
-	msg              string
+	code int
+	msg  string
+	// responseBody preserves machine-readable upstream details independently of msg.
+	responseBody     []byte
 	retryAfter       *time.Duration
 	credentialScoped bool
 }
@@ -1204,6 +1206,7 @@ func (e statusErr) Error() string {
 func (e statusErr) StatusCode() int            { return e.code }
 func (e statusErr) RetryAfter() *time.Duration { return e.retryAfter }
 func (e statusErr) IsCredentialScoped() bool   { return e.credentialScoped }
+func (e statusErr) ResponseBody() []byte       { return e.responseBody }
 
 const openAICompatTPMFallbackRetryAfter = time.Minute
 
