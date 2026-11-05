@@ -29,6 +29,7 @@ const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
+const { seedModels } = await import(root + "/pi-catalog/src/compat/providers.ts");
 const cacheDir = mkdtempSync(join(tmpdir(), "neopi-completions-"));
 
 // Providers NeoPi bundles no rows for discover their whole roster; their
@@ -217,6 +218,9 @@ for (const provider of providers) {
 		// The authored sparse compat a discovery merge rebuilds from.
 		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
 		...(model.api === "openai-completions" ? { completionsCompatIndex: indexOf(model.compat) } : {}),
+		// The token tariff: the variant collapse keeps differently priced
+		// thinking pairs apart.
+		cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 },
 	}));
 	// The model manager's authority flags decide how a listing replaces the
 	// bundled rows (model-manager.ts mergeDynamicModels).
@@ -237,6 +241,9 @@ for (const provider of providers) {
 		provider,
 		baseUrl,
 		skippedNonCompletions: skipped,
+		// Rule-seeded ids, which take precedence over a manager's references
+		// (xiaomiModelManagerOptions).
+		seeds: seedModels(provider).map((model: any) => model.id),
 		discovery: {
 			// Whether the model manager fetches a live listing at all.
 			listing: typeof manager?.fetchDynamicModels === "function",

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/alibabatokenplan"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xiaomi"
 )
@@ -50,6 +51,11 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base string, prefe
 		// Custom option probes models even when it names a regional URL.
 		accepted := neopikeys.AlibabaCodingPlanBaseURL(preferred.BaseURL)
 		return accepted, true, neoPiKeyFailure(info, neopikeys.AlibabaCodingPlanLogin(accepted, preferred.Custom).Validate(ctx, accessHTTPClient, key))
+	}
+	if info.ID == kilo.Provider {
+		// loginKilo mints the token through the device sign-in and never
+		// checks it; an imported token is kept as is, at the gateway.
+		return kilo.BaseURL, true, nil
 	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {

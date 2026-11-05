@@ -3,6 +3,7 @@ package registry
 import (
 	_ "embed"
 	"encoding/json"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -58,7 +59,23 @@ func neoPiMapWafer(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 			spec.withCompat("thinkingFormat", format)
 		}
 	}
+	// Wafer prices in cents per million; NeoPi's conversion, operation order
+	// kept.
+	pricing := wafer.Get("pricing")
+	spec.cost = NeoPiCost{
+		Input:     neoPiPositiveRate(pricing.Get("input_cents_per_million")) * 125 / 10000,
+		Output:    neoPiPositiveRate(pricing.Get("output_cents_per_million")) * 125 / 10000,
+		CacheRead: neoPiPositiveRate(pricing.Get("cache_read_cents_per_million")) * 125 / 10000,
+	}
 	return spec
+}
+
+// neoPiPositiveRate is toPositiveNumber(value, 0) for a rate.
+func neoPiPositiveRate(value gjson.Result) float64 {
+	if number, ok := neoPiToNumber(value); ok && number > 0 {
+		return number
+	}
+	return 0
 }
 
 // neoPiWaferThinkingFormat is resolveWaferServerlessThinkingFormat: the
@@ -146,6 +163,10 @@ func neoPiMapAiand(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 			}
 		}
 	}
+	// mapAiandCost: USD per-million rates; another currency counts as unpriced.
+	if currency := entry.Get("currency"); currency.Type != gjson.String || currency.Str == "usd" {
+		spec.cost = NeoPiCost{Input: neoPiPositiveRate(entry.Get("input_per_1m")), Output: neoPiPositiveRate(entry.Get("output_per_1m"))}
+	}
 	return spec
 }
 
@@ -174,6 +195,12 @@ func neoPiMapBaseten(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), contextFallback)
 	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), maxFallback)
+	// Baseten quotes OpenRouter-style per-token rates; no cache write.
+	spec.cost = NeoPiCost{
+		Input:     neoPiPositiveRate(entry.Get("pricing.prompt")) * 1_000_000,
+		Output:    neoPiPositiveRate(entry.Get("pricing.completion")) * 1_000_000,
+		CacheRead: neoPiPositiveRate(entry.Get("pricing.input_cache_read")) * 1_000_000,
+	}
 	return spec
 }
 
@@ -236,7 +263,36 @@ func neoPiExcludedModel(provider, id string) bool {
 func neoPiMapSambaNova(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	defaults.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
 	defaults.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), 0)
+	// sambanovaPricing: prompt and completion are required, cache legs default
+	// to 0; an unreadable card stays unpriced.
+	pricing := entry.Get("pricing")
+	if !pricing.IsObject() {
+		pricing = gjson.Result{}
+	}
+	rate := func(value gjson.Result, required bool) (float64, bool) {
+		if !value.Exists() || value.Type == gjson.Null {
+			return 0, !required
+		}
+		number, ok := neoPiToNumber(value)
+		if !ok || number < 0 {
+			return 0, false
+		}
+		return neoPiSettleRate(number), true
+	}
+	input, okInput := rate(pricing.Get("prompt"), true)
+	output, okOutput := rate(pricing.Get("completion"), true)
+	cacheRead, okRead := rate(pricing.Get("input_cache_read"), false)
+	cacheWrite, okWrite := rate(pricing.Get("input_cache_write"), false)
+	if okInput && okOutput && okRead && okWrite {
+		defaults.cost = NeoPiCost{Input: input, Output: output, CacheRead: cacheRead, CacheWrite: cacheWrite}
+	}
 	return defaults
+}
+
+// neoPiSettleRate is Math.round(rate * 1e12) / 1e6: a per-token rate as USD
+// per million, settled to a millionth so the scaling does not drift.
+func neoPiSettleRate(rate float64) float64 {
+	return math.Round(rate*1e12) / 1e6
 }
 
 // neoPiLadder is THINKING_EFFORTS filtered to the listed wire values.
@@ -324,7 +380,40 @@ func neoPiMapSynthetic(entry gjson.Result, defaults neoPiSpec, reference *NeoPiM
 		maxField = entry.Get("max_tokens")
 	}
 	spec.maxTokens = neoPiPositive(maxField, maxFallback)
+	// resolveSyntheticCost: prompt and completion are required ("$" allowed);
+	// otherwise the reference's tariff stands.
+	var fallback NeoPiCost
+	if reference != nil {
+		fallback = reference.cost
+	}
+	spec.cost = fallback
+	if pricing := entry.Get("pricing"); pricing.IsObject() {
+		input, okInput := neoPiSyntheticRate(pricing.Get("prompt"))
+		output, okOutput := neoPiSyntheticRate(pricing.Get("completion"))
+		if okInput && okOutput {
+			spec.cost = NeoPiCost{Input: input, Output: output, CacheRead: fallback.CacheRead, CacheWrite: fallback.CacheWrite}
+			if read, ok := neoPiSyntheticRate(pricing.Get("input_cache_reads")); ok {
+				spec.cost.CacheRead = read
+			}
+			if write, ok := neoPiSyntheticRate(pricing.Get("input_cache_writes")); ok {
+				spec.cost.CacheWrite = write
+			}
+		}
+	}
 	return spec
+}
+
+// neoPiSyntheticRate is toSyntheticCostPerMillion: a per-token rate (a string
+// may lead with "$") settled per million.
+func neoPiSyntheticRate(value gjson.Result) (float64, bool) {
+	if value.Type == gjson.String {
+		value = gjson.Result{Type: gjson.String, Str: strings.TrimPrefix(strings.TrimSpace(value.Str), "$")}
+	}
+	number, ok := neoPiToNumber(value)
+	if !ok || number < 0 {
+		return 0, false
+	}
+	return neoPiSettleRate(number), true
 }
 
 // neoPiMapCoralbricks is mapCoralbricksModel: rows with supports_chat false
@@ -396,7 +485,31 @@ func neoPiMapCoralbricks(entry gjson.Result, defaults neoPiSpec, reference *NeoP
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), contextFallback)
 	spec.maxTokens = maxTokens
+	// Coral quotes per-million rates; an unpriced leg keeps the reference's.
+	pricing := entry.Get("pricing")
+	if !pricing.IsObject() {
+		pricing = gjson.Result{}
+	}
+	var fallback NeoPiCost
+	if reference != nil {
+		fallback = reference.cost
+	}
+	spec.cost = NeoPiCost{
+		Input:      neoPiRate(pricing.Get("input_per_m"), fallback.Input),
+		Output:     neoPiRate(pricing.Get("output_per_m"), fallback.Output),
+		CacheRead:  neoPiRate(pricing.Get("cached_input_per_m"), fallback.CacheRead),
+		CacheWrite: neoPiRate(pricing.Get("cache_write_per_m"), fallback.CacheWrite),
+	}
 	return spec, true
+}
+
+// neoPiRate is the "a finite rate of zero or more, else fallback" parse
+// (coralRate, toCharmHyperRate, toSingularityApiRate).
+func neoPiRate(value gjson.Result, fallback float64) float64 {
+	if number, ok := neoPiToNumber(value); ok && number >= 0 {
+		return number
+	}
+	return fallback
 }
 
 // neoPiInputCapabilities is toInputCapabilities: image when the list names
@@ -421,6 +534,10 @@ func neoPiMapInception(entry gjson.Result, defaults neoPiSpec, reference *NeoPiM
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_length"), spec.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_output_length"), spec.maxTokens)
+	// A pricing record replaces the reference's tariff.
+	if pricing := entry.Get("pricing"); pricing.IsObject() {
+		spec.cost = neoPiPerTokenPricingCost(pricing)
+	}
 	return spec, true
 }
 
@@ -454,6 +571,13 @@ func neoPiMapNovita(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMode
 	spec.input = neoPiInputCapabilities(entry.Get("input_modalities"))
 	spec.contextWindow = neoPiPositive(entry.Get("context_size"), spec.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_output_tokens"), spec.maxTokens)
+	// Novita quotes ten-thousandths of a dollar per million (toNovitaCostPerMillion).
+	var cacheRead float64
+	if read := entry.Get("pricing.input_cache_read"); entry.Get("pricing").IsObject() && read.IsObject() {
+		cacheRead = neoPiPositiveRate(read.Get("price_per_m")) / 10_000
+	}
+	spec.cost = NeoPiCost{Input: neoPiPositiveRate(entry.Get("input_token_price_per_m")) / 10_000,
+		Output: neoPiPositiveRate(entry.Get("output_token_price_per_m")) / 10_000, CacheRead: cacheRead}
 	return spec
 }
 
@@ -508,6 +632,18 @@ func neoPiMapDeepinfra(entry gjson.Result) (neoPiSpec, bool) {
 	default:
 		spec.maxTokens = referenceMax
 	}
+	// The list rates, with an advertised discount in (0, 1) folded in.
+	pricing := metadata.Get("pricing")
+	if !pricing.IsObject() {
+		pricing = gjson.Result{}
+	}
+	multiplier := 1.0
+	if discount, ok := neoPiToNumber(metadata.Get("discount")); ok && discount > 0 && discount < 1 {
+		multiplier = 1 - discount
+	}
+	spec.cost = NeoPiCost{Input: neoPiPositiveRate(pricing.Get("input_tokens")) * multiplier,
+		Output:    neoPiPositiveRate(pricing.Get("output_tokens")) * multiplier,
+		CacheRead: neoPiPositiveRate(pricing.Get("cache_read_tokens")) * multiplier}
 	return spec, true
 }
 
@@ -615,6 +751,10 @@ func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	}
 	spec.contextWindow = neoPiPositive(chat.Get("context_window_tokens"), defaults.contextWindow)
 	spec.maxTokens = neoPiPositive(chat.Get("maximum_output_tokens"), defaults.maxTokens)
+	// resolveSingularityApiCost: the chat capability's per-million rates.
+	if pricing := chat.Get("pricing"); pricing.IsObject() {
+		spec.cost = NeoPiCost{Input: neoPiRate(pricing.Get("input_per_million_usd"), 0), Output: neoPiRate(pricing.Get("output_per_million_usd"), 0)}
+	}
 	return spec
 }
 
@@ -689,5 +829,10 @@ func neoPiMapCharmHyper(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 	}
 	spec.contextWindow = neoPiPositive(entry.Get("context_window"), defaults.contextWindow)
 	spec.maxTokens = neoPiPositive(entry.Get("max_output_tokens"), defaults.maxTokens)
+	// resolveCharmHyperCost: per-million rates; zero is a real (free) rate.
+	if pricing := entry.Get("pricing"); pricing.IsObject() {
+		spec.cost = NeoPiCost{Input: neoPiRate(pricing.Get("input"), 0), Output: neoPiRate(pricing.Get("output"), 0),
+			CacheRead: neoPiRate(pricing.Get("cache_hit"), 0), CacheWrite: neoPiRate(pricing.Get("cache_create"), 0)}
+	}
 	return spec
 }

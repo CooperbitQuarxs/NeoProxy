@@ -16,7 +16,7 @@ import (
 func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, error) {
 	if neoPiRunnerAPI(spec.api) {
 		return &NeoPiModel{ID: spec.id, Name: cleanModelName(spec.name), API: spec.api, Kind: spec.kind, Provider: provider,
-			BaseURL: baseURL, Input: slices.Clone(spec.input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens}, nil
+			BaseURL: baseURL, Input: slices.Clone(spec.input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens, cost: spec.cost}, nil
 	}
 	policy, err := neopicompat.Resolve(neopicompat.Spec{
 		Provider:  provider,
@@ -50,7 +50,7 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	row := &NeoPiModel{ID: spec.id, Name: cleanModelName(spec.name), API: "openai-completions", Provider: provider, BaseURL: baseURL,
 		Reasoning: policy.Reasoning, Input: input, ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens,
 		Thinking: thinking, CompletionsCompat: compat, CompatConfig: maps.Clone(spec.compat), RequestModelID: spec.requestModelID,
-		thinkingRequiresEffortSet: requiresEffortSet}
+		thinkingRequiresEffortSet: requiresEffortSet, cost: spec.cost}
 	neoPiApplyCatalog(row, policy.Catalog)
 	return row, nil
 }

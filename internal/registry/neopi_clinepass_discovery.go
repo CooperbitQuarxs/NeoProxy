@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"io"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -49,6 +51,7 @@ type neoPiClinePassMetadata struct {
 	Reasoning     bool            `json:"reasoning"`
 	Thinking      json.RawMessage `json:"thinking"`
 	Tier          string          `json:"tier"`
+	Cost          NeoPiCost       `json:"cost"`
 }
 
 // thinking is the curated ladder and whether it authors requiresEffort.
@@ -71,6 +74,46 @@ type neoPiReferenceRow struct {
 	ContextWindow int             `json:"contextWindow"`
 	MaxTokens     int             `json:"maxTokens"`
 	Thinking      json.RawMessage `json:"thinking"`
+	Cost          NeoPiCost       `json:"cost"`
+}
+
+// neoPiJSParseFloatPrefix is parseFloat's grammar: the longest decimal (or
+// Infinity) prefix after leading whitespace.
+var neoPiJSParseFloatPrefix = regexp.MustCompile(`^[+-]?(Infinity|(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)`)
+
+// neoPiJSParseFloat is parseFloat(String(value ?? "0")) for a JSON value: NaN
+// when no number leads its text.
+func neoPiJSParseFloat(value gjson.Result) float64 {
+	var text string
+	switch value.Type {
+	case gjson.Null:
+		return 0
+	case gjson.String:
+		text = value.Str
+	case gjson.Number:
+		text = value.Raw
+	case gjson.True, gjson.False:
+		return math.NaN()
+	default:
+		if !value.Exists() {
+			return 0
+		}
+		return math.NaN()
+	}
+	match := neoPiJSParseFloatPrefix.FindString(strings.TrimLeft(text, " \t\n\v\f\r\u00a0\ufeff"))
+	switch {
+	case match == "":
+		return math.NaN()
+	case match == "-Infinity":
+		return math.Inf(-1)
+	case strings.HasSuffix(match, "Infinity"):
+		return math.Inf(1)
+	}
+	number, err := strconv.ParseFloat(match, 64)
+	if err != nil {
+		return math.NaN()
+	}
+	return number
 }
 
 type neoPiClinePassData struct {
@@ -114,6 +157,8 @@ type neoPiClinePassLive struct {
 	reasoning     bool
 	hasReasoning  bool
 	input         []string
+	// cost is the live tariff, nil when the entry carries no pricing.
+	cost *NeoPiCost
 }
 
 type neoPiClinePassLiveCatalog struct {
@@ -166,6 +211,15 @@ func neoPiParseClinePassLiveCatalog(body []byte) *neoPiClinePassLiveCatalog {
 				if strings.Contains(modality, "image") {
 					entry.input = []string{"text", "image"}
 				}
+			}
+		}
+		if pricing := raw.Get("pricing"); pricing.IsObject() {
+			// parseFloat(String(rate ?? "0")) * 1e6, per leg.
+			entry.cost = &NeoPiCost{
+				Input:      neoPiJSParseFloat(pricing.Get("prompt")) * 1_000_000,
+				Output:     neoPiJSParseFloat(pricing.Get("completion")) * 1_000_000,
+				CacheRead:  neoPiJSParseFloat(pricing.Get("input_cache_read")) * 1_000_000,
+				CacheWrite: neoPiJSParseFloat(pricing.Get("input_cache_write")) * 1_000_000,
 			}
 		}
 		catalog.byID[id.String()] = entry
@@ -300,6 +354,7 @@ func neoPiClinePassCuratedSpec(id, tier string) (neoPiSpec, bool) {
 	if tier == "free" {
 		spec.compat["wireModelIdMode"] = "raw"
 	}
+	spec.cost = metadata.Cost
 	return spec, true
 }
 
@@ -308,7 +363,7 @@ func neoPiClinePassCuratedSpec(id, tier string) (neoPiSpec, bool) {
 func neoPiClinePassBundledSpec(row *NeoPiModel) neoPiSpec {
 	return neoPiSpec{id: row.ID, name: row.Name, reasoning: row.Reasoning, input: slices.Clone(row.Input),
 		contextWindow: row.ContextWindow, maxTokens: row.MaxTokens, thinking: row.Thinking.Clone(), compat: maps.Clone(row.CompatConfig),
-		thinkingRequiresEffortSet: row.thinkingRequiresEffortSet}
+		thinkingRequiresEffortSet: row.thinkingRequiresEffortSet, cost: row.cost}
 }
 
 // neoPiClinePassSubscriptionSpec is buildClinePassSubscriptionModel.
@@ -330,6 +385,8 @@ func neoPiClinePassSubscriptionSpec(id string, live *neoPiClinePassLiveCatalog) 
 	}
 	fallbackLimits := base.contextWindow == neoPiClinePassFallbackContextWindow && base.maxTokens == neoPiClinePassFallbackMaxTokens
 	if upstream != nil {
+		// The upstream row's tariff is the list price either way.
+		base.cost = upstream.Cost
 		if bundled != nil && !fallbackLimits {
 			// Known with real limits: only the list price changes.
 			return base
@@ -375,6 +432,10 @@ func neoPiApplyClinePassLive(spec *neoPiSpec, entry *neoPiClinePassLive) {
 	}
 	if entry.input != nil {
 		spec.input = slices.Clone(entry.input)
+	}
+	// hasClinePassBillableCost: zero legs mean unpriced upstream, not free.
+	if entry.cost != nil && (entry.cost.Input > 0 || entry.cost.Output > 0) {
+		spec.cost = *entry.cost
 	}
 }
 

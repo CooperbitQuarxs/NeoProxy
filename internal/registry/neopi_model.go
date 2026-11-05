@@ -37,6 +37,10 @@ type NeoPiModel struct {
 	thinkingRequiresEffortSet bool
 	// RequestModelID is the default wire id of a collapsed family row.
 	RequestModelID string `json:"requestModelId,omitempty"`
+	// cost is the row's token tariff (USD per million). NeoProxy bills
+	// nothing from it; NeoPi's variant collapse keeps a thinking pair apart
+	// when both members are priced differently.
+	cost NeoPiCost
 	// DevinCompat is the compat NeoPi resolves for a devin-agent row.
 	DevinCompat *NeoPiDevinCompat `json:"devinCompat,omitempty"`
 	// GoogleCompat is the compat NeoPi resolves for a google-generative-ai row.

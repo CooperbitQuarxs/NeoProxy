@@ -52,6 +52,8 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			Roster   *neoPiCapturedReply    `json:"roster"`
 			Live     *neoPiCapturedReply    `json:"live"`
 			Requests []neoPiCapturedRequest `json:"requests"`
+			// Keyless results ran NeoPi's manager without a key.
+			Keyless bool `json:"keyless"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &capture); err != nil {
@@ -59,7 +61,11 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 	}
 	seen := map[string]bool{}
 	for _, result := range capture.Results {
-		if seen[result.Provider] {
+		// Each provider's first scenario, and its keyless one.
+		key, name := capture.APIKey, result.Provider
+		if result.Keyless {
+			key, name = "", result.Provider+"/no key"
+		} else if seen[result.Provider] {
 			continue
 		}
 		seen[result.Provider] = true
@@ -69,7 +75,7 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			})
 			continue
 		}
-		t.Run(result.Provider, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			call := 0
 			var got []neoPiCapturedRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,9 +97,11 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 				t.Fatal(err)
 			}
 			auth := &coreauth.Auth{ID: "a", Provider: result.Provider, Attributes: map[string]string{
-				"api_key": capture.APIKey, "base_url": server.URL + base.Path,
+				"api_key": key, "base_url": server.URL + base.Path,
 			}}
-			if _, err := fetchNeoPiCompletionsModels(result.Provider)(context.Background(), &config.Config{}, auth); err != nil {
+			// Without a key NeoPi serves a keyed provider's bundled roster
+			// unfetched; the port refuses discovery before any request.
+			if _, err := fetchNeoPiCompletionsModels(result.Provider)(context.Background(), &config.Config{}, auth); err != nil && !(result.Keyless && len(result.Requests) == 0) {
 				t.Fatal(err)
 			}
 			if len(got) != len(result.Requests) {
