@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -30,6 +31,7 @@ type neoPiSpeechFixture struct {
 		Status      int    `json:"status"`
 		Body        string `json:"body"`
 		ContentType string `json:"contentType"`
+		RetryAfter  string `json:"retryAfter"`
 	} `json:"reply"`
 	Requests []struct {
 		URL     string            `json:"url"`
@@ -75,6 +77,9 @@ func TestNeoPiSpeechRequestParity(t *testing.T) {
 				received, _ := io.ReadAll(r.Body)
 				path, body, headers = r.URL.Path, string(received), r.Header.Clone()
 				w.Header().Set("Content-Type", fixture.Reply.ContentType)
+				if fixture.Reply.RetryAfter != "" {
+					w.Header().Set("Retry-After", fixture.Reply.RetryAfter)
+				}
 				w.WriteHeader(fixture.Reply.Status)
 				_, _ = io.WriteString(w, fixture.Reply.Body)
 			}))
@@ -100,6 +105,13 @@ func TestNeoPiSpeechRequestParity(t *testing.T) {
 				if err == nil || err.Error() != strings.TrimPrefix(fixture.Error, "SpeechApiError: ") {
 					t.Errorf("error = %v, NeoPi %s", err, fixture.Error)
 				}
+				// The reply's Retry-After reaches account scheduling.
+				if fixture.Reply.RetryAfter != "" {
+					hinted, ok := err.(interface{ RetryAfter() *time.Duration })
+					if !ok || hinted.RetryAfter() == nil || *hinted.RetryAfter() != 75*time.Second {
+						t.Errorf("error %T carries no 75s retry hint", err)
+					}
+				}
 			} else if err != nil {
 				t.Fatal(err)
 			} else if string(resp.Payload) != fixture.Audio || resp.Headers.Get("Content-Type") != fixture.MimeType {
@@ -119,6 +131,57 @@ func TestNeoPiSpeechRequestParity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A speech request is read with NeoPi's speech-server contract: malformed
+// fields are rejected rather than coerced or dropped, and the payload is
+// written as JSON.stringify writes it.
+func TestNeoPiSpeechPayloadContract(t *testing.T) {
+	for _, bad := range []string{
+		`{"model":"m"}`,
+		`{"model":"m","input":""}`,
+		`{"model":"m","input":123}`,
+		`{"model":"m","input":"hi","voice":123}`,
+		`{"model":"m","input":"hi","voice":""}`,
+		`{"model":"m","input":"hi","speed":"1.5"}`,
+		`{"model":"m","input":"hi","instructions":123}`,
+		`{"model":"m","input":"hi","response_format":"ogg"}`,
+		`{"model":"m","input":"hi","response_format":null}`,
+		`[1]`,
+	} {
+		if payload, err := neoPiSpeechPayload("m", []byte(bad)); err == nil {
+			t.Errorf("%s accepted as %s", bad, payload)
+		}
+	}
+	payload, err := neoPiSpeechPayload("m", []byte(`{"model":"m","input":"a\u2028b","speed":-0,"instructions":""}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "{\"model\":\"m\",\"input\":\"a\u2028b\",\"response_format\":\"mp3\",\"speed\":0,\"instructions\":\"\"}"; string(payload) != want {
+		t.Errorf("payload = %s, want %s", payload, want)
+	}
+}
+
+// A payload rule that changes the format changes the audio's MIME type.
+func TestNeoPiSpeechMimeFollowsPayloadRules(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "RIFF")
+	}))
+	defer server.Close()
+	row := &registry.NeoPiModel{ID: "hexgrad/Kokoro-82M", API: "openai-speech", Kind: "tts", Provider: "deepinfra", BaseURL: server.URL}
+	rules := config.PayloadConfig{
+		Override: []config.PayloadRule{{Models: []config.PayloadModelRule{{Name: row.ID}}, Params: map[string]any{"response_format": "wav"}}},
+	}
+	exec := NewNeoPiCompletionsExecutor("deepinfra", &config.Config{Payload: rules}, NeoPiCompletionsProfile{Row: func(string, string) *registry.NeoPiModel { return row.Clone() }})
+	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "key"}}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.Format(xaiSpeechHandlerType)}
+	resp, err := exec.Execute(context.Background(), auth, cliproxyexecutor.Request{Model: row.ID, Payload: []byte(`{"model":"hexgrad/Kokoro-82M","input":"Hi."}`)}, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := resp.Headers.Get("Content-Type"); got != "audio/wav" {
+		t.Errorf("content type = %q, want audio/wav", got)
 	}
 }
 

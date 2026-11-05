@@ -22,13 +22,18 @@ const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const models = getBundledModels("deepinfra").filter((model: any) => model.api === "openai-speech");
 if (models.length === 0) throw new Error("no openai-speech rows");
 
-type Reply = { status: number; body: string; contentType: string };
+type Reply = { status: number; body: string; contentType: string; retryAfter?: string };
 const audio: Reply = { status: 200, body: "ID3fake-audio-bytes", contentType: "audio/mpeg" };
 const scenarios: { name: string; request: any; reply: Reply }[] = [
 	{ name: "plain", request: { text: "Hello there.", format: "mp3" }, reply: audio },
 	{ name: "voiced", request: { text: "Hello there.", format: "mp3", voice: "af_bella", speed: 1.25, instructions: "Warmly." }, reply: audio },
 	{ name: "wav", request: { text: "Hi.", format: "wav", voice: "am_adam" }, reply: { ...audio, contentType: "audio/wav" } },
+	// JSON.stringify writes U+2028/U+2029 literally and -0 as 0.
+	{ name: "line-separators", request: { text: "One\u2028two\u2029three.", format: "flac", speed: -0 }, reply: { ...audio, contentType: "audio/flac" } },
 	{ name: "error", request: { text: "Hi.", format: "mp3" }, reply: { status: 422, body: '{"detail":"bad voice"}', contentType: "application/json" } },
+	{ name: "rate-limited", request: { text: "Hi.", format: "mp3" }, reply: { status: 429, body: "slow down", contentType: "text/plain", retryAfter: "75" } },
+	// detail.slice(0, 300) counts UTF-16 units: 150 emoji, the last pair split.
+	{ name: "astral-error", request: { text: "Hi.", format: "mp3" }, reply: { status: 500, body: "x" + "\u{1F600}".repeat(200), contentType: "text/plain" } },
 ];
 
 let reply: Reply = audio;
@@ -42,7 +47,9 @@ const server = Bun.serve({
 			headers: Object.fromEntries(request.headers),
 			body: await request.text(),
 		});
-		return new Response(reply.body, { status: reply.status, headers: { "content-type": reply.contentType } });
+		const headers: Record<string, string> = { "content-type": reply.contentType };
+		if (reply.retryAfter) headers["retry-after"] = reply.retryAfter;
+		return new Response(reply.body, { status: reply.status, headers });
 	},
 });
 const local = `http://127.0.0.1:${server.port}`;

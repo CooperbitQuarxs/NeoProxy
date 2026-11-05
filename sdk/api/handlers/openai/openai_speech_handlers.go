@@ -79,8 +79,9 @@ func readSpeechBody(c *gin.Context) ([]byte, bool) {
 }
 
 // handleNeoPiSpeech runs an OpenAI speech request on the NeoPi provider that
-// registered model. The audio is labelled with NeoPi's MIME type for the
-// requested format (mp3 when none is named), as NeoPi labels it.
+// registered model. The audio carries the MIME type the provider's executor
+// or a response interceptor set when those headers reach the handler, else
+// NeoPi's MIME type for the requested format (mp3 when none is named).
 func (h *OpenAIAPIHandler) handleNeoPiSpeech(c *gin.Context, raw []byte, model string) {
 	format := "mp3"
 	if value := gjson.GetBytes(raw, "response_format"); value.Exists() {
@@ -98,7 +99,7 @@ func (h *OpenAIAPIHandler) handleNeoPiSpeech(c *gin.Context, raw []byte, model s
 		return
 	}
 	handlers.WriteUpstreamHeaders(c.Writer.Header(), upstreamHeaders)
-	c.Header("Content-Type", speechContentType(format))
+	c.Header("Content-Type", speechResponseContentType(format, upstreamHeaders.Get("Content-Type")))
 	c.Writer.Header().Del("Content-Length")
 	_, _ = c.Writer.Write(resp)
 	cliCancel(nil)
