@@ -119,6 +119,8 @@ type neoPiSpec struct {
 	// openai-completions ("openai-images"); kind is its authored model kind.
 	api  string
 	kind string
+	// cost is the spec's token tariff (zero for a bare listing row).
+	cost NeoPiCost
 }
 
 // withCompat sets one authored compat override.
@@ -351,6 +353,28 @@ func neoPiPositive(value gjson.Result, fallback int) int {
 	return fallback
 }
 
+// neoPiPerTokenPricingCost is perTokenPricingCost: OpenRouter-style per-token
+// USD rates scaled to per million; a missing or non-positive rate is 0.
+func neoPiPerTokenPricingCost(pricing gjson.Result) NeoPiCost {
+	if !pricing.IsObject() {
+		return NeoPiCost{}
+	}
+	rate := func(keys ...string) float64 {
+		for _, key := range keys {
+			// rates.a ?? rates.b: the first key that is present (not null).
+			if value := pricing.Get(key); value.Exists() && value.Type != gjson.Null {
+				if number, ok := neoPiToNumber(value); ok && number > 0 {
+					return number * 1_000_000
+				}
+				return 0
+			}
+		}
+		return 0
+	}
+	return NeoPiCost{Input: rate("prompt"), Output: rate("completion"),
+		CacheRead: rate("input_cache_read", "input_cache_reads"), CacheWrite: rate("input_cache_write", "input_cache_writes")}
+}
+
 // neoPiModelName is toModelName.
 func neoPiModelName(value gjson.Result, fallback string) string {
 	if value.Type != gjson.String {
@@ -408,7 +432,7 @@ func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
 	spec := neoPiSpec{id: id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
 		contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens, thinking: reference.Thinking.Clone(),
 		compat: maps.Clone(reference.CompatConfig), requestModelID: reference.RequestModelID,
-		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind}
+		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind, cost: reference.cost}
 	if neoPiRunnerAPI(reference.API) {
 		spec.api = reference.API
 	}
@@ -493,6 +517,11 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 	for _, entry := range entries {
 		defaults := neoPiDefaultSpec(entry)
 		reference := neoPiBundledRow(provider, defaults.id)
+		if catalog, ok := NeoPiCompletionsProvider(provider); ok && strings.HasPrefix(provider, "xiaomi-token-plan-") && !slices.Contains(catalog.Seeds, defaults.id) {
+			// xiaomiModelManagerOptions references xiaomi's bundled rows,
+			// tariffs included; only the region's own seeds take precedence.
+			reference = neoPiBundledRow("xiaomi", defaults.id)
+		}
 		var spec neoPiSpec
 		switch provider {
 		case "moonshot":
@@ -592,6 +621,10 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			spec = defaults
 		case "charm-hyper":
 			spec = neoPiMapCharmHyper(entry, defaults)
+		case "kilo":
+			// kiloModelManagerOptions: the defaults plus the per-token tariff.
+			spec = defaults
+			spec.cost = neoPiPerTokenPricingCost(entry.Get("pricing"))
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}
@@ -628,6 +661,10 @@ func neoPiMapMoonshot(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 		if model.maxTokens == 0 {
 			model.maxTokens = limits[1]
 		}
+		// The official tariff stands in for a listing that reports none.
+		if model.cost.Input == 0 && model.cost.Output == 0 && model.cost.CacheRead == 0 {
+			model.cost = NeoPiCost{Input: 3, Output: 15, CacheRead: 0.3, CacheWrite: 3}
+		}
 		return model
 	}
 	isK2 := strings.HasPrefix(id, "kimi-k2")
@@ -646,16 +683,36 @@ func neoPiMapNanoGpt(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 	if !maxOutput.Exists() || maxOutput.Type == gjson.Null {
 		maxOutput = entry.Get("max_completion_tokens")
 	}
+	spec := defaults
 	if reference == nil {
-		defaults.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
-		defaults.maxTokens = neoPiPositive(maxOutput, 0)
-		defaults.name = neoPiModelName(entry.Get("name"), defaults.name)
-		return defaults
+		spec.contextWindow = neoPiPositive(entry.Get("context_length"), 0)
+		spec.maxTokens = neoPiPositive(maxOutput, 0)
+		spec.name = neoPiModelName(entry.Get("name"), defaults.name)
+	} else {
+		spec = neoPiReferenceSpec(defaults.id, reference)
+		spec.name = neoPiModelName(entry.Get("name"), reference.Name)
+		spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
+		spec.maxTokens = neoPiPositive(maxOutput, reference.MaxTokens)
 	}
-	spec := neoPiReferenceSpec(defaults.id, reference)
-	spec.name = neoPiModelName(entry.Get("name"), reference.Name)
-	spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
-	spec.maxTokens = neoPiPositive(maxOutput, reference.MaxTokens)
+	// nanoGptPricingCost: prompt and completion per million, the cache legs
+	// per thousand; legs the row does not price keep the mapped tariff.
+	if pricing := entry.Get("pricing"); pricing.IsObject() && pricing.Get("unit").Type == gjson.String && pricing.Get("unit").Str == "per_million_tokens" {
+		perThousand := func(value gjson.Result, fallback float64) float64 {
+			if rate := neoPiPositiveRate(value); rate > 0 {
+				return rate * 1_000
+			}
+			return fallback
+		}
+		positive := func(value gjson.Result, fallback float64) float64 {
+			if rate := neoPiPositiveRate(value); rate > 0 {
+				return rate
+			}
+			return fallback
+		}
+		spec.cost = NeoPiCost{Input: positive(pricing.Get("prompt"), spec.cost.Input), Output: positive(pricing.Get("completion"), spec.cost.Output),
+			CacheRead:  perThousand(pricing.Get("cacheReadInputPer1kTokens"), spec.cost.CacheRead),
+			CacheWrite: perThousand(pricing.Get("cacheWriteInputPer1kTokens"), spec.cost.CacheWrite)}
+	}
 	return spec
 }
 
@@ -860,7 +917,23 @@ func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, 
 	if merged.compat == nil {
 		merged.compat = maps.Clone(static.CompatConfig)
 	}
+	costAuthoritative := catalog != nil && catalog.Discovery.CostAuthoritative
+	merged.cost = NeoPiCost{
+		Input:      neoPiPreferDiscoveryCost(dynamic.cost.Input, static.cost.Input, costAuthoritative),
+		Output:     neoPiPreferDiscoveryCost(dynamic.cost.Output, static.cost.Output, costAuthoritative),
+		CacheRead:  neoPiPreferDiscoveryCost(dynamic.cost.CacheRead, static.cost.CacheRead, costAuthoritative),
+		CacheWrite: neoPiPreferDiscoveryCost(dynamic.cost.CacheWrite, static.cost.CacheWrite, costAuthoritative),
+	}
 	return neoPiBuildRow(provider, baseURL, &merged)
+}
+
+// neoPiPreferDiscoveryCost is preferDiscoveryCost: a discovered price wins
+// when positive, or when zero is a price (cost-authoritative discovery).
+func neoPiPreferDiscoveryCost(discovered, fallback float64, zeroIsPrice bool) float64 {
+	if discovered > 0 || zeroIsPrice && discovered == 0 {
+		return discovered
+	}
+	return fallback
 }
 
 // neoPiDefaultPairEfforts is DEFAULT_PAIR_EFFORTS.
@@ -902,6 +975,11 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		if !ok || baseID == row.ID || base == nil || dropped[row.ID] || dropped[base.ID] {
 			continue
 		}
+		// deriveThinkingPairFamilies keeps members of different transports, or
+		// both priced differently, apart.
+		if row.API != base.API || row.cost.priced() && base.cost.priced() && row.cost != base.cost {
+			continue
+		}
 		if base.Thinking != nil && base.Thinking.EffortRouting != nil {
 			// The base is already collapsed: it wins and the raw member goes.
 			dropped[row.ID] = true
@@ -933,7 +1011,7 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiMod
 		}
 		collapsed := neoPiSpec{id: base.ID, name: base.Name, reasoning: true, input: input,
 			contextWindow: max(base.ContextWindow, row.ContextWindow), maxTokens: max(base.MaxTokens, row.MaxTokens),
-			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID}
+			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID, cost: base.cost}
 		if built, err := neoPiBuildRow(provider, base.BaseURL, &collapsed); err == nil {
 			rebuilt[base.ID] = built
 			byID[base.ID] = built

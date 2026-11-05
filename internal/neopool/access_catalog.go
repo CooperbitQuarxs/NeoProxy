@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	kiloauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -347,6 +348,13 @@ var providerCatalog = []ProviderInfo{
 		APIKey: openAIKey(alibabaCodingPlanIntlURL, "sk-... (International or China key)", "https://modelstudio.console.alibabacloud.com/").
 			regional(ProviderRegion{"International", alibabaCodingPlanIntlURL}, ProviderRegion{"China", alibabaCodingPlanCNURL}),
 		Plans: []ProviderPlan{}},
+	// Kilo's sign-in approves a device code and hands back the gateway's
+	// bearer token, which the account keeps like a key; a pasted or imported
+	// token is the same key. NeoPi never checks it, so neither does the paste.
+	{ID: "kilo", Name: "Kilo Gateway", Vendor: "Kilo", Hue: 50, Chroma: providerChroma, Methods: []string{"subscription", "apiKey"},
+		Subscription: device("Opens Kilo in a new tab and shows a code to confirm there. The token it grants lasts a year.").at("Kilo"),
+		APIKey:       openAIKey(kiloauth.BaseURL, "Kilo Gateway token (not checked before it is added)", "https://app.kilo.ai"),
+		Plans:        []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

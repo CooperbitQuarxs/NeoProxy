@@ -1,0 +1,488 @@
+{
+  "source": "NeoPi OWN loginKilo",
+  "deviceAuthBaseUrl": "https://api.kilo.ai/api/device-auth",
+  "results": [
+    {
+      "name": "approved-after-pending",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 202
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "approved",
+            "token": "kilo-token-0001"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "token": "kilo-token-0001",
+        "refresh": ""
+      }
+    },
+    {
+      "name": "pending-status-then-approved",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "pending"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "approved",
+            "token": "kilo-token-0002"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "token": "kilo-token-0002",
+        "refresh": ""
+      }
+    },
+    {
+      "name": "approved-without-token",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "approved"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "approved",
+            "token": "kilo-token-0003"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "token": "kilo-token-0003",
+        "refresh": ""
+      }
+    },
+    {
+      "name": "denied-403",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 403
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "error": "Authorization was denied",
+        "kind": "device-auth",
+        "status": null
+      }
+    },
+    {
+      "name": "expired-410",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 410
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "error": "Authorization code expired. Please try again.",
+        "kind": "device-auth",
+        "status": null
+      }
+    },
+    {
+      "name": "denied-status",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "denied"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "error": "Authorization was denied",
+        "kind": "device-auth",
+        "status": null
+      }
+    },
+    {
+      "name": "expired-status",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "status": "expired"
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "error": "Authorization code expired. Please try again.",
+        "kind": "device-auth",
+        "status": null
+      }
+    },
+    {
+      "name": "poll-500",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 600
+          }
+        },
+        {
+          "status": 500,
+          "body": "boom"
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        },
+        {
+          "method": "GET",
+          "url": "https://api.kilo.ai/api/device-auth/codes/ABCD-1234",
+          "headers": {},
+          "body": null
+        }
+      ],
+      "shown": {
+        "url": "https://app.kilo.ai/device?code=ABCD-1234",
+        "instructions": "Enter code: ABCD-1234"
+      },
+      "result": {
+        "error": "Failed to poll device authorization: 500",
+        "kind": "polling",
+        "status": 500
+      }
+    },
+    {
+      "name": "initiate-429",
+      "replies": [
+        {
+          "status": 429
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        }
+      ],
+      "shown": null,
+      "result": {
+        "error": "Too many pending authorization requests. Please try again later.",
+        "kind": "polling",
+        "status": 429
+      }
+    },
+    {
+      "name": "initiate-500",
+      "replies": [
+        {
+          "status": 500
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        }
+      ],
+      "shown": null,
+      "result": {
+        "error": "Failed to initiate device authorization: 500",
+        "kind": "device-auth",
+        "status": 500
+      }
+    },
+    {
+      "name": "initiate-missing-fields",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": ""
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        }
+      ],
+      "shown": null,
+      "result": {
+        "error": "Kilo device authorization response missing required fields",
+        "kind": "validation",
+        "status": null
+      }
+    },
+    {
+      "name": "initiate-zero-expiry",
+      "replies": [
+        {
+          "status": 200,
+          "body": {
+            "code": "ABCD-1234",
+            "verificationUrl": "https://app.kilo.ai/device?code=ABCD-1234",
+            "expiresIn": 0
+          }
+        }
+      ],
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api.kilo.ai/api/device-auth/codes",
+          "headers": {
+            "content-type": "application/json"
+          },
+          "body": null
+        }
+      ],
+      "shown": null,
+      "result": {
+        "error": "Kilo device authorization response missing required fields",
+        "kind": "validation",
+        "status": null
+      }
+    }
+  ]
+}
