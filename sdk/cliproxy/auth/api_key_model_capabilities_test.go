@@ -717,3 +717,24 @@ func TestCodexAPIKeyModelIsCompat(t *testing.T) {
 		t.Fatal("nil config IsCompat = true, want false")
 	}
 }
+
+// A NeoPi key account executes the row its discovery registered: that row
+// carries the account's own endpoint and the policy NeoPi built for an id its
+// bundle lacks. Without it the executor would shape the request from the
+// bundled catalog and send it to the provider's default host.
+func TestAttachResolvedAPIKeyModelInfoUsesDiscoveredNeoPiRow(t *testing.T) {
+	auth := &Auth{ID: "neopi-key-discovered", Provider: "openai-compatible-singularityapi-dev", Attributes: map[string]string{AttributeAPIKey: "sk-sapi-key"}}
+	row := &registry.NeoPiModel{ID: "deepseek-v4-flash", API: "openai-completions", Provider: "singularityapi-dev", BaseURL: "http://127.0.0.1:9/v1"}
+	registry.GetGlobalRegistry().RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: "deepseek-v4-flash", NeoPi: row}, {ID: "plain-model"}})
+	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(auth.ID) })
+
+	req := attachResolvedAPIKeyModelInfo(nil, cliproxyexecutor.Request{}, auth, "deepseek-v4-flash", "deepseek-v4-flash(high)")
+	info, ok := ResolvedModelInfo(req)
+	if !ok || info.NeoPi == nil || info.NeoPi.BaseURL != row.BaseURL {
+		t.Fatalf("resolved %+v (ok=%v), want the discovered row on the account's endpoint", info, ok)
+	}
+	// A registered model without a NeoPi row stays unresolved, as before.
+	if _, ok = ResolvedModelInfo(attachResolvedAPIKeyModelInfo(nil, cliproxyexecutor.Request{}, auth, "plain-model", "plain-model")); ok {
+		t.Fatal("a model without a NeoPi row resolved")
+	}
+}

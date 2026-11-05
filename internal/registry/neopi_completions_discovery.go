@@ -105,6 +105,10 @@ type neoPiSpec struct {
 	compat map[string]any
 	// requestModelID is a collapsed family's default wire id.
 	requestModelID string
+	// api is the spec's transport when a mapper moves it off
+	// openai-completions ("openai-images"); kind is its authored model kind.
+	api  string
+	kind string
 }
 
 // withCompat sets one authored compat override.
@@ -173,12 +177,9 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
 	specs, authoritative := neoPiListingSpecs(provider, entries)
-	if authoritative && len(specs) == 0 {
-		// NeoPi serves an empty roster for this cycle and does not cache it
-		// as authoritative; the discovery cache retries it after its retry
-		// interval.
-		return []*ModelInfo{}, nil
-	}
+	// An authoritative empty listing leaves only the bundled runner rows
+	// retainModelIds keeps; an empty roster is not cached as authoritative,
+	// and the discovery cache retries it after its retry interval.
 	return neoPiMergeListing(provider, baseURL, specs, authoritative)
 }
 
@@ -387,10 +388,14 @@ func neoPiMapWithBundledReference(entry gjson.Result, defaults neoPiSpec, refere
 // neoPiReferenceSpec is toModelSpec(reference) under id: the bundled row as
 // the spec it was built from.
 func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
-	return neoPiSpec{id: id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
+	spec := neoPiSpec{id: id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
 		contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens, thinking: reference.Thinking.Clone(),
 		compat: maps.Clone(reference.CompatConfig), requestModelID: reference.RequestModelID,
-		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet}
+		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet, kind: reference.Kind}
+	if reference.API == "openai-images" {
+		spec.api = reference.API
+	}
+	return spec
 }
 
 var (
@@ -563,6 +568,11 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 			if normalized == "" || neoPiExcludedModel("aimlapi", normalized) {
 				continue
 			}
+		case "singularityapi-dev":
+			spec = neoPiMapSingularityApi(entry, defaults)
+		case "singularityapi-tech":
+			// The lane roster answers bare ids; rows keep the defaults.
+			spec = defaults
 		default:
 			spec = neoPiMapWithBundledReference(entry, defaults, reference)
 		}
@@ -763,13 +773,22 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 	seen := map[string]bool{}
 	for _, static := range neopiCompletionsRows[provider] {
 		dynamic := byID[static.ID]
+		chat := static.Kind == "" || static.Kind == "chat"
 		if dynamic == nil {
-			if !authoritative {
+			// retainModelIds: an authoritative listing drops only the chat
+			// rows it does not name.
+			if !authoritative || !chat {
 				rows = append(rows, static.Clone())
 			}
 			continue
 		}
 		seen[static.ID] = true
+		if !chat && builtSpecs[static.ID].kind == "" {
+			// A bundled runner row is replaced only by a listing that
+			// authors a kind itself.
+			rows = append(rows, static.Clone())
+			continue
+		}
 		merged, err := neoPiMergedRow(provider, baseURL, catalog, static, dynamic, builtSpecs[static.ID])
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s: %w", ErrNeoPiListing, provider, err)
@@ -784,7 +803,9 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 	rows = neoPiCollapseThinkingPairs(provider, rows)
 	out := make([]*ModelInfo, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, NeoPiCompletionsModelInfo(row, provider))
+		if neoPiServed(row) {
+			out = append(out, NeoPiCompletionsModelInfo(row, provider))
+		}
 	}
 	return out, nil
 }

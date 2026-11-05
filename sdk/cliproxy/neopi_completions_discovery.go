@@ -31,6 +31,7 @@ var neoPiCompletionsProviders = []string{
 	"novita", "qianfan", "qwen-portal", "sambanova", "stepfun", "synthetic", "venice",
 	"wafer-serverless", "xiaomi-token-plan-sgp", "xiaomi-token-plan-ams", "xiaomi-token-plan-cn",
 	"yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi", "xiaomi",
+	"singularityapi-dev", "singularityapi-tech",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -219,6 +220,9 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 		if bundleBase != "" {
 			base = bundleBase
 		}
+	}
+	if provider == "singularityapi-dev" || provider == "singularityapi-tech" {
+		return key, registry.NeoPiSingularityAPIBaseURL(provider, base), nil
 	}
 	if base == "" {
 		base = registry.NeoPiCompletionsListingBase(provider)

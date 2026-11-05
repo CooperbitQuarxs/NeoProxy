@@ -89,6 +89,8 @@ var apiKeyRoutes = map[string]route{
 	"cline-pass":            {target: "cline-pass"},
 	"aimlapi":               {target: "aimlapi"},
 	"xiaomi":                {target: "xiaomi"},
+	"singularityapi-dev":    {target: "singularityapi-dev"},
+	"singularityapi-tech":   {target: "singularityapi-tech"},
 }
 
 // oauthRoutes maps NeoPi subscription sign-ins onto engine auth-file types.

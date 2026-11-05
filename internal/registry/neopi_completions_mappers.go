@@ -572,3 +572,62 @@ func neoPiMapYoloAuto(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 	spec.reasoning = true
 	return spec
 }
+
+// SingularityAPI capability endpoints that decide a row's transport.
+const (
+	neoPiSingularityAPIChatEndpoint  = "/v1/chat/completions"
+	neoPiSingularityAPIImageEndpoint = "/v1/images/generations"
+)
+
+// neoPiMapSingularityApi is mapSingularityApiModel: a row whose capabilities
+// serve chat completions takes that capability's window and output cap, and
+// a row whose only surface is image generation moves to openai-images.
+func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
+	var chat gjson.Result
+	image := false
+	if capabilities := entry.Get("capabilities"); capabilities.IsArray() {
+		for _, capability := range capabilities.Array() {
+			if !capability.IsObject() {
+				continue
+			}
+			endpoint := capability.Get("endpoint")
+			if endpoint.Type != gjson.String {
+				continue
+			}
+			switch endpoint.String() {
+			case neoPiSingularityAPIChatEndpoint:
+				if !chat.Exists() {
+					chat = capability
+				}
+			case neoPiSingularityAPIImageEndpoint:
+				image = true
+			}
+		}
+	}
+	spec := defaults
+	spec.name = neoPiModelName(entry.Get("name"), defaults.name)
+	if !chat.Exists() && image {
+		spec.api, spec.kind = "openai-images", "image"
+		spec.reasoning = false
+		spec.input = []string{"text", "image"}
+		spec.contextWindow, spec.maxTokens = 0, 0
+		return spec
+	}
+	spec.contextWindow = neoPiPositive(chat.Get("context_window_tokens"), defaults.contextWindow)
+	spec.maxTokens = neoPiPositive(chat.Get("maximum_output_tokens"), defaults.maxTokens)
+	return spec
+}
+
+// NeoPiSingularityAPIBaseURL is normalizeSingularityApiBaseUrl against the
+// provider's own gateway: a blank configured URL is the gateway's canonical
+// endpoint, and any other keeps its host and gains a missing /v1.
+func NeoPiSingularityAPIBaseURL(provider, configured string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(configured), "/")
+	if trimmed == "" {
+		return NeoPiCompletionsListingBase(provider)
+	}
+	if strings.HasSuffix(trimmed, "/v1") {
+		return trimmed
+	}
+	return trimmed + "/v1"
+}

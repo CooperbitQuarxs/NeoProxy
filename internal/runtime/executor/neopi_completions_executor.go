@@ -114,6 +114,9 @@ func (e *NeoPiCompletionsExecutor) CountTokens(ctx context.Context, auth *clipro
 
 // Execute runs one non-streaming request through NeoPi's stream-shaped wire.
 func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (result cliproxyexecutor.Response, err error) {
+	if endpointPath := openAICompatImageEndpointPath(opts); endpointPath != "" {
+		return e.executeImage(ctx, auth, req, opts, endpointPath)
+	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
 	if err != nil {
@@ -160,6 +163,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 
 // ExecuteStream relays NeoPi's upstream stream in the client's format.
 func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
+	if openAICompatImageEndpointPath(opts) != "" {
+		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: image generation does not stream; send the request without stream", e.provider)}
+	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
 	if err != nil {

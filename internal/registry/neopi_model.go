@@ -12,9 +12,11 @@ import (
 // request builders branch on. Providers ported from NeoPi register it on
 // ModelInfo.NeoPi; their executors shape requests from it alone.
 type NeoPiModel struct {
-	ID            string         `json:"id"`
-	Name          string         `json:"name"`
-	API           string         `json:"api"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	API  string `json:"api"`
+	// Kind is NeoPi's model kind ("image", "embedding", ...); empty is chat.
+	Kind          string         `json:"kind,omitempty"`
 	Provider      string         `json:"provider"`
 	BaseURL       string         `json:"baseUrl"`
 	Reasoning     bool           `json:"reasoning"`

@@ -209,6 +209,9 @@ func attachResolvedAPIKeyModelInfo(routing *apiKeyModelRoutingSnapshot, req clip
 	if !ok {
 		modelInfo, ok = lookupUnlistedCodexAPIKeyModelCapability(routing, auth, upstreamModel)
 	}
+	if !ok {
+		modelInfo, ok = lookupNeoPiAPIKeyModelCapability(auth, upstreamModel)
+	}
 	metadataKey := resolvedAPIKeyModelInfoMetadataKey
 	if !ok {
 		modelInfo, ok = lookupOAuthModelCapability(auth, upstreamModel)
@@ -293,6 +296,25 @@ func lookupOAuthModelCapability(auth *Auth, upstreamModel string) (*registry.Mod
 	selected := strings.TrimSpace(thinking.ParseSuffix(strings.TrimSpace(upstreamModel)).ModelName)
 	for _, model := range models {
 		if model != nil && strings.EqualFold(model.ID, selected) {
+			return model, true
+		}
+	}
+	return nil, false
+}
+
+// lookupNeoPiAPIKeyModelCapability resolves a NeoPi key account's model to
+// the row its discovery registered: the row carries the account's endpoint
+// and NeoPi's built policy for an id the bundle lacks, which the executor
+// shapes requests from. Before discovery answers, the executor falls back to
+// NeoPi's bundled catalog itself.
+func lookupNeoPiAPIKeyModelCapability(auth *Auth, upstreamModel string) (*registry.ModelInfo, bool) {
+	if auth == nil || auth.AuthKind() != AuthKindAPIKey {
+		return nil, false
+	}
+	models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
+	selected := strings.TrimSpace(thinking.ParseSuffix(strings.TrimSpace(upstreamModel)).ModelName)
+	for _, model := range models {
+		if model != nil && model.NeoPi != nil && strings.EqualFold(model.ID, selected) {
 			return model, true
 		}
 	}

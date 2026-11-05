@@ -39,6 +39,7 @@ type neoPiDiscoveryResult struct {
 		BaseURL       string         `json:"baseUrl"`
 		CompatIndex   int            `json:"compatIndex"`
 		Thinking      *NeoPiThinking `json:"thinking"`
+		Kind          string         `json:"kind"`
 	} `json:"models"`
 }
 
@@ -92,11 +93,13 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 			for _, info := range got {
 				byID[info.ID] = info.NeoPi
 			}
-			// The port serves the Chat Completions rows; NeoPi's image and
-			// speech runners on the same provider are out of its scope.
+			// The port serves NeoPi's chat rows over Chat Completions and its
+			// image rows over openai-images. Speech runners, and rows a rule
+			// classifies as a runner kind while they stay on the completions
+			// transport (which NeoPi keeps out of chat), are not served.
 			want := result.Models[:0:0]
 			for _, model := range result.Models {
-				if model.API == "openai-completions" {
+				if model.API == "openai-images" || model.API == "openai-completions" && (model.Kind == "" || model.Kind == "chat") {
 					want = append(want, model)
 				}
 			}
@@ -111,6 +114,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				}
 				if row.Name != want.Name {
 					t.Errorf("%s: name %q, NeoPi %q", want.ID, row.Name, want.Name)
+				}
+				if row.API != want.API || row.Kind != want.Kind {
+					t.Errorf("%s: api %s kind %q, NeoPi %s kind %q", want.ID, row.API, row.Kind, want.API, want.Kind)
 				}
 				if row.Reasoning != want.Reasoning {
 					t.Errorf("%s: reasoning %v, NeoPi %v", want.ID, row.Reasoning, want.Reasoning)
@@ -129,6 +135,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 				}
 				if !reflect.DeepEqual(row.Thinking, want.Thinking) {
 					t.Errorf("%s: thinking %+v, NeoPi %+v", want.ID, row.Thinking, want.Thinking)
+				}
+				if want.API == "openai-images" {
+					continue
 				}
 				var wantCompat NeoPiCompletionsCompat
 				if err := json.Unmarshal(capture.Compats[want.CompatIndex], &wantCompat); err != nil {

@@ -13,7 +13,8 @@
 // Run from the NeoPi env directory:
 //   HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     bun --preserve-symlinks <this file>
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = process.env.NEOPI_SOURCE_MODULES;
@@ -27,6 +28,31 @@ mkdirSync(catalogDir, { recursive: true });
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { PROVIDER_DESCRIPTORS } = await import(root + "/pi-catalog/src/provider-models/descriptors.ts");
+const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
+const cacheDir = mkdtempSync(join(tmpdir(), "neopi-completions-"));
+
+// Providers NeoPi bundles no rows for discover their whole roster; their
+// captures run over the rows NeoPi's own manager builds from this listing of
+// bare ids (no capability metadata, so a discovered id's row is the bare spec
+// NeoProxy builds for it).
+const discoveredRosters: Record<string, string[]> = {
+	"singularityapi-dev": ["deepseek-v4-flash", "deepseek-v4-pro", "gpt-5.6-sol", "kimi-k3", "glm-5.3", "zz-gateway-new"],
+	"singularityapi-tech": ["deepseek-ai/DeepSeek-V4.1-Flash", "deepseek-v4-flash-0731", "deepseek-v4.1-flash", "zz-lane-new"],
+};
+
+async function discoveredRows(provider: string, apiKey: string): Promise<any[]> {
+	const ids = discoveredRosters[provider];
+	if (!ids) return [];
+	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
+	const listing = JSON.stringify({ object: "list", data: ids.map(id => ({ id, object: "model" })) });
+	const options = descriptor.createModelManagerOptions({
+		apiKey,
+		fetch: async () => new Response(listing, { status: 200, headers: { "content-type": "application/json" } }),
+	});
+	options.cacheDbPath = join(cacheDir, `${provider}.db`);
+	const resolved = await resolveProviderModels(options, "online");
+	return resolved.models;
+}
 
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
 const maxRepresentatives = Number(process.env.MAX_MODELS_PER_PROVIDER ?? 24);
@@ -132,12 +158,21 @@ function representatives(models: any[]): any[] {
 	return [...seen.values()].slice(0, maxRepresentatives);
 }
 
-const apiKeyFor = (provider: string) => (provider === "alibaba-token-plan" ? "sk-sp-fixturekey00000001" : `fixture-key-${provider}-00000001`);
+const apiKeyFor = (provider: string) =>
+	provider === "alibaba-token-plan"
+		? "sk-sp-fixturekey00000001"
+		: provider === "singularityapi-dev"
+			? "sk-sapi-fixturekey00000001"
+			: `fixture-key-${provider}-00000001`;
 
 for (const provider of providers) {
 	const bundled = getBundledModels(provider);
-	const completions = bundled.filter((model: any) => model.api === "openai-completions");
-	const skipped = bundled.length - completions.length;
+	const listed = bundled.length === 0 ? await discoveredRows(provider, apiKeyFor(provider)) : [];
+	const completions = [...bundled, ...listed].filter((model: any) => model.api === "openai-completions");
+	// Bundled rows NeoProxy serves: Chat Completions, and image generation over
+	// openai-images (NeoPi's generateOpenAIImage).
+	const exported = bundled.filter((model: any) => model.api === "openai-completions" || model.api === "openai-images");
+	const skipped = bundled.length - exported.length;
 
 	// Catalog export: deduplicated compats so large rosters stay small.
 	const compats: any[] = [];
@@ -151,7 +186,7 @@ for (const provider of providers) {
 		return compatIndex.get(key)!;
 	};
 	const baseUrl = completions[0]?.baseUrl;
-	const rows = completions.map((model: any) => ({
+	const rows = exported.map((model: any) => ({
 		id: model.id,
 		name: model.name,
 		api: model.api,
@@ -162,10 +197,11 @@ for (const provider of providers) {
 		contextWindow: model.contextWindow ?? 0,
 		maxTokens: model.maxTokens ?? 0,
 		...(model.thinking ? { thinking: model.thinking } : {}),
+		...(model.kind ? { kind: model.kind } : {}),
 		...(model.headers ? { headers: model.headers } : {}),
 		// The authored sparse compat a discovery merge rebuilds from.
 		...(model.compatConfig ? { compatConfig: model.compatConfig } : {}),
-		completionsCompatIndex: indexOf(model.compat),
+		...(model.api === "openai-completions" ? { completionsCompatIndex: indexOf(model.compat) } : {}),
 	}));
 	// The model manager's authority flags decide how a listing replaces the
 	// bundled rows (model-manager.ts mergeDynamicModels).
@@ -281,7 +317,7 @@ for (const provider of providers) {
 	}
 	await Bun.write(
 		join(outDir, `${provider}.fixtures.json.gz`),
-		Bun.gzipSync(JSON.stringify({ source: `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)})`, provider, apiKey, sessionId, fixtures })),
+		Bun.gzipSync(JSON.stringify({ source: listed.length > 0 ? `NeoPi OWN streamSimple over resolveProviderModels(${JSON.stringify(provider)})` : `NeoPi OWN streamSimple over getBundledModels(${JSON.stringify(provider)})`, provider, apiKey, sessionId, fixtures })),
 	);
 	console.error(`${provider}: ${completions.length} rows, ${compats.length} compats, ${picked.length} models, ${fixtures.length} fixtures, ${fixtures.filter(f => f.error).length} errors`);
 }
