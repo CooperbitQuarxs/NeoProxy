@@ -9,10 +9,29 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 )
+
+// applyThirdPartyIdentity applies NeoPi's client auth choice and conversation
+// header: endpoints that validate X-Api-Key never see an Authorization header,
+// and the conversation id rides next to the protocol's own session header.
+func applyThirdPartyIdentity(headers http.Header, provider *neoPiThirdPartyProvider, bearer, session string) {
+	if provider == nil {
+		return
+	}
+	if provider.apiKeyHeader {
+		headers.Del("Authorization")
+		if bearer != "" && bearer != "N/A" {
+			headers.Set("X-Api-Key", bearer)
+		}
+	}
+	if provider.sessionHeader != "" && session != "" {
+		headers.Set(provider.sessionHeader, session)
+	}
+}
 
 // prepareThirdParty shapes an Anthropic Messages request for a model NeoPi
 // serves over Anthropic Messages on another provider's endpoint, with that
@@ -50,6 +69,22 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if provider.headers != nil {
 		profile.thirdParty.headers = provider.headers()
 	}
+	webSearch, webSearchSet := "", false
+	if provider.gatewayWebSearch != nil {
+		// NeoPi decides over model headers merged with the caller's, the
+		// caller's winning: here the account's configured headers, then the
+		// request's.
+		merged := make(http.Header)
+		if auth != nil {
+			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: merged}).WithContext(ctx), auth.Attributes, opts.Headers)
+		}
+		for name, values := range opts.Headers {
+			merged[name] = values
+		}
+		var gateway bool
+		webSearch, webSearchSet, gateway = provider.gatewayWebSearch(merged)
+		profile.thirdParty.gatewayWebSearch = gateway
+	}
 	body, headers, err := projectNeoPiAnthropic(translated, model, base, "", identity, profile)
 	if err != nil {
 		return nil, err
@@ -57,5 +92,9 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	finalize := helps.NewPayloadFinalizer(e.cfg, e.Identifier(), model, "claude", "", originalTranslated, req, opts)
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
-	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, finalize: finalize}, nil
+	applyThirdPartyIdentity(headers, provider, bearer, session)
+	if webSearchSet {
+		headers.Set("X-Umans-Websearch-Provider", webSearch)
+	}
+	return &neoPiPrepared{auth: auth, body: body, translated: translated, headers: headers, url: base + "/v1/messages", model: model, identity: identity, base: base, stripToolPrefix: profile.thirdParty.escapeToolNames, finalize: finalize}, nil
 }
