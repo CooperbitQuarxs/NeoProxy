@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"math"
 	"net/url"
 	"slices"
@@ -21,39 +22,41 @@ import (
 // NeoPi's live model discovery for the providers it serves through its
 // OpenAI Chat Completions provider. Each provider's ModelManagerOptions
 // (pi-catalog provider-models/openai-compat.ts) fetches a listing, maps every
-// entry onto a spec, and the model manager merges the specs into the bundled
-// roster (mergeDynamicModel). This file ports the mapping and the merge; the
-// HTTP request lives with the caller. Parity against NeoPi's own managers is
-// captured by testdata/capture_neopi_completions_discovery.ts.
-//
-// Rows NeoPi's rule engine derives for an id the bundle lacks (effort ladder,
-// compat) cannot be recomputed here, so models/neopi_discovery/derived.json.gz
-// carries what NeoPi derives for each kind of row a mapper can switch
-// reasoning on for.
+// entry onto a spec, and the model manager builds the specs and merges them
+// into the bundled roster (mergeDynamicModel). This file ports the mapping
+// and the merge, building every row through NeoPi's compat engine (package
+// neopicompat); the HTTP request lives with the caller. Parity against NeoPi's
+// own managers is captured by testdata/capture_neopi_completions_discovery.ts.
 
-//go:embed models/neopi_discovery/derived.json.gz
-var neoPiDiscoveryDerivedGz []byte
+//go:embed models/neopi_discovery/alibaba_token_plan_seeds.json.gz
+var neoPiAlibabaSeedsGz []byte
 
 // ErrNeoPiListing marks a listing NeoPi would treat as a failed discovery:
 // its manager then keeps the bundled roster.
 var ErrNeoPiListing = errors.New("registry: unusable model listing")
 
-type neoPiDerivedRow struct {
-	Provider string                  `json:"provider"`
-	Kind     string                  `json:"kind"`
-	Thinking *NeoPiThinking          `json:"thinking"`
-	Compat   *NeoPiCompletionsCompat `json:"compat"`
+type neoPiSeed struct {
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Reasoning     bool            `json:"reasoning"`
+	Input         []string        `json:"input"`
+	ContextWindow int             `json:"contextWindow"`
+	MaxTokens     int             `json:"maxTokens"`
+	Thinking      json.RawMessage `json:"thinking"`
+	Compat        map[string]any  `json:"compat"`
 }
 
 var (
-	neoPiDerivedOnce sync.Once
-	neoPiDerivedRows map[string]*neoPiDerivedRow
+	neoPiSeedsOnce sync.Once
+	neoPiSeeds     map[string]*neoPiSeed
 )
 
-func neoPiDerivedFor(provider, kind string) *neoPiDerivedRow {
-	neoPiDerivedOnce.Do(func() {
-		neoPiDerivedRows = map[string]*neoPiDerivedRow{}
-		reader, err := gzip.NewReader(bytes.NewReader(neoPiDiscoveryDerivedGz))
+// neoPiAlibabaSeedSpec is the QwenCloud Token Plan seed spec NeoPi authors
+// for id (seedModels("alibaba-token-plan")), or false.
+func neoPiAlibabaSeedSpec(id string) (neoPiSpec, bool) {
+	neoPiSeedsOnce.Do(func() {
+		neoPiSeeds = map[string]*neoPiSeed{}
+		reader, err := gzip.NewReader(bytes.NewReader(neoPiAlibabaSeedsGz))
 		if err != nil {
 			return
 		}
@@ -62,24 +65,26 @@ func neoPiDerivedFor(provider, kind string) *neoPiDerivedRow {
 		if err != nil {
 			return
 		}
-		var rows []*neoPiDerivedRow
-		if json.Unmarshal(data, &rows) != nil {
+		var seeds []*neoPiSeed
+		if json.Unmarshal(data, &seeds) != nil {
 			return
 		}
-		for _, row := range rows {
-			neoPiDerivedRows[row.Provider+"\x00"+row.Kind] = row
+		for _, seed := range seeds {
+			neoPiSeeds[seed.ID] = seed
 		}
 	})
-	return neoPiDerivedRows[provider+"\x00"+kind]
+	seed, ok := neoPiSeeds[id]
+	if !ok {
+		return neoPiSpec{}, false
+	}
+	thinking, requiresEffortSet, err := neoPiDecodeThinking(seed.Thinking)
+	if err != nil {
+		return neoPiSpec{}, false
+	}
+	return neoPiSpec{id: seed.ID, name: seed.Name, reasoning: seed.Reasoning, input: slices.Clone(seed.Input),
+		contextWindow: seed.ContextWindow, maxTokens: seed.MaxTokens, thinking: thinking,
+		thinkingRequiresEffortSet: requiresEffortSet, compat: maps.Clone(seed.Compat)}, true
 }
-
-// Derived-row kinds a mapper can switch reasoning on for.
-const (
-	neoPiKindReasoning  = "reasoning"
-	neoPiKindDeepseekV4 = "deepseek-v4"
-	neoPiKindKimiK3     = "kimi-k3"
-	neoPiKindKimiK2     = "kimi-k2"
-)
 
 // neoPiSpec is the ModelSpec a discovery mapper yields for one listed id. A
 // zero context window or max output is NeoPi's null.
@@ -90,17 +95,23 @@ type neoPiSpec struct {
 	input         []string
 	contextWindow int
 	maxTokens     int
-	// kind selects the derived thinking/compat when reasoning was switched on.
-	kind string
-	// thinking is an explicit effort ladder the reference row authors; like a
-	// ModelSpec's own thinking it wins over the rule-derived one in the merge.
-	thinking *NeoPiThinking
-	// ownThinking is compat trustExplicitThinkingOnly: the row keeps exactly
-	// thinking (possibly none), never the bundled or rule-derived ladder.
-	ownThinking bool
-	// compat are the mapper's sparse compat overrides (its spec.compat),
-	// applied over the row's resolved compat.
-	compat []func(*NeoPiCompletionsCompat)
+	// thinking is the spec's authored effort ladder; NeoPi's compat engine
+	// fills what it leaves out. thinkingRequiresEffortSet marks an authored
+	// requiresEffort of false, which the engine must not fill.
+	thinking                  *NeoPiThinking
+	thinkingRequiresEffortSet bool
+	// compat is the spec's sparse authored compat (spec.compat).
+	compat map[string]any
+	// requestModelID is a collapsed family's default wire id.
+	requestModelID string
+}
+
+// withCompat sets one authored compat override.
+func (s *neoPiSpec) withCompat(key string, value any) {
+	if s.compat == nil {
+		s.compat = map[string]any{}
+	}
+	s.compat[key] = value
 }
 
 // NeoPiCompletionsListingBase is the discovery base URL a provider's NeoPi
@@ -352,9 +363,9 @@ func neoPiDefaultSpec(entry gjson.Result) neoPiSpec {
 	return neoPiSpec{id: id, name: name, input: []string{"text"}}
 }
 
-// neoPiMapWithBundledReference is mapWithBundledReference: the bundled row
-// supplies capabilities; the listing supplies the name and, when present,
-// the limits.
+// neoPiMapWithBundledReference is mapWithBundledReference: the bundled row as
+// a spec (its capabilities, ladder and authored compat), named by the listing
+// and, when it reports them, limited by its limits.
 func neoPiMapWithBundledReference(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel) neoPiSpec {
 	fallback := defaults.name
 	if reference != nil {
@@ -365,14 +376,20 @@ func neoPiMapWithBundledReference(entry gjson.Result, defaults neoPiSpec, refere
 		defaults.name = name
 		return defaults
 	}
-	return neoPiSpec{
-		id:            defaults.id,
-		name:          name,
-		reasoning:     reference.Reasoning,
-		input:         slices.Clone(reference.Input),
-		contextWindow: neoPiPositive(entry.Get("context_length"), reference.ContextWindow),
-		maxTokens:     neoPiPositive(entry.Get("max_completion_tokens"), reference.MaxTokens),
-	}
+	spec := neoPiReferenceSpec(defaults.id, reference)
+	spec.name = name
+	spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
+	spec.maxTokens = neoPiPositive(entry.Get("max_completion_tokens"), reference.MaxTokens)
+	return spec
+}
+
+// neoPiReferenceSpec is toModelSpec(reference) under id: the bundled row as
+// the spec it was built from.
+func neoPiReferenceSpec(id string, reference *NeoPiModel) neoPiSpec {
+	return neoPiSpec{id: id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
+		contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens, thinking: reference.Thinking.Clone(),
+		compat: maps.Clone(reference.CompatConfig), requestModelID: reference.RequestModelID,
+		thinkingRequiresEffortSet: reference.thinkingRequiresEffortSet}
 }
 
 var (
@@ -469,7 +486,7 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 				continue
 			}
 		case "alibaba-token-plan":
-			spec = neoPiMapAlibaba(defaults, reference)
+			spec = neoPiMapAlibaba(defaults)
 			normalized := strings.ToLower(strings.TrimSpace(spec.id))
 			if normalized == "" || neoPiExcludedModel("alibaba-token-plan", normalized) {
 				continue
@@ -536,10 +553,7 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 		case "yolo-auto":
 			spec = neoPiMapYoloAuto(entry, defaults, reference)
 		case "gmi-cloud":
-			// mapGmiCloudModel resolves an unbundled id against NeoPi's
-			// cross-provider reference index, which is not carried here; such
-			// an id maps like any unknown id.
-			spec = neoPiMapWithBundledReference(entry, defaults, reference)
+			spec = neoPiMapGmiCloud(entry, defaults, reference)
 		case "aimlapi":
 			// isLikelyAimlApiChatModelId: image, audio, video and embedding
 			// generators share the listing.
@@ -562,7 +576,6 @@ func neoPiListingSpecs(provider string, entries []gjson.Result) (specs []neoPiSp
 		for i := range specs {
 			if !specs[i].reasoning && thinkingBases[specs[i].id] {
 				specs[i].reasoning = true
-				specs[i].kind = neoPiKindReasoning
 			}
 		}
 	}
@@ -578,7 +591,6 @@ func neoPiMapMoonshot(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 		// images, and its limits are pinned by NeoPi's model-limits rules.
 		limits := moonshotKimiK3Limits
 		model.reasoning = true
-		model.kind = neoPiKindKimiK3
 		model.input = []string{"text", "image"}
 		if model.contextWindow == 0 {
 			model.contextWindow = limits[0]
@@ -592,7 +604,6 @@ func neoPiMapMoonshot(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMo
 	thinkingVariant := strings.HasPrefix(id, "kimi") && strings.HasSuffix(id, "-thinking")
 	if (thinkingVariant || isK2) && !model.reasoning {
 		model.reasoning = true
-		model.kind = neoPiKindKimiK2
 	}
 	return model
 }
@@ -611,40 +622,62 @@ func neoPiMapNanoGpt(entry gjson.Result, defaults neoPiSpec, reference *NeoPiMod
 		defaults.name = neoPiModelName(entry.Get("name"), defaults.name)
 		return defaults
 	}
-	name := neoPiModelName(entry.Get("name"), reference.Name)
-	return neoPiSpec{
-		id:            defaults.id,
-		name:          name,
-		reasoning:     reference.Reasoning,
-		input:         slices.Clone(reference.Input),
-		contextWindow: neoPiPositive(entry.Get("context_length"), reference.ContextWindow),
-		maxTokens:     neoPiPositive(maxOutput, reference.MaxTokens),
-	}
+	spec := neoPiReferenceSpec(defaults.id, reference)
+	spec.name = neoPiModelName(entry.Get("name"), reference.Name)
+	spec.contextWindow = neoPiPositive(entry.Get("context_length"), reference.ContextWindow)
+	spec.maxTokens = neoPiPositive(maxOutput, reference.MaxTokens)
+	return spec
 }
 
 // neoPiMapAlibaba is alibabaTokenPlanModelManagerOptions' mapModel: a listed
-// seed id keeps NeoPi's authored seed row whole, including the explicit effort
-// ladder it authors (the manager's static models are the provider's seed
-// rows, not the generated bundle, whose ladder is rule-derived and can differ);
-// others take the model-limits rules.
-func neoPiMapAlibaba(defaults neoPiSpec, reference *NeoPiModel) neoPiSpec {
-	if reference != nil {
-		spec := neoPiSpec{id: defaults.id, name: reference.Name, reasoning: reference.Reasoning, input: slices.Clone(reference.Input),
-			contextWindow: reference.ContextWindow, maxTokens: reference.MaxTokens}
-		if seed := neoPiDerivedFor("alibaba-token-plan", "seed:"+defaults.id); seed != nil {
-			spec.thinking = seed.Thinking.Clone()
-		}
-		return spec
+// seed id is NeoPi's authored seed spec whole (the manager's static models
+// are the provider's seeds, not the generated bundle); others take the
+// model-limits rules.
+func neoPiMapAlibaba(defaults neoPiSpec) neoPiSpec {
+	if seed, ok := neoPiAlibabaSeedSpec(defaults.id); ok {
+		return seed
 	}
 	normalized := strings.ToLower(strings.TrimSpace(defaults.id))
 	if limits, ok := alibabaLimits[normalized]; ok {
 		defaults.contextWindow, defaults.maxTokens = limits[0], limits[1]
 	}
 	if neoPiIsDeepseekV4Generation("alibaba-token-plan", normalized) {
+		// The V4 generation reasons on a high/max ladder only.
 		defaults.reasoning = true
-		defaults.kind = neoPiKindDeepseekV4
+		defaults.thinking = &NeoPiThinking{Mode: "effort", Efforts: []string{"high", "max"}}
 	}
 	return defaults
+}
+
+// neoPiMapGmiCloud is mapGmiCloudModel: an id the bundle lacks borrows the
+// capabilities, ladder and limits of the upstream row NeoPi's bundled
+// reference index resolves it to, its output cap held to its window.
+func neoPiMapGmiCloud(entry gjson.Result, defaults neoPiSpec, reference *NeoPiModel) neoPiSpec {
+	if reference != nil {
+		return neoPiMapWithBundledReference(entry, defaults, reference)
+	}
+	canonical := neoPiResolveModelReference(defaults.id)
+	if canonical == nil {
+		defaults.name = neoPiModelName(entry.Get("name"), defaults.name)
+		return defaults
+	}
+	spec := defaults
+	spec.name = neoPiModelName(entry.Get("name"), canonical.Name)
+	spec.reasoning = canonical.Reasoning
+	spec.input = slices.Clone(canonical.Input)
+	if thinking, requiresEffortSet, err := neoPiDecodeThinking(canonical.Thinking); err == nil && thinking != nil {
+		spec.thinking, spec.thinkingRequiresEffortSet = thinking, requiresEffortSet
+	}
+	if canonical.ContextWindow > 0 {
+		spec.contextWindow = canonical.ContextWindow
+	}
+	switch {
+	case canonical.MaxTokens > 0 && spec.contextWindow > 0:
+		spec.maxTokens = min(canonical.MaxTokens, spec.contextWindow)
+	case canonical.MaxTokens > 0:
+		spec.maxTokens = canonical.MaxTokens
+	}
+	return spec
 }
 
 // neoPiMapFireworks is mapFireworksControlPlaneModel. The control plane
@@ -655,21 +688,16 @@ func neoPiMapFireworks(record gjson.Result, publicID string, reference *NeoPiMod
 	if reference != nil {
 		fallback = reference.Name
 	}
-	spec := neoPiSpec{id: publicID, name: neoPiModelName(record.Get("displayName"), fallback), input: []string{"text"}}
+	// The reference row is the spec's base; an unbundled id starts bare.
+	spec := neoPiSpec{id: publicID, input: []string{"text"}}
 	if reference != nil {
-		spec.reasoning = reference.Reasoning
-		spec.input = slices.Clone(reference.Input)
-		spec.maxTokens = reference.MaxTokens
+		spec = neoPiReferenceSpec(publicID, reference)
 		spec.contextWindow = neoPiPositive(record.Get("contextLength"), reference.ContextWindow)
 	} else {
 		spec.reasoning = true
 		spec.contextWindow = neoPiPositive(record.Get("contextLength"), 0)
-		if neoPiIsDeepseekV4Generation("fireworks", publicID) {
-			spec.kind = neoPiKindDeepseekV4
-		} else {
-			spec.kind = neoPiKindReasoning
-		}
 	}
+	spec.name = neoPiModelName(record.Get("displayName"), fallback)
 	if image := record.Get("supportsImageInput"); image.Type == gjson.True {
 		spec.input = []string{"text", "image"}
 	}
@@ -728,15 +756,12 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 		if seen[specs[i].id] {
 			continue
 		}
-		added = append(added, neoPiNewRow(provider, baseURL, catalog, &specs[i]))
-	}
-	authored := map[string]bool{}
-	for i := range specs {
-		if specs[i].thinking != nil {
-			authored[specs[i].id] = true
+		// A spec NeoPi cannot build is skipped from the roster.
+		if row, err := neoPiBuildRow(provider, baseURL, &specs[i]); err == nil {
+			added = append(added, row)
 		}
 	}
-	rows = neoPiCollapseThinkingPairs(provider, append(rows, added...), authored)
+	rows = neoPiCollapseThinkingPairs(provider, append(rows, added...))
 	out := make([]*ModelInfo, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, NeoPiCompletionsModelInfo(row, provider))
@@ -744,196 +769,65 @@ func neoPiMergeListing(provider, baseURL string, specs []neoPiSpec, authoritativ
 	return out
 }
 
-// neoPiMergedRow is mergeDynamicModel for a bundled row the listing names.
+// neoPiMergedRow is mergeDynamicModel for a bundled row the listing names:
+// the discovered spec is built, layered over the bundled row (name, reasoning,
+// input and limits by NeoPi's merge rules, the built ladder, and the spec's
+// authored compat or else the bundled row's), and the result built again.
 func neoPiMergedRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, static *NeoPiModel, spec *neoPiSpec) *NeoPiModel {
-	row := static.Clone()
-	endpointChanged := static.BaseURL != baseURL
-	row.BaseURL = baseURL
-	row.Name = neoPiPreferName(spec.name, static.Name, static.ID)
-	row.Reasoning = static.Reasoning || spec.reasoning
+	dynamic, err := neoPiBuildRow(provider, baseURL, spec)
+	if err != nil {
+		return static.Clone()
+	}
+	merged := neoPiSpec{id: static.ID, name: neoPiPreferName(dynamic.Name, static.Name, static.ID), requestModelID: static.RequestModelID}
+	if dynamic.RequestModelID != "" {
+		merged.requestModelID = dynamic.RequestModelID
+	}
+	merged.reasoning = static.Reasoning || dynamic.Reasoning
 	if catalog != nil && catalog.Discovery.ReasoningAuthoritative {
-		row.Reasoning = spec.reasoning
+		merged.reasoning = dynamic.Reasoning
 	}
-	supportsImage := slices.Contains(static.Input, "image") || slices.Contains(spec.input, "image")
-	if endpointChanged || catalog != nil && catalog.Discovery.InputAuthoritative {
-		supportsImage = slices.Contains(spec.input, "image")
+	supportsImage := slices.Contains(static.Input, "image") || slices.Contains(dynamic.Input, "image")
+	if static.BaseURL != baseURL || catalog != nil && catalog.Discovery.InputAuthoritative {
+		supportsImage = slices.Contains(dynamic.Input, "image")
 	}
-	row.Input = []string{"text"}
+	merged.input = []string{"text"}
 	if supportsImage {
-		row.Input = []string{"text", "image"}
+		merged.input = []string{"text", "image"}
 	}
-	row.ContextWindow = neoPiPreferLimit(spec.contextWindow, static.ContextWindow)
-	row.MaxTokens = neoPiPreferLimit(spec.maxTokens, static.MaxTokens)
-	if row.Reasoning && !static.Reasoning {
-		neoPiApplyDerived(provider, row, spec.kind)
+	merged.contextWindow = neoPiPreferLimit(dynamic.ContextWindow, static.ContextWindow)
+	merged.maxTokens = neoPiPreferLimit(dynamic.MaxTokens, static.MaxTokens)
+	merged.thinking, merged.thinkingRequiresEffortSet = dynamic.Thinking.Clone(), dynamic.thinkingRequiresEffortSet
+	merged.compat = maps.Clone(spec.compat)
+	if merged.compat == nil {
+		merged.compat = maps.Clone(static.CompatConfig)
 	}
-	if spec.thinking != nil || spec.ownThinking {
-		row.Thinking = spec.thinking.Clone()
-	}
-	neoPiApplySpecCompat(row, spec)
-	if !row.Reasoning {
-		// buildModel gives a non-reasoning row no thinking surface.
-		row.Thinking = nil
+	row, err := neoPiBuildRow(provider, baseURL, &merged)
+	if err != nil {
+		return static.Clone()
 	}
 	return row
-}
-
-// neoPiApplySpecCompat applies a mapper's sparse compat overrides.
-func neoPiApplySpecCompat(row *NeoPiModel, spec *neoPiSpec) {
-	if !spec.ownThinking && len(spec.compat) == 0 {
-		return
-	}
-	if row.CompletionsCompat == nil {
-		row.CompletionsCompat = &NeoPiCompletionsCompat{}
-	}
-	if spec.ownThinking {
-		trust := true
-		row.CompletionsCompat.TrustExplicitThinkingOnly = &trust
-	}
-	for _, edit := range spec.compat {
-		edit(row.CompletionsCompat)
-	}
-}
-
-// neoPiSiblingMinShare is the share of a discovered id's length that a
-// bundled id must match as a prefix to stand in for it.
-const neoPiSiblingMinShare = 0.3
-
-// neoPiNewRow builds the row for an id the bundle lacks.
-//
-// NeoPi derives such a row's compat and effort ladder from its id through the
-// catalog rule engine (buildModel), which cannot run here. The nearest
-// bundled sibling of the same provider and reasoning state carries what that
-// engine derived for a neighbouring id, which measured against NeoPi's own
-// buildModel (leave-one-out over each bundled roster) predicts the compat far
-// more often than one provider-wide default; with no close sibling the
-// provider's default for an unknown id applies.
-func neoPiNewRow(provider, baseURL string, catalog *NeoPiCompletionsCatalog, spec *neoPiSpec) *NeoPiModel {
-	input := spec.input
-	if len(input) == 0 {
-		input = []string{"text"}
-	}
-	row := &NeoPiModel{ID: spec.id, Name: spec.name, API: "openai-completions", Provider: provider, BaseURL: baseURL,
-		Reasoning: spec.reasoning, Input: slices.Clone(input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens,
-		CompletionsCompat: catalog.UnknownCompat().Clone()}
-	if spec.reasoning && !spec.ownThinking {
-		neoPiApplyDerived(provider, row, spec.kind)
-		if spec.thinking != nil {
-			row.Thinking = spec.thinking.Clone()
-		}
-	} else if spec.reasoning {
-		if sibling := neoPiNearestBundled(provider, spec.id, true); sibling != nil {
-			row.CompletionsCompat = sibling.CompletionsCompat.Clone()
-		}
-		row.Thinking = spec.thinking.Clone()
-	} else if sibling := neoPiNearestBundled(provider, spec.id, false); sibling != nil {
-		row.CompletionsCompat = sibling.CompletionsCompat.Clone()
-	}
-	neoPiApplySpecCompat(row, spec)
-	if !row.Reasoning {
-		row.Thinking = nil
-	}
-	return row
-}
-
-// neoPiApplyDerived gives a row whose reasoning a mapper switched on the
-// effort ladder and compat NeoPi derives for its kind. Rows of the generic
-// kind take their nearest reasoning sibling's; the kind-specific rows (Kimi,
-// DeepSeek V4) take the captured derivation. NeoPi pins effort ladders to
-// exact revisions (glm.kdl's 5.2 and 5.3 ladders name those spellings), so a
-// sibling of another revision of the same line lends only its compat; the
-// ladder is the provider's generic one when that was captured.
-func neoPiApplyDerived(provider string, row *NeoPiModel, kind string) {
-	if kind == neoPiKindReasoning {
-		if sibling := neoPiNearestBundled(provider, row.ID, true); sibling != nil && sibling.Thinking != nil {
-			row.Thinking = sibling.Thinking.Clone()
-			// Routing names the sibling's own variants.
-			row.Thinking.EffortRouting = nil
-			row.CompletionsCompat = sibling.CompletionsCompat.Clone()
-			if generic := neoPiDerivedFor(provider, neoPiKindReasoning); generic != nil && neoPiOtherRevision(provider, row.ID, sibling.ID) {
-				row.Thinking = generic.Thinking.Clone()
-			}
-			return
-		}
-	}
-	derived := neoPiDerivedFor(provider, kind)
-	if derived == nil {
-		return
-	}
-	row.Thinking = derived.Thinking.Clone()
-	if derived.Compat != nil {
-		row.CompletionsCompat = derived.Compat.Clone()
-	}
-}
-
-// neoPiOtherRevision reports whether two ids are the same class and family
-// at different revisions.
-func neoPiOtherRevision(provider, id, other string) bool {
-	a, b := neopitaxonomy.Classify(provider, id), neopitaxonomy.Classify(provider, other)
-	return a.Class != "unknown" && a.Class == b.Class && a.Family == b.Family &&
-		a.HasRevision && b.HasRevision && a.Revision != b.Revision
-}
-
-// neoPiNearestBundled is the bundled row of the provider sharing the longest
-// case-insensitive id prefix with id (at least neoPiSiblingMinShare of it),
-// among rows with the wanted reasoning state. Rows sharing equally long
-// prefixes prefer the same class and family at the newest revision not
-// past id's: NeoPi's lineage rules mostly select open-ended revision
-// ranges, so that row's derivation is the one id falls into.
-func neoPiNearestBundled(provider, id string, reasoning bool) *NeoPiModel {
-	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
-	lower := strings.ToLower(id)
-	target := neopitaxonomy.Classify(provider, id)
-	// lineage ranks a candidate among equally long prefixes: 2 for the same
-	// lineage at or below the target revision, 1 for the same lineage
-	// otherwise, 0 for another lineage.
-	lineage := func(row *NeoPiModel) (int, neopitaxonomy.Revision) {
-		identity := neopitaxonomy.Classify(provider, row.ID)
-		if identity.Class != target.Class || identity.Family != target.Family || target.Class == "unknown" {
-			return 0, neopitaxonomy.Revision{}
-		}
-		if identity.HasRevision && target.HasRevision && identity.Revision.Compare(target.Revision) <= 0 {
-			return 2, identity.Revision
-		}
-		return 1, neopitaxonomy.Revision{}
-	}
-	var best *NeoPiModel
-	bestShared, bestTier := 0, 0
-	var bestRevision neopitaxonomy.Revision
-	for _, row := range neopiCompletionsRows[provider] {
-		if row.Reasoning != reasoning || row.ID == id || row.CompletionsCompat == nil {
-			continue
-		}
-		other := strings.ToLower(row.ID)
-		shared := 0
-		for shared < len(lower) && shared < len(other) && lower[shared] == other[shared] {
-			shared++
-		}
-		if shared < bestShared || shared == 0 {
-			continue
-		}
-		tier, revision := lineage(row)
-		if shared > bestShared || tier > bestTier || tier == bestTier && tier == 2 && revision.Compare(bestRevision) > 0 {
-			best, bestShared, bestTier, bestRevision = row, shared, tier, revision
-		}
-	}
-	if best == nil || float64(bestShared) < neoPiSiblingMinShare*float64(len(lower)) {
-		return nil
-	}
-	return best
 }
 
 // neoPiDefaultPairEfforts is DEFAULT_PAIR_EFFORTS.
 var neoPiDefaultPairEfforts = []string{"minimal", "low", "medium", "high"}
 
+// neoPiPairSurface is a ladder as derivePairThinkingSurface keeps it: no
+// routing, mandatory or off-suppression flags.
+func neoPiPairSurface(thinking *NeoPiThinking) *NeoPiThinking {
+	if thinking == nil || len(thinking.Efforts) == 0 {
+		return nil
+	}
+	surface := thinking.Clone()
+	surface.EffortRouting, surface.RequiresEffort, surface.SuppressWhenOff = nil, false, false
+	return surface
+}
+
 // neoPiCollapseThinkingPairs is the model manager's collapseBuiltVariants
 // for the completions providers (none has a reviewed collapse table): each
 // "<id>-thinking" style row whose base id is also listed folds into the
-// base, which then routes every effort of the pair's thinking surface to
-// the variant and "off" to itself. authored names the rows whose ladder the
-// listing itself supplied. The collapsed row keeps a reasoning member's
-// compat where NeoPi re-derives it for the now-reasoning base.
-func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel, authored map[string]bool) []*NeoPiModel {
+// base, which then routes every effort of the pair's thinking surface to the
+// variant and "off" to itself, and is built again.
+func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel) []*NeoPiModel {
 	byID := make(map[string]*NeoPiModel, len(rows))
 	for _, row := range rows {
 		if _, ok := byID[row.ID]; !ok {
@@ -941,6 +835,7 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel, authored ma
 		}
 	}
 	dropped := map[string]bool{}
+	rebuilt := map[string]*NeoPiModel{}
 	for _, row := range rows {
 		baseID, ok := "", false
 		if logical, thinking := neopitaxonomy.CollapseVariant(provider, row.ID); thinking {
@@ -958,42 +853,36 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel, authored ma
 			continue
 		}
 		// derivePairThinkingSurface: the variant's ladder, else the base's,
-		// else what the rule engine derives for the variant as a reasoning
-		// row, else NeoPi's default pair ladder.
-		surface, source := row.Thinking, row.ID
-		if surface == nil || len(surface.Efforts) == 0 {
-			surface, source = base.Thinking, base.ID
+		// else what the rules derive for the variant as a reasoning row
+		// (without its authored compat), else NeoPi's default pair ladder.
+		surface := neoPiPairSurface(row.Thinking)
+		if surface == nil {
+			surface = neoPiPairSurface(base.Thinking)
 		}
-		if surface == nil || len(surface.Efforts) == 0 {
-			derived := row.Clone()
-			derived.Reasoning, derived.Thinking = true, nil
-			neoPiApplyDerived(provider, derived, neoPiKindReasoning)
-			surface, source = derived.Thinking, ""
+		if surface == nil {
+			variant := neoPiSpec{id: row.ID, name: row.Name, reasoning: true, input: row.Input, contextWindow: row.ContextWindow, maxTokens: row.MaxTokens}
+			if derived, err := neoPiBuildRow(provider, row.BaseURL, &variant); err == nil {
+				surface = neoPiPairSurface(derived.Thinking)
+			}
 		}
-		if surface == nil || len(surface.Efforts) == 0 {
+		if surface == nil {
 			surface = &NeoPiThinking{Mode: "budget", Efforts: slices.Clone(neoPiDefaultPairEfforts)}
 		}
-		thinking := surface.Clone()
-		if authored[source] {
-			// The surface drops a listing-authored mandatory/suppress flag;
-			// only the rule engine's own (kept on derived rows) survives
-			// the rebuild.
-			thinking.RequiresEffort, thinking.SuppressWhenOff = false, false
+		surface.EffortRouting = map[string]string{"off": base.ID}
+		for _, effort := range surface.Efforts {
+			surface.EffortRouting[effort] = row.ID
 		}
-		thinking.EffortRouting = map[string]string{"off": base.ID}
-		for _, effort := range thinking.Efforts {
-			thinking.EffortRouting[effort] = row.ID
-		}
-		if !base.Reasoning {
-			base.CompletionsCompat = row.CompletionsCompat.Clone()
-		}
-		base.Reasoning = true
-		base.Thinking = thinking
+		input := base.Input
 		if slices.Contains(row.Input, "image") {
-			base.Input = []string{"text", "image"}
+			input = []string{"text", "image"}
 		}
-		base.ContextWindow = max(base.ContextWindow, row.ContextWindow)
-		base.MaxTokens = max(base.MaxTokens, row.MaxTokens)
+		collapsed := neoPiSpec{id: base.ID, name: base.Name, reasoning: true, input: input,
+			contextWindow: max(base.ContextWindow, row.ContextWindow), maxTokens: max(base.MaxTokens, row.MaxTokens),
+			thinking: surface, compat: maps.Clone(base.CompatConfig), requestModelID: base.RequestModelID}
+		if built, err := neoPiBuildRow(provider, base.BaseURL, &collapsed); err == nil {
+			rebuilt[base.ID] = built
+			byID[base.ID] = built
+		}
 		dropped[row.ID] = true
 	}
 	if len(dropped) == 0 {
@@ -1001,9 +890,13 @@ func neoPiCollapseThinkingPairs(provider string, rows []*NeoPiModel, authored ma
 	}
 	out := rows[:0:0]
 	for _, row := range rows {
-		if !dropped[row.ID] {
-			out = append(out, row)
+		if dropped[row.ID] {
+			continue
 		}
+		if built, ok := rebuilt[row.ID]; ok {
+			row = built
+		}
+		out = append(out, row)
 	}
 	return out
 }

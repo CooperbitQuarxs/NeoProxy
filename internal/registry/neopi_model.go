@@ -27,6 +27,12 @@ type NeoPiModel struct {
 	// an anthropic-messages or openai-completions row respectively.
 	AnthropicCompat   *NeoPiAnthropicCompat   `json:"anthropicCompat,omitempty"`
 	CompletionsCompat *NeoPiCompletionsCompat `json:"completionsCompat,omitempty"`
+	// CompatConfig is the row's authored sparse compat (NeoPi's compatConfig),
+	// which a discovery merge rebuilds the resolved compat from.
+	CompatConfig map[string]any `json:"compatConfig,omitempty"`
+	// thinkingRequiresEffortSet marks a ladder whose requiresEffort NeoPi
+	// holds explicitly (false included), which a rebuild must not refill.
+	thinkingRequiresEffortSet bool
 	// RequestModelID is the default wire id of a collapsed family row.
 	RequestModelID string `json:"requestModelId,omitempty"`
 	// DevinCompat is the compat NeoPi resolves for a devin-agent row.
@@ -321,6 +327,7 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 		out.Cursor = &NeoPiCursor{MaxMode: spec.CursorMaxMode, MaxModeRoutes: spec.CursorMaxModeRoutes, ModelParameters: spec.CursorModelParameters,
 			ModelRoutes: spec.CursorModelRoutes, RequiresToolSchemaProjection: m.Cursor.RequiresToolSchemaProjection}
 	}
+	out.CompatConfig = maps.Clone(m.CompatConfig)
 	return &out
 }
 

@@ -202,6 +202,11 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: bundled[5], reasoning_effort_support_list: ["low"] },
 		],
 		helmcode: [{ id: "rerank" }, { id: "Kokoro" }, { id: "zz-helm-new", name: "Helm New" }],
+		// Unbundled ids NeoPi resolves through its bundled reference index.
+		"gmi-cloud": [
+			{ id: "zai-org/GLM-5.3", name: "GLM 5.3" }, { id: "deepseek-ai/DeepSeek-V4-Pro" }, { id: "moonshotai/Kimi-K3" },
+			{ id: "Qwen/Qwen3-Coder-480B-A35B-Instruct" }, { id: "openai/gpt-oss-120b" },
+		],
 		aimlapi: [
 			{ id: "openai/tts-1-hd" }, { id: "flux-pro/v1.1" }, { id: "text-embedding-3-large" }, { id: "google/veo-3" },
 			{ id: "openai/whisper-1" }, { id: "Stable-Image-Ultra" }, { id: "zz-lab/zz-chat-new", name: "ZZ Chat" },
@@ -423,52 +428,29 @@ for (const [provider, build] of Object.entries(managers)) {
 
 writeFileSync(outFile, Bun.gzipSync(JSON.stringify({ apiKey, compats, results })));
 
-// What NeoPi's rule engine derives for a discovered row the bundle lacks and
-// whose reasoning the mapper switched on. The Go port cannot run the rule
-// engine, so it embeds these per provider/kind (see
-// models/neopi_discovery/derived.json.gz).
-const find = (provider: string, scenario: string, id: string) =>
-	results.find(r => r.provider === provider && r.scenario === scenario)?.models.find((model: any) => model.id === id);
-const derivedSource: Array<[string, string, string, string]> = [
-	["nanogpt", "reasoning", "data envelope", "zz-base"],
-	["fireworks", "reasoning", "control-plane pages", "zz-new-model"],
-	["fireworks", "deepseek-v4", "control-plane pages", "deepseek-v4-zz"],
-	["moonshot", "kimi-k3", "data envelope", "kimi-k3-0801"],
-	["moonshot", "kimi-k2", "data envelope", "kimi-k2-new-turbo"],
-	["alibaba-token-plan", "deepseek-v4", "data envelope", "deepseek-v4-new"],
-	// Unbundled reasoning ids with no close bundled sibling: the generic
-	// ladder and compat NeoPi's rule engine gives each provider.
-	["synthetic", "reasoning", "data envelope", "zz-syn-flag"],
-	["novita", "reasoning", "data envelope", "zz-nov"],
-	["deepinfra", "reasoning", "data envelope", "zz-di-space"],
-	["wafer-serverless", "reasoning", "data envelope", "zz-wafer-r"],
-	["zhipu-coding-plan", "reasoning", "data envelope", "glm-7.1"],
-	// Qianfan lists no reasoning flags, so its generic ladder shows only on a
-	// collapsed bare/thinking pair (derivePairThinkingSurface).
-	["qianfan", "reasoning", "data envelope", "zz-pair"],
-];
-const derived: any[] = derivedSource.map(([provider, kind, scenario, id]) => {
-	const model = find(provider, scenario, id);
-	if (!model) throw new Error(`no ${id} in ${provider}/${scenario}`);
-	const { effortRouting: _routing, ...thinking } = model.thinking ?? {};
-	return { provider, kind, id, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow, maxTokens: model.maxTokens, thinking, compat: compats[model.compatIndex] };
-});
-// Token Plan's model manager uses NeoPi's authored seed rows (not the generated
-// bundle) as the reference for every listed seed id: their explicit thinking
-// ladder wins over the rule-derived one in the merge, so it is exported per id.
+// Token Plan's model manager takes NeoPi's authored seed specs (not the
+// generated bundle) as its static rows and the reference for every listed
+// seed id, so they are exported whole.
 const { seedModels } = await import(root + "/pi-catalog/src/compat/providers.ts");
-for (const seed of seedModels("alibaba-token-plan") as any[]) {
-	if (!seed.thinking) continue;
-	derived.push({ provider: "alibaba-token-plan", kind: `seed:${seed.id}`, id: seed.id, reasoning: seed.reasoning, input: seed.input, contextWindow: seed.contextWindow ?? null, maxTokens: seed.maxTokens ?? null, thinking: seed.thinking, compat: null });
-}
-const derivedFile = process.env.DERIVED_FILE ?? join(dirname(new URL(import.meta.url).pathname), "../models/neopi_discovery/derived.json.gz");
-mkdirSync(dirname(derivedFile), { recursive: true });
-writeFileSync(derivedFile, Bun.gzipSync(JSON.stringify(derived)));
-console.log(`wrote ${derived.length} derived rows to ${derivedFile}`);
+const seeds = (seedModels("alibaba-token-plan") as any[]).map(seed => ({
+	id: seed.id,
+	name: seed.name,
+	reasoning: seed.reasoning,
+	input: seed.input,
+	contextWindow: seed.contextWindow ?? null,
+	maxTokens: seed.maxTokens ?? null,
+	...(seed.thinking ? { thinking: seed.thinking } : {}),
+	...(seed.compat ? { compat: seed.compat } : {}),
+}));
+const discoveryDir = join(dirname(new URL(import.meta.url).pathname), "../models/neopi_discovery");
+mkdirSync(discoveryDir, { recursive: true });
+const seedsFile = join(discoveryDir, "alibaba_token_plan_seeds.json.gz");
+writeFileSync(seedsFile, Bun.gzipSync(JSON.stringify(seeds)));
+console.log(`wrote ${seeds.length} Token Plan seed specs to ${seedsFile}`);
 // The runtime exclude-models rules (compat/rules.json behavior.excludeModels)
 // the discovery filters apply through isExcludedModel.
 const rules = (await import(root + "/pi-catalog/src/compat/rules.json", { with: { type: "json" } })).default as any;
-const excludeFile = join(dirname(derivedFile), "exclude_models.json");
+const excludeFile = join(discoveryDir, "exclude_models.json");
 writeFileSync(excludeFile, JSON.stringify(rules.behavior.excludeModels));
 console.log(`wrote ${rules.behavior.excludeModels.length} exclude rules to ${excludeFile}`);
 console.log(`wrote ${results.length} scenarios to ${outFile}`);
@@ -488,7 +470,7 @@ const referenceRow = (model: any): number => {
 	if (index === undefined) {
 		index = referenceRows.length;
 		referenceRowIndex.set(model, index);
-		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null });
+		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}) });
 	}
 	return index;
 };
@@ -500,34 +482,13 @@ const markerSuffixes = [
 	...collapse.suffixes.map((rule: any) => rule.suffix),
 	...collapse.routingVariants.map((rule: any) => rule.suffix),
 ];
-const clinePassFile = join(dirname(derivedFile), "cline_pass.json.gz");
-// The row NeoPi's ClinePass manager builds for each curated id: its catalog
-// rules derive the effort map and compat from the id, which the port cannot
-// evaluate, and the curated spec fixes everything else about the row.
-const curatedBuilt: Record<string, { thinking: unknown; compat: unknown }> = {};
-for (const [id, metadata] of Object.entries(CLINE_PASS_MODEL_METADATA) as [string, any][]) {
-	const roster = metadata.tier === "free"
-		? { clinePass: [{ id: "cline-pass/zz-anchor" }], free: [{ id }] }
-		: { clinePass: [{ id: `cline-pass/${id}` }] };
-	const fetchImpl = async (input: any) => {
-		const url = new URL(typeof input === "string" ? input : input.url);
-		if (url.hostname === "openrouter.ai") return new Response("unavailable", { status: 503 });
-		return new Response(JSON.stringify(roster), { status: 200, headers: { "content-type": "application/json" } });
-	};
-	const options = m.clinePassModelManagerOptions({ apiKey, fetch: fetchImpl });
-	options.cacheDbPath = join(cacheDir, `cline-pass-curated-${Object.keys(curatedBuilt).length}.db`);
-	const resolved = await resolveProviderModels(options, "online");
-	const model = resolved.models.find((candidate: any) => candidate.id === id);
-	if (!model) throw new Error(`NeoPi built no ClinePass row for curated ${id}`);
-	curatedBuilt[id] = { thinking: model.thinking ?? null, compat: model.compat };
-}
+const clinePassFile = join(discoveryDir, "cline_pass.json.gz");
 writeFileSync(
 	clinePassFile,
 	Bun.gzipSync(
 		JSON.stringify({
 			source: "NeoPi OWN pi-catalog provider-models/cline-pass.ts CLINE_PASS_MODEL_METADATA and identity/bundled.ts getBundledModelReferenceIndex",
 			metadata: CLINE_PASS_MODEL_METADATA,
-			curatedBuilt,
 			reference: {
 				markerSuffixes,
 				exact: Object.fromEntries([...referenceIndex.exact].map(([key, model]) => [key, referenceRow(model)])),

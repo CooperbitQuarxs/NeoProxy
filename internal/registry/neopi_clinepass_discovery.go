@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"io"
+	"maps"
 	"regexp"
 	"slices"
 	"sort"
@@ -41,35 +42,39 @@ const (
 )
 
 type neoPiClinePassMetadata struct {
-	Name          string         `json:"name"`
-	ContextWindow int            `json:"contextWindow"`
-	MaxTokens     int            `json:"maxTokens"`
-	Input         []string       `json:"input"`
-	Reasoning     bool           `json:"reasoning"`
-	Thinking      *NeoPiThinking `json:"thinking"`
-	Tier          string         `json:"tier"`
+	Name          string          `json:"name"`
+	ContextWindow int             `json:"contextWindow"`
+	MaxTokens     int             `json:"maxTokens"`
+	Input         []string        `json:"input"`
+	Reasoning     bool            `json:"reasoning"`
+	Thinking      json.RawMessage `json:"thinking"`
+	Tier          string          `json:"tier"`
 }
 
-// neoPiReferenceRow is the part of a bundled upstream row the ClinePass
-// builders read. A zero limit is NeoPi's undefined.
+// thinking is the curated ladder and whether it authors requiresEffort.
+func (m neoPiClinePassMetadata) thinking() (*NeoPiThinking, bool) {
+	thinking, requiresEffortSet, err := neoPiDecodeThinking(m.Thinking)
+	if err != nil {
+		return nil, false
+	}
+	return thinking, requiresEffortSet
+}
+
+// neoPiReferenceRow is the part of a bundled upstream row discovery reads
+// (ClinePass, GMI Cloud). A zero limit is NeoPi's undefined.
 type neoPiReferenceRow struct {
-	Provider      string   `json:"provider"`
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Reasoning     bool     `json:"reasoning"`
-	Input         []string `json:"input"`
-	ContextWindow int      `json:"contextWindow"`
-	MaxTokens     int      `json:"maxTokens"`
+	Provider      string          `json:"provider"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Reasoning     bool            `json:"reasoning"`
+	Input         []string        `json:"input"`
+	ContextWindow int             `json:"contextWindow"`
+	MaxTokens     int             `json:"maxTokens"`
+	Thinking      json.RawMessage `json:"thinking"`
 }
 
 type neoPiClinePassData struct {
-	Metadata map[string]neoPiClinePassMetadata `json:"metadata"`
-	// CuratedBuilt is the effort ladder and compat NeoPi's rules build for
-	// each curated id.
-	CuratedBuilt map[string]struct {
-		Thinking *NeoPiThinking          `json:"thinking"`
-		Compat   *NeoPiCompletionsCompat `json:"compat"`
-	} `json:"curatedBuilt"`
+	Metadata  map[string]neoPiClinePassMetadata `json:"metadata"`
 	Reference struct {
 		MarkerSuffixes []string             `json:"markerSuffixes"`
 		Exact          map[string]int       `json:"exact"`
@@ -268,29 +273,16 @@ func NeoPiClinePassListing(baseURL string, roster, live []byte) ([]*ModelInfo, e
 	return neoPiMergeListing(neoPiClinePassProvider, neoPiNormalizeBase(baseURL), specs, true), nil
 }
 
-// neoPiNoReasoningEffort is the spec compat { supportsReasoningEffort: false },
-// which resolveOpenAICompat follows with omitReasoningEffort.
-func neoPiNoReasoningEffort(compat *NeoPiCompletionsCompat) {
-	compat.SupportsReasoningEffort = false
-	compat.OmitReasoningEffort = true
-}
-
-// neoPiRawWireModelID is the spec compat { wireModelIdMode: "raw" }.
-func neoPiRawWireModelID(compat *NeoPiCompletionsCompat) { compat.WireModelIDMode = "raw" }
-
-// neoPiClinePassFallbackSpec is buildClinePassFallbackModel. Every ClinePass
-// spec trusts only its own thinking (the provider's rules derive none).
+// neoPiClinePassFallbackSpec is buildClinePassFallbackModel.
 func neoPiClinePassFallbackSpec(id string) neoPiSpec {
 	return neoPiSpec{id: id, name: id, reasoning: true, input: []string{"text"},
 		contextWindow: neoPiClinePassFallbackContextWindow, maxTokens: neoPiClinePassFallbackMaxTokens,
-		ownThinking: true, compat: []func(*NeoPiCompletionsCompat){neoPiNoReasoningEffort}}
+		compat: map[string]any{"supportsReasoningEffort": false}}
 }
 
-// neoPiClinePassCuratedSpec is buildCuratedClinePassModel, carrying the
-// ladder and compat NeoPi's rules build from it.
+// neoPiClinePassCuratedSpec is buildCuratedClinePassModel.
 func neoPiClinePassCuratedSpec(id, tier string) (neoPiSpec, bool) {
-	tables := neoPiClinePassTables()
-	metadata, ok := tables.Metadata[id]
+	metadata, ok := neoPiClinePassTables().Metadata[id]
 	if !ok || metadata.Tier != tier {
 		return neoPiSpec{}, false
 	}
@@ -300,27 +292,23 @@ func neoPiClinePassCuratedSpec(id, tier string) (neoPiSpec, bool) {
 	spec.maxTokens = metadata.MaxTokens
 	spec.input = slices.Clone(metadata.Input)
 	spec.reasoning = metadata.Reasoning
-	spec.thinking = metadata.Thinking.Clone()
-	spec.compat = nil
-	if metadata.Thinking == nil {
-		spec.compat = append(spec.compat, neoPiNoReasoningEffort)
+	spec.thinking, spec.thinkingRequiresEffortSet = metadata.thinking()
+	spec.compat = map[string]any{}
+	if spec.thinking == nil {
+		spec.compat["supportsReasoningEffort"] = false
 	}
 	if tier == "free" {
-		spec.compat = append(spec.compat, neoPiRawWireModelID)
-	}
-	if built, ok := tables.CuratedBuilt[id]; ok && built.Compat != nil {
-		spec.thinking = built.Thinking.Clone()
-		compat := built.Compat
-		spec.compat = []func(*NeoPiCompletionsCompat){func(target *NeoPiCompletionsCompat) { *target = *compat.Clone() }}
+		spec.compat["wireModelIdMode"] = "raw"
 	}
 	return spec, true
 }
 
 // neoPiClinePassBundledSpec is the bundled row as the spec it was built from
-// (the references map of clinePassModelManagerOptions).
+// (toModelSpec: its ladder and authored compat).
 func neoPiClinePassBundledSpec(row *NeoPiModel) neoPiSpec {
 	return neoPiSpec{id: row.ID, name: row.Name, reasoning: row.Reasoning, input: slices.Clone(row.Input),
-		contextWindow: row.ContextWindow, maxTokens: row.MaxTokens, thinking: row.Thinking.Clone(), ownThinking: true}
+		contextWindow: row.ContextWindow, maxTokens: row.MaxTokens, thinking: row.Thinking.Clone(), compat: maps.Clone(row.CompatConfig),
+		thinkingRequiresEffortSet: row.thinkingRequiresEffortSet}
 }
 
 // neoPiClinePassSubscriptionSpec is buildClinePassSubscriptionModel.
@@ -441,7 +429,7 @@ func neoPiClinePassFreeSpec(id string, live *neoPiClinePassLiveCatalog) neoPiSpe
 	// to the live entry, then to the constants.
 	spec.contextWindow = neoPiFirstLimit(neoPiReferenceLimit(upstream, true), neoPiLiveLimit(entry, true), neoPiClinePassFallbackContextWindow)
 	spec.maxTokens = neoPiFirstLimit(neoPiReferenceLimit(upstream, false), neoPiLiveLimit(entry, false), neoPiClinePassFallbackMaxTokens)
-	spec.compat = append(spec.compat, neoPiRawWireModelID)
+	spec.withCompat("wireModelIdMode", "raw")
 	return spec
 }
 
