@@ -314,6 +314,12 @@ var providerCatalog = []ProviderInfo{
 	// regional clusters, as NeoPi's Xiaomi login does.
 	{ID: "xiaomi", Name: "Xiaomi MiMo", Vendor: "Xiaomi", Hue: 30, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.xiaomimimo.com/v1", "sk-..., tp-..., or ttp-...", "https://platform.xiaomimimo.com/#/console/api-keys"), Plans: []ProviderPlan{}},
+	// SingularityAPI's two products take disjoint keys: the pay-as-you-go
+	// gateway (chat and image models) and the slot-reserved DeepSeek lanes.
+	{ID: "singularityapi-dev", Name: "SingularityAPI", Vendor: "SingularityAPI", Hue: 280, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.singularityapi.dev/v1", "sk-sapi-...", "https://app.singularityapi.dev"), Plans: []ProviderPlan{}},
+	{ID: "singularityapi-tech", Name: "SingularityAPI Reserved Lanes", Vendor: "SingularityAPI", Hue: 280, Chroma: tintChroma, Methods: []string{"apiKey"},
+		APIKey: openAIKey("https://api.singularityapi.tech/v1", "sk-...", "https://app.singularityapi.tech/compute/billing"), Plans: []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

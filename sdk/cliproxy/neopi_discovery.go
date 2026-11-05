@@ -2,6 +2,7 @@ package cliproxy
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -35,10 +36,13 @@ type neoPiDiscovery struct {
 }
 
 type neoPiDiscoveryEntry struct {
-	models    []*ModelInfo
-	fetchedAt time.Time
-	failedAt  time.Time
-	inFlight  bool
+	models []*ModelInfo
+	// shortLived marks a listing that named no models: its roster stands
+	// for this cycle only and is refetched after the retry interval.
+	shortLived bool
+	fetchedAt  time.Time
+	failedAt   time.Time
+	inFlight   bool
 }
 
 // neoPiDiscoverySweepEvery is how often stale listings are refetched for
@@ -85,7 +89,7 @@ func (d *neoPiDiscovery) models(a *coreauth.Auth, now time.Time) ([]*ModelInfo, 
 	// A successful empty listing stands for this cycle but, as in NeoPi's
 	// model manager, is not cached as authoritative: it retries after d.retry.
 	ttl := d.ttl
-	if entry.models != nil && len(entry.models) == 0 {
+	if entry.shortLived || entry.models != nil && len(entry.models) == 0 {
 		ttl = d.retry
 	}
 	fresh := !entry.fetchedAt.IsZero() && now.Sub(entry.fetchedAt) < ttl
@@ -148,12 +152,17 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 		}
 		defer cancel()
 		models, err := d.fetch(ctx, cfg, snapshot)
+		var empty *registry.NeoPiEmptyListing
+		shortLived := errors.As(err, &empty)
+		if shortLived {
+			models, err = empty.Models, nil
+		}
 		d.mu.Lock()
 		entry.inFlight = false
 		if err != nil {
 			entry.failedAt = time.Now()
 		} else {
-			entry.models, entry.fetchedAt, entry.failedAt = models, time.Now(), time.Time{}
+			entry.models, entry.shortLived, entry.fetchedAt, entry.failedAt = models, shortLived, time.Now(), time.Time{}
 		}
 		d.mu.Unlock()
 		if err != nil {

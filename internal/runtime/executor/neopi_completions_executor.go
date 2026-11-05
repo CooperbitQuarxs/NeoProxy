@@ -114,6 +114,9 @@ func (e *NeoPiCompletionsExecutor) CountTokens(ctx context.Context, auth *clipro
 
 // Execute runs one non-streaming request through NeoPi's stream-shaped wire.
 func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (result cliproxyexecutor.Response, err error) {
+	if endpointPath := openAICompatImageEndpointPath(opts); endpointPath != "" {
+		return e.executeImage(ctx, auth, req, opts, endpointPath)
+	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
 	if err != nil {
@@ -160,6 +163,9 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 
 // ExecuteStream relays NeoPi's upstream stream in the client's format.
 func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
+	if openAICompatImageEndpointPath(opts) != "" {
+		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("%s: image generation does not stream; send the request without stream", e.provider)}
+	}
 	row := e.row(auth, req)
 	prepared, err := e.prepare(ctx, auth, req, opts, row)
 	if err != nil {
@@ -390,25 +396,37 @@ func neoPiCompletionsAPIKey(auth *cliproxyauth.Auth) string {
 	return strings.TrimSpace(key)
 }
 
-// row resolves the NeoPi record the request must be shaped from.
+// row resolves the NeoPi record the request must be shaped from: the row the
+// account's discovery registered, else NeoPi's bundled or built row, on the
+// account's configured endpoint.
 func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) *registry.NeoPiModel {
-	var row *registry.NeoPiModel
 	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == "openai-completions" {
-		row = info.NeoPi
-	} else {
-		resolve := e.profile.Row
-		if resolve == nil {
-			resolve = registry.NeoPiCompletionsModel
-		}
-		row = resolve(e.profile.Provider, req.Model)
+		return e.accountRow(auth, info.NeoPi)
 	}
-	// Token Plan credentials can select China or a custom regional endpoint.
-	if row != nil && e.profile.Provider == "alibaba-token-plan" && auth != nil {
-		if baseURL := strings.TrimSpace(auth.Attributes["base_url"]); baseURL != "" {
-			row = row.Clone()
-			row.BaseURL = baseURL
-		}
+	resolve := e.profile.Row
+	if resolve == nil {
+		resolve = registry.NeoPiCompletionsModel
 	}
+	return e.accountRow(auth, resolve(e.profile.Provider, req.Model))
+}
+
+// accountRow moves a row still on the provider's catalog endpoint onto the
+// account's configured one, as NeoPi's provider baseUrl override does. A row
+// discovery already placed elsewhere (a Xiaomi Token Plan cluster) keeps its
+// endpoint; a Token Plan credential always selects its regional endpoint.
+func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
+	if row == nil || auth == nil {
+		return row
+	}
+	base := registry.NeoPiAccountBaseURL(e.profile.Provider, auth.Attributes["base_url"])
+	if base == "" || base == row.BaseURL {
+		return row
+	}
+	if e.profile.Provider != "alibaba-token-plan" && row.BaseURL != registry.NeoPiCompletionsListingBase(e.profile.Provider) {
+		return row
+	}
+	row = row.Clone()
+	row.BaseURL = base
 	return row
 }
 
