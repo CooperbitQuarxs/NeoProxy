@@ -194,13 +194,15 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesError(err error) error {
 			switch mapped := wrapMetaUpstreamError(inBand.Status, body).(type) {
 			case metaRateLimitError:
 				mapped.msg = inBand.Message
+				mapped.responseBody = inBand.Event
 				return mapped
 			case statusErr:
 				mapped.msg = inBand.Message
+				mapped.responseBody = inBand.Event
 				return mapped
 			}
 		}
-		return statusErr{code: inBand.Status, msg: inBand.Message}
+		return statusErr{code: inBand.Status, msg: inBand.Message, responseBody: inBand.Event}
 	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
@@ -209,13 +211,15 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesError(err error) error {
 				switch mapped := metaStreamEventError(streamErr.Event).(type) {
 				case metaRateLimitError:
 					mapped.msg = streamErr.Message
+					mapped.responseBody = streamErr.Event
 					return mapped
 				case statusErr:
 					mapped.msg = streamErr.Message
+					mapped.responseBody = streamErr.Event
 					return mapped
 				}
 			}
-			return statusErr{code: http.StatusBadGateway, msg: streamErr.Message}
+			return statusErr{code: http.StatusBadGateway, msg: streamErr.Message, responseBody: streamErr.Event}
 		}
 		return statusErr{code: http.StatusRequestTimeout, msg: e.Identifier() + " stream error: " + streamErr.Message}
 	}

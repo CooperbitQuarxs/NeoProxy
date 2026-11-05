@@ -165,12 +165,12 @@ func xaiNeoPiError(err error) error {
 	}
 	var inBand *openaiwire.InBandError
 	if errors.As(err, &inBand) {
-		return xaiNeoPiStreamError{statusErr: statusErr{code: inBand.Status, msg: inBand.Message}, cause: err}
+		return xaiNeoPiStreamError{statusErr: statusErr{code: inBand.Status, msg: inBand.Message, responseBody: inBand.Event}, cause: err}
 	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
 		if len(streamErr.Event) > 0 {
-			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: streamErr.Message}, cause: err}
+			return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusBadGateway, msg: streamErr.Message, responseBody: streamErr.Event}, cause: err}
 		}
 		return xaiNeoPiStreamError{statusErr: statusErr{code: http.StatusRequestTimeout, msg: "xai stream error: " + streamErr.Message}, cause: err}
 	}

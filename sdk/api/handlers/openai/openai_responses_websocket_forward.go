@@ -640,6 +640,16 @@ func buildResponsesWebsocketErrorPayload(errMsg *interfaces.ErrorMessage) ([]byt
 		errCause = errMsg.Error
 	}
 	body := handlers.BuildErrorResponseBodyWithError(status, errText, errCause)
+	// NeoPi errors keep human-readable Error() text and carry the original
+	// failure event separately. Extract its error node, not the event envelope.
+	if upstream := clienterror.ErrorBody(errCause); !coreauth.IsTerminalAuthError(errCause) && upstream != "" && json.Valid([]byte(upstream)) {
+		for _, path := range []string{"error", "response.error", "response.status_details.error"} {
+			if node := gjson.Get(upstream, path); node.IsObject() {
+				body = []byte(`{"error":` + node.Raw + `}`)
+				break
+			}
+		}
+	}
 	payload := []byte(`{}`)
 	var errSet error
 	payload, errSet = sjson.SetBytes(payload, "type", wsEventTypeError)

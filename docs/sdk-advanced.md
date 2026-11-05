@@ -67,6 +67,19 @@ svc, _ := cliproxy.NewBuilder().WithConfig(cfg).WithConfigPath(cfgPath).WithCore
 
 If your auth entries use provider `"myprov"`, the manager routes requests to your executor.
 
+### Upstream error details
+
+Executor errors can expose `ResponseBody() []byte` alongside `StatusCode() int`.
+Keep `Error()` human-readable; return the original machine-readable upstream body
+or failure event from `ResponseBody()`. Consumers discover this contract through
+`errors.As`, so wrappers should preserve it (or provide `Unwrap() error`).
+Request-fault, authentication, and model-not-found classification use this body
+before falling back to `Error()`. The NeoPi Responses executors preserve both
+`type: "error"` and `response.failed` events this way. The Responses WebSocket
+handler extracts the upstream error node so an actionable request fault reaches
+the client as an explicit `type: "error"` frame with its original code and message,
+without changing NeoPi's human-readable error text.
+
 ## 2) Register Translators
 
 The handlers accept OpenAI/Gemini/Claude/Codex inputs. To support a new provider format, register translation functions in `sdk/translator`’s default registry.
