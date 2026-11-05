@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
@@ -323,6 +324,18 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 				}
 			}
 			s.coreManager.RegisterExecutor(executor.NewZaiExecutor(compatProviderKey, cfg))
+			return
+		}
+		if umansauth.IsBaseURL(a.Attributes["base_url"]) {
+			// NeoPi serves Umans keys itself over Anthropic Messages.
+			if !forceReplace {
+				if existing, ok := s.coreManager.Executor(compatProviderKey); ok {
+					if umans, isUmans := existing.(*executor.UmansExecutor); isUmans && umans.UsesConfig(cfg) {
+						return
+					}
+				}
+			}
+			s.coreManager.RegisterExecutor(executor.NewUmansExecutor(compatProviderKey, cfg))
 			return
 		}
 		s.registerOpenAICompatProviderExecutor(compatProviderKey, a, cfg, forceReplace, false)

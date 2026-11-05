@@ -56,6 +56,19 @@ type neoPiThirdParty struct {
 	// promptCacheUserID: NeoPi sends Kimi Code's prompt-cache key as
 	// metadata.user_id when the caller sets none.
 	promptCacheUserID bool
+	// escapeToolNames is compat.escapeBuiltinToolNames: every tool name goes
+	// out with the Claude tool prefix, built-in names included, and comes back
+	// without it.
+	escapeToolNames bool
+	// replayUnsigned is compat.replayUnsignedThinking: unsigned thinking is
+	// replayed as a thinking block rather than demoted to text.
+	replayUnsigned bool
+	// modelID selects the dialect demoted thinking is rendered in.
+	modelID string
+	// gatewayWebSearch keeps a web_search tool definition and tool_choice
+	// unescaped when Umans runs its gateway web search (the request carries
+	// X-Umans-Websearch-Provider).
+	gatewayWebSearch bool
 	// headers are provider identity headers (Kimi's fingerprint) applied over
 	// the default set.
 	headers http.Header

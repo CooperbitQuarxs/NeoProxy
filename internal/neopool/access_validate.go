@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	zaiauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/zai"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -170,6 +171,9 @@ func validateCatalogKey(ctx context.Context, info ProviderInfo, base, preferred,
 	if info.ID == "zai" {
 		return zaiauth.CodingPlanBaseURL, nil, nil, validateZaiKey(ctx, key)
 	}
+	if info.ID == "umans" {
+		return umansauth.BaseURL, nil, nil, validateUmansKey(ctx, key)
+	}
 	if accepted, handled, err := validateNeoPiKey(ctx, info, base, preferred, key); handled {
 		return accepted, nil, nil, err
 	}
@@ -206,6 +210,27 @@ func validateZaiKey(ctx context.Context, key string) error {
 		return accessErr(http.StatusServiceUnavailable, "Z.ai is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.")
 	default:
 		return accessErr(http.StatusBadGateway, "Z.ai answered HTTP %d when checking the key. Try again in a moment.", resp.StatusCode)
+	}
+}
+
+// validateUmansKey is NeoPi's Umans key check (validate "anthropic-messages"):
+// a one-token Messages request for umans-coder with the key in x-api-key. The
+// account then serves the models its /v1/models/info lists, so no model list
+// is kept.
+func validateUmansKey(ctx context.Context, key string) error {
+	status, err := umansauth.ValidateKey(ctx, accessHTTPClient, umansauth.BaseURL, key)
+	if err != nil {
+		return accessErr(http.StatusBadGateway, "Could not reach Umans to check the key. Try again in a moment.")
+	}
+	switch {
+	case status >= 200 && status < 300:
+		return nil
+	case status == http.StatusUnauthorized || status == http.StatusForbidden:
+		return &AccessError{Status: http.StatusBadRequest, keyRejected: true, Message: fmt.Sprintf("Umans rejected this key (HTTP %d). Check that the whole key was pasted and that its Coding Plan is active.", status)}
+	case status == http.StatusTooManyRequests:
+		return accessErr(http.StatusServiceUnavailable, "Umans is rate-limiting requests right now (HTTP 429); the key itself was not rejected. Wait a minute and try again.")
+	default:
+		return accessErr(http.StatusBadGateway, "Umans answered HTTP %d when checking the key. Try again in a moment.", status)
 	}
 }
 
