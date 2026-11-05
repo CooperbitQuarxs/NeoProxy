@@ -10,11 +10,12 @@ import (
 
 // neoPiBuildRow is buildModel for one discovered spec of provider served from
 // baseURL (or the spec's own base URL, when its mapper routes it elsewhere).
-// For an openai-completions or anthropic-messages spec NeoPi's compat engine
-// resolves the row's compat, thinking and reasoning from its id, its authored
-// thinking and its sparse compat (package neopicompat); a runner spec
-// (openai-images, openai-speech) or a Decisions judge (openai-decisions,
-// served by no chat route) carries no policy and is materialized as mapped.
+// For an openai-completions, openai-responses or anthropic-messages spec
+// NeoPi's compat engine resolves the row's compat, thinking and reasoning
+// from its id, its authored thinking and its sparse compat (package
+// neopicompat); a runner spec (openai-images, openai-speech) or a Decisions
+// judge (openai-decisions, served by no chat route) carries no policy and is
+// materialized as mapped.
 func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, error) {
 	if spec.baseURL != "" {
 		baseURL = spec.baseURL
@@ -24,8 +25,9 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 			BaseURL: baseURL, Input: slices.Clone(spec.input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens, cost: spec.cost}, nil
 	}
 	api := neopicompat.APIOpenAICompletions
-	if spec.api == neopicompat.APIAnthropicMessages {
-		api = neopicompat.APIAnthropicMessages
+	switch spec.api {
+	case neopicompat.APIAnthropicMessages, neopicompat.APIOpenAIResponses:
+		api = spec.api
 	}
 	policy, err := neopicompat.Resolve(neopicompat.Spec{
 		Provider:  provider,
@@ -42,10 +44,14 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	row := &NeoPiModel{ID: spec.id, Name: cleanModelName(spec.name), API: api, Provider: provider, BaseURL: baseURL,
 		Reasoning: policy.Reasoning, ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens,
 		CompatConfig: maps.Clone(spec.compat), RequestModelID: spec.requestModelID, cost: spec.cost}
-	if api == neopicompat.APIAnthropicMessages {
+	switch api {
+	case neopicompat.APIAnthropicMessages:
 		row.AnthropicCompat = &NeoPiAnthropicCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.AnthropicCompat)
-	} else {
+	case neopicompat.APIOpenAIResponses:
+		row.Compat = &NeoPiCompat{}
+		err = neoPiDecodePolicy(policy.Compat, row.Compat)
+	default:
 		row.CompletionsCompat = &NeoPiCompletionsCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.CompletionsCompat)
 	}

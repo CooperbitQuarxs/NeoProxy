@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -265,3 +266,102 @@ const (
 		"data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\n" +
 		"data: [DONE]\n\n"
 )
+
+// Copilot discovery sends what NeoPi's own model manager sent in each
+// captured scenario (internal/registry/testdata/
+// capture_github_copilot_discovery.ts): the plan endpoint probe on the
+// personal host only, then GET /models on the endpoint it advertised (or the
+// account's own host), with the same headers; a rejected or unreadable
+// listing fails and an empty one is short-lived. Every host is answered in
+// process: nothing is dialed.
+func TestFetchGitHubCopilotModelsMatchesNeoPiRequests(t *testing.T) {
+	raw, err := os.ReadFile("../../registry/testdata/github_copilot_discovery.json.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	type reply struct {
+		Status int    `json:"status"`
+		Body   string `json:"body"`
+	}
+	var capture struct {
+		Results []struct {
+			Scenario string `json:"scenario"`
+			APIKey   string `json:"apiKey"`
+			BaseURL  string `json:"baseUrl"`
+			User     *reply `json:"user"`
+			Models   reply  `json:"models"`
+			Requests []struct {
+				Method  string            `json:"method"`
+				URL     string            `json:"url"`
+				Headers map[string]string `json:"headers"`
+			} `json:"requests"`
+			Source   string            `json:"source"`
+			Resolved []json.RawMessage `json:"resolved"`
+		} `json:"results"`
+	}
+	if err = json.NewDecoder(reader).Decode(&capture); err != nil {
+		t.Fatal(err)
+	}
+	for _, result := range capture.Results {
+		if result.BaseURL != "" {
+			// A custom provider baseUrl is NeoPi configuration NeoProxy's
+			// Copilot accounts do not carry.
+			continue
+		}
+		t.Run(result.Scenario, func(t *testing.T) {
+			// NeoPi's apiKey is the raw token or its JSON envelope.
+			metadata := map[string]any{"type": "github-copilot", "access_token": result.APIKey}
+			var envelope struct{ Token, EnterpriseURL, APIEndpoint string }
+			if json.Unmarshal([]byte(result.APIKey), &envelope) == nil && envelope.Token != "" {
+				metadata = map[string]any{"type": "github-copilot", "access_token": envelope.Token, "enterprise_url": envelope.EnterpriseURL, "api_endpoint": envelope.APIEndpoint}
+			}
+			type sentRequest struct {
+				Method, URL string
+				Headers     map[string]string
+			}
+			var sent []sentRequest
+			transport := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				headers := map[string]string{}
+				for name := range req.Header {
+					headers[strings.ToLower(name)] = req.Header.Get(name)
+				}
+				sent = append(sent, sentRequest{Method: req.Method, URL: req.URL.String(), Headers: headers})
+				answer := result.Models
+				if req.URL.Path == "/copilot_internal/user" {
+					answer = reply{Status: http.StatusNotFound, Body: "{}"}
+					if result.User != nil {
+						answer = *result.User
+					}
+				}
+				return &http.Response{StatusCode: answer.Status, Header: http.Header{"Content-Type": {"application/json"}},
+					Body: io.NopCloser(strings.NewReader(answer.Body)), Request: req}, nil
+			})
+			ctx := context.WithValue(context.Background(), "cliproxy.roundtripper", http.RoundTripper(transport))
+			models, err := FetchGitHubCopilotModels(ctx, &config.Config{}, &cliproxyauth.Auth{ID: "copilot-discovery", Provider: "github-copilot", Metadata: metadata})
+			var want []sentRequest
+			for _, request := range result.Requests {
+				want = append(want, sentRequest{Method: request.Method, URL: request.URL, Headers: request.Headers})
+			}
+			if !reflect.DeepEqual(sent, want) {
+				t.Errorf("requests\n port %+v\nNeoPi %+v", sent, want)
+			}
+			if empty := (*registry.NeoPiEmptyListing)(nil); errors.As(err, &empty) {
+				models, err = empty.Models, nil
+			}
+			switch {
+			case result.Source == "bundled":
+				if err == nil {
+					t.Errorf("NeoPi kept the bundled roster; port resolved %d models", len(models))
+				}
+			case err != nil:
+				t.Errorf("port failed a discovery NeoPi completed: %v", err)
+			case len(models) != len(result.Resolved):
+				t.Errorf("port resolved %d models, NeoPi %d", len(models), len(result.Resolved))
+			}
+		})
+	}
+}

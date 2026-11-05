@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -222,4 +223,48 @@ func (e *GitHubCopilotExecutor) HttpRequest(ctx context.Context, auth *cliproxya
 	request = request.WithContext(ctx)
 	request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(credential.AccessToken))
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
+}
+
+// FetchGitHubCopilotModels is githubCopilotModelManagerOptions'
+// fetchDynamicModels for an account: on the personal host the listing comes
+// from the plan endpoint GitHub advertises for the token (falling back to the
+// host), and GET /models carries Copilot's discovery identity. NeoPi bounds
+// both requests at 10s; the repository bans deadlines once the connection is
+// up, so neither has one.
+func FetchGitHubCopilotModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) ([]*registry.ModelInfo, error) {
+	var credential *githubcopilot.Credential
+	if auth != nil {
+		credential, _ = githubcopilot.RecordCredential(auth.Metadata)
+	}
+	if credential == nil {
+		return nil, fmt.Errorf("github-copilot models: account has no token")
+	}
+	client := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0)
+	base := githubcopilot.ResolveBaseURL(githubcopilot.PersonalBaseURL, credential)
+	if base == githubcopilot.PersonalBaseURL {
+		if endpoint := githubcopilot.NewAuth(client).DiscoverAPIEndpoint(ctx, credential.AccessToken); endpoint != "" {
+			base = endpoint
+		}
+	}
+	url := base + "/models"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = githubcopilot.DiscoveryHeaders()
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+credential.AccessToken)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github-copilot models: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("github-copilot models: %s returned HTTP %d", url, resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return nil, fmt.Errorf("github-copilot models: read %s: %w", url, err)
+	}
+	return registry.GitHubCopilotListing(base, body)
 }

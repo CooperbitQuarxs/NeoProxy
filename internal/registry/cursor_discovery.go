@@ -8,13 +8,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicatalog"
-	"golang.org/x/text/collate"
-	"golang.org/x/text/language"
 )
 
 // This file ports NeoPi's Cursor model resolution: pi-catalog
@@ -294,16 +291,9 @@ func cursorDiscoveredSpecs(responses CursorDiscoveryResponses, baseURLOverride s
 	return rich, true
 }
 
-var cursorCollator = struct {
-	sync.Mutex
-	*collate.Collator
-}{Collator: collate.New(language.Und)}
-
 // cursorSortByID is a stable sort by String.prototype.localeCompare.
 func cursorSortByID(specs []*neopicatalog.Spec) {
-	cursorCollator.Lock()
-	defer cursorCollator.Unlock()
-	sort.SliceStable(specs, func(i, j int) bool { return cursorCollator.CompareString(specs[i].ID, specs[j].ID) < 0 })
+	neoPiSortStableByLocale(specs, func(spec *neopicatalog.Spec) string { return spec.ID })
 }
 
 // ---- legacy GetUsableModels rows ----
