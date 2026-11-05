@@ -28,14 +28,24 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 )
 
-// Provider is NeoPi's provider id.
-const Provider = "gitlab-duo"
+// Provider and AgentProvider are NeoPi's provider ids for GitLab Duo and
+// GitLab Duo Agent.
+const (
+	Provider      = "gitlab-duo"
+	AgentProvider = "gitlab-duo-agent"
+)
 
 const (
 	// DefaultClientID is the bundled GitLab OAuth application; GITLAB_CLIENT_ID
 	// replaces it with the user's own (#2424).
 	DefaultClientID = "da4edff2e6ebd2bc3208611e2768bc1c1dd7be791dc5ff26ca34ca9ee44f7d4b"
-	// AuthorizeURL and TokenURL are the rule's gitlab.com endpoints.
+	// AgentClientID is GitLab's official VS Code OAuth application, which the
+	// agent rule signs in with; it has no override.
+	AgentClientID = "36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5"
+	// AgentRedirectURI is that application's registered redirect: VS Code's
+	// handler, which the user copies back (callback manual-only).
+	AgentRedirectURI = "vscode://gitlab.gitlab-workflow/authentication"
+	// AuthorizeURL and TokenURL are the rules' gitlab.com endpoints.
 	AuthorizeURL = "https://gitlab.com/oauth/authorize"
 	TokenURL     = "https://gitlab.com/oauth/token"
 	// CallbackHost, CallbackPort and CallbackPath are the rule's callback; a
@@ -43,7 +53,7 @@ const (
 	CallbackHost = "localhost"
 	CallbackPort = 8080
 	CallbackPath = "/callback"
-	// Scope is the rule's only scope.
+	// Scope is the rules' only scope.
 	Scope = "api"
 	// userAgent is the runtime NeoPi's token requests go out under.
 	userAgent = "Bun/1.3.14"
@@ -54,9 +64,34 @@ const (
 // now is the clock token lifetimes count from; tests replace it.
 var now = time.Now
 
-// ClientID is the rule's client-id: GITLAB_CLIENT_ID when set, else the
-// bundled application.
-func ClientID() string {
+// Rule is one of NeoPi's GitLab oauth-code rules: the provider it signs in,
+// its client, and for a manual-only rule the fixed redirect the user pastes
+// back, which its refresh also sends.
+type Rule struct {
+	Provider    string
+	clientID    func() string
+	redirectURI string
+}
+
+var (
+	// Duo is the `gitlab-duo` rule: the bundled client (or GITLAB_CLIENT_ID)
+	// returning to a loopback listener.
+	Duo = Rule{Provider: Provider, clientID: duoClientID}
+	// Agent is the `gitlab-duo-agent` rule: GitLab's VS Code client,
+	// manual-only, with redirect_uri on refresh.
+	Agent = Rule{Provider: AgentProvider, clientID: func() string { return AgentClientID }, redirectURI: AgentRedirectURI}
+)
+
+// ClientID is the rule's client-id.
+func (r Rule) ClientID() string { return r.clientID() }
+
+// RedirectURI is a manual-only rule's fixed redirect, empty for a rule whose
+// listener decides it.
+func (r Rule) RedirectURI() string { return r.redirectURI }
+
+// duoClientID is the gitlab-duo client-id: GITLAB_CLIENT_ID when set, else
+// the bundled application.
+func duoClientID() string {
 	if value := strings.TrimSpace(os.Getenv("GITLAB_CLIENT_ID")); value != "" {
 		return value
 	}
@@ -181,9 +216,10 @@ func addressInUse(err error) bool {
 	return errors.As(err, &errno) && (errno == syscall.EADDRINUSE || errno == 10048)
 }
 
-// Session is one sign-in (DeclarativeOAuthCodeFlow): the client, CSRF state,
-// PKCE pair and the redirect the browser returns to.
+// Session is one sign-in (DeclarativeOAuthCodeFlow): the rule's provider and
+// client, CSRF state, PKCE pair and the redirect the browser returns to.
 type Session struct {
+	Provider    string
 	ClientID    string
 	State       string
 	Verifier    string
@@ -191,8 +227,8 @@ type Session struct {
 	RedirectURI string
 }
 
-// NewSession starts a sign-in that returns to redirectURI.
-func NewSession(redirectURI string) (*Session, error) {
+// NewSession starts a sign-in under the rule that returns to redirectURI.
+func (r Rule) NewSession(redirectURI string) (*Session, error) {
 	state := make([]byte, 16)
 	verifier := make([]byte, 96)
 	if _, err := rand.Read(state); err != nil {
@@ -201,11 +237,11 @@ func NewSession(redirectURI string) (*Session, error) {
 	if _, err := rand.Read(verifier); err != nil {
 		return nil, err
 	}
-	return newSession(ClientID(), redirectURI, hex.EncodeToString(state), verifier), nil
+	return r.newSession(redirectURI, hex.EncodeToString(state), verifier), nil
 }
 
-func newSession(clientID, redirectURI, state string, verifier []byte) *Session {
-	session := &Session{ClientID: clientID, State: state, Verifier: base64.RawURLEncoding.EncodeToString(verifier), RedirectURI: redirectURI}
+func (r Rule) newSession(redirectURI, state string, verifier []byte) *Session {
+	session := &Session{Provider: r.Provider, ClientID: r.ClientID(), State: state, Verifier: base64.RawURLEncoding.EncodeToString(verifier), RedirectURI: redirectURI}
 	digest := sha256.Sum256([]byte(session.Verifier))
 	session.Challenge = base64.RawURLEncoding.EncodeToString(digest[:])
 	return session
@@ -238,7 +274,7 @@ func (s *Session) Exchange(ctx context.Context, client *http.Client, code string
 	if cut := strings.IndexByte(code, '#'); cut >= 0 {
 		code = code[:cut]
 	}
-	return tokenRequest(ctx, client, "token exchange", [][2]string{
+	return tokenRequest(ctx, client, s.Provider, "token exchange", [][2]string{
 		{"grant_type", "authorization_code"},
 		{"client_id", s.ClientID},
 		{"code", code},
@@ -247,20 +283,25 @@ func (s *Session) Exchange(ctx context.Context, client *http.Client, code string
 	}, "")
 }
 
-// Refresh is the rule's refresh grant. A response without a refresh token
-// keeps the current one.
-func Refresh(ctx context.Context, client *http.Client, refreshToken string) (Credential, error) {
-	return tokenRequest(ctx, client, "token refresh", [][2]string{
+// Refresh is the rule's refresh grant, with a manual-only rule's redirect
+// (`params { redirect_uri "{redirect_uri}" }`). A response without a refresh
+// token keeps the current one.
+func (r Rule) Refresh(ctx context.Context, client *http.Client, refreshToken string) (Credential, error) {
+	form := [][2]string{
 		{"grant_type", "refresh_token"},
-		{"client_id", ClientID()},
+		{"client_id", r.ClientID()},
 		{"refresh_token", refreshToken},
-	}, refreshToken)
+	}
+	if r.redirectURI != "" {
+		form = append(form, [2]string{"redirect_uri", r.redirectURI})
+	}
+	return tokenRequest(ctx, client, r.Provider, "token refresh", form, refreshToken)
 }
 
 // tokenRequest is postTokenRequest and mapCredentials: a form POST to the
-// token endpoint, its failure as NeoPi reports it, and the credential the
-// rule projects.
-func tokenRequest(ctx context.Context, client *http.Client, operation string, form [][2]string, previousRefresh string) (Credential, error) {
+// token endpoint, its failure as NeoPi reports it under the provider's id,
+// and the credential the rule projects.
+func tokenRequest(ctx context.Context, client *http.Client, provider, operation string, form [][2]string, previousRefresh string) (Credential, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, TokenURL, strings.NewReader(formEncode(form)))
 	if err != nil {
 		return Credential{}, err
@@ -272,23 +313,23 @@ func tokenRequest(ctx context.Context, client *http.Client, operation string, fo
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
-		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
+		return Credential{}, fmt.Errorf("%s request to %s failed: %w", provider, TokenURL, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	// The request advertises encodings, so Go leaves decoding to us; NeoPi's
 	// fetch decodes them before reading the text.
 	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
 	if err != nil {
-		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
+		return Credential{}, fmt.Errorf("%s request to %s failed: %w", provider, TokenURL, err)
 	}
 	defer func() { _ = decoded.Close() }()
 	data, err := io.ReadAll(io.LimitReader(decoded, 1<<20))
 	if err != nil {
-		return Credential{}, fmt.Errorf("%s request to %s failed: %w", Provider, TokenURL, err)
+		return Credential{}, fmt.Errorf("%s request to %s failed: %w", provider, TokenURL, err)
 	}
 	text := string(data)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Credential{}, fmt.Errorf("%s %s failed: %d %s", Provider, operation, resp.StatusCode, firstUnits(text, 500))
+		return Credential{}, fmt.Errorf("%s %s failed: %d %s", provider, operation, resp.StatusCode, firstUnits(text, 500))
 	}
 	var body map[string]any
 	if json.Unmarshal(data, &body) != nil {
@@ -301,11 +342,11 @@ func tokenRequest(ctx context.Context, client *http.Client, operation string, fo
 		if body != nil {
 			shown = string(jsjson.Normalize(data))
 		}
-		return Credential{}, fmt.Errorf("%s token response missing access token: %s", Provider, firstUnits(shown, 500))
+		return Credential{}, fmt.Errorf("%s token response missing access token: %s", provider, firstUnits(shown, 500))
 	}
 	seconds, isNumber := body["expires_in"].(float64)
 	if !isNumber || math.IsInf(seconds, 0) || math.IsNaN(seconds) {
-		return Credential{}, fmt.Errorf("%s token response missing expires_in", Provider)
+		return Credential{}, fmt.Errorf("%s token response missing expires_in", provider)
 	}
 	baseMs := float64(now().UnixMilli())
 	if created, ok := body["created_at"].(float64); ok && !math.IsInf(created, 0) && !math.IsNaN(created) {
@@ -317,6 +358,26 @@ func tokenRequest(ctx context.Context, client *http.Client, operation string, fo
 		credential.Refresh = previousRefresh
 	}
 	return credential, nil
+}
+
+// ParseCallbackInput is parseCallbackInput: what a user pastes back from a
+// manual-only sign-in — the redirect URL, its query alone, or the code with
+// an optional `#state` — read as code and state.
+func ParseCallbackInput(input string) (code, state string) {
+	value := strings.TrimSpace(input)
+	if value == "" {
+		return "", ""
+	}
+	if parsed, err := url.Parse(value); err == nil && parsed.Scheme != "" {
+		query := parsed.Query()
+		return query.Get("code"), query.Get("state")
+	}
+	if strings.Contains(value, "code=") {
+		query, _ := url.ParseQuery(strings.TrimLeft(value[:1], "?#") + value[1:])
+		return query.Get("code"), query.Get("state")
+	}
+	code, state, _ = strings.Cut(value, "#")
+	return code, state
 }
 
 // firstUnits is text.slice(0, n) over UTF-16 code units, as NeoPi cuts.

@@ -1,0 +1,476 @@
+{
+  "source": "NeoPi OWN gitlab-duo-agent oauth-code rule via DeclarativeOAuthCodeFlow, createRefresh and parseCallbackInput",
+  "now": 1800000000000,
+  "state": "11111111-2222-4333-8444-555555555555",
+  "login": {
+    "kind": "oauth-code",
+    "scopes": [
+      "api"
+    ],
+    "scopeSeparator": " ",
+    "pkce": true,
+    "state": "hex",
+    "standardAuthorizeParams": true,
+    "authorizeParams": {},
+    "clientId": {
+      "value": "36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5"
+    },
+    "authorizeUrl": {
+      "value": "https://gitlab.com/oauth/authorize"
+    },
+    "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi.",
+    "callback": {
+      "port": 0,
+      "path": "/callback",
+      "hostname": "localhost",
+      "portFallback": true,
+      "manualOnly": true,
+      "nativeScheme": false,
+      "redirectUri": {
+        "value": "vscode://gitlab.gitlab-workflow/authentication"
+      }
+    },
+    "token": {
+      "url": {
+        "value": "https://gitlab.com/oauth/token"
+      },
+      "body": "form",
+      "standard": true,
+      "params": {},
+      "headers": {}
+    },
+    "credential": {
+      "access": {
+        "path": "access_token"
+      },
+      "refresh": {
+        "path": "refresh_token"
+      },
+      "expires": {
+        "mode": "seconds",
+        "path": "expires_in",
+        "skewMs": 300000,
+        "fromPath": "created_at"
+      }
+    }
+  },
+  "refresh": {
+    "kind": "request",
+    "require": [],
+    "token": {
+      "url": {
+        "value": "https://gitlab.com/oauth/token"
+      },
+      "body": "form",
+      "standard": true,
+      "params": {
+        "redirect_uri": "{redirect_uri}"
+      },
+      "headers": {}
+    },
+    "credential": {
+      "access": {
+        "path": "access_token"
+      },
+      "refresh": {
+        "path": "refresh_token"
+      },
+      "expires": {
+        "mode": "seconds",
+        "path": "expires_in",
+        "skewMs": 300000,
+        "fromPath": "created_at"
+      }
+    }
+  },
+  "logins": [
+    {
+      "name": "token",
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 0,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": true,
+        "nativeScheme": false,
+        "redirectUri": "vscode://gitlab.gitlab-workflow/authentication"
+      },
+      "redirectUri": "vscode://gitlab.gitlab-workflow/authentication",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&response_type=code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "330",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&code=auth-code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "token-without-created-at",
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\"}"
+      },
+      "callback": {
+        "preferredPort": 0,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": true,
+        "nativeScheme": false,
+        "redirectUri": "vscode://gitlab.gitlab-workflow/authentication"
+      },
+      "redirectUri": "vscode://gitlab.gitlab-workflow/authentication",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&response_type=code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "330",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&code=auth-code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006900000
+      },
+      "error": null
+    },
+    {
+      "name": "token-without-refresh",
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-1\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "callback": {
+        "preferredPort": 0,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": true,
+        "nativeScheme": false,
+        "redirectUri": "vscode://gitlab.gitlab-workflow/authentication"
+      },
+      "redirectUri": "vscode://gitlab.gitlab-workflow/authentication",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&response_type=code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "330",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&code=auth-code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-1",
+        "refresh": "",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "missing-access-token",
+      "response": {
+        "status": 200,
+        "body": "{\"refresh_token\":\"r\",\"expires_in\":7200}"
+      },
+      "callback": {
+        "preferredPort": 0,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": true,
+        "nativeScheme": false,
+        "redirectUri": "vscode://gitlab.gitlab-workflow/authentication"
+      },
+      "redirectUri": "vscode://gitlab.gitlab-workflow/authentication",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&response_type=code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "330",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&code=auth-code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo-agent token response missing access token: {\"refresh_token\":\"r\",\"expires_in\":7200}"
+    },
+    {
+      "name": "rejected",
+      "response": {
+        "status": 400,
+        "body": "{\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+      },
+      "callback": {
+        "preferredPort": 0,
+        "callbackPath": "/callback",
+        "callbackHostname": "localhost",
+        "allowPortFallback": true,
+        "manualInputOnly": true,
+        "nativeScheme": false,
+        "redirectUri": "vscode://gitlab.gitlab-workflow/authentication"
+      },
+      "redirectUri": "vscode://gitlab.gitlab-workflow/authentication",
+      "authorize": {
+        "url": "https://gitlab.com/oauth/authorize?client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&response_type=code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&scope=api&code_challenge=RqA0XZasyjxcJ9k9ch3LLaGyXI08TqclNJgMnpNJEls&code_challenge_method=S256&state=11111111-2222-4333-8444-555555555555",
+        "instructions": "Complete GitLab login in your browser. This uses GitLab's official VS Code OAuth application. If the redirect opens VS Code instead of returning to NeoPi, copy the full vscode://gitlab.gitlab-workflow/authentication?... callback URL from VS Code/browser and paste it back into NeoPi."
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "330",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=authorization_code&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&code=auth-code&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication&code_verifier=AwoRGB8mLTQ7QklQV15lbHN6gYiPlp2kq7K5wMfO1dzj6vH4_wYNFBsiKTA3PkVMU1phaG92fYSLkpmgp661vMPK0djf5u30-wIJEBceJSwzOkFIT1ZdZGtyeYCHjpWc"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo-agent token exchange failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+    }
+  ],
+  "refreshes": [
+    {
+      "name": "rotated",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-2\",\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "195",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&refresh_token=glo-refresh-0&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-2",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "unrotated",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"scope\":\"api\",\"created_at\":1799999400}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "195",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&refresh_token=glo-refresh-0&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-0",
+        "expires": 1800006300000
+      },
+      "error": null
+    },
+    {
+      "name": "without-created-at",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 200,
+        "body": "{\"access_token\":\"glo-access-2\",\"token_type\":\"Bearer\",\"expires_in\":7200,\"refresh_token\":\"glo-refresh-1\",\"scope\":\"api\"}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "195",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&refresh_token=glo-refresh-0&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication"
+        }
+      ],
+      "credentials": {
+        "access": "glo-access-2",
+        "refresh": "glo-refresh-1",
+        "expires": 1800006900000
+      },
+      "error": null
+    },
+    {
+      "name": "rejected",
+      "stored": {
+        "access": "glo-access-0",
+        "refresh": "glo-refresh-0",
+        "expires": 1799999999000,
+        "email": "duo@example.com"
+      },
+      "response": {
+        "status": 400,
+        "body": "{\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://gitlab.com/oauth/token",
+          "headers": {
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "content-length": "195",
+            "content-type": "application/x-www-form-urlencoded",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "grant_type=refresh_token&client_id=36f2a70cddeb5a0889d4fd8295c241b7e9848e89cf9e599d0eed2d8e5350fbf5&refresh_token=glo-refresh-0&redirect_uri=vscode%3A%2F%2Fgitlab.gitlab-workflow%2Fauthentication"
+        }
+      ],
+      "credentials": null,
+      "error": "gitlab-duo-agent token refresh failed: 400 {\"error\":\"invalid_grant\",\"error_description\":\"The provided authorization grant is invalid\"}"
+    }
+  ],
+  "pastes": [
+    {
+      "input": "vscode://gitlab.gitlab-workflow/authentication?code=pasted-code&state=11111111-2222-4333-8444-555555555555",
+      "parsed": {
+        "code": "pasted-code",
+        "state": "11111111-2222-4333-8444-555555555555"
+      }
+    },
+    {
+      "input": "  vscode://gitlab.gitlab-workflow/authentication?code=pasted-code&state=other-state  ",
+      "parsed": {
+        "code": "pasted-code",
+        "state": "other-state"
+      }
+    },
+    {
+      "input": "vscode://gitlab.gitlab-workflow/authentication?state=only-state",
+      "parsed": {
+        "state": "only-state"
+      }
+    },
+    {
+      "input": "?code=pasted-code&state=11111111-2222-4333-8444-555555555555",
+      "parsed": {
+        "code": "pasted-code",
+        "state": "11111111-2222-4333-8444-555555555555"
+      }
+    },
+    {
+      "input": "code=pasted-code",
+      "parsed": {
+        "code": "pasted-code"
+      }
+    },
+    {
+      "input": "pasted-code#11111111-2222-4333-8444-555555555555",
+      "parsed": {
+        "code": "pasted-code",
+        "state": "11111111-2222-4333-8444-555555555555"
+      }
+    },
+    {
+      "input": "pasted-code",
+      "parsed": {
+        "code": "pasted-code"
+      }
+    },
+    {
+      "input": "",
+      "parsed": {}
+    }
+  ]
+}

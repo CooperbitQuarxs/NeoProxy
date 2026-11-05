@@ -60,9 +60,9 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base string, prefe
 		// checks it; an imported token is kept as is, at the gateway.
 		return kilo.BaseURL, true, nil
 	}
-	if info.ID == gitlabduo.Provider {
-		// NeoPi reads a GitLab personal access token from GITLAB_TOKEN and
-		// never checks it; each request mints direct access with it.
+	if info.ID == gitlabduo.Provider || info.ID == gitlabduo.AgentProvider {
+		// NeoPi reads a GitLab personal access token from GITLAB_TOKEN, for
+		// either GitLab provider, and never checks it.
 		return gitlabduo.BaseURL, true, nil
 	}
 	login, ok := neopikeys.LoginFor(info.ID)

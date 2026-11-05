@@ -2,6 +2,8 @@ package cliproxy
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"sync"
@@ -110,8 +112,14 @@ var (
 	// probe and the listing run without NeoPi's 10s bound.
 	githubCopilotDiscovery = &neoPiDiscovery{provider: "github-copilot", ttl: 2 * time.Hour, retry: 5 * time.Minute,
 		bundled: neoPiStaticSeed(registry.GitHubCopilotSeedModels), fetch: executor.FetchGitHubCopilotModels, entries: map[string]*neoPiDiscoveryEntry{}}
+	// gitlabDuoAgentDiscovery lists the models GitLab offers the account's Duo
+	// namespace: NeoPi's model manager default 2h cache TTL over its static
+	// fallback, partitioned by the GitLab token as NeoPi's cache id is.
+	gitlabDuoAgentDiscovery = &neoPiDiscovery{provider: "gitlab-duo-agent", ttl: 2 * time.Hour, retry: 5 * time.Minute,
+		bundled: neoPiStaticSeed(registry.GitLabDuoAgentSeedModels), fetch: executor.FetchGitLabDuoAgentModels, scope: gitlabDuoAgentDiscoveryScope,
+		entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery, githubCopilotDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery, githubCopilotDiscovery, gitlabDuoAgentDiscovery}
 )
 
 // factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory
@@ -123,6 +131,21 @@ func factoryDroidDiscoveryScope(a *coreauth.Auth) string {
 		return ""
 	}
 	return factorydroid.ModelCacheScope(credential)
+}
+
+// gitlabDuoAgentDiscoveryScope is a fingerprint of the account's GitLab
+// token (a key, else the sign-in's access token): NeoPi's cache id hashes
+// it, so a refreshed sign-in lists its models again.
+func gitlabDuoAgentDiscoveryScope(a *coreauth.Auth) string {
+	token := strings.TrimSpace(a.Attributes["api_key"])
+	if credential, ok := gitlabduo.RecordCredential(a.Metadata); token == "" && ok {
+		token = credential.Access
+	}
+	if token == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:8])
 }
 
 // newResponsesDiscovery is the discovery of one NeoPi Responses provider: the

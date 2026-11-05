@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/clienterror"
 	log "github.com/sirupsen/logrus"
 )
@@ -60,6 +61,12 @@ func (h *Handler) handleOAuthCallback(c *gin.Context, req oauthCallbackRequest) 
 			return
 		}
 		q := u.Query()
+		// A pasted address naming another sign-in's state is not this one's
+		// answer (NeoPi ignores such input and keeps waiting).
+		if pastedState := strings.TrimSpace(q.Get("state")); state != "" && pastedState != "" && pastedState != state {
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "state does not match the pasted address"})
+			return
+		}
 		if state == "" {
 			state = strings.TrimSpace(q.Get("state"))
 		}
@@ -85,6 +92,19 @@ func (h *Handler) handleOAuthCallback(c *gin.Context, req oauthCallbackRequest) 
 			}
 			code = pastedCode
 		}
+	}
+	// NeoPi's GitLab sign-ins read a pasted code the way parseCallbackInput
+	// does: an address, its query alone, or the code with `#state`.
+	if provider := strings.ToLower(strings.TrimSpace(req.Provider)); provider == gitlabduo.Provider || provider == gitlabduo.AgentProvider {
+		pastedCode, pastedState := gitlabduo.ParseCallbackInput(code)
+		if pastedState != "" && state != "" && pastedState != state {
+			c.JSON(http.StatusBadRequest, gin.H{"status": "error", "error": "state does not match pasted code"})
+			return
+		}
+		if state == "" {
+			state = pastedState
+		}
+		code = pastedCode
 	}
 
 	if state == "" {

@@ -147,6 +147,10 @@ func extractRequestScopedErrorRules(auth *Auth, cfg *internalconfig.Config) []in
 		if index >= 0 && index < len(cfg.MetaKey) {
 			return cfg.MetaKey[index].RequestScopedErrors
 		}
+	case "gitlab-duo-agent":
+		if index >= 0 && index < len(cfg.GitLabDuoAgentKey) {
+			return cfg.GitLabDuoAgentKey[index].RequestScopedErrors
+		}
 	case "gemini":
 		if index >= 0 && index < len(cfg.GeminiKey) {
 			return cfg.GeminiKey[index].RequestScopedErrors
