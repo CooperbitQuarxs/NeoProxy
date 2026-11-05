@@ -48,7 +48,12 @@ var (
 	devinDiscovery = &neoPiDiscovery{provider: "devin", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
 		bundled: registry.DevinBundledModels, fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery}
+	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
+	// overlays the listing, so its bundled catalog stays authoritative.
+	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 6 * time.Hour, retry: 5 * time.Minute, timeout: 30 * time.Second,
+		bundled: registry.GoogleBundledModels, fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
+
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, googleDiscovery}
 )
 
 // models returns the models to register for a and whether its cached listing
