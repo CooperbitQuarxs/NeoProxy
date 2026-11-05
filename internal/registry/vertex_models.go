@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 )
@@ -34,25 +35,48 @@ var vertexBundledCatalog = func() []NeoPiModel {
 	return export.Models
 }()
 
-// VertexBundledModels is NeoPi's bundled google-vertex Gemini catalog as
-// registry models.
+// VertexBundledModels is NeoPi's bundled google-vertex catalog as registry
+// models: its Gemini rows, then its Model Garden rows (partner and open
+// models over the OpenAI-compatible endpoint, Claude over rawPredict).
 func VertexBundledModels() []*ModelInfo {
-	out := make([]*ModelInfo, 0, len(vertexBundledCatalog))
+	garden := vertexModelGardenRows()
+	out := make([]*ModelInfo, 0, len(vertexBundledCatalog)+len(garden))
 	for i := range vertexBundledCatalog {
 		out = append(out, VertexModelInfo(&vertexBundledCatalog[i]))
+	}
+	for _, row := range garden {
+		out = append(out, VertexModelInfo(row))
 	}
 	return out
 }
 
-// VertexNeoPiModelFor is the NeoPi record for a Vertex Gemini model id: the
-// bundled row, else the row NeoPi's buildModel resolves for a bare
-// non-reasoning text spec of the id under google-vertex (how NeoProxy builds
-// every NeoPi provider's configured id). Nil when the rules cannot build it.
+// vertexModelGardenRows are NeoPi's bundled google-vertex Model Garden rows.
+func vertexModelGardenRows() []*NeoPiModel {
+	neopiCompletionsOnce.Do(loadNeoPiCompletionsCatalogs)
+	return neopiCompletionsRows[VertexProvider]
+}
+
+// VertexNeoPiModelFor is the NeoPi record for a Vertex model id: the bundled
+// Gemini or Model Garden row, else the row NeoPi's buildModel resolves for a
+// bare non-reasoning text spec of the id under google-vertex (how NeoProxy
+// builds every NeoPi provider's configured id), on the transport NeoPi's
+// resolveGoogleVertexApi classifies it to: a publisher-qualified id
+// ("qwen/qwen3-coder-...-maas") is a Model Garden model on the
+// OpenAI-compatible endpoint, any other a Gemini model. Nil when the rules
+// cannot build it.
 func VertexNeoPiModelFor(id string) *NeoPiModel {
 	for i := range vertexBundledCatalog {
 		if vertexBundledCatalog[i].ID == id {
 			return vertexBundledCatalog[i].Clone()
 		}
+	}
+	for _, row := range vertexModelGardenRows() {
+		if row.ID == id {
+			return row.Clone()
+		}
+	}
+	if strings.Contains(id, "/") {
+		return NeoPiCompletionsModel(VertexProvider, id)
 	}
 	row, err := vertexBuildConfigured(id)
 	if err != nil {
@@ -83,9 +107,17 @@ func vertexBuildConfigured(id string) (*NeoPiModel, error) {
 	return row, nil
 }
 
-// VertexModelInfo materializes a Vertex Gemini row as a registered model.
+// VertexModelInfo materializes a Vertex row as a registered model, owned by
+// its publisher: Anthropic for Claude, the id's publisher prefix for a Model
+// Garden partner model, Google otherwise.
 func VertexModelInfo(model *NeoPiModel) *ModelInfo {
-	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: "google", Type: "vertex", DisplayName: model.Name,
+	owner := "google"
+	if model.API == "anthropic-messages" {
+		owner = "anthropic"
+	} else if publisher, _, ok := strings.Cut(model.ID, "/"); ok && publisher != "" {
+		owner = publisher
+	}
+	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: owner, Type: "vertex", DisplayName: model.Name,
 		ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
 		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model.Clone()}
 	if model.Reasoning && model.Thinking != nil {

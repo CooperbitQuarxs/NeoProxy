@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/watcher/synthesizer"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -64,6 +65,11 @@ func TestRegisterModelsForAuth_VertexServiceAccount_OpenAPIModelsAndAliases(t *t
 	}
 	if !GlobalModelRegistry().ClientSupportsModel(auth.ID, "gemini-3.5-flash") {
 		t.Fatalf("expected Vertex SA auth to serve NeoPi's bundled Gemini model 'gemini-3.5-flash'")
+	}
+	// NeoPi's resolveGoogleVertexApi: a publisher-qualified id is a Model
+	// Garden model on the OpenAI-compatible endpoint, not a Gemini model.
+	if info := registry.GetGlobalRegistry().GetModelInfo("qwen/qwen3-coder-480b-a35b-instruct-maas", "vertex"); info == nil || info.NeoPi == nil || info.NeoPi.API != "openai-completions" {
+		t.Fatalf("qwen/qwen3-coder-480b-a35b-instruct-maas registered as %+v, want NeoPi's openai-completions Model Garden row", info)
 	}
 	if gotUpstream := service.coreManager.ResolveExecutionModel(registered, "deepseek-flash"); gotUpstream != "deepseek-ai/deepseek-v4.1-flash-maas" {
 		t.Fatalf("ResolveExecutionModel(deepseek-flash) = %q, want deepseek-ai/deepseek-v4.1-flash-maas", gotUpstream)

@@ -72,6 +72,7 @@ func neoPiThirdPartyProfile(model *registry.NeoPiModel) neoPiProfile {
 		party.replayUnsigned = compat.ReplayUnsignedThinking
 		party.signing = compat.SigningEndpoint && !compat.OfficialEndpoint
 	}
+	party.vertexRawPredict = neoPiVertexRawPredictURL(model.BaseURL)
 	profile.thirdParty = party
 	return profile
 }
@@ -90,21 +91,15 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 	if profile.Reasoning && profile.thirdParty.outputEffort && (thinking && !tagOnly || adaptivePin) {
 		betas = append(betas, "effort-2025-11-24")
 	}
-	// resolveAnthropicControlBetas: the endpoint's mid-conversation controls.
-	if profile.Compat.SupportsTurnScopedSystem {
-		betas = append(betas, "mid-conversation-system-clear-at-2026-08-21")
+	rawPredict := profile.thirdParty.vertexRawPredict
+	if !rawPredict {
+		betas = append(betas, neoPiControlBetas(profile)...)
 	}
-	if profile.Compat.SupportsMidConversationToolChanges {
-		betas = append(betas, "mid-conversation-tool-changes-2026-07-01")
-	}
-	if profile.Compat.SupportsPerMessageEffort {
-		betas = append(betas, "mid-conversation-output-config-2026-07-01")
-	}
-	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing {
+	if profile.Thinking.SupportsDisplay == nil || !*profile.Thinking.SupportsDisplay || profile.thirdParty.signing && !rawPredict {
 		betas = append(betas, "interleaved-thinking-2025-05-14")
 	}
 	// The binding-controls beta follows the finalized body's block_binding.
-	if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+	if !rawPredict && gjson.GetBytes(body, "thinking.block_binding").Exists() {
 		betas = append(betas, "thinking-binding-controls-2026-08-01")
 	}
 	for _, edit := range gjson.GetBytes(body, "context_management.edits").Array() {
@@ -132,6 +127,46 @@ func neoPiThirdPartyHeaders(body []byte, session string, thinking bool, profile 
 		h[name] = append([]string(nil), values...)
 	}
 	return h
+}
+
+// neoPiControlBetas is resolveAnthropicControlBetas without a binding: the
+// endpoint's mid-conversation controls.
+func neoPiControlBetas(profile neoPiProfile) []string {
+	var betas []string
+	if profile.Compat.SupportsTurnScopedSystem {
+		betas = append(betas, "mid-conversation-system-clear-at-2026-08-21")
+	}
+	if profile.Compat.SupportsMidConversationToolChanges {
+		betas = append(betas, "mid-conversation-tool-changes-2026-07-01")
+	}
+	if profile.Compat.SupportsPerMessageEffort {
+		betas = append(betas, "mid-conversation-output-config-2026-07-01")
+	}
+	return betas
+}
+
+// neoPiVertexRawPredictURL is isVertexRawPredictUrl.
+func neoPiVertexRawPredictURL(url string) bool {
+	return strings.Contains(url, ":streamRawPredict") || strings.Contains(url, ":rawPredict")
+}
+
+// neoPiVertexRawPredictBody is the body Vertex's Claude adapter takes: the
+// thinking-binding beta the finalized thinking carries joins the body betas
+// (anthropic.ts, after buildParams), then transformVertexAnthropicBody drops
+// the model, which rides the URL, and names Vertex's API version last.
+func neoPiVertexRawPredictBody(body []byte) []byte {
+	const binding = "thinking-binding-controls-2026-08-01"
+	if gjson.GetBytes(body, "thinking.block_binding").Exists() {
+		present := false
+		for _, beta := range gjson.GetBytes(body, "anthropic_beta").Array() {
+			present = present || beta.String() == binding
+		}
+		if !present {
+			body = neoPiSet(body, "anthropic_beta.-1", binding)
+		}
+	}
+	body = neoPiDelete(body, "model")
+	return neoPiSet(body, "anthropic_version", "vertex-2023-10-16")
 }
 
 // neoPiForcedToolChoice is isForcedToolChoice over the wire request: a

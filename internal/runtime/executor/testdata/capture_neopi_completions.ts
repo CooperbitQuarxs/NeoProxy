@@ -237,7 +237,7 @@ function representatives(models: any[]): any[] {
 
 // transportEnv is the provider-transport environment set for this capture,
 // undefined when none is.
-const TRANSPORT_ENV = ["SNOWFLAKE_ACCOUNT", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_GATEWAY_ID"];
+const TRANSPORT_ENV = ["SNOWFLAKE_ACCOUNT", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_GATEWAY_ID", "GOOGLE_CLOUD_PROJECT", "GOOGLE_CLOUD_LOCATION", "GOOGLE_CLOUD_ACCESS_TOKEN"];
 const transportEnv = (): Record<string, string> | undefined => {
 	const env = Object.fromEntries(TRANSPORT_ENV.filter(name => process.env[name]).map(name => [name, process.env[name]!]));
 	return Object.keys(env).length > 0 ? env : undefined;

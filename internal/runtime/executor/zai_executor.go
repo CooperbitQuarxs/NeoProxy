@@ -43,7 +43,7 @@ func NewZaiExecutor(provider string, cfg *config.Config) *ZaiExecutor {
 		catalog: func(_ *cliproxyauth.Auth, _ cliproxyexecutor.Request, model string) *registry.NeoPiModel {
 			return registry.ZaiNeoPiModel(model)
 		},
-		bearer: zaiAPIKey,
+		credential: neoPiAccountBearer(zaiAPIKey),
 	}
 	return &ZaiExecutor{ClaudeExecutor: messages, cfg: cfg, counter: NewOpenAICompatExecutor(provider, cfg)}
 }
