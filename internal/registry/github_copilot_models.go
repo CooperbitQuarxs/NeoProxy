@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"sync"
 )
 
@@ -127,4 +128,17 @@ func GitHubCopilotPolicyModelIDs() []string {
 		}
 	}
 	return ids
+}
+
+// GitHubCopilotModelInfo is the registered model of a Copilot row: its
+// NeoPi record, limits, modalities and effort ladder.
+func GitHubCopilotModelInfo(row *NeoPiModel) *ModelInfo {
+	model := row.Clone()
+	info := &ModelInfo{ID: model.ID, MetadataModelID: model.ID, Object: "model", OwnedBy: GitHubCopilotProvider, Type: GitHubCopilotProvider,
+		DisplayName: model.Name, ContextLength: model.ContextWindow, MaxContextLength: model.ContextWindow, MaxCompletionTokens: model.MaxTokens,
+		SupportedInputModalities: slices.Clone(model.Input), NeoPi: model}
+	if model.Reasoning && model.Thinking != nil && len(model.Thinking.Efforts) > 0 {
+		info.Thinking = &ThinkingSupport{Levels: slices.Clone(model.Thinking.Efforts), ZeroAllowed: !model.Thinking.RequiresEffort}
+	}
+	return info
 }
