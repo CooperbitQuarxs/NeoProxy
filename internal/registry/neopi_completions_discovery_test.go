@@ -268,7 +268,7 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		"yolo-auto":             {0, 6, 4, nil},
 		"zhipu-coding-plan":     {0, 8, 6, nil},
 		"coreweave":             {0, 4, 44, nil},
-		"cline-pass":            {3, 15, 20, []string{"CacheControlFormat", "SupportsForcedToolChoice", "SupportsSamplingParams", "SupportsStore"}},
+		"cline-pass":            {3, 16, 20, []string{"CacheControlFormat", "SupportsForcedToolChoice", "SupportsSamplingParams", "SupportsStore"}},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))

@@ -146,3 +146,21 @@ func TestFetchUsageMatchesNeoPi(t *testing.T) {
 		})
 	}
 }
+
+// A rejected key stays rejected when its error body cannot be decoded: NeoPi
+// classifies 401/403 before it reads the body.
+func TestFetchUsageRejectsKeyWithUnreadableBody(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Encoding", "gzip")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte("not gzip"))
+		}))
+		usage, err := FetchUsage(t.Context(), server.Client(), server.URL, "sk_test")
+		server.Close()
+		rejected, ok := err.(*UsageError)
+		if usage != nil || !ok || rejected.Status != status {
+			t.Fatalf("status %d: usage = %+v, err = %v; want a rejected key", status, usage, err)
+		}
+	}
+}

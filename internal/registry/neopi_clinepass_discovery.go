@@ -116,7 +116,10 @@ type neoPiClinePassLiveCatalog struct {
 	bySlug map[string]*neoPiClinePassLive
 }
 
-var neoPiLiveNamePrefix = regexp.MustCompile(`^[^:]+:\s*`)
+// neoPiJSSpace is ECMAScript's \s; RE2's \s is ASCII-only.
+const neoPiJSSpace = `[\t\n\v\f\r \x{a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}]`
+
+var neoPiLiveNamePrefix = regexp.MustCompile(`^[^:]+:` + neoPiJSSpace + `*`)
 
 // neoPiParseClinePassLiveCatalog is fetchClinePassLiveCatalog's parse of
 // OpenRouter's /models: nil when the body is unusable, which NeoPi treats as
@@ -388,7 +391,7 @@ func neoPiApplyClinePassLive(spec *neoPiSpec, entry *neoPiClinePassLive) {
 }
 
 var (
-	neoPiFreeNameMarker = regexp.MustCompile(`(?i)\s*\(free\)\s*$`)
+	neoPiFreeNameMarker = regexp.MustCompile(`(?i)` + neoPiJSSpace + `*\(free\)` + neoPiJSSpace + `*$`)
 	neoPiFreeIDMarker   = regexp.MustCompile(`(?i):free$`)
 )
 
@@ -548,9 +551,9 @@ func neoPiStripReferenceMarker(candidate string) (string, bool) {
 var (
 	neoPiModelIDSegment       = regexp.MustCompile(`[a-z0-9.:-]+`)
 	neoPiModelFamilyPrefix    = regexp.MustCompile(`(?i)^(claude|gemini|gpt|grok|glm|qwen|deepseek|kimi|mimo|doubao|ernie|gpt-oss|gemma|minimax|step|command|jamba|llama|o[1345])`)
-	neoPiWhitespaceRun        = regexp.MustCompile(`\s+`)
-	neoPiLeadingBracketAffix  = regexp.MustCompile(`^(?:\s*(?:\[|【)[^\]】]+(?:\]|】)\s*)+`)
-	neoPiTrailingBracketAffix = regexp.MustCompile(`(?:\s*(?:\[|【)[^\]】]+(?:\]|】)\s*)+$`)
+	neoPiWhitespaceRun        = regexp.MustCompile(neoPiJSSpace + `+`)
+	neoPiLeadingBracketAffix  = regexp.MustCompile(`^(?:` + neoPiJSSpace + `*(?:\[|【)[^\]】]+(?:\]|】)` + neoPiJSSpace + `*)+`)
+	neoPiTrailingBracketAffix = regexp.MustCompile(`(?:` + neoPiJSSpace + `*(?:\[|【)[^\]】]+(?:\]|】)` + neoPiJSSpace + `*)+$`)
 )
 
 func neoPiNormalizeIDWhitespace(value string) string {

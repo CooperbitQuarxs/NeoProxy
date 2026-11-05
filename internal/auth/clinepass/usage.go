@@ -86,15 +86,13 @@ func FetchUsage(ctx context.Context, client *http.Client, base, key string) (*Us
 		base = BaseURL
 	}
 	status, reason, body, err := get(ctx, client, base+usageLimitsPath, key)
-	if err != nil {
-		return nil, nil
+	// NeoPi throws on 401/403 before it reads the body.
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return nil, &UsageError{Status: status, Reason: reason}
 	}
-	if status < 200 || status >= 300 {
-		if status == http.StatusUnauthorized || status == http.StatusForbidden {
-			return nil, &UsageError{Status: status, Reason: reason}
-		}
-		// An account that never subscribed answers 404 "no plan history found
-		// for user"; NeoPi only logs it differently from other failures.
+	// An account that never subscribed answers 404 "no plan history found
+	// for user"; NeoPi only logs it differently from other failures.
+	if err != nil || status < 200 || status >= 300 {
 		return nil, nil
 	}
 	payload := gjson.ParseBytes(body)
@@ -186,7 +184,8 @@ func nonEmpty(value gjson.Result) string {
 }
 
 // get sends NeoPi's quota request: the Cline client identity, JSON accept and
-// the key as a bearer token.
+// the key as a bearer token. The status and reason survive a body that cannot
+// be read.
 func get(ctx context.Context, client *http.Client, url, key string) (status int, reason string, body []byte, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -204,14 +203,16 @@ func get(ctx context.Context, client *http.Client, url, key string) (status int,
 		return 0, "", nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	status = resp.StatusCode
+	reason = strings.TrimSpace(strings.TrimPrefix(resp.Status, fmt.Sprint(resp.StatusCode)))
 	decoded, err := util.DecodeResponseBody(resp.Body, resp.Header.Get("Content-Encoding"))
 	if err != nil {
-		return 0, "", nil, err
+		return status, reason, nil, err
 	}
 	defer func() { _ = decoded.Close() }()
 	body, err = io.ReadAll(io.LimitReader(decoded, maxBody))
 	if err != nil {
-		return 0, "", nil, err
+		return status, reason, nil, err
 	}
-	return resp.StatusCode, strings.TrimSpace(strings.TrimPrefix(resp.Status, fmt.Sprint(resp.StatusCode))), body, nil
+	return status, reason, body, nil
 }
