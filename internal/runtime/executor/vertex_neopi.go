@@ -103,12 +103,16 @@ func vertexAuthenticatedURL(target string) bool {
 
 // PrepareRequest injects the credential the target's transport carries: the
 // ADC bearer for a Model Garden or rawPredict URL, else the Gemini
-// credential.
+// credential. The URL is already placed, so only the bearer is acquired.
 func (e *VertexExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
 	if req == nil || req.URL == nil || !vertexAuthenticatedURL(req.URL.String()) {
 		return e.NeoPiGoogleExecutor.PrepareRequest(req, auth)
 	}
-	token, _, err := vertexAuthenticatedRequest(req.Context(), e.cfg, auth)
+	env, err := vertexAccountEnvironment(auth)
+	if err != nil {
+		return err
+	}
+	token, err := vertexBearer(req.Context(), e.cfg, auth, env.credential)
 	if err != nil {
 		return err
 	}

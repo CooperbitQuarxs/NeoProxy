@@ -219,9 +219,12 @@ func TestVertexRawPredictBearerOverridesConfiguredAuthorization(t *testing.T) {
 }
 
 // An arbitrary request to a Model Garden endpoint carries the ADC bearer, not
-// the Gemini API key.
+// the Gemini API key. Its URL is already placed, so no project or location
+// is needed (resolveVertexRequest leaves such a URL as it is).
 func TestVertexHttpRequestModelGardenUsesADC(t *testing.T) {
 	vertexModelGardenEnv(t)
+	t.Setenv("GOOGLE_CLOUD_PROJECT", "")
+	t.Setenv("GOOGLE_CLOUD_LOCATION", "")
 	e := NewVertexExecutor(&config.Config{})
 	auth := &cliproxyauth.Auth{Attributes: map[string]string{"api_key": "review-account-key"}}
 	for _, target := range []string{
