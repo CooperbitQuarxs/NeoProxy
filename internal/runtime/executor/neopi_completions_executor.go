@@ -138,9 +138,18 @@ func (e *NeoPiCompletionsExecutor) Refresh(ctx context.Context, auth *cliproxyau
 	if cliproxyauth.IsRefreshLocked(auth) {
 		return nil, cliproxyauth.ErrRefreshLocked
 	}
-	result, err, _ := snowflakeRefreshGroup.Do(account+"\x00"+tokens.Refresh, func() (any, error) {
-		return snowflake.Refresh(ctx, helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0), account, tokens)
-	})
+	client := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+	var result any
+	var err error
+	if tokens.Refresh == "" {
+		// Nothing to exchange: the record keeps or loses its own access token,
+		// so it must not join another record's flight.
+		result, err = snowflake.Refresh(ctx, client, account, tokens)
+	} else {
+		result, err, _ = snowflakeRefreshGroup.Do(account+"\x00"+tokens.Refresh, func() (any, error) {
+			return snowflake.Refresh(ctx, client, account, tokens)
+		})
+	}
 	if err != nil {
 		var oauthErr *snowflake.OAuthError
 		if errors.As(err, &oauthErr) && (oauthErr.Status == 0 || oauthErr.Status == http.StatusBadRequest || oauthErr.Status == http.StatusUnauthorized) {
@@ -510,24 +519,21 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 // transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
 // cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
+// Snowflake's transport then places the effective row on its account.
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
 	if row == nil || auth == nil {
 		return row
 	}
 	provider := e.profile.Provider
+	if base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"]); base != "" && base != row.BaseURL &&
+		(provider == "alibaba-token-plan" ||
+			(base != registry.NeoPiCompletionsListingBase(provider) && registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL))) {
+		row = row.Clone()
+		row.BaseURL = base
+	}
 	if provider == snowflake.Provider {
 		return e.snowflakeRow(auth, row)
 	}
-	base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"])
-	if base == "" || base == row.BaseURL {
-		return row
-	}
-	if provider != "alibaba-token-plan" &&
-		(base == registry.NeoPiCompletionsListingBase(provider) || !registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL)) {
-		return row
-	}
-	row = row.Clone()
-	row.BaseURL = base
 	return row
 }
 
@@ -575,8 +581,9 @@ func (e *NeoPiCompletionsExecutor) snowflakeRow(auth *cliproxyauth.Auth, row *re
 }
 
 // snowflakeReady reports the configuration error NeoPi's Snowflake transport
-// raises for the request (a malformed credential, no account, an OAuth
-// account that does not own the endpoint) before anything is sent.
+// raises for the request's effective endpoint (a malformed credential, no
+// account, an OAuth account that does not own the endpoint) before anything
+// is sent.
 func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) error {
 	if e.profile.Provider != snowflake.Provider {
 		return nil
@@ -588,7 +595,7 @@ func (e *NeoPiCompletionsExecutor) snowflakeReady(auth *cliproxyauth.Auth, req c
 	if !ok {
 		return statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no credential"}
 	}
-	if row := e.row(nil, req); row != nil {
+	if row := e.row(auth, req); row != nil {
 		if _, err = snowflake.BaseURL(row.BaseURL, credential, os.Getenv("SNOWFLAKE_ACCOUNT")); err != nil {
 			return statusErr{code: http.StatusBadRequest, msg: e.provider + ": " + err.Error()}
 		}

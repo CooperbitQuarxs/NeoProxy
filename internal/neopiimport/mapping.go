@@ -13,6 +13,7 @@ import (
 	"time"
 
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
@@ -248,6 +249,17 @@ func reasonNotImportable(c Credential, r route, now time.Time) string {
 			}
 			return "NeoPi's record has no key."
 		}
+		if c.Provider == "snowflake" {
+			// NeoPi binds a bare PAT to SNOWFLAKE_ACCOUNT, which the record
+			// does not carry; only a key naming its account can be routed.
+			credential, _, err := snowflake.ParseCredential(apiKeyValue(c))
+			if err != nil {
+				return "NeoPi's Snowflake key is not valid: " + err.Error()
+			}
+			if credential.AccountURL == "" {
+				return "This Snowflake access token does not name its account. Add it in NeoProxy with its Snowflake account."
+			}
+		}
 	case r.kind == KindSubscription:
 		if str(c.data, "access") == "" {
 			return "NeoPi's record has no access token."
@@ -446,6 +458,12 @@ func label(c Credential, r route) string {
 		return email
 	}
 	key := apiKeyValue(c)
+	if c.Provider == "snowflake" {
+		// Name the token's ending and its account, never the stored JSON.
+		if credential, ok, err := snowflake.ParseCredential(key); ok && err == nil && credential.AccountURL != "" && len(credential.Token) >= 12 {
+			return "…" + credential.Token[len(credential.Token)-4:] + " (" + strings.TrimPrefix(credential.AccountURL, "https://") + ")"
+		}
+	}
 	if len(key) < 12 {
 		return "NeoPi key " + c.ID
 	}

@@ -136,6 +136,24 @@ func Refresh(ctx context.Context, client *http.Client, account string, current T
 // errRedirect refuses redirects: NeoPi's token requests use redirect "error".
 var errRedirect = errors.New("snowflake token request redirected")
 
+// refuseRedirects fails a redirect answer inside the round trip, so the
+// client never parses its Location and the error names only the token
+// endpoint: a Location may reflect the authorization code or a token.
+type refuseRedirects struct{ base http.RoundTripper }
+
+func (t refuseRedirects) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		_ = resp.Body.Close()
+		return nil, errRedirect
+	}
+	return resp, nil
+}
+
 // tokenRequest posts a form to the account's token endpoint and validates the
 // answer as parseTokenResponse does.
 func tokenRequest(ctx context.Context, client *http.Client, accountURL, operation string, form [][2]string) (Tokens, error) {
@@ -145,7 +163,11 @@ func tokenRequest(ctx context.Context, client *http.Client, accountURL, operatio
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	noRedirect := *client
-	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return errRedirect }
+	base := noRedirect.Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	noRedirect.Transport = refuseRedirects{base: base}
 	resp, err := noRedirect.Do(req)
 	if err != nil {
 		return Tokens{}, err

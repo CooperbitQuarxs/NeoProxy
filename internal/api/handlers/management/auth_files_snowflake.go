@@ -112,7 +112,9 @@ func (h *Handler) RequestSnowflakeToken(c *gin.Context) {
 				if parsed, parseErr := url.Parse(session.AccountURL); parseErr == nil {
 					host = parsed.Hostname()
 				}
-				fileName := fmt.Sprintf("snowflake-%s-%d.json", host, time.Now().UnixMilli())
+				// The session state is random per sign-in, so records of users
+				// signing in to one account at once never share a name.
+				fileName := fmt.Sprintf("snowflake-%s-%s.json", host, session.State)
 				record := &coreauth.Auth{ID: fileName, FileName: fileName, Provider: snowflake.Provider, Label: host, Metadata: snowflake.Metadata(tokens, session.AccountURL)}
 				if guardOAuthSessionPendingForSave(session.State, callbackProvider) != nil {
 					return

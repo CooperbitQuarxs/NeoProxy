@@ -202,13 +202,22 @@ func TestInvalidTokenAnswers(t *testing.T) {
 	}
 }
 
-// Token requests never follow a redirect (NeoPi's redirect: "error").
+// Token requests never follow a redirect (NeoPi's redirect: "error"), and the
+// refusal never repeats the Location, which may reflect a code or token.
 func TestTokenRequestRefusesRedirect(t *testing.T) {
-	fake := &fakeToken{status: http.StatusFound, header: http.Header{"Location": {"https://evil.test/collect"}}}
-	if _, err := Refresh(context.Background(), &http.Client{Transport: fake}, testAccount, Tokens{Refresh: "old"}); err == nil {
-		t.Fatal("redirect followed")
-	}
-	if fake.calls != 1 {
-		t.Fatalf("requests = %d", fake.calls)
+	for _, location := range []string{"https://evil.test/collect?code=sentinel-secret", "https://evil.test/%zz?code=sentinel-secret"} {
+		for _, status := range []int{http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+			fake := &fakeToken{status: status, header: http.Header{"Location": {location}}}
+			_, err := Refresh(context.Background(), &http.Client{Transport: fake}, testAccount, Tokens{Refresh: "old"})
+			if err == nil {
+				t.Fatalf("%d to %s: redirect followed", status, location)
+			}
+			if strings.Contains(err.Error(), "sentinel") || strings.Contains(err.Error(), "evil.test") {
+				t.Fatalf("%d to %s: error repeats the Location: %v", status, location, err)
+			}
+			if fake.calls != 1 {
+				t.Fatalf("%d to %s: requests = %d", status, location, fake.calls)
+			}
+		}
 	}
 }
