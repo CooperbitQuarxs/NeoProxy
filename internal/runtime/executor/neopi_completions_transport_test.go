@@ -26,6 +26,9 @@ func TestNeoPiCompletionsTransportParity(t *testing.T) {
 	for _, file := range files {
 		capture := readNeoPiCompletionsCapture(t, file)
 		t.Run(capture.Provider, func(t *testing.T) {
+			for name, value := range capture.Env {
+				t.Setenv(name, value)
+			}
 			fixture := capture.Fixtures[0]
 			if fixture.Error != "" {
 				t.Fatal(fixture.Error)

@@ -7,6 +7,9 @@
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     NEOPI_PROVIDERS=minimax,minimax-cn bun --preserve-symlinks capture_neopi_anthropic_rows.ts
+//
+// A provider whose transport rewrites the row's origin (Snowflake's account
+// placeholder) names the origin it sends to in CAPTURE_ORIGIN.
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -141,7 +144,8 @@ try {
 			const redirectFetch = (async (input: any, init: any) => {
 				requestedURL = input instanceof Request ? input.url : String(input);
 				const u = new URL(requestedURL);
-				if (u.origin !== new URL(model.baseUrl).origin) throw new Error("Unexpected non-capture request " + requestedURL);
+				const allowed = [new URL(model.baseUrl).origin, process.env.CAPTURE_ORIGIN].filter(Boolean);
+				if (!allowed.includes(u.origin)) throw new Error("Unexpected non-capture request " + requestedURL);
 				const headers = new Headers(init?.headers);
 				headers.set("host", u.host);
 				return fetch(local + u.pathname + u.search, { ...init, headers, tls: undefined });

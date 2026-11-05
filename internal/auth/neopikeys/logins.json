@@ -357,6 +357,9 @@
 				"baseUrl": "https://api.minimaxi.com/anthropic",
 				"model": "MiniMax-M3"
 			}
+		},
+		"snowflake": {
+			"name": "Snowflake Cortex"
 		}
 	}
 }

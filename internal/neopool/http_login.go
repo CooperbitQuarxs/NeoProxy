@@ -88,7 +88,7 @@ func (h *HTTP) login(c *gin.Context) {
 	}
 	provider := c.Param("provider")
 	switch provider {
-	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo":
+	case "codex", "anthropic", "claude", "gemini", "gemini-cli", "antigravity", "qwen", "iflow", "kimi", "devin", "xai", "grok-build", "meta", "zai", "cursor", "nous-portal", "kilo", "snowflake":
 	default:
 		poolError(c, 400, "unsupported login provider")
 		return
@@ -102,6 +102,11 @@ func (h *HTTP) login(c *gin.Context) {
 	query := url.Values{"provider": {dispatch}, "is_webui": {"true"}}
 	if dispatch == "codex" && c.Query("mode") == "device" {
 		query.Set("mode", "device")
+	}
+	// Snowflake signs in at the account it is asked for; the engine accepts
+	// only snowflakecomputing.com account hosts.
+	if dispatch == "snowflake" {
+		query.Set("account", c.Query("account"))
 	}
 	inner := engineContext(c, "/v8/management/oauth/auth-url", query)
 	captured := &loginWriter{ResponseWriter: c.Writer}
