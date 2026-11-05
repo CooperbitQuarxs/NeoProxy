@@ -640,6 +640,28 @@ func buildResponsesWebsocketErrorPayload(errMsg *interfaces.ErrorMessage) ([]byt
 		errCause = errMsg.Error
 	}
 	body := handlers.BuildErrorResponseBodyWithError(status, errText, errCause)
+	// The carrier is raw classification data, even beneath a sanitized wrapper.
+	// Reapply the Responses redaction and text bounds before exposing its node.
+	if upstream := clienterror.ErrorBody(errCause); !coreauth.IsTerminalAuthError(errCause) && upstream != "" && json.Valid([]byte(upstream)) {
+		for _, path := range []string{"error", "response.error", "response.status_details.error"} {
+			if node := gjson.Get(upstream, path); node.IsObject() {
+				var upstreamError any
+				decoder := json.NewDecoder(strings.NewReader(node.Raw))
+				decoder.UseNumber()
+				if errDecode := decoder.Decode(&upstreamError); errDecode != nil {
+					return nil, errDecode
+				}
+				cleaned, errMarshal := json.Marshal(struct {
+					Error any `json:"error"`
+				}{Error: handlers.SanitizeUpstreamErrorNode(upstreamError)})
+				if errMarshal != nil {
+					return nil, errMarshal
+				}
+				body = cleaned
+				break
+			}
+		}
+	}
 	payload := []byte(`{}`)
 	var errSet error
 	payload, errSet = sjson.SetBytes(payload, "type", wsEventTypeError)

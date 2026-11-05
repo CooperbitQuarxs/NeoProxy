@@ -63,6 +63,15 @@ var (
 	cursorDiscovery = &neoPiDiscovery{provider: "cursor", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
 		bundled: registry.CursorBundledModels, fetch: executor.FetchCursorModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
+	// museCodeDiscovery lists a Meta sign-in's models: NeoPi's muse-code
+	// manager (authoritative `/v1/models` over the subscription key).
+	museCodeDiscovery = newResponsesDiscovery(registry.ResponsesMuseCode, "meta")
+	// metaAPIKeyDiscovery lists a Meta Model API key's models.
+	metaAPIKeyDiscovery = newResponsesDiscovery(registry.ResponsesMeta, "meta")
+	// sakanaDiscovery and abliterationDiscovery list the openai-compatibility
+	// keys at those gateways, NeoPi's authoritative `/v1/models` managers.
+	sakanaDiscovery       = newResponsesDiscovery(registry.ResponsesSakana, "")
+	abliterationDiscovery = newResponsesDiscovery(registry.ResponsesAbliterate, "")
 	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
 	// overlays the listing, so its bundled catalog stays authoritative.
 	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 0,
@@ -74,8 +83,27 @@ var (
 		match:   func(a *coreauth.Auth) bool { return umansauth.IsBaseURL(a.Attributes["base_url"]) },
 		bundled: registry.UmansBundledModels, fetch: executor.FetchUmansModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery}
 )
+
+// newResponsesDiscovery is the discovery of one NeoPi Responses provider: the
+// model manager's 2h cache over executor.FetchResponsesModels. NeoPi bounds
+// openai-compatible discovery at 10s; the repository bans deadlines after the
+// connection is up, so the fetch runs without one.
+// provider is the engine provider its accounts carry, or "" for the
+// openai-compatibility keys served by address.
+func newResponsesDiscovery(neoPiProvider, provider string) *neoPiDiscovery {
+	return &neoPiDiscovery{provider: provider, ttl: 2 * time.Hour, retry: 5 * time.Minute,
+		match: func(a *coreauth.Auth) bool { return executor.ResponsesProviderOfAuth(a) == neoPiProvider },
+		bundled: func() []*ModelInfo {
+			owner, modelType := "meta", "meta"
+			if provider == "" {
+				owner, modelType = neoPiProvider, "openai-compatibility"
+			}
+			return registry.ResponsesModels(neoPiProvider, owner, modelType, nil)
+		},
+		fetch: executor.FetchResponsesModels, entries: map[string]*neoPiDiscoveryEntry{}}
+}
 
 // models returns the models to register for a and whether its cached listing
 // needs a (re)fetch.
@@ -228,6 +256,58 @@ func (d *neoPiDiscovery) serves(a *coreauth.Auth) bool {
 		return d.match(a)
 	}
 	return a.Provider == d.provider
+}
+
+// metaDiscoveryFor selects the NeoPi catalog a Meta account lists: a sign-in
+// is Muse Code's, a key is the Model API's.
+func metaDiscoveryFor(a *coreauth.Auth) *neoPiDiscovery {
+	if museCodeDiscovery.serves(a) {
+		return museCodeDiscovery
+	}
+	return metaAPIKeyDiscovery
+}
+
+// neoPiResponsesModelsFor replaces the configured model list of an
+// openai-compatibility key at a Sakana or Abliteration address with NeoPi's
+// discovered catalog; any other account keeps fallback.
+func (s *Service) neoPiResponsesModelsFor(a *coreauth.Auth, fallback []*ModelInfo) []*ModelInfo {
+	for _, d := range []*neoPiDiscovery{sakanaDiscovery, abliterationDiscovery} {
+		if !d.serves(a) {
+			continue
+		}
+		owner := strings.TrimSpace(a.Attributes["compat_name"])
+		if owner == "" {
+			owner = strings.TrimSpace(a.Provider)
+		}
+		models := s.registerNeoPiDiscovered(d, a)
+		byID := make(map[string]*ModelInfo, len(models))
+		for _, model := range models {
+			model.OwnedBy = owner
+			byID[model.ID] = model
+		}
+		// Configured client-facing aliases ride on the canonical NeoPi rows: the
+		// upstream id and its bytes stay NeoPi's, the proxy's routing name stays
+		// the operator's.
+		for _, configured := range fallback {
+			if configured == nil || configured.ID == configured.MetadataModelID || configured.MetadataModelID == "" || byID[configured.ID] != nil {
+				continue
+			}
+			canonical := byID[configured.MetadataModelID]
+			if canonical == nil {
+				continue
+			}
+			alias := *canonical
+			alias.NeoPi = canonical.NeoPi.Clone()
+			alias.ID = configured.ID
+			alias.MetadataModelID = canonical.ID
+			if configured.DisplayName != "" {
+				alias.DisplayName = configured.DisplayName
+			}
+			models = append(models, &alias)
+		}
+		return models
+	}
+	return fallback
 }
 
 // umansModelsFor replaces the (empty) configured model list of an

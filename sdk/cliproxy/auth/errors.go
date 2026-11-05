@@ -30,6 +30,10 @@ const transientTransportErrorCode = ErrorCodeTransientTransport
 // ErrorCodeForceCooldown marks failures that must enforce credential cooldown.
 const ErrorCodeForceCooldown = "force_cooldown"
 
+// ErrorCodeNeoPiResponsesNotFound preserves the selected Responses transport's
+// availability-neutral 404 policy without exempting a provider's legacy routes.
+const ErrorCodeNeoPiResponsesNotFound = "neopi_responses_not_found"
+
 // Error describes an authentication related failure in a provider agnostic format.
 type Error struct {
 	// Code is a short machine readable identifier.
