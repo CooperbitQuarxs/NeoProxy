@@ -43,17 +43,14 @@ func (e *FactoryDroidExecutor) responsesExecutor(a *factoryDroidAttempt) (*NeoPi
 	served := false
 	exec := NewNeoPiResponsesExecutor(factorydroid.Provider, e.cfg)
 	exec.binding = &neoPiResponsesBinding{model: row, token: a.token, session: a.session,
-		shape: func(body []byte, conversation *openaiwire.Context, options *openaiwire.Options) error {
-			// The caller's own effort, before openaiwire fits it to the
-			// model: NeoPi refuses one outside the ladder (requireSupportedEffort).
-			requested := gjson.GetBytes(body, "reasoning.effort").String()
+		shape: func(conversation *openaiwire.Context, options *openaiwire.Options) {
+			// The caller's effort as openaiwire fitted it to the model; an
+			// effort outside the ladder was already refused.
+			requested := options.Effort
 			if options.DisableReasoning {
 				requested = string(thinking.LevelNone)
 			}
-			effort, off, err := a.effortFor(requested)
-			if err != nil {
-				return err
-			}
+			effort, off := a.effortFor(requested)
 			for _, item := range conversation.Input {
 				served = served || factoryDroidResponsesServed(item)
 			}
@@ -105,7 +102,6 @@ func (e *FactoryDroidExecutor) responsesExecutor(a *factoryDroidAttempt) (*NeoPi
 				extra = append(extra, jsjson.Field{Name: "safety_identifier", Value: jsjson.Marshal(a.session)})
 			}
 			options.ExtraBody = extra
-			return nil
 		},
 		headers: func(ctx context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header) {
 			header.Set("Accept-Encoding", "gzip, deflate, br, zstd")

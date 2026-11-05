@@ -343,29 +343,50 @@ func TestFactoryDroidSendsConfiguredHeaders(t *testing.T) {
 }
 
 // NeoPi checks a Factory request's effort against the model's own ladder
-// before any wire (requireSupportedEffort): gpt-5.4 tops out at xhigh, so a
-// caller's max is rejected with NeoPi's message and nothing is sent.
+// before any wire (requireSupportedEffort): the effort the caller named, not
+// the one the proxy's thinking normalization would fit, is refused with
+// NeoPi's message, and nothing is sent. Each case is one NeoPi's own
+// streamSimple refuses with exactly this message.
 func TestFactoryDroidRejectsUnsupportedEffort(t *testing.T) {
-	sent := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sent = true
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
-	entry := registry.FactoryDroidModelFor("gpt-5.4")
-	row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
-	row.BaseURL = server.URL + "/api"
-	payload := `{"model":"gpt-5.4","input":"hi","reasoning":{"effort":"max"}}`
-	auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
-	req := cliproxyexecutor.Request{Model: "gpt-5.4", Payload: []byte(payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
-	_, err := NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, OriginalRequest: []byte(payload)})
-	const want = "Thinking effort max is not supported by factory-droid/gpt-5.4. Supported efforts: low, medium, high, xhigh"
-	var coded interface{ StatusCode() int }
-	if err == nil || err.Error() != want || !errors.As(err, &coded) || coded.StatusCode() != http.StatusBadRequest {
-		t.Errorf("err = %v, want a 400 %q", err, want)
-	}
-	if sent {
-		t.Error("an unsupported effort reached the upstream")
+	for _, tc := range []struct {
+		name, model, payload, want string
+		format                     sdktranslator.Format
+	}{
+		{"responses", "gpt-5.4", `{"model":"gpt-5.4","input":"hi","reasoning":{"effort":"max"}}`,
+			"Thinking effort max is not supported by factory-droid/gpt-5.4. Supported efforts: low, medium, high, xhigh", sdktranslator.FormatOpenAIResponse},
+		{"messages", "claude-opus-4-5-20251101", `{"model":"claude-opus-4-5-20251101","max_tokens":64,"thinking":{"type":"adaptive"},"output_config":{"effort":"max"},"messages":[{"role":"user","content":"hi"}]}`,
+			"Thinking effort max is not supported by factory-droid/claude-opus-4-5-20251101. Supported efforts: low, medium, high", sdktranslator.FormatClaude},
+		{"completions", "glm-5.3", `{"model":"glm-5.3","reasoning_effort":"medium","messages":[{"role":"user","content":"hi"}]}`,
+			"Thinking effort medium is not supported by factory-droid/glm-5.3. Supported efforts: low, high, max", sdktranslator.FormatOpenAI},
+		{"gemini", "garnet-07-15", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"generationConfig":{"thinkingConfig":{"thinkingLevel":"minimal"}}}`,
+			"Thinking effort minimal is not supported by factory-droid/garnet-07-15. Supported efforts: medium, high", sdktranslator.FormatGemini},
+		{"non-reasoning", "gpt-image-2.5-sunburst", `{"model":"gpt-image-2.5-sunburst","input":"hi","reasoning":{"effort":"high"}}`,
+			"Model factory-droid/gpt-image-2.5-sunburst does not support thinking", sdktranslator.FormatOpenAIResponse},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sent := false
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				sent = true
+				w.WriteHeader(http.StatusBadRequest)
+			}))
+			defer server.Close()
+			entry := registry.FactoryDroidModelFor(tc.model)
+			if entry == nil {
+				t.Fatalf("no registry model %s", tc.model)
+			}
+			row := registry.BuildFactoryDroidModel(entry, registry.FactoryDroidScope{Region: "global", InferenceRegion: "global"}, "global", entry.Policy.Rotation)
+			row.BaseURL = server.URL + "/api"
+			auth := &cliproxyauth.Auth{ID: "factory-droid-effort", Provider: "factory-droid", Metadata: map[string]any{"type": "factory-droid", "access_token": "token"}}
+			req := cliproxyexecutor.Request{Model: tc.model, Payload: []byte(tc.payload), Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": registry.FactoryDroidModelInfo(row)}}
+			_, err := NewFactoryDroidExecutor(&config.Config{}).Execute(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: tc.format, OriginalRequest: []byte(tc.payload)})
+			var coded interface{ StatusCode() int }
+			if err == nil || err.Error() != tc.want || !errors.As(err, &coded) || coded.StatusCode() != http.StatusBadRequest {
+				t.Errorf("err = %v, want a 400 %q", err, tc.want)
+			}
+			if sent {
+				t.Error("an unsupported effort reached the upstream")
+			}
+		})
 	}
 }
 
