@@ -399,18 +399,6 @@ func TestNeoPiCompletionsStreamFoldsIntoAggregate(t *testing.T) {
 }
 
 func TestNeoPiCompletionsStreamSettings(t *testing.T) {
-	zero := 0
-	custom := 45_000
-	if got := neoPiCompletionsStreamSettingsFor("p", nil, nil); got.idleTimeout != 300*time.Second || got.firstEventTimeout != 300*time.Second {
-		t.Errorf("defaults = %+v", got)
-	}
-	if got := neoPiCompletionsStreamSettingsFor("p", &registry.NeoPiCompletionsCompat{StreamFirstEventTimeoutMs: &zero}, nil); got.firstEventTimeout != 0 || got.idleTimeout != 300*time.Second {
-		t.Errorf("disabled first event = %+v", got)
-	}
-	// The idle budget floors the first-event budget.
-	if got := neoPiCompletionsStreamSettingsFor("p", &registry.NeoPiCompletionsCompat{StreamIdleTimeoutMs: 600_000, StreamFirstEventTimeoutMs: &custom}, nil); got.firstEventTimeout != 600*time.Second || got.idleTimeout != 600*time.Second {
-		t.Errorf("floored first event = %+v", got)
-	}
 	header := http.Header{}
 	header.Set("Fireworks-Cached-Prompt-Tokens", "12")
 	if got := neoPiCompletionsStreamSettingsFor("p", nil, header); got.cachedPromptTokensHeader != 12 {
@@ -422,40 +410,12 @@ func neoPiPipeFrame(content string) []byte {
 	return []byte(`data: {"id":"c","choices":[{"index":0,"delta":{"content":` + string(jsjson.Marshal(content)) + `}}]}` + "\n\n")
 }
 
-// A host that keeps the connection open after its terminal chunk is released
-// when NeoPi's grace window ends, cleanly.
-func TestNeoPiCompletionsStreamGraceEndsOpenBody(t *testing.T) {
-	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close() }()
-	settings := neoPiTestSettings(nil)
-	settings.postFinishGrace = 60 * time.Millisecond
-	go func() {
-		_, _ = writer.Write(append(neoPiPipeFrame("hi"), []byte(`data: {"id":"c","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\n")...))
-	}()
-	var lines []string
-	start := time.Now()
-	err := neoPiNormalizeCompletionsStream(context.Background(), nil, settings, reader, func(line []byte) error {
-		lines = append(lines, string(line))
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if elapsed := time.Since(start); elapsed < 50*time.Millisecond || elapsed > 3*time.Second {
-		t.Errorf("returned after %v", elapsed)
-	}
-	if folded := neoPiFoldStream(t, lines); folded.finish != "stop" || !folded.done || folded.text.String() != "hi" {
-		t.Errorf("lines = %q", lines)
-	}
-}
-
 // A trailing usage-only chunk completes the response without waiting for
 // [DONE] or the connection to close.
 func TestNeoPiCompletionsStreamUsageChunkEndsOpenBody(t *testing.T) {
 	reader, writer := io.Pipe()
 	defer func() { _ = writer.Close() }()
 	settings := neoPiTestSettings(nil)
-	settings.postFinishGrace = time.Hour
 	go func() {
 		_, _ = writer.Write(append(neoPiPipeFrame("hi"), []byte(
 			`data: {"id":"c","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\n"+
@@ -477,39 +437,6 @@ func TestNeoPiCompletionsStreamUsageChunkEndsOpenBody(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("stream waited for the host to close")
-	}
-}
-
-func TestNeoPiCompletionsStreamFirstEventTimeout(t *testing.T) {
-	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close() }()
-	settings := neoPiTestSettings(nil)
-	settings.firstEventTimeout = 40 * time.Millisecond
-	// Role-only preambles are not progress: the first-event budget keeps running.
-	go func() {
-		for {
-			if _, err := writer.Write([]byte(`data: {"id":"c","choices":[{"index":0,"delta":{"role":"assistant"}}]}` + "\n\n")); err != nil {
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
-	err := neoPiNormalizeCompletionsStream(context.Background(), nil, settings, reader, func([]byte) error { return nil })
-	var coded interface{ StatusCode() int }
-	if err == nil || !errorsAs(err, &coded) || coded.StatusCode() != http.StatusGatewayTimeout || !strings.HasSuffix(err.Error(), neoPiCompletionsFirstEventMessage) {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestNeoPiCompletionsStreamIdleTimeout(t *testing.T) {
-	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close() }()
-	settings := neoPiTestSettings(nil)
-	settings.idleTimeout = 40 * time.Millisecond
-	go func() { _, _ = writer.Write(neoPiPipeFrame("hi")) }()
-	err := neoPiNormalizeCompletionsStream(context.Background(), nil, settings, reader, func([]byte) error { return nil })
-	if err == nil || !strings.HasSuffix(err.Error(), neoPiCompletionsIdleMessage) {
-		t.Fatalf("error = %v", err)
 	}
 }
 

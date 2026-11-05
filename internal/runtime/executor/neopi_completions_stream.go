@@ -35,16 +35,12 @@ import (
 // Not ported, deliberately: StreamMarkupHealing (the `thinking`/`kimi`/`dsml`/
 // `qwen` dialect scanners in ai/src/dialect), LiteLLM/Gemini signature capture
 // (nothing on the replay side consumes them), parseJsonWithRepair of final tool
-// arguments, and withReplaySafeStreamRetry. See the integration notes in the
-// lane report.
+// arguments, and withReplaySafeStreamRetry. NeoPi's first-event, idle and
+// post-finish watchdogs are not ported either: the repository allows no
+// deadline once the upstream connection is up (AGENTS.md), so a stream ends on
+// [DONE], EOF or the caller's cancellation.
 
 const (
-	// neoPiCompletionsPostFinishGrace is OPENAI_COMPLETIONS_POST_FINISH_GRACE_MS.
-	neoPiCompletionsPostFinishGrace = 2500 * time.Millisecond
-	// neoPiCompletionsFirstEventMessage and neoPiCompletionsIdleMessage are the
-	// StreamTimeoutError texts of the first-event and idle watchdogs.
-	neoPiCompletionsFirstEventMessage = "OpenAI completions stream timed out while waiting for the first event"
-	neoPiCompletionsIdleMessage       = "OpenAI completions stream stalled while waiting for the next event"
 	// neoPiCompletionsEmptyLengthMessage is EMPTY_OLLAMA_LENGTH_COMPLETION_MESSAGE.
 	neoPiCompletionsEmptyLengthMessage = "Model returned no content: prompt filled the context window; raise Ollama num_ctx or shorten the prompt."
 	// neoPiCompletionsIncompleteMessage is the incomplete-stream ProviderResponseError.
@@ -107,7 +103,7 @@ var neoPiCompletionsErrorStatusByType = map[string]int{
 
 // neoPiCompletionsStreamSettings is the stream-facing slice of NeoPi's resolved
 // compat policy (resolveOpenAICompatPolicy().stream, plus the model compat's
-// mistral flag and the watchdog budgets).
+// mistral flag).
 type neoPiCompletionsStreamSettings struct {
 	provider string
 	// stripDeepseek is policy.stream.stripSpecialTokens === "deepseek".
@@ -120,24 +116,13 @@ type neoPiCompletionsStreamSettings struct {
 	mistralContentParts bool
 	// cachedPromptTokensHeader is parseFireworksCachedPromptTokens(responseHeaders).
 	cachedPromptTokensHeader float64
-	// idleTimeout and firstEventTimeout are the iterateWithIdleTimeout budgets;
-	// zero disables the watchdog.
-	idleTimeout       time.Duration
-	firstEventTimeout time.Duration
-	// postFinishGrace is how long the stream may stay silent after a finish.
-	postFinishGrace time.Duration
 }
 
 // neoPiCompletionsStreamSettingsFor resolves the settings for one row. compat
 // is the row's base CompletionsCompat: NeoPi's `whenThinking` variant never
 // differs from it on these fields in any shipped row.
 func neoPiCompletionsStreamSettingsFor(provider string, compat *registry.NeoPiCompletionsCompat, header http.Header) neoPiCompletionsStreamSettings {
-	settings := neoPiCompletionsStreamSettings{
-		provider:          provider,
-		idleTimeout:       neoPiCompletionsDefaultIdleTimeoutMs * time.Millisecond,
-		firstEventTimeout: neoPiCompletionsDefaultIdleTimeoutMs * time.Millisecond,
-		postFinishGrace:   neoPiCompletionsPostFinishGrace,
-	}
+	settings := neoPiCompletionsStreamSettings{provider: provider}
 	if header != nil {
 		if value, err := strconv.ParseFloat(strings.TrimSpace(header.Get("fireworks-cached-prompt-tokens")), 64); err == nil && value > 0 && !math.IsInf(value, 0) {
 			settings.cachedPromptTokensHeader = value
@@ -150,25 +135,6 @@ func neoPiCompletionsStreamSettingsFor(provider string, compat *registry.NeoPiCo
 	settings.cumulativeReasoning = compat.ReasoningDeltasMayBeCumulative
 	settings.emptyLengthIsContextError = compat.EmptyLengthFinishIsContextError
 	settings.mistralContentParts = compat.MistralReasoningContentParts
-	// getOpenAIStreamIdleTimeoutMs(model.compat.streamIdleTimeoutMs): a row
-	// without one keeps the default.
-	idleMs := neoPiCompletionsDefaultIdleTimeoutMs
-	if compat.StreamIdleTimeoutMs > 0 {
-		idleMs = compat.StreamIdleTimeoutMs
-	}
-	settings.idleTimeout = time.Duration(idleMs) * time.Millisecond
-	// getOpenAIStreamFirstEventTimeoutMs(idle, model.compat.streamFirstEventTimeoutMs):
-	// a non-positive row value disables the watchdog; otherwise the idle budget
-	// is its floor.
-	firstMs := neoPiCompletionsDefaultIdleTimeoutMs
-	if compat.StreamFirstEventTimeoutMs != nil {
-		firstMs = *compat.StreamFirstEventTimeoutMs
-	}
-	if firstMs <= 0 {
-		settings.firstEventTimeout = 0
-	} else {
-		settings.firstEventTimeout = time.Duration(max(firstMs, idleMs)) * time.Millisecond
-	}
 	return settings
 }
 
@@ -250,7 +216,6 @@ type neoPiCompletionsNormalizer struct {
 	deepseekBuf string
 
 	finished      bool
-	finishedAt    time.Time
 	sawUsage      bool
 	awaitTrailing bool
 	usage         *neoPiStreamUsage
@@ -365,10 +330,7 @@ func (n *neoPiCompletionsNormalizer) feed(chunk gjson.Result) error {
 }
 
 func (n *neoPiCompletionsNormalizer) markFinished() {
-	if !n.finished {
-		n.finished = true
-		n.finishedAt = n.now()
-	}
+	n.finished = true
 }
 
 // delta is NeoPi's `if (choice.delta) { ... }` block.
@@ -1754,18 +1716,6 @@ func neoPiNormalizeCompletionsStream(ctx context.Context, cfg *config.Config, se
 		}
 		return nil
 	}
-	release := func() {
-		if closer, ok := body.(io.Closer); ok {
-			_ = closer.Close()
-		}
-	}
-	timeout := func(message string) error {
-		release()
-		return n.fail(statusErr{code: http.StatusGatewayTimeout, msg: settings.provider + ": " + message})
-	}
-
-	lastProgress := n.now()
-	awaitingFirst := true
 	sawDone := false
 	var lines neoPiSSELines
 	handle := func(data string, trailing bool) (bool, error) {
@@ -1792,10 +1742,6 @@ func neoPiNormalizeCompletionsStream(ctx context.Context, cfg *config.Config, se
 			}
 			return false, nil
 		}
-		if neoPiIsProgressChunk(frame) {
-			awaitingFirst = false
-			lastProgress = n.now()
-		}
 		if err := n.feed(frame); err != nil {
 			return false, err
 		}
@@ -1804,45 +1750,10 @@ func neoPiNormalizeCompletionsStream(ctx context.Context, cfg *config.Config, se
 
 loop:
 	for {
-		var deadline time.Time
-		kind := ""
-		if awaitingFirst {
-			if settings.firstEventTimeout > 0 {
-				deadline, kind = lastProgress.Add(settings.firstEventTimeout), "first"
-			}
-		} else if settings.idleTimeout > 0 {
-			deadline, kind = lastProgress.Add(settings.idleTimeout), "idle"
-		}
-		if n.finished && settings.postFinishGrace > 0 {
-			if grace := n.finishedAt.Add(settings.postFinishGrace); kind == "" || grace.Before(deadline) {
-				deadline, kind = grace, "grace"
-			}
-		}
-		var expiry <-chan time.Time
-		var timer *time.Timer
-		if kind != "" {
-			timer = time.NewTimer(time.Until(deadline))
-			expiry = timer.C
-		}
 		select {
 		case <-ctx.Done():
-			if timer != nil {
-				timer.Stop()
-			}
 			return ctx.Err()
-		case <-expiry:
-			switch kind {
-			case "first":
-				return timeout(neoPiCompletionsFirstEventMessage)
-			case "idle":
-				return timeout(neoPiCompletionsIdleMessage)
-			}
-			release()
-			break loop
 		case read := <-reads:
-			if timer != nil {
-				timer.Stop()
-			}
 			if read.err != nil && !errors.Is(read.err, io.EOF) {
 				return read.err
 			}

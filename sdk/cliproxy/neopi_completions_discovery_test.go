@@ -119,3 +119,38 @@ func TestNeoPiCompletionsIdentity(t *testing.T) {
 		t.Fatal("kimi is not a completions account")
 	}
 }
+
+// An existing openai-compatibility entry keeps its configured models when it
+// moves onto NeoPi's executor: each is listed under its alias and display
+// name and carries NeoPi's record for its upstream name, so the request still
+// goes out under that name with NeoPi's wire policy.
+func TestNeoPiCompletionsKeepConfiguredModels(t *testing.T) {
+	cfg := &config.Config{OpenAICompatibility: []config.OpenAICompatibility{{
+		Name: "cerebras",
+		Models: []config.OpenAICompatibilityModel{
+			{Name: "gpt-oss-120b", Alias: "my-oss", DisplayName: "My OSS"},
+			{Name: "zz-private-model"},
+		},
+	}}}
+	auth := &coreauth.Auth{Provider: "openai-compatibility", Attributes: map[string]string{"compat_name": "cerebras"}}
+	roster := registry.NeoPiCompletionsBundledModels("cerebras", "cerebras")
+	got := map[string]*ModelInfo{}
+	for _, model := range neoPiConfiguredCompletionsModels(cfg, auth, "cerebras", roster) {
+		got[model.ID] = model
+	}
+	if len(got) != len(roster)+2 {
+		t.Fatalf("got %d models, want the %d-row roster plus 2 configured", len(got), len(roster))
+	}
+	aliased := got["my-oss"]
+	bundled := registry.NeoPiCompletionsModel("cerebras", "gpt-oss-120b")
+	if aliased == nil || aliased.DisplayName != "My OSS" || aliased.NeoPi == nil || aliased.NeoPi.ID != "gpt-oss-120b" ||
+		!reflect.DeepEqual(aliased.NeoPi.CompletionsCompat, bundled.CompletionsCompat) {
+		t.Fatalf("aliased model = %+v", aliased)
+	}
+	private := got["zz-private-model"]
+	unknown := registry.NeoPiCompletionsModel("cerebras", "zz-private-model")
+	if private == nil || private.NeoPi == nil || private.NeoPi.ID != "zz-private-model" ||
+		!reflect.DeepEqual(private.NeoPi.CompletionsCompat, unknown.CompletionsCompat) {
+		t.Fatalf("configured unknown model = %+v", private)
+	}
+}
