@@ -120,6 +120,10 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		// (AGENTS.md); NeoPi bounds it by its usage request timeout.
 		key += ":github-copilot"
 		timeout, idleTimeout = 0, 0
+	case catalogProviderID(a.Provider, a.Attributes["compat_name"]) == commandcode.Provider:
+		// NeoPi bounds Command Code account reads only by the caller's signal.
+		key += ":commandcode"
+		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -475,6 +479,10 @@ func commandCodeUsageWindows(usage *commandcode.Usage) []Window {
 			out = append(out, percentWindow(kind, 100, startsAt, limit.ResetsAt))
 		case limit.UsedFraction != nil:
 			out = append(out, percentWindow(kind, *limit.UsedFraction*100, startsAt, limit.ResetsAt))
+		case limit.Cap != nil && limit.Used >= *limit.Cap:
+			// isUsageLimitExhausted falls back to used >= limit when a
+			// nonpositive cap leaves the status unknown.
+			out = append(out, percentWindow(kind, 100, startsAt, limit.ResetsAt))
 		default:
 			out = append(out, Window{Kind: kind, Source: quotaSourceReported, Unit: "percent", Capacity: 100})
 		}
@@ -768,6 +776,10 @@ func (q *quotaProber) fetch(ctx context.Context, a *coreauth.Auth, now time.Time
 		if err != nil {
 			return nil, err
 		}
+		if usage == nil {
+			// NeoPi's null report is a failure that keeps the last good one.
+			return nil, fmt.Errorf("commandcode usage: no usage report")
+		}
 		return commandCodeUsageWindows(usage), nil
 	case "kimi":
 		// NeoPi skips the probe while the stored token is expired; the next
@@ -863,12 +875,15 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 		entry.gen = gen
 		var lostAccess *factorydroid.Error
 		var copilotRefused *githubcopilot.Error
+		var commandCodeRevoked *commandcode.UsageError
 		if quotaProvider(a) == "alibaba-token-plan" || errors.As(err, &lostAccess) && (lostAccess.Status == http.StatusUnauthorized || lostAccess.Status == http.StatusForbidden) ||
-			errors.As(err, &copilotRefused) && (copilotRefused.Status == http.StatusUnauthorized || copilotRefused.Status == http.StatusForbidden) {
+			errors.As(err, &copilotRefused) && (copilotRefused.Status == http.StatusUnauthorized || copilotRefused.Status == http.StatusForbidden) ||
+			errors.As(err, &commandCodeRevoked) {
 			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
 			// an expired cookie or refused report makes the windows unknown.
 			// A Factory or Copilot credential that lost access drops its
-			// cached quota (Copilot's rethrowAuthRejection).
+			// cached quota (Copilot's rethrowAuthRejection), as does a revoked
+			// Command Code key (its usage provider throws only on 401).
 			entry.goodAt = time.Time{}
 		}
 	}
