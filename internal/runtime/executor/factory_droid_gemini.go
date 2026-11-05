@@ -165,13 +165,16 @@ func (g *factoryDroidGemini) open(ctx context.Context, auth *cliproxyauth.Auth, 
 	data, _ := io.ReadAll(decoded)
 	_ = decoded.Close()
 	helps.AppendAPIResponseChunk(ctx, e.cfg, data)
-	return nil, statusErr{code: response.StatusCode, msg: fmt.Sprintf("Factory Gemini generate failed (%d): %s", response.StatusCode, googlewire.ExtractErrorMessage(string(data), response.StatusCode))}
+	// The reply's headers ride along so its Retry-After reaches scheduling.
+	return nil, &neoPiUpstreamError{code: response.StatusCode, headers: response.Header.Clone(),
+		body: fmt.Sprintf("Factory Gemini generate failed (%d): %s", response.StatusCode, googlewire.ExtractErrorMessage(string(data), response.StatusCode))}
 }
 
-// factoryDroidGeminiTerminal is the native terminal mapping: any tool call
-// wins over every finish reason, a promptFeedback block reason comes next,
-// then the last chunk's finish reason (STOP and MAX_TOKENS end cleanly). A
-// stream with neither reason was truncated.
+// factoryDroidGeminiTerminal is the native terminal mapping: a stream with
+// neither a finish nor a block reason was truncated, whatever it carried;
+// otherwise any tool call wins over every finish reason, a promptFeedback
+// block reason comes next, then the last chunk's finish reason (STOP and
+// MAX_TOKENS end cleanly).
 type factoryDroidGeminiTerminal struct {
 	finish, block string
 	toolCalls     bool
@@ -192,12 +195,12 @@ func (t *factoryDroidGeminiTerminal) observe(payload []byte) {
 
 func (t *factoryDroidGeminiTerminal) err() error {
 	switch {
+	case t.finish == "" && t.block == "":
+		return statusErr{code: http.StatusBadGateway, msg: "Factory Droid Gemini stream closed before a finish_reason was received"}
 	case t.toolCalls:
 		return nil
 	case t.block != "":
 		return statusErr{code: http.StatusBadGateway, msg: "Generation was blocked by content filters (" + t.block + ")"}
-	case t.finish == "":
-		return statusErr{code: http.StatusBadGateway, msg: "Factory Droid Gemini stream closed before a finish_reason was received"}
 	case t.finish == "STOP" || t.finish == "MAX_TOKENS":
 		return nil
 	case factoryDroidBlockReasons[t.finish]:

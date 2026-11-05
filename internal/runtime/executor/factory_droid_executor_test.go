@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -171,8 +172,16 @@ func loadFactoryDroidCapture(t *testing.T, path string) factoryDroidCapture {
 // with status and body, the account's row served from that server.
 func factoryDroidServe(t *testing.T, model string, format sdktranslator.Format, payload string, stream bool, status int, contentType, body string) (string, error) {
 	t.Helper()
+	return factoryDroidServeHeaders(t, model, format, payload, stream, status, http.Header{"Content-Type": {contentType}}, body)
+}
+
+// factoryDroidServeHeaders is factoryDroidServe with the reply's headers.
+func factoryDroidServeHeaders(t *testing.T, model string, format sdktranslator.Format, payload string, stream bool, status int, header http.Header, body string) (string, error) {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", contentType)
+		for name, values := range header {
+			w.Header()[name] = values
+		}
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, body)
 	}))
@@ -228,9 +237,10 @@ func TestFactoryDroidCompletionsReturnsDeclaredToolNames(t *testing.T) {
 	}
 }
 
-// Gemini routes end the way the native client does: a tool call wins over
-// any finish reason, a prompt block or a missing finish reason fails, and a
-// returned call carries the declared tool name.
+// Gemini routes end the way the native client does: a stream without a
+// finish or block reason fails even after a tool call, otherwise a tool call
+// wins over any finish reason, a prompt block fails, and a returned call
+// carries the declared tool name.
 func TestFactoryDroidGeminiTerminal(t *testing.T) {
 	payload := `{"contents":[{"role":"user","parts":[{"text":"hi"}]}],"tools":[{"functionDeclarations":[{"name":"my.tool","parameters":{"type":"object"}}]}]}`
 	frame := func(chunk string) string { return "data: " + chunk + "\n\n" }
@@ -243,6 +253,7 @@ func TestFactoryDroidGeminiTerminal(t *testing.T) {
 		{"blocked finish", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"RECITATION"}]}`), "Generation was blocked by content filters (RECITATION)", ""},
 		{"unknown finish", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"OTHER"}]}`), "Unknown finish reason: OTHER", ""},
 		{"truncated", frame(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]}}]}`), "closed before a finish_reason", ""},
+		{"truncated tool call", frame(`{"candidates":[{"content":{"role":"model","parts":[{"functionCall":{"name":"my_tool","args":{}}}]}}]}`), "closed before a finish_reason", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := factoryDroidServe(t, "garnet-07-15", sdktranslator.FormatGemini, payload, false, http.StatusOK, "text/event-stream", tc.body)
@@ -259,6 +270,26 @@ func TestFactoryDroidGeminiTerminal(t *testing.T) {
 				t.Errorf("response lacks %s:\n%s", tc.wantOut, out)
 			}
 		})
+	}
+}
+
+// A Gemini route's rejection keeps the reply's headers, so its Retry-After
+// reaches scheduling (GoogleApiError carries response.headers).
+func TestFactoryDroidGeminiRejectionKeepsRetryAfter(t *testing.T) {
+	payload := `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`
+	header := http.Header{"Content-Type": {"application/json"}, "Retry-After": {"75"}}
+	for _, stream := range []bool{false, true} {
+		_, err := factoryDroidServeHeaders(t, "garnet-07-15", sdktranslator.FormatGemini, payload, stream, http.StatusTooManyRequests, header, `{"error":{"code":429,"message":"Slow down"}}`)
+		var hinted interface {
+			StatusCode() int
+			RetryAfter() *time.Duration
+		}
+		if !errors.As(err, &hinted) || hinted.StatusCode() != http.StatusTooManyRequests {
+			t.Fatalf("stream=%v: err = %T %v, want a 429 carrying its retry hint", stream, err, err)
+		}
+		if after := hinted.RetryAfter(); after == nil || *after != 75*time.Second {
+			t.Errorf("stream=%v: RetryAfter = %v, want 75s", stream, after)
+		}
 	}
 }
 
