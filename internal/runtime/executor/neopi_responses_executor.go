@@ -47,6 +47,24 @@ type NeoPiResponsesExecutor struct {
 	// requests the model's whole output allowance when the caller names none
 	// and floors a mandatory-reasoning model at its default effort.
 	StreamSimple bool
+	// binding fixes the request scope of a provider whose own transport wraps
+	// NeoPi's openai-responses wire; nil for a catalog provider.
+	binding *neoPiResponsesBinding
+}
+
+// neoPiResponsesBinding is one wrapping transport's attempt (Factory Droid's
+// streamResponsesWire): the inner model, its bearer and session, the options
+// the wrapper passes streamOpenAIResponses, and its headers in place of the
+// credential's transport headers.
+type neoPiResponsesBinding struct {
+	model   *registry.NeoPiModel
+	token   string
+	session string
+	// shape sets the wrapper's options over the ones NeoPi derived from the
+	// downstream request.
+	shape func(conversation *openaiwire.Context, options *openaiwire.Options)
+	// headers finishes the request headers over the transport's own.
+	headers func(ctx context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header)
 }
 
 // NewNeoPiResponsesExecutor creates the executor for one provider id: "meta",
@@ -117,6 +135,9 @@ func neoPiResponsesCredsOf(identifier string, auth *cliproxyauth.Auth) (baseURL,
 }
 
 func (e *NeoPiResponsesExecutor) neoPiResponsesCreds(auth *cliproxyauth.Auth) (baseURL, token string) {
+	if e.binding != nil {
+		return e.binding.model.BaseURL, e.binding.token
+	}
 	return neoPiResponsesCredsOf(e.Identifier(), auth)
 }
 
@@ -126,6 +147,9 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesCreds(auth *cliproxyauth.Auth) (b
 // auth is served as. For a catalog provider an address other than the
 // catalog's (a configured base URL) wins over the bundled one.
 func (e *NeoPiResponsesExecutor) neoPiResponsesModel(auth *cliproxyauth.Auth, req cliproxyexecutor.Request) *registry.NeoPiModel {
+	if e.binding != nil {
+		return e.binding.model.Clone()
+	}
 	provider := e.neoPiResponsesProvider(auth)
 	var model *registry.NeoPiModel
 	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == "openai-responses" {

@@ -98,6 +98,18 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	if provider.headers != nil {
 		profile.thirdParty.headers = provider.headers()
 	}
+	var factoryHeaders http.Header
+	if provider.factory != nil {
+		prefixed, factory, headers, errFactory := provider.factory(translated)
+		if errFactory != nil {
+			return nil, errFactory
+		}
+		translated = prefixed
+		profile.thirdParty.factory = factory
+		factoryHeaders = headers
+		// streamMessagesWire forwards no session id to the transport.
+		identity.SessionID = ""
+	}
 	webSearch, webSearchSet := "", false
 	if provider.gatewayWebSearch != nil {
 		// NeoPi decides over model headers merged with the caller's, the
@@ -128,6 +140,21 @@ func (e *ClaudeExecutor) prepareThirdParty(ctx context.Context, auth *cliproxyau
 	body = finalize(body)
 	neoPiApplyHeaders(headers, auth, opts.Headers, &anthropicnpi.Credential{APIKey: bearer}, base, ctx)
 	applyThirdPartyIdentity(headers, provider, bearer, session)
+	if factoryHeaders != nil {
+		// NeoPi spreads the caller's headers over the identity set: the
+		// account's configured headers win where they name the same header.
+		configured := make(http.Header)
+		if auth != nil {
+			util.ApplyCustomHeadersFromAttrs((&http.Request{Header: configured}).WithContext(ctx), auth.Attributes, opts.Headers)
+		}
+		for name, values := range factoryHeaders {
+			if value := configured.Get(name); value != "" {
+				headers.Set(name, value)
+				continue
+			}
+			headers[name] = values
+		}
+	}
 	if provider.enforceBearer {
 		headers.Set("Authorization", "Bearer "+bearer)
 	}

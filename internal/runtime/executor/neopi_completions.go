@@ -104,8 +104,10 @@ func neoPiCompletionsRequest(input []byte, row *registry.NeoPiModel, call neoPiC
 	root := gjson.ParseBytes(input)
 	options := neoPiCompletionsOptionsFrom(root)
 	// streamSimple routes Synthetic through streamSynthetic, which maps the raw
-	// options itself and never applies normalizeMandatoryReasoningOptions.
-	if row.Provider != "synthetic" {
+	// options itself and never applies normalizeMandatoryReasoningOptions;
+	// Factory Droid's wire calls streamOpenAICompletions directly with the
+	// route dialect owning every reasoning field.
+	if row.Provider != "synthetic" && row.Provider != "factory-droid" {
 		neoPiNormalizeMandatoryReasoning(row, &options)
 	}
 	if options.maxTokens == nil && row.MaxTokens > 0 {

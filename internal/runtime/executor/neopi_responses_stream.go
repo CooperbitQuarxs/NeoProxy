@@ -118,10 +118,18 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 		}
 		openaiwire.NormalizeMandatoryReasoning(model, &options)
 	}
+	if e.binding != nil {
+		options.SessionID = e.binding.session
+		e.binding.shape(&conversation, &options)
+	}
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)
 	shaped.Body = helps.FinalizePayload(ctx, shaped.Body)
-	e.applyTransportHeaders(shaped.Header, auth, model, opts.Headers)
+	if e.binding != nil {
+		e.binding.headers(ctx, auth, shaped.Header, opts.Headers)
+	} else {
+		e.applyTransportHeaders(shaped.Header, auth, model, opts.Headers)
+	}
 	return ctx, &neoPiResponsesTurn{
 		request:         shaped,
 		baseModel:       baseModel,

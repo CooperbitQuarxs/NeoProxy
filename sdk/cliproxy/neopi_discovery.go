@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/factorydroid"
 	umansauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/umans"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -25,11 +26,17 @@ type neoPiDiscovery struct {
 	// ttl is how long a listing stays fresh; retry backs off after a failure;
 	// a zero timeout means no deadline on the fetch.
 	ttl, retry, timeout time.Duration
-	bundled             func() []*ModelInfo
-	fetch               func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
+	// bundled is the roster served until discovery answers; Factory Droid's
+	// seed is narrowed for the account's scope.
+	bundled func(*coreauth.Auth) []*ModelInfo
+	fetch   func(context.Context, *config.Config, *coreauth.Auth) ([]*ModelInfo, error)
 	// match selects the accounts the discovery serves when provider alone
 	// cannot (keys at an address, one provider with two NeoPi catalogs).
 	match func(*coreauth.Auth) bool
+	// scope names the account scope a listing belongs to, when a refresh can
+	// move one account to another (Factory Droid's org, residency and
+	// inference region); a listing from another scope is not served.
+	scope func(*coreauth.Auth) string
 
 	mu      sync.Mutex
 	entries map[string]*neoPiDiscoveryEntry
@@ -37,6 +44,8 @@ type neoPiDiscovery struct {
 
 type neoPiDiscoveryEntry struct {
 	models []*ModelInfo
+	// scope is the account scope the listing was fetched for.
+	scope string
 	// shortLived marks a listing that named no models: its roster stands
 	// for this cycle only and is refetched after the retry interval.
 	shortLived bool
@@ -49,19 +58,24 @@ type neoPiDiscoveryEntry struct {
 // accounts that never re-register (imported, refresh-locked ones).
 const neoPiDiscoverySweepEvery = 15 * time.Minute
 
+// neoPiStaticSeed is a seed roster every account shares.
+func neoPiStaticSeed(models func() []*ModelInfo) func(*coreauth.Auth) []*ModelInfo {
+	return func(*coreauth.Auth) []*ModelInfo { return models() }
+}
+
 var (
 	// kimiDiscovery lists GET /coding/v1/models.
 	kimiDiscovery = &neoPiDiscovery{provider: "kimi", ttl: 6 * time.Hour, retry: 5 * time.Minute, timeout: 30 * time.Second,
-		bundled: registry.KimiBundledModels, fetch: executor.FetchKimiModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: neoPiStaticSeed(registry.KimiBundledModels), fetch: executor.FetchKimiModels, entries: map[string]*neoPiDiscoveryEntry{}}
 	// devinDiscovery calls GetCliModelConfigs: NeoPi's model manager default
 	// 2h cache TTL and its 15s discovery bound.
 	devinDiscovery = &neoPiDiscovery{provider: "devin", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
-		bundled: registry.DevinBundledModels, fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: neoPiStaticSeed(registry.DevinBundledModels), fetch: executor.FetchDevinModels, entries: map[string]*neoPiDiscoveryEntry{}}
 	// cursorDiscovery calls GetUsableModels, AvailableModels and
 	// GetDefaultModelForCli: the model manager's default 2h cache TTL; each
 	// RPC carries its own 5s (AvailableModels 2s) deadline inside the bound.
 	cursorDiscovery = &neoPiDiscovery{provider: "cursor", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 15 * time.Second,
-		bundled: registry.CursorBundledModels, fetch: executor.FetchCursorModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: neoPiStaticSeed(registry.CursorBundledModels), fetch: executor.FetchCursorModels, entries: map[string]*neoPiDiscoveryEntry{}}
 
 	// museCodeDiscovery lists a Meta sign-in's models: NeoPi's muse-code
 	// manager (authoritative `/v1/models` over the subscription key).
@@ -75,16 +89,35 @@ var (
 	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
 	// overlays the listing, so its bundled catalog stays authoritative.
 	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 0,
-		bundled: registry.GoogleBundledModels, fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: neoPiStaticSeed(registry.GoogleBundledModels), fetch: executor.FetchGoogleModels, entries: map[string]*neoPiDiscoveryEntry{}}
 	// umansDiscovery lists an openai-compatibility key at the Umans address:
 	// NeoPi's authoritative GET /v1/models/info manager (2h cache), which sets
 	// no timeout; a zero timeout runs the fetch without a deadline.
 	umansDiscovery = &neoPiDiscovery{provider: umansauth.Provider, ttl: 2 * time.Hour, retry: 5 * time.Minute,
 		match:   func(a *coreauth.Auth) bool { return umansauth.IsBaseURL(a.Attributes["base_url"]) },
-		bundled: registry.UmansBundledModels, fetch: executor.FetchUmansModels, entries: map[string]*neoPiDiscoveryEntry{}}
+		bundled: neoPiStaticSeed(registry.UmansBundledModels), fetch: executor.FetchUmansModels, entries: map[string]*neoPiDiscoveryEntry{}}
+	// factoryDroidDiscovery narrows the KDL registry with the account's
+	// feature flags and org policy. NeoPi refetches it on every refresh
+	// (alwaysRefetchDynamicModels: cached eligibility is not current
+	// entitlement), so a listing stays fresh only until the next sweep; the
+	// fetch sets no timeout.
+	factoryDroidDiscovery = &neoPiDiscovery{provider: "factory-droid", ttl: neoPiDiscoverySweepEvery, retry: 5 * time.Minute,
+		bundled: executor.FactoryDroidSeedModels, fetch: executor.FetchFactoryDroidModels, scope: factoryDroidDiscoveryScope,
+		entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery}
 )
+
+// factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory
+// listing by (factoryDroidModelCacheProviderId): the credential's account,
+// its organization, residency and inference region.
+func factoryDroidDiscoveryScope(a *coreauth.Auth) string {
+	credential, ok := factorydroid.RecordCredential(a.Metadata)
+	if !ok {
+		return ""
+	}
+	return factorydroid.ModelCacheScope(credential)
+}
 
 // newResponsesDiscovery is the discovery of one NeoPi Responses provider: the
 // model manager's 2h cache over executor.FetchResponsesModels. NeoPi bounds
@@ -95,7 +128,7 @@ var (
 func newResponsesDiscovery(neoPiProvider, provider string) *neoPiDiscovery {
 	return &neoPiDiscovery{provider: provider, ttl: 2 * time.Hour, retry: 5 * time.Minute,
 		match: func(a *coreauth.Auth) bool { return executor.ResponsesProviderOfAuth(a) == neoPiProvider },
-		bundled: func() []*ModelInfo {
+		bundled: func(*coreauth.Auth) []*ModelInfo {
 			owner, modelType := "meta", "meta"
 			if provider == "" {
 				owner, modelType = neoPiProvider, "openai-compatibility"
@@ -111,8 +144,8 @@ func (d *neoPiDiscovery) models(a *coreauth.Auth, now time.Time) ([]*ModelInfo, 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	entry := d.entries[a.ID]
-	if entry == nil {
-		return d.bundled(), true
+	if entry == nil || entry.scope != d.scopeOf(a) {
+		return d.bundled(a), true
 	}
 	// A successful empty listing stands for this cycle but, as in NeoPi's
 	// model manager, is not cached as authoritative: it retries after d.retry.
@@ -124,7 +157,7 @@ func (d *neoPiDiscovery) models(a *coreauth.Auth, now time.Time) ([]*ModelInfo, 
 	backingOff := !entry.failedAt.IsZero() && now.Sub(entry.failedAt) < d.retry
 	stale := !fresh && !backingOff && !entry.inFlight
 	if entry.models == nil {
-		return d.bundled(), stale
+		return d.bundled(a), stale
 	}
 	out := make([]*ModelInfo, 0, len(entry.models))
 	for _, model := range entry.models {
@@ -157,8 +190,10 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 	}
 	d.mu.Lock()
 	entry := d.entries[a.ID]
-	if entry == nil {
-		entry = &neoPiDiscoveryEntry{}
+	// A listing for another scope is replaced, never joined: its fetch
+	// publishes into the entry it started with.
+	if scope := d.scopeOf(a); entry == nil || entry.scope != scope {
+		entry = &neoPiDiscoveryEntry{scope: scope}
 		d.entries[a.ID] = entry
 	}
 	if entry.inFlight {
@@ -192,7 +227,12 @@ func (s *Service) queueNeoPiDiscovery(d *neoPiDiscovery, a *coreauth.Auth) {
 		} else {
 			entry.models, entry.shortLived, entry.fetchedAt, entry.failedAt = models, shortLived, time.Now(), time.Time{}
 		}
+		current := d.entries[snapshot.ID] == entry
 		d.mu.Unlock()
+		if !current {
+			// The account moved to another scope while this fetch ran.
+			return
+		}
 		if err != nil {
 			log.WithError(err).Warnf("%s: model discovery failed for %s", d.provider, snapshot.ID)
 			return
@@ -245,6 +285,14 @@ func (s *Service) runNeoPiDiscovery(ctx context.Context) {
 			}
 		}
 	}
+}
+
+// scopeOf is the account scope a listing for a belongs to.
+func (d *neoPiDiscovery) scopeOf(a *coreauth.Auth) string {
+	if d.scope == nil || a == nil {
+		return ""
+	}
+	return d.scope(a)
 }
 
 // serves reports whether the discovery lists a's models.

@@ -317,6 +317,8 @@ type ScriptWindow struct {
 	Known    bool    `json:"known"`
 	Used     float64 `json:"used"`
 	ResetsAt int64   `json:"resetsAt"`
+	// Models are the models a provider window gates; empty gates them all.
+	Models []string `json:"models,omitempty"`
 }
 type ScriptProposal struct {
 	StageID   string               `json:"stageId"`

@@ -17,6 +17,7 @@ func init() {
 	registerRefreshLead("meta", func() Authenticator { return NewMetaAuthenticator() })
 	registerRefreshLead("cursor", func() Authenticator { return NewCursorAuthenticator() })
 	registerRefreshLead("nous-portal", func() Authenticator { return NewNousAuthenticator() })
+	registerRefreshLead("factory-droid", func() Authenticator { return NewFactoryDroidAuthenticator() })
 }
 
 func registerRefreshLead(provider string, factory func() Authenticator) {

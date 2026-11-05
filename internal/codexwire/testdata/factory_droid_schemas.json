@@ -1,0 +1,448 @@
+{
+	"source": "NeoPi normalizeSchemaForFactoryDroid(dereferenceJsonSchema(toolWireSchema))",
+	"cases": [
+		{
+			"name": "plain",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"term": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"term"
+				]
+			},
+			"wire": "{\"type\":\"object\",\"required\":[\"term\"],\"properties\":{\"term\":{\"type\":\"string\"}}}"
+		},
+		{
+			"name": "key-order",
+			"parameters": {
+				"required": [
+					"a"
+				],
+				"properties": {
+					"a": {
+						"description": "A.",
+						"type": "string",
+						"maxLength": 9,
+						"minLength": 1
+					}
+				},
+				"type": "object",
+				"additionalProperties": false
+			},
+			"wire": "{\"type\":\"object\",\"required\":[\"a\"],\"properties\":{\"a\":{\"type\":\"string\",\"description\":\"A.\",\"minLength\":1,\"maxLength\":9}}}"
+		},
+		{
+			"name": "dropped-keywords",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"a": {
+						"type": "string",
+						"examples": [
+							"x"
+						],
+						"$comment": "c",
+						"deprecated": true,
+						"readOnly": true,
+						"pattern": "^a"
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\",\"pattern\":\"^a\"}}}"
+		},
+		{
+			"name": "const-and-enum",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"c": {
+						"const": 3
+					},
+					"e": {
+						"enum": [
+							1,
+							"two",
+							true,
+							null
+						]
+					},
+					"s": {
+						"type": "string",
+						"enum": [
+							"a",
+							"b"
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"c\":{\"enum\":[\"3\"],\"type\":\"string\"},\"e\":{\"enum\":[\"1\",\"two\",\"true\",\"null\"],\"type\":\"string\"},\"s\":{\"type\":\"string\",\"enum\":[\"a\",\"b\"]}}}"
+		},
+		{
+			"name": "type-array-nullable",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"n": {
+						"type": [
+							"string",
+							"null"
+						]
+					},
+					"m": {
+						"type": [
+							"null",
+							"integer",
+							"string"
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"n\":{\"type\":\"string\",\"nullable\":true},\"m\":{\"type\":\"integer\",\"nullable\":true}}}"
+		},
+		{
+			"name": "nullable-anyof",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"anyOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "null"
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":\"string\",\"nullable\":true}}}"
+		},
+		{
+			"name": "mixed-anyof-kept",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"description": "Either.",
+						"anyOf": [
+							{
+								"type": "string"
+							},
+							{
+								"type": "number"
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"description\":\"Either.\",\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]}}}"
+		},
+		{
+			"name": "mixed-anyof-narrowed",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"type": "string",
+						"minLength": 2,
+						"anyOf": [
+							{
+								"type": "string",
+								"maxLength": 5
+							},
+							{
+								"type": "array",
+								"items": {
+									"type": "string"
+								}
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":\"string\",\"minLength\":2,\"maxLength\":5,\"nullable\":false}}}"
+		},
+		{
+			"name": "same-type-union-merge",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"oneOf": [
+							{
+								"type": "object",
+								"properties": {
+									"a": {
+										"type": "string"
+									},
+									"b": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"a",
+									"b"
+								]
+							},
+							{
+								"type": "object",
+								"properties": {
+									"a": {
+										"type": "string"
+									},
+									"c": {
+										"type": "integer"
+									}
+								},
+								"required": [
+									"a",
+									"c"
+								]
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"},\"b\":{\"type\":\"string\"},\"c\":{\"type\":\"integer\"}},\"nullable\":false,\"required\":[\"a\"]}}}"
+		},
+		{
+			"name": "allof-conjunction",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"allOf": [
+							{
+								"type": "integer",
+								"minimum": 1,
+								"maximum": 10
+							},
+							{
+								"minimum": 3,
+								"maximum": 20
+							}
+						]
+					},
+					"w": {
+						"allOf": [
+							{
+								"type": "object",
+								"properties": {
+									"a": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"a"
+								]
+							},
+							{
+								"type": "object",
+								"properties": {
+									"b": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"b"
+								]
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":\"integer\",\"minimum\":3,\"maximum\":10},\"w\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"},\"b\":{\"type\":\"string\"}},\"required\":[\"a\",\"b\"]}}}"
+		},
+		{
+			"name": "allof-into-union",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"allOf": [
+							{
+								"anyOf": [
+									{
+										"type": "string",
+										"enum": [
+											"a",
+											"b"
+										]
+									},
+									{
+										"type": "number"
+									}
+								]
+							},
+							{
+								"anyOf": [
+									{
+										"type": "string",
+										"enum": [
+											"b",
+											"c"
+										]
+									},
+									{
+										"type": "integer"
+									}
+								]
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":\"string\",\"enum\":[\"b\"],\"nullable\":false}}}"
+		},
+		{
+			"name": "refs-and-defs",
+			"parameters": {
+				"type": "object",
+				"$defs": {
+					"Point": {
+						"type": "object",
+						"properties": {
+							"x": {
+								"type": "number"
+							},
+							"y": {
+								"type": "number"
+							}
+						},
+						"required": [
+							"x",
+							"y"
+						]
+					}
+				},
+				"properties": {
+					"from": {
+						"$ref": "#/$defs/Point"
+					},
+					"to": {
+						"$ref": "#/$defs/Point",
+						"description": "Target."
+					}
+				},
+				"required": [
+					"from"
+				]
+			},
+			"wire": "{\"type\":\"object\",\"required\":[\"from\"],\"properties\":{\"from\":{\"type\":\"object\",\"required\":[\"x\",\"y\"],\"properties\":{\"x\":{\"type\":\"number\"},\"y\":{\"type\":\"number\"}}},\"to\":{\"type\":\"object\",\"description\":\"Target.\",\"required\":[\"x\",\"y\"],\"properties\":{\"x\":{\"type\":\"number\"},\"y\":{\"type\":\"number\"}}}}}"
+		},
+		{
+			"name": "draft07-definitions",
+			"parameters": {
+				"type": "object",
+				"definitions": {
+					"Name": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"properties": {
+					"name": {
+						"$ref": "#/definitions/Name"
+					},
+					"tags": {
+						"type": "array",
+						"items": {
+							"$ref": "#/definitions/Name"
+						},
+						"minItems": 1
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":1},\"tags\":{\"type\":\"array\",\"minItems\":1,\"items\":{\"type\":\"string\",\"minLength\":1}}}}"
+		},
+		{
+			"name": "untyped-inference",
+			"parameters": {
+				"properties": {
+					"list": {
+						"items": {
+							"type": "string"
+						}
+					},
+					"choice": {
+						"enum": [
+							"x",
+							"y"
+						]
+					},
+					"nested": {
+						"properties": {
+							"a": {
+								"type": "boolean"
+							}
+						}
+					}
+				}
+			},
+			"wire": "{\"properties\":{\"list\":{\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"choice\":{\"type\":\"string\",\"enum\":[\"x\",\"y\"]},\"nested\":{\"properties\":{\"a\":{\"type\":\"boolean\"}},\"type\":\"object\"}},\"type\":\"object\"}"
+		},
+		{
+			"name": "required-undefined-in-union",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"v": {
+						"anyOf": [
+							{
+								"type": "object",
+								"properties": {
+									"a": {
+										"type": "string"
+									}
+								},
+								"required": [
+									"a",
+									"missing"
+								]
+							},
+							{
+								"type": "string"
+							}
+						]
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"anyOf\":[{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}},\"required\":[\"a\"]},{\"type\":\"string\"}]}}}"
+		},
+		{
+			"name": "bounds-defaults",
+			"parameters": {
+				"type": "object",
+				"properties": {
+					"n": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 100,
+						"default": 5,
+						"example": 7,
+						"format": "int32",
+						"title": "N"
+					}
+				}
+			},
+			"wire": "{\"type\":\"object\",\"properties\":{\"n\":{\"type\":\"integer\",\"title\":\"N\",\"format\":\"int32\",\"minimum\":0,\"maximum\":100,\"default\":5,\"example\":7}}}"
+		},
+		{
+			"name": "empty-object",
+			"parameters": {
+				"type": "object"
+			},
+			"wire": "{\"type\":\"object\"}"
+		},
+		{
+			"name": "no-params",
+			"parameters": {},
+			"wire": "{}"
+		}
+	]
+}
