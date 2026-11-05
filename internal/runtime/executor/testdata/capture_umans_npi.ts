@@ -118,6 +118,9 @@ for (const [source, id] of rows) {
 	for (const effort of efforts) add(source, id, `effort-${effort}`, hello, { reasoning: effort });
 	add(source, id, "off", hello, { disableReasoning: true });
 	add(source, id, "off-sampling", hello, { disableReasoning: true, temperature: 0.3, maxTokens: 300 });
+	// A caller's max_tokens is the output it wants; thinking's budget goes on
+	// top, within the model cap.
+	for (const effort of efforts) add(source, id, `max-tokens-${effort}`, hello, { reasoning: effort, maxTokens: 8192 });
 	add(source, id, "system-tool", askTurns, { reasoning: first, maxTokens: 512, temperature: 0.2 }, { system: "A source system.", tools: [lookup] });
 	add(source, id, "tool-history", history([text("Found.")]), { reasoning: first }, { tools: [lookup] });
 	add(source, id, "tool-result-blocks", history([text("Line one."), text("  "), text("Line two.")]), { reasoning: first }, { tools: [lookup] });

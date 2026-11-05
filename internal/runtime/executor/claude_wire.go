@@ -412,6 +412,15 @@ func projectNeoPiAnthropic(input []byte, model, base, version string, identity n
 		if budget <= 0 {
 			budget = 1024
 		}
+		if party != nil && root.Get("max_tokens").Int() > 0 {
+			// streamSimple treats the caller's max_tokens as the output it
+			// wants and gives thinking its budget on top, within the model cap
+			// (maxTokensWithThinkingBudget).
+			if profile.MaxTokens < budget+4000 {
+				budget = profile.MaxTokens - 4000
+			}
+			maxTokens = min(maxTokens+budget, profile.MaxTokens)
+		}
 		maxTokens = min(max(maxTokens, budget+4000), profile.MaxTokens)
 		budget = min(budget, maxTokens-4000)
 		if budget <= 0 {
