@@ -128,13 +128,16 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	defer func() { _ = response.Body.Close() }()
 	var usage helps.StreamUsageBuffer
 	var lines [][]byte
-	err = neoPiScanCompletions(ctx, e.cfg, e.provider, response.Body, func(line []byte) error {
+	err = neoPiScanNormalizedCompletions(ctx, e.cfg, e.provider, row.CompletionsCompat, response.Header, response.Body, func(line []byte) error {
 		usage.ObserveOpenAIStream(line)
 		reporter.ObserveResponseModel(line)
 		lines = append(lines, line)
 		return nil
 	})
 	if err != nil {
+		if line := neoPiCompletionsFailureUsage(err); line != nil {
+			usage.ObserveOpenAIStream(line)
+		}
 		usage.PublishFailure(ctx, reporter, err)
 		return result, err
 	}
@@ -185,7 +188,7 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 				return ctx.Err()
 			}
 		}
-		consumeErr := neoPiScanCompletions(ctx, e.cfg, e.provider, response.Body, func(line []byte) error {
+		consumeErr := neoPiScanNormalizedCompletions(ctx, e.cfg, e.provider, row.CompletionsCompat, response.Header, response.Body, func(line []byte) error {
 			usage.ObserveOpenAIStream(line)
 			reporter.ObserveResponseModel(line)
 			for _, chunk := range sdktranslator.TranslateStream(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, prepared.body, line, &state) {
@@ -204,6 +207,9 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 			}
 		}
 		if consumeErr != nil {
+			if line := neoPiCompletionsFailureUsage(consumeErr); line != nil {
+				usage.ObserveOpenAIStream(line)
+			}
 			usage.PublishFailure(ctx, reporter, consumeErr)
 			select {
 			case out <- cliproxyexecutor.StreamChunk{Err: consumeErr}:
