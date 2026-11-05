@@ -32,15 +32,32 @@ import (
 )
 
 // NeoPiGoogleHooks bind the shared NeoPi Google surface to one provider: which
-// catalog row a model id resolves to, the API key, the base URL and any extra
-// identity headers (a gateway row's session header).
+// catalog row a model id resolves to, where a request goes and how it
+// authenticates, and any extra identity headers (a gateway row's session
+// header).
 type NeoPiGoogleHooks struct {
-	Row     func(req cliproxyexecutor.Request, model string) *registry.NeoPiModel
-	Key     func(auth *cliproxyauth.Auth) string
-	BaseURL func(auth *cliproxyauth.Auth, row *registry.NeoPiModel) string
+	Row func(req cliproxyexecutor.Request, model string) *registry.NeoPiModel
+	// Endpoint resolves the account's endpoint for row (nil when only the
+	// credential is needed, as for an arbitrary HttpRequest). acquire false
+	// (a token count) validates the endpoint without acquiring a credential
+	// that costs a request. The default is the Gemini API with the account's
+	// key.
+	Endpoint func(ctx context.Context, auth *cliproxyauth.Auth, row *registry.NeoPiModel, acquire bool) (NeoPiGoogleEndpoint, error)
 	// Headers returns extra identity headers (a gateway row's x-opencode-session);
 	// sessionID is NeoPi's options.sessionId for the request.
 	Headers func(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, sessionID string) http.Header
+}
+
+// NeoPiGoogleEndpoint is where one generateContent stream is opened and the
+// credential header it carries.
+type NeoPiGoogleEndpoint struct {
+	URL string
+	// FallbackURL is opened once when URL answers 404 (Vertex's global
+	// endpoint behind an ambient region); empty for none.
+	FallbackURL string
+	// Credential is the authentication header (x-goog-api-key or
+	// Authorization).
+	Credential http.Header
 }
 
 // NeoPiGoogleExecutor serves the Gemini API the way NeoPi's `google` provider
@@ -58,13 +75,27 @@ func NewNeoPiGoogleExecutor(provider string, cfg *config.Config, hooks NeoPiGoog
 	if hooks.Row == nil {
 		hooks.Row = geminiNeoPiRow
 	}
-	if hooks.Key == nil {
-		hooks.Key = geminiAPIKey
-	}
-	if hooks.BaseURL == nil {
-		hooks.BaseURL = geminiNeoPiBaseURL
+	if hooks.Endpoint == nil {
+		hooks.Endpoint = func(_ context.Context, auth *cliproxyauth.Auth, row *registry.NeoPiModel, _ bool) (NeoPiGoogleEndpoint, error) {
+			return geminiNeoPiEndpoint(provider, auth, row)
+		}
 	}
 	return &NeoPiGoogleExecutor{cfg: cfg, provider: provider, hooks: hooks}
+}
+
+// geminiNeoPiEndpoint is streamGoogle's endpoint: the API key in
+// x-goog-api-key, on NeoPi's model.baseUrl. NeoPi refuses to generate
+// without a key rather than sending another credential.
+func geminiNeoPiEndpoint(provider string, auth *cliproxyauth.Auth, row *registry.NeoPiModel) (NeoPiGoogleEndpoint, error) {
+	key := geminiAPIKey(auth)
+	if key == "" {
+		return NeoPiGoogleEndpoint{}, statusErr{code: http.StatusUnauthorized, msg: provider + ": account has no API key"}
+	}
+	endpoint := NeoPiGoogleEndpoint{Credential: http.Header{"X-Goog-Api-Key": {key}}}
+	if row != nil {
+		endpoint.URL = fmt.Sprintf("%s/models/%s:streamGenerateContent?alt=sse", geminiNeoPiBaseURL(auth, row), row.ID)
+	}
+	return endpoint, nil
 }
 
 // geminiNeoPiRow is the NeoPi record the account's registration produced for
@@ -115,24 +146,26 @@ func (e *NeoPiGoogleExecutor) RequestToFormat(cliproxyexecutor.Request, cliproxy
 	return sdktranslator.FormatGemini
 }
 
-// PrepareRequest injects the API key the way NeoPi's headers carry it.
+// PrepareRequest injects the account's credential the way NeoPi's headers
+// carry it.
 func (e *NeoPiGoogleExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Auth) error {
 	if req == nil {
 		return nil
 	}
 	req.Header.Del("x-goog-api-key")
 	req.Header.Del("Authorization")
-	key := e.hooks.Key(auth)
-	if key == "" {
-		// NeoPi refuses to generate without a key rather than sending another credential.
-		return statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no API key"}
+	endpoint, err := e.hooks.Endpoint(req.Context(), auth, nil, true)
+	if err != nil {
+		return err
 	}
-	req.Header.Set("x-goog-api-key", key)
+	for name, values := range endpoint.Credential {
+		req.Header[name] = values
+	}
 	applyGeminiHeaders(req, auth)
 	return nil
 }
 
-// HttpRequest sends an arbitrary request with the account's key.
+// HttpRequest sends an arbitrary request with the account's credential.
 func (e *NeoPiGoogleExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Auth, req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, fmt.Errorf("gemini executor: request is nil")
@@ -160,7 +193,7 @@ func (e *NeoPiGoogleExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Au
 // of what generation would refuse and the estimate, so nothing runs twice.
 // NeoPi never calls Google's countTokens.
 func (e *NeoPiGoogleExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	prepared, err := e.prepare(ctx, auth, req, opts, false)
+	prepared, err := e.prepare(ctx, auth, req, opts, false, true)
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
 	}
@@ -248,24 +281,32 @@ func neoPiGoogleWireModel(row *registry.NeoPiModel) *googlewire.Model {
 }
 
 type geminiPrepared struct {
-	body     []byte
-	headers  http.Header
-	url      string
-	model    string
-	original []byte
+	body        []byte
+	headers     http.Header
+	url         string
+	fallbackURL string
+	model       string
+	original    []byte
 }
 
 // prepare shapes one NeoPi Google request: the downstream body becomes the
-// OpenAI Chat form NeoPi's model sees, then NeoPi's own request.
-func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, stream bool) (*geminiPrepared, error) {
+// OpenAI Chat form NeoPi's model sees, then NeoPi's own request. A token
+// count resolves the endpoint without acquiring a credential.
+func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, stream, count bool) (*geminiPrepared, error) {
 	baseModel := thinking.ParseSuffix(req.Model).ModelName
 	row := e.hooks.Row(req, baseModel)
 	if row == nil {
 		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("gemini: model %s is not in NeoPi's Google catalog", baseModel)}
 	}
-	key := e.hooks.Key(auth)
-	if key == "" {
-		return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + ": account has no API key"}
+	// streamGoogle resolves its key before it builds the request;
+	// streamGoogleVertex builds the request first.
+	vertex := row.API == "google-vertex"
+	var endpoint NeoPiGoogleEndpoint
+	var err error
+	if !vertex {
+		if endpoint, err = e.hooks.Endpoint(ctx, auth, row, !count); err != nil {
+			return nil, err
+		}
 	}
 	original := req.Payload
 	if len(opts.OriginalRequest) > 0 {
@@ -282,7 +323,6 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 		target = sdktranslator.FormatGemini
 	}
 	var originalTranslated, translated []byte
-	var err error
 	if native {
 		// The Gemini→Gemini normalizer sanitizes signatures (dropping a foreign
 		// thought signature loses the turn's provenance) and attaches safety
@@ -338,7 +378,12 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 		return nil, err
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.Identifier(), row.ID, "gemini", "", originalTranslated, req, opts)(body)
-	headers := neoPiGoogleHeaders(ctx, auth, opts.Headers, key)
+	if vertex {
+		if endpoint, err = e.hooks.Endpoint(ctx, auth, row, !count); err != nil {
+			return nil, err
+		}
+	}
+	headers := neoPiGoogleHeaders(ctx, auth, opts.Headers, endpoint.Credential, vertex, vertex && resolved.ServiceTier == "priority")
 	if e.hooks.Headers != nil {
 		session := neoPiSession(opts, translated)
 		if session == "" {
@@ -348,21 +393,34 @@ func (e *NeoPiGoogleExecutor) prepare(ctx context.Context, auth *cliproxyauth.Au
 			headers[name] = values
 		}
 	}
-	url := fmt.Sprintf("%s/models/%s:streamGenerateContent?alt=sse", e.hooks.BaseURL(auth, row), row.ID)
-	return &geminiPrepared{body: body, headers: headers, url: url, model: row.ID, original: original}, nil
+	return &geminiPrepared{body: body, headers: headers, url: endpoint.URL, fallbackURL: endpoint.FallbackURL, model: row.ID, original: original}, nil
 }
 
-// neoPiGoogleHeaders is what NeoPi's fetch sends to the Gemini API: the API
-// key, NeoPi's identity, and the model/option headers; Accept-Encoding stays
-// the client default the runtime sets for every request.
-func neoPiGoogleHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string) http.Header {
+// neoPiGoogleHeaders is what NeoPi's fetch sends: the credential, NeoPi's
+// identity, and the model/option headers; Accept-Encoding stays the client
+// default the runtime sets for every request. streamGoogle spreads its key
+// first, so a configured header of the same name wins; streamGoogleVertex
+// sets its priority tier header and then its credential over the configured
+// headers.
+func neoPiGoogleHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, credential http.Header, vertex, priority bool) http.Header {
 	headers := make(http.Header)
-	// NeoPi spreads the key first, then model.headers and options.headers, so a
-	// configured header of the same name wins.
-	headers.Set("x-goog-api-key", key)
+	if !vertex {
+		for name, values := range credential {
+			headers[name] = values
+		}
+	}
 	if auth != nil {
 		request := (&http.Request{Header: headers}).WithContext(ctx)
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes, incoming)
+	}
+	if priority {
+		// Vertex ignores a body serviceTier; priority travels as a header.
+		headers.Set("X-Vertex-AI-LLM-Shared-Request-Type", "priority")
+	}
+	if vertex {
+		for name, values := range credential {
+			headers[name] = values
+		}
 	}
 	// The stream request then forces its own Content-Type and Accept.
 	headers.Set("Accept", "text/event-stream")
@@ -376,9 +434,21 @@ func neoPiGoogleHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming h
 	return headers
 }
 
-// open posts one attempt and returns the decoded SSE body.
+// open posts one attempt and returns the decoded SSE body. A regional Vertex
+// endpoint 404s for models published only on the global endpoint, so a
+// prepared fallback is opened once on a 404.
 func (e *NeoPiGoogleExecutor) open(ctx context.Context, auth *cliproxyauth.Auth, prepared *geminiPrepared, client *http.Client) (*http.Response, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, prepared.url, bytes.NewReader(prepared.body))
+	response, err := e.openAt(ctx, auth, prepared.url, prepared, client)
+	var status statusErr
+	if err != nil && prepared.fallbackURL != "" && errors.As(err, &status) && status.code == http.StatusNotFound {
+		return e.openAt(ctx, auth, prepared.fallbackURL, prepared, client)
+	}
+	return response, err
+}
+
+// openAt posts one request to url.
+func (e *NeoPiGoogleExecutor) openAt(ctx context.Context, auth *cliproxyauth.Auth, url string, prepared *geminiPrepared, client *http.Client) (*http.Response, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(prepared.body))
 	if err != nil {
 		return nil, err
 	}
@@ -508,7 +578,7 @@ func (e *NeoPiGoogleExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 	if opts.Alt == "responses/compact" {
 		return result, statusErr{code: http.StatusNotImplemented, msg: "/responses/compact not supported"}
 	}
-	prepared, err := e.prepare(ctx, auth, req, opts, false)
+	prepared, err := e.prepare(ctx, auth, req, opts, false, false)
 	if err != nil {
 		return result, err
 	}
@@ -587,7 +657,7 @@ func (e *NeoPiGoogleExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	if opts.Alt == "responses/compact" {
 		return nil, statusErr{code: http.StatusNotImplemented, msg: "/responses/compact not supported"}
 	}
-	prepared, err := e.prepare(ctx, auth, req, opts, true)
+	prepared, err := e.prepare(ctx, auth, req, opts, true, false)
 	if err != nil {
 		return nil, err
 	}

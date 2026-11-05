@@ -11,7 +11,7 @@ func TestApplyPatchActualExecutors(t *testing.T) {
 	cfg := &config.Config{}
 	for _, exec := range []coreauth.ProviderExecutor{
 		NewOpenAICompatExecutor("arbitrary-plugin-provider", cfg), NewClaudeExecutor(cfg),
-		NewGeminiExecutor(cfg), NewGeminiInteractionsExecutor(cfg), NewGeminiVertexExecutor(cfg),
+		NewGeminiExecutor(cfg), NewGeminiInteractionsExecutor(cfg), NewVertexExecutor(cfg),
 		NewAntigravityExecutor(cfg), NewAIStudioExecutor(cfg, "aistudio", nil), NewDevinExecutor(cfg),
 		NewKimiExecutor(cfg), NewCodexExecutor(cfg), NewCodexWebsocketsExecutor(cfg), NewCodexAutoExecutor(cfg),
 		NewXAIExecutor(cfg), NewMetaExecutor(cfg),

@@ -51,15 +51,19 @@ func issue6258Executor(t *testing.T, provider, baseURL string) (context.Context,
 	switch provider {
 	case "gemini":
 		return ctx, NewGeminiExecutor(cfg), auth
-	case "vertex_api_key":
-		return ctx, NewGeminiVertexExecutor(cfg), auth
-	case "vertex_service_account":
-		var serviceAccount map[string]any
-		if errUnmarshal := json.Unmarshal(testVertexServiceAccountJSON(t, baseURL+"/token"), &serviceAccount); errUnmarshal != nil {
-			t.Fatal(errUnmarshal)
+	case "vertex_api_key", "vertex_service_account":
+		// Vertex's endpoint is fixed by its location; the test server stands
+		// in for that host.
+		if provider == "vertex_service_account" {
+			var serviceAccount map[string]any
+			if errUnmarshal := json.Unmarshal(testVertexServiceAccountJSON(t, baseURL+"/token"), &serviceAccount); errUnmarshal != nil {
+				t.Fatal(errUnmarshal)
+			}
+			auth.Attributes = nil
+			auth.Metadata = map[string]any{"project_id": "proxy-test", "location": "global", "service_account": serviceAccount}
+		} else {
+			auth.Attributes = map[string]string{"api_key": "test-key"}
 		}
-		auth.Attributes = nil
-		auth.Metadata = map[string]any{"project_id": "proxy-test", "location": "global", "service_account": serviceAccount}
 		target, errParse := url.Parse(baseURL)
 		if errParse != nil {
 			t.Fatal(errParse)
@@ -68,7 +72,7 @@ func issue6258Executor(t *testing.T, provider, baseURL string) (context.Context,
 		transport.Proxy = nil
 		t.Cleanup(transport.CloseIdleConnections)
 		ctx = context.WithValue(ctx, "cliproxy.roundtripper", issue6258RedirectTransport{target: target, base: transport})
-		return ctx, NewGeminiVertexExecutor(cfg), auth
+		return ctx, NewVertexExecutor(cfg), auth
 	case "antigravity":
 		auth.Attributes = map[string]string{"base_url": baseURL}
 		auth.Metadata = map[string]any{"access_token": "test-token", "expired": time.Now().Add(24 * time.Hour).Format(time.RFC3339), "project_id": "proxy-test"}
@@ -265,6 +269,11 @@ func TestIssue6258ExecutorCleanEOFControl(t *testing.T) {
 			continue
 		}
 		for _, patch := range []bool{false, true} {
+			if !patch && strings.HasPrefix(provider, "vertex") {
+				// Vertex shares NeoPi's google stream, which fails a stream that
+				// ends without a finish reason; the patch body carries STOP.
+				continue
+			}
 			t.Run(fmt.Sprintf("%s/apply_patch=%t", provider, patch), func(t *testing.T) {
 				body, payload := issue6258ExecutorContent, `{"input":"hello","stream":true}`
 				if patch {

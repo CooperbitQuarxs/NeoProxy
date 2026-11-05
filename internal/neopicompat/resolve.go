@@ -16,6 +16,7 @@ import (
 const (
 	APIOpenAICompletions = "openai-completions"
 	APIAnthropicMessages = "anthropic-messages"
+	APIGoogleVertex      = "google-vertex"
 )
 
 // Spec is the part of a NeoPi ModelSpec the policy resolves from. Thinking
@@ -46,13 +47,13 @@ type Policy struct {
 	Reasoning bool
 }
 
-// Resolve is resolveModelPolicy for an openai-completions or
-// anthropic-messages spec, plus buildModel's reasoning materialization.
+// Resolve is resolveModelPolicy for an openai-completions, anthropic-messages
+// or google-vertex spec, plus buildModel's reasoning materialization.
 func Resolve(spec Spec) (Policy, error) {
 	if err := load(); err != nil {
 		return Policy{}, err
 	}
-	if spec.API != APIOpenAICompletions && spec.API != APIAnthropicMessages {
+	if spec.API != APIOpenAICompletions && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex {
 		return Policy{}, fmt.Errorf("neopicompat: api %q is not ported", spec.API)
 	}
 	// withoutUnverifiedThinking: an unverified ladder was derived, not authored.
@@ -73,9 +74,12 @@ func Resolve(spec Spec) (Policy, error) {
 		return Policy{}, err
 	}
 	var compat map[string]any
-	if spec.API == APIAnthropicMessages {
+	switch spec.API {
+	case APIAnthropicMessages:
 		compat = resolveAnthropicPolicy(spec, facts, resolved)
-	} else {
+	case APIGoogleVertex:
+		compat = resolveGooglePolicy(spec, resolved)
+	default:
 		compat = resolveCompletionsPolicy(spec, facts, resolved)
 	}
 	thinking, err := resolveThinkingPolicy(spec, facts, resolved, compat)
@@ -83,6 +87,29 @@ func Resolve(spec Spec) (Policy, error) {
 		return Policy{}, err
 	}
 	return Policy{Compat: compat, Thinking: thinking, Catalog: resolved.catalog, Reasoning: spec.Reasoning || thinking != nil}, nil
+}
+
+// resolveGooglePolicy is resolveGooglePolicy: the Google wire defaults, the
+// resolved wire axes, then the spec's overrides. The image contract keys are
+// declared but left undefined (nil).
+func resolveGooglePolicy(spec Spec, a axes) map[string]any {
+	compat := map[string]any{
+		"supportsFunctionPartId":                          false,
+		"requiresSkipThoughtSignature":                    false,
+		"requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+		"dropUnsignedThinking":                            false,
+		"ccaLegacyParametersSchema":                       false,
+		"multimodalFunctionResponse":                      false,
+		"flashStreamLeakWorkaround":                       false,
+		"claudeThinkingBetaHeader":                        false,
+		"antigravityClaudeToolMode":                       false,
+		"stripImageInput":                                 false,
+		"maxImageDimension":                               nil,
+		"maxImagePayloadBytes":                            nil,
+	}
+	applyWireAxes(compat, a.wire, spec.API)
+	applyCompatOverrides(compat, spec.Compat)
+	return compat
 }
 
 // identityFacts is IdentityFacts.

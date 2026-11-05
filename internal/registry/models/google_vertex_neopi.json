@@ -1,0 +1,383 @@
+{
+  "source": "NeoPi OWN getBundledModels(\"google-vertex\") google-vertex rows",
+  "models": [
+    {
+      "id": "codestral-2",
+      "name": "Codestral 2",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": false,
+      "input": [
+        "text"
+      ],
+      "contextWindow": 128000,
+      "maxTokens": 8192,
+      "googleCompat": {
+        "multimodalFunctionResponse": false,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "name": "Gemini 3 Flash Preview",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "name": "Gemini 3.1 Flash Lite",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite-image",
+      "name": "Nano Banana 2 Lite",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 65536,
+      "maxTokens": 4096,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "name": "Gemini 3.1 Pro Preview",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.1-pro-preview-customtools",
+      "name": "Gemini 3.1 Pro Preview Custom Tools",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "low",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "name": "Gemini 3.5 Flash",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "name": "Gemini 3.5 Flash Lite",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "minimal",
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.7-flash",
+      "name": "Gemini 3.7 Flash",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-3.8-flash",
+      "name": "Gemini 3.8 Flash",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "gemini-4-argon",
+      "name": "Gemini 4 Argon",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": true,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 1048576,
+      "maxTokens": 65536,
+      "thinking": {
+        "efforts": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "mode": "google-level",
+        "requiresEffort": true
+      },
+      "googleCompat": {
+        "multimodalFunctionResponse": true,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "mistral-medium-3",
+      "name": "Mistral Medium 3",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": false,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 131072,
+      "maxTokens": 131072,
+      "googleCompat": {
+        "multimodalFunctionResponse": false,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    },
+    {
+      "id": "mistral-small-2503",
+      "name": "Mistral Small 3.1 24B",
+      "api": "google-vertex",
+      "provider": "google-vertex",
+      "baseUrl": "https://{location}-aiplatform.googleapis.com",
+      "reasoning": false,
+      "input": [
+        "text",
+        "image"
+      ],
+      "contextWindow": 128000,
+      "maxTokens": 16384,
+      "googleCompat": {
+        "multimodalFunctionResponse": false,
+        "requiresSkipThoughtSignature": false,
+        "requiresSkipThoughtSignatureOnFirstFunctionCall": false,
+        "supportsFunctionPartId": false,
+        "dropUnsignedThinking": false,
+        "ccaLegacyParametersSchema": false
+      }
+    }
+  ]
+}

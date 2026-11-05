@@ -260,6 +260,11 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 				field("mode", str("ANY")), field("allowedFunctionNames", jsjson.Marshal([]string{choice.Name})))))))
 		}
 	}
+	// streamGoogleVertex sends every harm category off unless the request
+	// already carries safety settings, which NeoPi's builder never sets.
+	if model.API == "google-vertex" {
+		fields = append(fields, field("safetySettings", vertexSafetySettings))
+	}
 	if resolved.HasCachedContent || resolved.CachedContent != "" {
 		if jsTrim(resolved.CachedContent) == "" {
 			return nil, &ValidationError{Message: "cachedContent must not be blank"}
@@ -318,3 +323,14 @@ func BuildBody(model *Model, ctx Context, resolved Resolved, legacySchema func(j
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
+
+// vertexSafetySettings is streamGoogleVertex's default: the four harm
+// categories with their threshold OFF.
+var vertexSafetySettings = func() json.RawMessage {
+	categories := []string{"HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_DANGEROUS_CONTENT", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_HARASSMENT"}
+	settings := make([]json.RawMessage, 0, len(categories))
+	for _, category := range categories {
+		settings = append(settings, jsjson.Object(field("category", str(category)), field("threshold", str("OFF"))))
+	}
+	return jsjson.Marshal(settings)
+}()

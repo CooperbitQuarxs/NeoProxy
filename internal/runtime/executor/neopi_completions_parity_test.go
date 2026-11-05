@@ -93,16 +93,21 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					// The endpoint the provider's transport sends to (Snowflake's
-					// account in place of the catalog placeholder).
-					url := strings.TrimRight(exec.accountRow(auth, row).BaseURL, "/") + "/chat/completions"
+					// The bearer and endpoint the provider's transport sends with
+					// (Snowflake's account in place of the catalog placeholder,
+					// Vertex's ADC token on the account's project and location).
+					key, place, err := exec.credential(context.Background(), auth)
+					if err != nil {
+						t.Fatal(err)
+					}
+					url := place(exec.url(exec.accountRow(auth, row)))
 					if url != fixture.RequestedURL {
 						t.Errorf("url = %s, want %s", url, fixture.RequestedURL)
 					}
 					if string(body) != fixture.RawBody {
 						t.Errorf("body:\n got %s\nwant %s", body, fixture.RawBody)
 					}
-					headers := exec.requestHeaders(context.Background(), auth, nil, exec.apiKey(auth), row, capture.SessionID)
+					headers := exec.requestHeaders(context.Background(), auth, nil, key, row, capture.SessionID)
 					want := map[string]string{}
 					for name, value := range fixture.Headers {
 						if name == "host" || name == "content-length" {
