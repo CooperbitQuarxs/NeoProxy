@@ -218,6 +218,17 @@ func (e *ClaudeExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Aut
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
 }
 
+// httpClient is the account's proxy-aware client. A gateway's own credential
+// header (Cloudflare's cf-aig-authorization) is not on net/http's redirect
+// strip list, so it is dropped from every cross-origin hop.
+func (e *ClaudeExecutor) httpClient(ctx context.Context, auth *cliproxyauth.Auth) *http.Client {
+	client := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+	if e.thirdParty != nil && e.thirdParty.gatewayAuthHeader != "" {
+		return helps.GuardCredentialRedirects(client, e.thirdParty.gatewayAuthHeader)
+	}
+	return client
+}
+
 func (e *ClaudeExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
 	if cliproxyauth.IsRefreshLocked(auth) {
 		return nil, cliproxyauth.ErrRefreshLocked
@@ -615,7 +626,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	}
 	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model, auth)
 	defer reporter.TrackFailure(ctx, &err)
-	stream, err := e.open(ctx, reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)), prepared)
+	stream, err := e.open(ctx, reporter.TrackHTTPClient(e.httpClient(ctx, auth)), prepared)
 	if err != nil {
 		return result, err
 	}
@@ -664,7 +675,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 	}
 	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model, auth)
 	defer reporter.TrackFailure(ctx, &err)
-	stream, err := e.open(ctx, reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)), prepared)
+	stream, err := e.open(ctx, reporter.TrackHTTPClient(e.httpClient(ctx, auth)), prepared)
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +749,7 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	}
 	request.Header = prepared.headers
 	e.recordRequest(ctx, prepared, request)
-	response, err := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
+	response, err := e.httpClient(ctx, auth).Do(request)
 	if err != nil {
 		helps.RecordAPIResponseError(ctx, e.cfg, err)
 		return cliproxyexecutor.Response{}, err

@@ -379,3 +379,36 @@ func TestNeoPiCloudflareDiscoveryRequests(t *testing.T) {
 		t.Fatalf("capture has %d configured and %d placeholder Cloudflare listings; want both", configured, placeholder)
 	}
 }
+
+// A configured endpoint's listing sends the stored credential as an
+// Anthropic key; a redirect to another origin must not carry it, while the
+// redirect itself is still followed.
+func TestNeoPiCloudflareDiscoveryRedirectDropsCredential(t *testing.T) {
+	const credential = `{"token":"cfut_discovery_secret","accountId":"acct","gatewayId":"gw"}`
+	var mu sync.Mutex
+	var foreign []http.Header
+	foreignServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		foreign = append(foreign, r.Header.Clone())
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer foreignServer.Close()
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, foreignServer.URL+"/collect", http.StatusFound)
+	}))
+	defer gateway.Close()
+	auth := &coreauth.Auth{ID: "a", Provider: "cloudflare-ai-gateway", Attributes: map[string]string{
+		"api_key": credential, "base_url": gateway.URL + "/v1/acct/gw/anthropic"}}
+	_, _ = fetchNeoPiCompletionsModels("cloudflare-ai-gateway")(context.Background(), &config.Config{}, auth)
+	mu.Lock()
+	defer mu.Unlock()
+	if len(foreign) != 1 {
+		t.Fatalf("foreign origin saw %d requests, want 1 (the redirect is followed)", len(foreign))
+	}
+	for _, name := range []string{"X-Api-Key", "Authorization", "Cf-Aig-Authorization"} {
+		if value := foreign[0].Get(name); value != "" {
+			t.Errorf("foreign origin received %s: %q", name, value)
+		}
+	}
+}

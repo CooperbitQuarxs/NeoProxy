@@ -343,7 +343,9 @@ func fetchNeoPiCloudflareModels(ctx context.Context, cfg *config.Config, auth *c
 	endpoint += "/models"
 	header := http.Header{}
 	anthropicnpi.SetDiscoveryHeaders(header, key)
-	body, err := neoPiDiscoveryFetch(ctx, cfg, auth, provider, endpoint, header)
+	// The stored credential rides in X-Api-Key, which net/http copies onto a
+	// redirect to any origin; that hop must not carry it.
+	body, err := neoPiDiscoveryFetch(ctx, cfg, auth, provider, endpoint, header, "X-Api-Key", "Authorization", "cf-aig-authorization")
 	if err != nil {
 		return nil, err
 	}
@@ -466,8 +468,9 @@ func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.A
 }
 
 // neoPiDiscoveryFetch GETs a discovery endpoint with header, under the
-// runtime's User-Agent unless header names one.
-func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header) ([]byte, error) {
+// runtime's User-Agent unless header names one. The named credential headers
+// are dropped from any redirect hop that leaves the endpoint's origin.
+func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -476,7 +479,7 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 	if req.Header.Get("User-Agent") == "" {
 		req.Header.Set("User-Agent", neoPiBunUserAgent)
 	}
-	resp, err := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0).Do(req)
+	resp, err := helps.GuardCredentialRedirects(helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0), credentialHeaders...).Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s models: %w", provider, err)
 	}

@@ -188,7 +188,18 @@ func (e *NeoPiCompletionsExecutor) HttpRequest(ctx context.Context, auth *clipro
 	if auth != nil {
 		util.ApplyCustomHeadersFromAttrs(request, auth.Attributes)
 	}
-	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(request)
+	return e.httpClient(ctx, auth).Do(request)
+}
+
+// httpClient is the account's proxy-aware client. Cloudflare's gateway token
+// rides in its own header, which net/http would copy onto a redirect to any
+// origin, so that client drops it from every cross-origin hop.
+func (e *NeoPiCompletionsExecutor) httpClient(ctx context.Context, auth *cliproxyauth.Auth) *http.Client {
+	client := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
+	if e.profile.Provider == cloudflare.Provider {
+		return helps.GuardCredentialRedirects(client, cloudflareAuthHeader)
+	}
+	return client
 }
 
 // CountTokens estimates locally from the Chat Completions form.
@@ -217,7 +228,7 @@ func (e *NeoPiCompletionsExecutor) Execute(ctx context.Context, auth *cliproxyau
 	}
 	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model, auth)
 	defer reporter.TrackFailure(ctx, &err)
-	response, err := e.open(ctx, auth, prepared, reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)))
+	response, err := e.open(ctx, auth, prepared, reporter.TrackHTTPClient(e.httpClient(ctx, auth)))
 	if err != nil {
 		return result, err
 	}
@@ -275,7 +286,7 @@ func (e *NeoPiCompletionsExecutor) ExecuteStream(ctx context.Context, auth *clip
 	}
 	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model, auth)
 	defer reporter.TrackFailure(ctx, &err)
-	response, err := e.open(ctx, auth, prepared, reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0)))
+	response, err := e.open(ctx, auth, prepared, reporter.TrackHTTPClient(e.httpClient(ctx, auth)))
 	if err != nil {
 		return nil, err
 	}
@@ -548,13 +559,21 @@ func (e *NeoPiCompletionsExecutor) row(auth *cliproxyauth.Auth, req cliproxyexec
 // transport. A row a mapper or discovery placed elsewhere (a Xiaomi Token Plan
 // cluster, a ZenMux Anthropic route derived from the account) keeps its
 // endpoint; a Token Plan credential always selects its regional endpoint.
-// Snowflake's and Cloudflare's transports then place the effective row on the
-// credential's account (and gateway).
+// Snowflake's transport then places the effective row on the credential's
+// account. Cloudflare's transport first routes the row (prepareModel, run on
+// every request's row, configured ones included), then places it on the
+// credential's account and gateway.
 func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *registry.NeoPiModel) *registry.NeoPiModel {
-	if row == nil || auth == nil {
-		return row
+	if row == nil {
+		return nil
 	}
 	provider := e.profile.Provider
+	if auth == nil {
+		if provider == cloudflare.Provider {
+			return registry.NeoPiCloudflarePrepareModel(row)
+		}
+		return row
+	}
 	if base := registry.NeoPiAccountBaseURL(provider, auth.Attributes["base_url"]); base != "" && base != row.BaseURL &&
 		(provider == "alibaba-token-plan" ||
 			(base != registry.NeoPiCompletionsListingBase(provider) && registry.NeoPiCompletionsBundledEndpoint(provider, row.BaseURL))) {
@@ -565,6 +584,9 @@ func (e *NeoPiCompletionsExecutor) accountRow(auth *cliproxyauth.Auth, row *regi
 	case snowflake.Provider:
 		return e.snowflakeRow(auth, row)
 	case cloudflare.Provider:
+		if row = registry.NeoPiCloudflarePrepareModel(row); row == nil {
+			return nil
+		}
 		return e.cloudflareRow(auth, row)
 	}
 	return row

@@ -52,7 +52,7 @@ func (e *NeoPiCompletionsExecutor) executeSpeech(ctx context.Context, auth *clip
 	if value := gjson.GetBytes(payload, "response_format"); value.Type == gjson.String && neoPiSpeechMimeTypes[value.Str] != "" {
 		format = value.Str
 	}
-	client := reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0))
+	client := reporter.TrackHTTPClient(e.httpClient(ctx, auth))
 	status, header, body, err := e.postRunner(ctx, auth, client, row, "/audio/speech", payload)
 	if err != nil {
 		return resp, err
