@@ -36,7 +36,7 @@ func NewProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *clip
 	}
 
 	// Priority: request override, then auth.ProxyURL, then cfg.ProxyURL.
-	proxyURL := effectiveProxyURL(ctx, cfg, auth)
+	proxyURL := EffectiveProxyURL(ctx, cfg, auth)
 
 	// If we have a proxy URL configured, set up the transport
 	if proxyURL != "" {
@@ -57,7 +57,7 @@ func NewProxyAwareHTTPClient(ctx context.Context, cfg *config.Config, auth *clip
 	return httpClient
 }
 
-func effectiveProxyURL(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) string {
+func EffectiveProxyURL(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) string {
 	if proxyURL := cliproxyexecutor.RequestProxyURL(ctx); proxyURL != "" {
 		return proxyURL
 	}

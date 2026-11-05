@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"bytes"
+	"encoding/json"
 	"slices"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
@@ -24,16 +26,21 @@ func neoPiModelsDevReferences(provider, baseURL string, payload []byte) map[stri
 	if !root.IsObject() {
 		return nil
 	}
-	var models gjson.Result
+	var providerData gjson.Result
 	root.ForEach(func(key, value gjson.Result) bool {
+		// JSON.parse: the last duplicate property wins.
 		if key.String() == provider {
-			models = value.Get("models")
-			if !value.IsObject() {
-				models = gjson.Result{}
-			}
+			providerData = value
 		}
 		return true
 	})
+	if !providerData.IsObject() {
+		return nil
+	}
+	// JSON.parse resolves duplicate properties last-wins at every depth, while
+	// gjson reads the raw text; normalise the provider's subtree first.
+	providerData = neoPiJSONParse(providerData.Raw)
+	models := providerData.Get("models")
 	if !models.IsObject() {
 		return nil
 	}
@@ -67,13 +74,26 @@ func neoPiModelsDevReferences(provider, baseURL string, payload []byte) map[stri
 				CacheWrite: neoPiModelsDevRate(raw.Get("cost.cache_write")),
 			},
 		}
-		// createModelsDevReferenceMap keeps the larger context window.
-		if existing := references[id]; existing == nil || row.ContextWindow > existing.ContextWindow {
-			references[id] = row
-		}
+		references[id] = row
 		return true
 	})
 	return references
+}
+
+// neoPiJSONParse re-encodes a JSON value as JSON.parse sees it: duplicate
+// object properties resolved last-wins, numbers kept exactly.
+func neoPiJSONParse(raw string) gjson.Result {
+	decoder := json.NewDecoder(bytes.NewReader([]byte(raw)))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return gjson.Result{}
+	}
+	normalized, err := json.Marshal(value)
+	if err != nil {
+		return gjson.Result{}
+	}
+	return gjson.ParseBytes(normalized)
 }
 
 // neoPiModelsDevChatKind reports whether a row that authors a kind stays a

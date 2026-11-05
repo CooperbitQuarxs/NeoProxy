@@ -488,6 +488,15 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 			{ name: "models.dev, empty listing", modelsDev, replies: [json({ data: [] })] },
 			{ name: "models.dev not json", modelsDev: { status: 200, body: "oops" }, replies: [json({ data: list })] },
 			{ name: "models.dev without provider", modelsDev: json({ elsewhere: {} }), replies: [json({ data: list })] },
+			// JSON.parse keeps the last of duplicate properties, at every depth.
+			{
+				name: "models.dev duplicate keys",
+				modelsDev: {
+					status: 200,
+					body: `{"${provider}":{"models":{"zai-org/GLM-5.1":{"name":"Old","limit":{"context":300000,"output":90}},"zai-org/GLM-5.1":{"name":"New","reasoning":true,"limit":{"context":10,"output":5},"limit":{"context":64000,"output":4000}}}},"${provider}":{"models":{"zai-org/GLM-5.1":{"name":"Last Provider","limit":{"context":32000}}}}}`,
+				},
+				replies: [json({ data: list })],
+			},
 		];
 	}
 	if (provider !== "xiaomi") return generic;

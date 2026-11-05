@@ -53,10 +53,10 @@ func TestNeoPiSiliconFlowModelsDevCatalog(t *testing.T) {
 	defer listing.Close()
 	previous := neoPiModelsDevURL
 	neoPiModelsDevURL = modelsDev.URL
-	neoPiModelsDevSession.payload, neoPiModelsDevSession.etag = nil, ""
+	resetNeoPiModelsDevSessions()
 	defer func() {
 		neoPiModelsDevURL = previous
-		neoPiModelsDevSession.payload, neoPiModelsDevSession.etag = nil, ""
+		resetNeoPiModelsDevSessions()
 	}()
 
 	auth := &coreauth.Auth{ID: "s", Provider: "siliconflow", Attributes: map[string]string{"api_key": "sk-silicon", "base_url": listing.URL + "/v1"}}
@@ -81,5 +81,55 @@ func TestNeoPiSiliconFlowModelsDevCatalog(t *testing.T) {
 	defer mu.Unlock()
 	if len(conditional) != 3 || conditional[0] != "" || conditional[1] != `"v1"` || conditional[2] != `"v1"` {
 		t.Fatalf("If-None-Match sequence = %q", conditional)
+	}
+}
+
+func resetNeoPiModelsDevSessions() {
+	neoPiModelsDevSessions.Range(func(key, _ any) bool {
+		neoPiModelsDevSessions.Delete(key)
+		return true
+	})
+}
+
+// Callers on one route share a single catalog request, and a caller whose
+// context ends stops waiting instead of holding up the others.
+func TestNeoPiModelsDevCatalogSharedRequest(t *testing.T) {
+	release := make(chan struct{})
+	var mu sync.Mutex
+	requests := 0
+	modelsDev := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		requests++
+		mu.Unlock()
+		<-release
+		_, _ = w.Write([]byte(`{"siliconflow":{"models":{}}}`))
+	}))
+	defer modelsDev.Close()
+	previous := neoPiModelsDevURL
+	neoPiModelsDevURL = modelsDev.URL
+	resetNeoPiModelsDevSessions()
+	defer func() {
+		neoPiModelsDevURL = previous
+		resetNeoPiModelsDevSessions()
+	}()
+	auth := &coreauth.Auth{ID: "s", Provider: "siliconflow"}
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	gaveUp := make(chan []byte)
+	go func() { gaveUp <- neoPiFetchModelsDev(cancelled, &config.Config{}, auth) }()
+	waited := make(chan []byte)
+	go func() { waited <- neoPiFetchModelsDev(context.Background(), &config.Config{}, auth) }()
+	cancel()
+	if payload := <-gaveUp; payload != nil {
+		t.Fatalf("cancelled caller got %q before any catalog arrived", payload)
+	}
+	close(release)
+	if payload := <-waited; string(payload) != `{"siliconflow":{"models":{}}}` {
+		t.Fatalf("waiting caller got %q", payload)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if requests != 1 {
+		t.Fatalf("catalog requests = %d, want one shared request", requests)
 	}
 }
