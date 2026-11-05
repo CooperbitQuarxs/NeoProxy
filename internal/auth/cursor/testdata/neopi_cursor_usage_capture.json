@@ -1,0 +1,506 @@
+{
+  "source": "NeoPi OWN cursorUsageProvider",
+  "token": "eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+  "scenarios": [
+    {
+      "name": "plan-rails",
+      "baseUrl": "",
+      "email": "stored@example.invalid",
+      "replies": {
+        "https://api2.cursor.sh/auth/usage": {
+          "status": 200,
+          "body": "{\"gpt-4\":{\"numRequests\":0,\"maxRequestUsage\":null},\"startOfMonth\":\"2026-10-15T00:00:00.000Z\"}"
+        },
+        "https://cursor.com/api/usage-summary": {
+          "status": 200,
+          "body": "{\"billingCycleStart\":\"2026-10-15T00:00:00.000Z\",\"billingCycleEnd\":\"2026-11-15T00:00:00.000Z\",\"membershipType\":\"pro\",\"individualUsage\":{\"plan\":{\"enabled\":true,\"used\":1500,\"limit\":2000,\"remaining\":500,\"autoPercentUsed\":12.5,\"apiPercentUsed\":40,\"totalPercentUsed\":30},\"onDemand\":{\"enabled\":true,\"used\":100,\"limit\":5000}}}"
+        },
+        "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe": {
+          "status": 200,
+          "body": "{\"authId\":\"github|1245379\",\"email\":\" me@example.invalid \"}"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/usage",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cursor.com/api/usage-summary",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "WorkosCursorSessionToken=1245379%3A%3AeyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "report": {
+        "provider": "cursor",
+        "limits": [
+          {
+            "id": "cursor:usd:individual-auto",
+            "label": "Cursor Models",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly",
+              "resetsAt": 1794700800000
+            },
+            "amount": {
+              "used": 12.5,
+              "usedFraction": 0.125,
+              "unit": "percent"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "cursor:usd:individual-api",
+            "label": "Other Models",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly",
+              "resetsAt": 1794700800000
+            },
+            "amount": {
+              "used": 8,
+              "limit": 20,
+              "remaining": 12,
+              "usedFraction": 0.4,
+              "remainingFraction": 0.6,
+              "unit": "usd"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "cursor:usd:individual-ondemand",
+            "label": "On-Demand Usage",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly",
+              "resetsAt": 1794700800000
+            },
+            "amount": {
+              "used": 1,
+              "limit": 50,
+              "remaining": 49,
+              "usedFraction": 0.02,
+              "remainingFraction": 0.98,
+              "unit": "usd"
+            },
+            "status": "ok"
+          }
+        ],
+        "metadata": {
+          "email": "me@example.invalid",
+          "accountId": "acct-1"
+        }
+      }
+    },
+    {
+      "name": "unified",
+      "baseUrl": "",
+      "email": "",
+      "replies": {
+        "https://api2.cursor.sh/auth/usage": {
+          "status": 503,
+          "body": "{}"
+        },
+        "https://cursor.com/api/usage-summary": {
+          "status": 200,
+          "body": "{\"membershipType\":\"unified_pro\",\"billingCycleEnd\":\"2026-11-15T00:00:00.000Z\",\"individualUsage\":{\"plan\":{\"enabled\":true,\"used\":300,\"limit\":1000,\"totalPercentUsed\":35},\"onDemand\":{\"enabled\":false}}}"
+        },
+        "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo": {
+          "status": 200,
+          "body": "{\"planInfo\":{\"includedUsageResetsAt\":\"1800500000000\"}}"
+        },
+        "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe": {
+          "status": 200,
+          "body": "{\"authId\":\"github|1245379\",\"email\":\"me@example.invalid\"}"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        },
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetPlanInfo",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/usage",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cursor.com/api/usage-summary",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "WorkosCursorSessionToken=1245379%3A%3AeyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "report": {
+        "provider": "cursor",
+        "limits": [
+          {
+            "id": "cursor:usd:individual-auto",
+            "label": "Cursor Models",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "weekly"
+            },
+            "window": {
+              "id": "weekly",
+              "label": "Weekly",
+              "durationMs": 604800000,
+              "resetsAt": 1800500000000
+            },
+            "amount": {
+              "used": 3.5,
+              "limit": 10,
+              "remaining": 6.5,
+              "usedFraction": 0.35,
+              "remainingFraction": 0.65,
+              "unit": "usd"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "cursor:usd:individual-api",
+            "label": "Other Models (prepaid credit)",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "prepaid"
+            },
+            "window": {
+              "id": "prepaid",
+              "label": "Prepaid credit"
+            },
+            "amount": {
+              "used": 0,
+              "limit": 0,
+              "remaining": 0,
+              "usedFraction": 1,
+              "remainingFraction": 0,
+              "unit": "usd"
+            },
+            "status": "exhausted"
+          }
+        ],
+        "metadata": {
+          "email": "me@example.invalid",
+          "accountId": "acct-1"
+        }
+      }
+    },
+    {
+      "name": "overall-and-requests",
+      "baseUrl": "",
+      "email": "stored@example.invalid",
+      "replies": {
+        "https://api2.cursor.sh/auth/usage": {
+          "status": 200,
+          "body": "{\"gpt-4\":{\"numRequests\":5,\"maxRequestUsage\":500},\"gpt-4-32k\":{\"numRequests\":0},\"startOfMonth\":1790000000}"
+        },
+        "https://cursor.com/api/usage-summary": {
+          "status": 200,
+          "body": "{\"startOfMonth\":1790000000,\"individualUsage\":{\"overall\":{\"enabled\":true,\"used\":0,\"limit\":10000,\"remaining\":2500},\"onDemand\":{\"enabled\":true,\"used\":50,\"limit\":null}}}"
+        },
+        "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe": {
+          "status": 200,
+          "body": "{\"authId\":\"auth0|someone-else\",\"email\":\"other@example.invalid\"}"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/usage",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cursor.com/api/usage-summary",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "WorkosCursorSessionToken=1245379%3A%3AeyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "report": {
+        "provider": "cursor",
+        "limits": [
+          {
+            "id": "cursor:requests:gpt-4",
+            "label": "gpt-4 requests",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly",
+              "resetsAt": 1792592000000
+            },
+            "amount": {
+              "used": 5,
+              "limit": 500,
+              "remaining": 495,
+              "usedFraction": 0.01,
+              "remainingFraction": 0.99,
+              "unit": "requests"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "cursor:usd:individual-overall",
+            "label": "Personal Usage",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly",
+              "resetsAt": 1792592000000
+            },
+            "amount": {
+              "used": 75,
+              "limit": 100,
+              "remaining": 25,
+              "usedFraction": 0.75,
+              "remainingFraction": 0.25,
+              "unit": "usd"
+            },
+            "status": "ok"
+          }
+        ],
+        "metadata": {
+          "email": "stored@example.invalid",
+          "accountId": "acct-1"
+        }
+      }
+    },
+    {
+      "name": "custom-host",
+      "baseUrl": "https://cursor.example/",
+      "email": "",
+      "replies": {
+        "https://cursor.example/auth/usage": {
+          "status": 200,
+          "body": "{\"planUsage\":{\"used\":12,\"limit\":20},\"usd-bucket\":{\"usdUsed\":\"3\",\"usdLimit\":\"0\"}}"
+        }
+      },
+      "requests": [
+        {
+          "method": "GET",
+          "url": "https://cursor.example/auth/usage",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "report": {
+        "provider": "cursor",
+        "limits": [
+          {
+            "id": "cursor:usd:planusage",
+            "label": "planUsage spend",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly"
+            },
+            "amount": {
+              "used": 12,
+              "limit": 20,
+              "remaining": 8,
+              "usedFraction": 0.6,
+              "remainingFraction": 0.4,
+              "unit": "usd"
+            },
+            "status": "ok"
+          },
+          {
+            "id": "cursor:usd:usd-bucket",
+            "label": "usd-bucket spend",
+            "scope": {
+              "provider": "cursor",
+              "windowId": "monthly"
+            },
+            "window": {
+              "id": "monthly",
+              "label": "Monthly"
+            },
+            "amount": {
+              "used": 3,
+              "limit": 0,
+              "remaining": 0,
+              "usedFraction": 0,
+              "remainingFraction": 0,
+              "unit": "usd"
+            },
+            "status": "ok"
+          }
+        ],
+        "metadata": {
+          "accountId": "acct-1"
+        }
+      }
+    },
+    {
+      "name": "nothing",
+      "baseUrl": "",
+      "email": "",
+      "replies": {},
+      "requests": [
+        {
+          "method": "POST",
+          "url": "https://api2.cursor.sh/aiserver.v1.DashboardService/GetMe",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connect-protocol-version": "1",
+            "connection": "keep-alive",
+            "content-length": "2",
+            "content-type": "application/json",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": "{}"
+        },
+        {
+          "method": "GET",
+          "url": "https://api2.cursor.sh/auth/usage",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "connection": "keep-alive",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        },
+        {
+          "method": "GET",
+          "url": "https://cursor.com/api/usage-summary",
+          "headers": {
+            "accept": "application/json",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "connection": "keep-alive",
+            "cookie": "WorkosCursorSessionToken=1245379%3A%3AeyJhbGciOiJub25lIn0.eyJzdWIiOiJnaXRodWJ8MTI0NTM3OSIsImV4cCI6MTkwMDAwMDAwMH0.fake",
+            "user-agent": "Bun/1.3.14"
+          },
+          "body": ""
+        }
+      ],
+      "report": null
+    }
+  ]
+}

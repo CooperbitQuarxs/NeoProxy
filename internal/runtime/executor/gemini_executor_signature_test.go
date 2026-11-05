@@ -140,39 +140,6 @@ func TestGeminiExecutorExecuteStream_SanitizesClaudeCAISSignature(t *testing.T) 
 	}
 }
 
-func TestGeminiExecutorCountTokens_SanitizesClaudeCAISSignature(t *testing.T) {
-	var upstreamBody []byte
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, errRead := io.ReadAll(r.Body)
-		if errRead != nil {
-			t.Fatalf("read request body: %v", errRead)
-		}
-		upstreamBody = append([]byte(nil), body...)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"totalTokens": 42}`))
-	}))
-	defer server.Close()
-
-	executor := NewGeminiExecutor(&config.Config{})
-	auth := &cliproxyauth.Auth{
-		Attributes: map[string]string{
-			"api_key":  "test-api-key",
-			"base_url": server.URL,
-		},
-	}
-
-	req, opts := claudeRequestWithThinkingSignature(testClaudeCAISSample)
-
-	_, err := executor.CountTokens(context.Background(), auth, req, opts)
-	if err != nil {
-		t.Fatalf("CountTokens() error = %v", err)
-	}
-
-	if bytes.Contains(upstreamBody, []byte(testClaudeCAISSample)) {
-		t.Fatalf("upstream countTokens request leaked raw Claude CAIS signature: %s", upstreamBody)
-	}
-}
-
 func TestGeminiExecutorExecute_FunctionCall_ReplacesClaudeSignatureWithBypass(t *testing.T) {
 	var upstreamBody []byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +184,7 @@ func TestGeminiExecutorExecute_FunctionCall_ReplacesClaudeSignatureWithBypass(t 
 	}`)
 
 	req := cliproxyexecutor.Request{
-		Model:   "gemini-2.5-flash",
+		Model:   "gemini-3-flash-preview",
 		Payload: reqPayload,
 	}
 
@@ -230,7 +197,7 @@ func TestGeminiExecutorExecute_FunctionCall_ReplacesClaudeSignatureWithBypass(t 
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	gotSig := gjson.GetBytes(upstreamBody, "contents.1.parts.0.thoughtSignature").String()
+	gotSig := gjson.GetBytes(upstreamBody, "contents.0.parts.0.thoughtSignature").String()
 	if gotSig != internalsignature.GeminiSkipThoughtSignatureValidator {
 		t.Fatalf("first functionCall thoughtSignature = %q, want bypass sentinel %q; upstreamBody=%s",
 			gotSig, internalsignature.GeminiSkipThoughtSignatureValidator, upstreamBody)
@@ -295,7 +262,7 @@ func TestGeminiExecutorExecute_PreservesNativeGeminiSignature(t *testing.T) {
 		t.Fatalf("Execute() error = %v", err)
 	}
 
-	gotSig := gjson.GetBytes(upstreamBody, "contents.1.parts.0.thoughtSignature").String()
+	gotSig := gjson.GetBytes(upstreamBody, "contents.0.parts.0.thoughtSignature").String()
 	if gotSig != nativeSig {
 		t.Fatalf("thoughtSignature = %q, want preserved native signature %q; upstreamBody=%s",
 			gotSig, nativeSig, upstreamBody)

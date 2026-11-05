@@ -9,11 +9,12 @@ import (
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/browser"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
-// CursorAuthenticator implements Cursor's browser sign-in, polled with a PKCE verifier.
+// CursorAuthenticator runs NeoPi's Cursor browser sign-in, polled with a PKCE verifier.
 type CursorAuthenticator struct{}
 
 // NewCursorAuthenticator constructs a Cursor authenticator.
@@ -22,9 +23,9 @@ func NewCursorAuthenticator() Authenticator { return &CursorAuthenticator{} }
 // Provider returns the provider key for Cursor.
 func (CursorAuthenticator) Provider() string { return "cursor" }
 
-// RefreshLead instructs the manager to renew before the access token expires.
+// RefreshLead is NeoPi's refresh skew against the stored expiry.
 func (CursorAuthenticator) RefreshLead() *time.Duration {
-	lead := cursorauth.RefreshLead()
+	lead := cursorauth.RefreshLead
 	return &lead
 }
 
@@ -49,26 +50,21 @@ func (a CursorAuthenticator) Login(ctx context.Context, cfg *config.Config, opts
 			log.Warnf("Failed to open browser automatically: %v", errOpen)
 		}
 	}
-	fmt.Println("Waiting for Cursor sign-in...")
-	svc := cursorauth.NewAuth(cfg)
+	fmt.Println("Waiting for browser authentication...")
 	pollCtx, cancel := context.WithTimeout(ctx, cursorauth.MaxPollDuration)
 	defer cancel()
-	tokens, err := svc.WaitForLogin(pollCtx, session)
+	credential, err := cursorauth.NewAuth(cfg).Login(pollCtx, session)
 	if err != nil {
 		return nil, err
 	}
-	return BuildCursorAuthRecord(ctx, svc, tokens), nil
+	return BuildCursorAuthRecord(credential), nil
 }
 
 // BuildCursorAuthRecord turns a finished sign-in into an engine auth record,
-// naming it after the account email when cursor.com reports one.
-func BuildCursorAuthRecord(ctx context.Context, svc *cursorauth.Auth, tokens *cursorauth.Tokens) *coreauth.Auth {
-	lookupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	email, _ := svc.FetchEmail(lookupCtx, tokens.AccessToken)
-	cancel()
-	userID := cursorauth.UserID(tokens.AccessToken)
-	fileName := cursorauth.CredentialFileName(email, userID)
-	label := strings.TrimSpace(email)
+// named after the account email when Cursor's profile reports one.
+func BuildCursorAuthRecord(credential *cursorauth.Credential) *coreauth.Auth {
+	fileName := cursorauth.CredentialFileName(credential.Email, cursorauth.UserID(credential.Access))
+	label := strings.TrimSpace(credential.Email)
 	if label == "" {
 		label = "Cursor"
 	}
@@ -77,7 +73,7 @@ func BuildCursorAuthRecord(ctx context.Context, svc *cursorauth.Auth, tokens *cu
 		Provider:   "cursor",
 		FileName:   fileName,
 		Label:      label,
-		Metadata:   cursorauth.Metadata(tokens, email),
-		Attributes: map[string]string{"auth_kind": "oauth", "base_url": cursorauth.APIBaseURL},
+		Metadata:   cursorauth.Metadata(credential),
+		Attributes: map[string]string{"auth_kind": "oauth", "base_url": cursorwire.DefaultBaseURL},
 	}
 }

@@ -3,77 +3,78 @@ package executor
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 	"golang.org/x/sync/singleflight"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
-var _ cliproxyauth.ProviderExecutor = (*CursorExecutor)(nil)
+// CursorExecutor serves a Cursor sign-in the way NeoPi's cursor-agent
+// provider serves an auth-gateway client: the request is read as an OpenAI
+// chat request, run as one Cursor Agent turn over the Run bidi stream
+// (internal/cursorwire), and answered as OpenAI chat completion chunks. Calls
+// Cursor hands back as MCP tool calls go to the client; calls Cursor runs
+// itself stay server-side.
+type CursorExecutor struct {
+	cfg *config.Config
+	// newID mints the ids NeoPi takes from crypto.randomUUID.
+	newID func() string
+}
+
+// cursorConversations is NeoPi's process-wide conversation cache and the
+// #8345 rotation state, shared by every Cursor account.
+var cursorConversations = cursorwire.NewConversations()
 
 var cursorRefreshGroup singleflight.Group
 
-// CursorModelPrefix namespaces Cursor's model slugs so they never shadow the
-// same names served by other providers.
-const CursorModelPrefix = "cursor/"
-
-const (
-	cursorHeartbeatInterval = 5 * time.Second
-	// cursorHandoffMessage answers an MCP exec frame for a tool the API client
-	// runs itself; its result arrives with the client's next request.
-	cursorHandoffMessage  = "Tool call received and handed off to the external client for execution. Do not retry or call it again; end the turn. The result will be provided in the next request."
-	cursorToolUnavailable = "Tool not available"
-	cursorNotImplemented  = "not implemented by this client"
-)
-
-// CursorExecutor serves Cursor subscription models through Cursor's agent
-// protocol (agent.v1.AgentService/Run). Requests arrive as OpenAI chat
-// completions; the client's tools are offered to Cursor as MCP tools whose
-// calls are handed back to the client.
-type CursorExecutor struct {
-	cfg *config.Config
-}
-
 // NewCursorExecutor constructs a Cursor executor.
-func NewCursorExecutor(cfg *config.Config) *CursorExecutor { return &CursorExecutor{cfg: cfg} }
+func NewCursorExecutor(cfg *config.Config) *CursorExecutor {
+	return &CursorExecutor{cfg: cfg, newID: uuid.NewString}
+}
 
 // Identifier returns the provider key "cursor".
 func (e *CursorExecutor) Identifier() string { return "cursor" }
 
-func cursorCreds(auth *cliproxyauth.Auth) (baseURL, token string) {
-	baseURL = cursorauth.APIBaseURL
+func cursorMetadataString(auth *cliproxyauth.Auth, key string) string {
 	if auth == nil {
-		return baseURL, ""
+		return ""
 	}
-	if auth.Metadata != nil {
-		if v, ok := auth.Metadata["access_token"].(string); ok {
-			token = strings.TrimSpace(v)
-		}
-		if v, ok := auth.Metadata["base_url"].(string); ok && strings.TrimSpace(v) != "" {
-			baseURL = strings.TrimRight(strings.TrimSpace(v), "/")
-		}
+	if value, ok := auth.Metadata[key].(string); ok && strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
 	}
-	if token == "" && auth.Attributes != nil {
-		token = strings.TrimSpace(auth.Attributes["access_token"])
+	return strings.TrimSpace(auth.Attributes[key])
+}
+
+// cursorAccessToken is the stored access token Cursor accepts as its API key.
+func cursorAccessToken(auth *cliproxyauth.Auth) string {
+	return cursorMetadataString(auth, "access_token")
+}
+
+// cursorBaseURL is the account's base_url override, "" for the default host.
+func cursorBaseURL(auth *cliproxyauth.Auth) string {
+	value := strings.TrimRight(cursorMetadataString(auth, "base_url"), "/")
+	if value == cursorwire.DefaultBaseURL {
+		return ""
 	}
-	return baseURL, token
+	return value
 }
 
 // PrepareRequest injects Cursor credentials into an outgoing request.
@@ -81,12 +82,11 @@ func (e *CursorExecutor) PrepareRequest(req *http.Request, auth *cliproxyauth.Au
 	if req == nil {
 		return nil
 	}
-	_, token := cursorCreds(auth)
 	contentType := req.Header.Get("Content-Type")
 	if contentType == "" {
-		contentType = "application/proto"
+		contentType = cursorwire.ContentTypeProto
 	}
-	cursorauth.ClientHeaders(req.Header, token, contentType)
+	cursorwire.SetClientHeaders(req.Header, cursorAccessToken(auth), contentType)
 	return nil
 }
 
@@ -105,8 +105,8 @@ func (e *CursorExecutor) HttpRequest(ctx context.Context, auth *cliproxyauth.Aut
 	return helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(httpReq)
 }
 
-// Refresh renews the access token with the stored refresh token. Imported
-// credentials are refresh-locked: NeoPi stays their only refresher.
+// Refresh renews the access token the way NeoPi's refreshCursorHook does.
+// Imported credentials are refresh-locked: NeoPi stays their only refresher.
 func (e *CursorExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*cliproxyauth.Auth, error) {
 	if refreshed, handled, err := helps.RefreshAuthViaHome(ctx, e.cfg, auth); handled {
 		return refreshed, err
@@ -117,12 +117,13 @@ func (e *CursorExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (
 	if cliproxyauth.IsRefreshLocked(auth) {
 		return nil, cliproxyauth.ErrRefreshLocked
 	}
-	refreshToken, _ := auth.Metadata["refresh_token"].(string)
-	if strings.TrimSpace(refreshToken) == "" {
+	stored := cursorauth.Credential{Access: cursorAccessToken(auth), Refresh: cursorMetadataString(auth, "refresh_token"),
+		Email: cursorMetadataString(auth, "email")}
+	if stored.Refresh == "" {
 		return auth, nil
 	}
-	res, err, _ := cursorRefreshGroup.Do(refreshToken, func() (any, error) {
-		return cursorauth.NewAuthWithProxyURL(e.cfg, auth.ProxyURL).Refresh(ctx, refreshToken)
+	result, err, _ := cursorRefreshGroup.Do(stored.Refresh, func() (any, error) {
+		return cursorauth.NewAuthWithProxyURL(e.cfg, auth.ProxyURL).Refresh(ctx, stored)
 	})
 	if err != nil {
 		if errors.Is(err, cursorauth.ErrSessionEnded) {
@@ -130,524 +131,208 @@ func (e *CursorExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (
 		}
 		return nil, err
 	}
-	tokens := res.(*cursorauth.Tokens)
-	if auth.Metadata == nil {
-		auth.Metadata = map[string]any{}
+	credential := result.(*cursorauth.Credential)
+	updated := auth.Clone()
+	if updated.Metadata == nil {
+		updated.Metadata = map[string]any{}
 	}
-	auth.Metadata["type"] = "cursor"
-	auth.Metadata["access_token"] = tokens.AccessToken
-	auth.Metadata["refresh_token"] = tokens.RefreshToken
-	auth.Metadata["expired"] = tokens.Expires.UTC().Format(time.RFC3339)
-	auth.Metadata["last_refresh"] = time.Now().UTC().Format(time.RFC3339)
-	auth.LastRefreshedAt = time.Now()
-	return auth, nil
-}
-
-// CountTokens estimates prompt tokens; Cursor has no counting endpoint.
-func (e *CursorExecutor) CountTokens(_ context.Context, _ *cliproxyauth.Auth, req cliproxyexecutor.Request, _ cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
-	promptTokens := int64(len(req.Payload) / 4)
-	return cliproxyexecutor.Response{Payload: []byte(fmt.Sprintf(`{"total_tokens":%d,"input_tokens":%d}`, promptTokens, promptTokens))}, nil
-}
-
-type cursorPrepared struct {
-	conv       *cursorConversation
-	translated []byte
-	original   []byte
-	slug       string
-	display    string
-	maxMode    bool
-	from       sdktranslator.Format
-	respFormat sdktranslator.Format
-}
-
-func (e *CursorExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, stream bool) (*cursorPrepared, error) {
-	from := opts.SourceFormat
-	to := sdktranslator.FormatOpenAI
-	baseModel := thinking.ParseSuffix(req.Model).ModelName
-	slug := strings.TrimPrefix(baseModel, CursorModelPrefix)
-	translated, err := helps.TranslateRequestReturningError(ctx, opts.Headers, e.cfg, from, to, baseModel, bytes.Clone(req.Payload), stream, helps.APIKeyModelIsCompat(req))
-	if err != nil {
-		return nil, err
+	now := time.Now()
+	updated.Metadata["type"] = "cursor"
+	updated.Metadata["access_token"] = credential.Access
+	updated.Metadata["refresh_token"] = credential.Refresh
+	updated.Metadata["expired"] = credential.Expires.UTC().Format(time.RFC3339)
+	updated.Metadata["last_refresh"] = now.UTC().Format(time.RFC3339)
+	if credential.Email != "" {
+		updated.Metadata["email"] = credential.Email
 	}
-	conv, err := parseCursorChatRequest(translated)
-	if err != nil {
-		return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
+	if id := cursorauth.UserID(credential.Access); id != "" {
+		updated.Metadata["user_id"] = id
 	}
-	if len(conv.messages) == 0 {
-		return nil, statusErr{code: http.StatusBadRequest, msg: "cursor: request has no messages"}
+	updated.LastRefreshedAt = now
+	return updated, nil
+}
+
+// CountTokens estimates locally; Cursor has no counting RPC.
+func (e *CursorExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
+	return NewOpenAICompatExecutor(e.Identifier(), e.cfg).CountTokens(ctx, auth, req, opts)
+}
+
+// cursorModel is the NeoPi record of the routed account's model, else the
+// bundled row.
+func cursorModel(req cliproxyexecutor.Request, model string) *registry.NeoPiModel {
+	if info, ok := cliproxyauth.ResolvedModelInfo(req); ok && info != nil && info.NeoPi != nil && info.NeoPi.API == "cursor-agent" {
+		return info.NeoPi
 	}
-	p := &cursorPrepared{conv: conv, translated: translated, original: helps.ApplyPatchOriginalRequest(req, opts), slug: slug, display: slug, from: from, respFormat: cliproxyexecutor.ResponseFormatOrSource(opts)}
-	if auth != nil {
-		if m, ok := cursorauth.LookupModel(auth.ID, slug); ok {
-			p.maxMode = m.MaxMode
-			if m.DisplayName != "" {
-				p.display = m.DisplayName
-			}
-		}
+	return registry.CursorBundledNeoPiModel(model)
+}
+
+// cursorWireModel is the Model<"cursor-agent"> view the transport reads.
+func cursorWireModel(model *registry.NeoPiModel) *cursorwire.Model {
+	out := &cursorwire.Model{ID: model.ID, Name: model.Name, Provider: model.Provider, BaseURL: model.BaseURL, RequestModelID: model.RequestModelID}
+	if model.Thinking != nil {
+		out.EffortRouting = model.Thinking.EffortRouting
 	}
-	return p, nil
-}
-
-// ---- events and the OpenAI chat chunk builder ----
-
-type cursorEventKind int
-
-const (
-	cursorEventText cursorEventKind = iota
-	cursorEventReasoning
-	cursorEventToolCall
-)
-
-type cursorEvent struct {
-	kind     cursorEventKind
-	text     string
-	toolID   string
-	toolName string
-	toolArgs string
-}
-
-type cursorUsage struct {
-	input, output, cacheRead, cacheWrite, reasoning int64
-}
-
-type cursorChatBuilder struct {
-	id, model string
-	created   int64
-	started   bool
-	toolIndex int
-}
-
-func newCursorChatBuilder(model string) *cursorChatBuilder {
-	return &cursorChatBuilder{id: "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", ""), model: model, created: time.Now().Unix()}
-}
-
-func (b *cursorChatBuilder) chunk(delta map[string]any, finish any, usage map[string]any) []byte {
-	if !b.started {
-		delta["role"] = "assistant"
-		b.started = true
-	}
-	choice := map[string]any{"index": 0, "delta": delta, "finish_reason": finish}
-	out := map[string]any{"id": b.id, "object": "chat.completion.chunk", "created": b.created, "model": b.model, "choices": []any{choice}}
-	if usage != nil {
-		out["usage"] = usage
-	}
-	return cursorJSON(out)
-}
-
-func (b *cursorChatBuilder) event(ev cursorEvent) []byte {
-	switch ev.kind {
-	case cursorEventReasoning:
-		return b.chunk(map[string]any{"reasoning_content": ev.text}, nil, nil)
-	case cursorEventToolCall:
-		call := map[string]any{"index": b.toolIndex, "id": ev.toolID, "type": "function", "function": map[string]any{"name": ev.toolName, "arguments": ev.toolArgs}}
-		b.toolIndex++
-		return b.chunk(map[string]any{"tool_calls": []any{call}}, nil, nil)
-	default:
-		return b.chunk(map[string]any{"content": ev.text}, nil, nil)
-	}
-}
-
-func (b *cursorChatBuilder) finish(reason string) []byte {
-	return b.chunk(map[string]any{}, reason, nil)
-}
-
-func (b *cursorChatBuilder) usageChunk(u cursorUsage) []byte {
-	return cursorJSON(map[string]any{"id": b.id, "object": "chat.completion.chunk", "created": b.created, "model": b.model, "choices": []any{}, "usage": u.openAI()})
-}
-
-func (u cursorUsage) openAI() map[string]any {
-	out := map[string]any{"prompt_tokens": u.input, "completion_tokens": u.output, "total_tokens": u.input + u.output}
-	if u.cacheRead > 0 || u.cacheWrite > 0 {
-		details := map[string]any{"cached_tokens": u.cacheRead}
-		if u.cacheWrite > 0 {
-			details["cache_write_tokens"] = u.cacheWrite
-		}
-		out["prompt_tokens_details"] = details
-	}
-	if u.reasoning > 0 {
-		out["completion_tokens_details"] = map[string]any{"reasoning_tokens": u.reasoning}
+	if c := model.Cursor; c != nil {
+		out.MaxMode, out.MaxModeRoutes, out.ModelRoutes = c.MaxMode, c.MaxModeRoutes, c.ModelRoutes
+		out.ModelParameters, out.RequiresToolSchemaProjection = c.ModelParameters, c.RequiresToolSchemaProjection
 	}
 	return out
 }
 
-// ---- the run ----
-
-type cursorRunResult struct {
-	usage     cursorUsage
-	toolCalls int
+// cursorEffort is the gateway's normalizeGatewayThinking followed by
+// streamSimple's cursor branch: the client's effort fitted to the model's
+// ladder, then required to be one the model serves.
+func cursorEffort(model *registry.NeoPiModel, request *cursorwire.Request) (string, error) {
+	effort := request.Reasoning
+	if effort == "" || request.ForceReasoningOff || !model.Reasoning {
+		return "", nil
+	}
+	var efforts []string
+	if model.Thinking != nil {
+		efforts = model.Thinking.Efforts
+	}
+	if len(efforts) > 0 && !containsString(efforts, effort) && (model.Thinking == nil || model.Thinking.EffortMap[effort] == "") {
+		if clamped := codexwire.ClampEffort(efforts, effort); clamped != "" {
+			effort = clamped
+		}
+	}
+	if !containsString(efforts, effort) {
+		return "", statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("Thinking effort %s is not supported by %s/%s. Supported efforts: %s",
+			effort, model.Provider, model.ID, strings.Join(efforts, ", "))}
+	}
+	return effort, nil
 }
 
-// cursorRun is one Run stream's protocol state.
-type cursorRun struct {
-	conv  *cursorConversation
-	blobs cursorBlobs
-	send  func([]byte)
-	emit  func(cursorEvent) error
-
-	emittedTools        map[string]bool
-	toolCalls           int
-	emitted             bool
-	lastWasText         bool
-	sawTurnEnded        bool
-	stepCompletedLatest bool
-	outputEstimate      int64
-	usage               cursorUsage
-	endErr              error
-	// handedOff ends the response at the first checkpoint after a tool call
-	// went to the client: the turn's remaining steps would only react to the
-	// placeholder result, and the client sends the real one next request.
-	handedOff   bool
-	done        bool
-	contextUsed int64
+// cursorWireModelID is resolveWireModelId.
+func cursorWireModelID(model *registry.NeoPiModel, effort string) string {
+	key := effort
+	if key == "" {
+		key = "off"
+	}
+	if model.Thinking != nil {
+		if routed, ok := model.Thinking.EffortRouting[key]; ok && routed != "" {
+			return routed
+		}
+	}
+	if model.RequestModelID != "" {
+		return model.RequestModelID
+	}
+	return model.ID
 }
 
-// handle processes one AgentServerMessage.
-func (r *cursorRun) handle(payload []byte) error {
-	msg, err := cursorParse(payload)
-	if err != nil {
-		return nil
+// cursorCacheKey is resolvePromptCacheKey over the client's own request: the
+// body's prompt_cache_key or metadata session fields, then the session headers.
+func cursorCacheKey(original []byte, headers http.Header) string {
+	body := gjson.ParseBytes(original)
+	if value := body.Get("prompt_cache_key"); value.Type == gjson.String && value.String() != "" {
+		return value.String()
 	}
-	num, body, ok := msg.oneofCase()
-	if !ok {
-		return nil
-	}
-	switch num {
-	case 1:
-		return r.interaction(body)
-	case 2:
-		return r.exec(body)
-	case 3: // conversation_checkpoint_update{token_details=5{used_tokens=1}}
-		if details, okDetails := body.sub(5); okDetails {
-			r.contextUsed = int64(details.uint(1))
-		}
-		if r.handedOff {
-			r.done = true
-		}
-	case 4:
-		r.kv(body)
-	case 7:
-		r.interactionQuery(body)
-	}
-	return nil
-}
-
-func (r *cursorRun) interaction(update cursorMsg) error {
-	num, body, ok := update.oneofCase()
-	if !ok {
-		return nil
-	}
-	if num != 13 && num != 17 { // heartbeat, step_completed
-		r.stepCompletedLatest = false
-	}
-	switch num {
-	case 1: // text_delta
-		if text := body.str(1); text != "" {
-			r.lastWasText = true
-			return r.out(cursorEvent{kind: cursorEventText, text: text})
-		}
-	case 4: // thinking_delta
-		if text := body.str(1); text != "" {
-			return r.out(cursorEvent{kind: cursorEventReasoning, text: text})
-		}
-	case 8: // token_delta
-		r.outputEstimate += int64(int32(body.uint(1)))
-	case 14: // turn_ended
-		r.sawTurnEnded = true
-		r.usage = cursorUsage{
-			input: int64(body.uint(1)), output: int64(body.uint(2)),
-			cacheRead: int64(body.uint(3)), cacheWrite: int64(body.uint(4)), reasoning: int64(body.uint(5)),
-		}
-	case 17: // step_completed
-		r.stepCompletedLatest = true
-	}
-	return nil
-}
-
-func (r *cursorRun) out(ev cursorEvent) error {
-	r.emitted = true
-	if ev.kind != cursorEventText {
-		r.lastWasText = false
-	}
-	return r.emit(ev)
-}
-
-func (r *cursorRun) exec(m cursorMsg) error {
-	id := m.uint(1)
-	execID := m.str(15)
-	num, args, ok := m.oneofCase(15, 19)
-	if !ok {
-		for _, frame := range cursorExecThrow(id, "Unknown exec message variant", "unknown_exec_variant") {
-			r.send(frame)
-		}
-		return nil
-	}
-	reply := func(field protowire.Number, result cursorPB) { r.send(cursorExecReply(id, execID, field, result)) }
-	pathRejected := func(variant protowire.Number) cursorPB {
-		return cursorPB(nil).msg(variant, cursorPB(nil).str(1, args.str(1)).str(2, cursorToolUnavailable))
-	}
-	switch num {
-	case 10: // request_context_args
-		reply(10, cursorPB(nil).msg(1, cursorPB(nil).msg(1, cursorRequestContext(r.conv))))
-	case 11: // mcp_args
-		return r.mcp(args, reply)
-	case 7, 29: // read, redacted read
-		reply(num, pathRejected(3))
-	case 8: // ls
-		reply(8, pathRejected(3))
-	case 9: // diagnostics
-		reply(9, pathRejected(3))
-	case 3: // write
-		reply(3, pathRejected(6))
-	case 4: // delete
-		reply(4, pathRejected(6))
-	case 5: // grep
-		reply(5, cursorPB(nil).msg(2, cursorPB(nil).str(1, cursorToolUnavailable)))
-	case 2, 52: // shell, mini-swe-agent bash
-		field := protowire.Number(2)
-		if num == 52 {
-			field = 55
-		}
-		reply(field, cursorPB(nil).msg(4, cursorPB(nil).str(1, args.str(1)).str(2, args.str(2)).str(3, cursorToolUnavailable)))
-	case 20: // fetch
-		reply(20, cursorPB(nil).msg(2, cursorPB(nil).str(1, args.str(1)).str(2, cursorToolUnavailable)))
-	case 17: // list_mcp_resources: an explicit empty success
-		reply(17, cursorPB(nil).msg(1, nil))
-	case 36: // mcp_state: the client's tools as one connected server
-		var wanted []string
-		for _, f := range args {
-			if f.num == 1 && f.typ == protowire.BytesType {
-				wanted = append(wanted, string(f.bytes))
+	if metadata := body.Get("metadata"); metadata.IsObject() {
+		for _, field := range []string{"prompt_cache_key", "session_id", "conversation_id"} {
+			if value := metadata.Get(field); value.Type == gjson.String && value.String() != "" {
+				return value.String()
 			}
 		}
-		reply(36, cursorMcpState(r.conv, wanted))
-	case 27: // execute_hook: no hooks run here, so the neutral response of the asked case
-		hook, _ := args.sub(1)
-		if kind, _, okKind := hook.oneofCase(); okKind {
-			reply(27, cursorPB(nil).msg(1, cursorPB(nil).msg(kind, nil)))
-			return nil
-		}
-		for _, frame := range cursorExecThrow(id, "Unsupported hook request", "unknown_hook_request") {
-			r.send(frame)
-		}
-	case 41, 42, 43: // shell / MCP / web-fetch allowlist prechecks: never pre-approved
-		reply(num, nil)
-	default:
-		for _, frame := range cursorExecThrow(id, fmt.Sprintf("No handler for exec message field %d", num), "exec_variant_unsupported") {
-			r.send(frame)
+	}
+	for _, name := range []string{"X-Prompt-Cache-Key", "Session_id", "Conversation_id", "X-Session-Id", "X-Conversation-Id"} {
+		if value := headers.Get(name); value != "" {
+			return value
 		}
 	}
-	return nil
+	return ""
 }
 
-// mcp hands a call to one of the client's own tools back to the client: the
-// call is emitted once and Cursor is told the result comes with the next request.
-func (r *cursorRun) mcp(args cursorMsg, reply func(protowire.Number, cursorPB)) error {
-	name := args.str(5)
-	if name == "" {
-		name = args.str(1)
-	}
-	if args.uint(7) != 0 { // smart_mode_approval_only: an approval probe, never an invocation
-		reply(11, cursorPB(nil).msg(3, cursorPB(nil).str(1, fmt.Sprintf("Tool %q is not approved to run without asking.", name))))
-		return nil
-	}
-	callID := args.str(3)
-	if callID == "" {
-		callID = "call_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	}
-	decoded := map[string]any{}
-	for _, f := range args {
-		if f.num != 2 || f.typ != protowire.BytesType {
-			continue
-		}
-		entry, err := cursorParse(f.bytes)
-		if err != nil {
-			continue
-		}
-		key := entry.str(1)
-		valueField, _ := entry.field(2)
-		decoded[key] = cursorDecodeArgValue(valueField.bytes)
-	}
-	reply(11, cursorPB(nil).msg(1, cursorPB(nil).msg(1, cursorPB(nil).msg(1, cursorPB(nil).str(1, cursorHandoffMessage)))))
-	if r.emittedTools[callID] {
-		return nil
-	}
-	r.emittedTools[callID] = true
-	r.toolCalls++
-	r.handedOff = true
-	return r.out(cursorEvent{kind: cursorEventToolCall, toolID: callID, toolName: name, toolArgs: string(cursorJSON(decoded))})
+type cursorPrepared struct {
+	model       *registry.NeoPiModel
+	wire        *cursorwire.Model
+	request     *cursorwire.Request
+	wireModelID string
+	key         string
+	apiKey      string
+	translated  []byte
+	finalize    helps.PayloadFinalizer
 }
 
-func (r *cursorRun) kv(m cursorMsg) {
-	id := m.uint(1)
-	num, args, ok := m.oneofCase(4)
-	if !ok {
-		return
+func (e *CursorExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, stream bool) (*cursorPrepared, error) {
+	apiKey := cursorAccessToken(auth)
+	if apiKey == "" {
+		return nil, statusErr{code: http.StatusUnauthorized, msg: "Cursor API key (access token) is required"}
 	}
-	switch num {
-	case 2: // get_blob_args
-		key := fmt.Sprintf("%x", args.str(1))
-		var result cursorPB
-		if data, found := r.blobs[key]; found {
-			result = result.raw(1, data)
-		}
-		r.send(cursorClientMessage(3, cursorPB(nil).uvarint(1, id).msg(2, result)))
-	case 3: // set_blob_args
-		blobID, _ := args.field(1)
-		data, _ := args.field(2)
-		r.blobs[fmt.Sprintf("%x", blobID.bytes)] = bytes.Clone(data.bytes)
-		r.send(cursorClientMessage(3, cursorPB(nil).uvarint(1, id).msg(3, nil)))
+	modelID := thinking.ParseSuffix(req.Model).ModelName
+	model := cursorModel(req, modelID)
+	if model == nil {
+		return nil, statusErr{code: http.StatusBadRequest, msg: fmt.Sprintf("cursor: model %s is not in the account's Cursor catalog", modelID)}
 	}
-}
-
-// interactionQuery answers Cursor's in-turn permission prompts the way NeoPi
-// does: hosted web search and fetch are approved, interactive prompts refused.
-func (r *cursorRun) interactionQuery(m cursorMsg) {
-	id := m.uint(1)
-	num, _, ok := m.oneofCase()
-	if !ok {
-		return
+	original := req.Payload
+	if len(opts.OriginalRequest) > 0 {
+		original = opts.OriginalRequest
 	}
-	var response cursorPB
-	switch num {
-	case 2, 5, 6, 9: // web search, exa search, exa fetch, web fetch
-		response = cursorPB(nil).msg(1, nil)
-	case 3: // ask question → AskQuestionResult{rejected=3{reason=1}}
-		response = cursorPB(nil).msg(1, cursorPB(nil).msg(3, cursorPB(nil).str(1, "Interactive questions are "+cursorNotImplemented)))
-	case 4: // switch mode → rejected=2
-		response = cursorPB(nil).msg(2, cursorPB(nil).str(1, "Mode switches are "+cursorNotImplemented))
-	case 7: // create plan → CreatePlanResult{error=2}
-		response = cursorPB(nil).msg(1, cursorPB(nil).msg(2, cursorPB(nil).str(1, "Plan files are "+cursorNotImplemented)))
-	case 8: // setup VM: no answer exists
-		return
-	default: // a newer approval prompt: approve it like the known ones
-		response = cursorPB(nil).msg(1, nil)
-	}
-	r.send(cursorClientMessage(6, cursorPB(nil).uvarint(1, id).msg(num, response)))
-}
-
-// complete reports whether the stream delivered a whole turn.
-func (r *cursorRun) complete() error {
-	if r.endErr != nil && !r.sawTurnEnded {
-		return r.endErr
-	}
-	if r.sawTurnEnded || r.done {
-		return nil
-	}
-	// A stream cut after the final step lost only usage; the final step ends on answer text.
-	if r.stepCompletedLatest && r.lastWasText {
-		return nil
-	}
-	return statusErr{code: http.StatusBadGateway, msg: "cursor: stream ended before turnEnded"}
-}
-
-// runCursor opens one Run stream and drives it to the end of the turn.
-func (e *CursorExecutor) runCursor(ctx context.Context, auth *cliproxyauth.Auth, p *cursorPrepared, wire cursorWireModel, emit func(cursorEvent) error) (*cursorRun, error) {
-	baseURL, token := cursorCreds(auth)
-	if token == "" {
-		return nil, statusErr{code: http.StatusUnauthorized, msg: "cursor: missing access token"}
-	}
-	blobs := cursorBlobs{}
-	runRequest := cursorRunRequest(p.conv, wire, p.display, uuid.NewString(), blobs)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	pr, pw := io.Pipe()
-	var writeMu sync.Mutex
-	writerClosed := false
-	send := func(frame []byte) {
-		writeMu.Lock()
-		defer writeMu.Unlock()
-		if writerClosed {
-			return
-		}
-		if _, err := pw.Write(frame); err != nil {
-			writerClosed = true
-		}
-	}
-	closeWriter := func() {
-		writeMu.Lock()
-		defer writeMu.Unlock()
-		if !writerClosed {
-			writerClosed = true
-			_ = pw.Close()
-		}
-	}
-	defer closeWriter()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+cursorauth.RunPath, pr)
+	translated, err := helps.TranslateRequestReturningError(ctx, opts.Headers, e.cfg, opts.SourceFormat, sdktranslator.FormatOpenAI, modelID, bytes.Clone(req.Payload), stream, helps.APIKeyModelIsCompat(req))
 	if err != nil {
 		return nil, err
 	}
-	cursorauth.ClientHeaders(req.Header, token, "application/connect+proto")
-	req.Header.Set("Te", "trailers")
-	helps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{
-		URL: req.URL.String(), Method: http.MethodPost, Headers: req.Header.Clone(),
-		Body: []byte(fmt.Sprintf("<cursor run request: %d bytes protobuf, model %s>", len(runRequest), wire.modelID)), Provider: e.Identifier(),
-		AuthID: cursorAuthField(auth, false), AuthLabel: cursorAuthField(auth, true),
+	if translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "openai", e.Identifier()); err != nil {
+		return nil, err
+	}
+	request, err := cursorwire.ParseOpenAIChat(translated, opts.Headers.Get)
+	if err != nil {
+		return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
+	}
+	effort, err := cursorEffort(model, request)
+	if err != nil {
+		return nil, err
+	}
+	key := cursorCacheKey(original, opts.Headers)
+	if key == "" {
+		key = request.PromptCacheKey
+	}
+	if key == "" {
+		key = cursorwire.DeriveSessionID(request.ModelID, &request.Context)
+	}
+	wire := cursorWireModel(model)
+	if override := cursorBaseURL(auth); override != "" {
+		wire.BaseURL = override
+	}
+	wireModelID := cursorWireModelID(model, effort)
+	return &cursorPrepared{model: model, wire: wire, request: request, wireModelID: wireModelID, key: key, apiKey: apiKey, translated: translated,
+		finalize: helps.NewPayloadFinalizer(e.cfg, e.Identifier(), modelID, "cursor", "", translated, req, opts)}, nil
+}
+
+// toolSchema is toolWireSchema, projected for models Cursor's catalog
+// otherwise rejects.
+func (p *cursorPrepared) toolSchema(tool cursorwire.Tool) any {
+	schema := codexwire.ToolWireSchema(gjson.Parse(cursorwire.StringifyJSON(tool.Parameters)))
+	if p.wire.RequiresToolSchemaProjection {
+		schema = codexwire.SanitizeSchemaForCursor(schema)
+	}
+	value, ok := cursorwire.ParseJSON(string(schema))
+	if !ok {
+		return nil
+	}
+	return value
+}
+
+func (e *CursorExecutor) run(ctx context.Context, auth *cliproxyauth.Auth, prepared *cursorPrepared, reporter *helps.UsageReporter, sink cursorwire.Sink) (*cursorwire.Turn, error) {
+	client := reporter.TrackHTTPClient(helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0))
+	turn, err := cursorConversations.Run(ctx, &cursorwire.RunInput{
+		Model: prepared.wire, Context: &prepared.request.Context, WireModelID: prepared.wireModelID, ConversationKey: prepared.key,
+		APIKey: prepared.apiKey, Do: client.Do, Sink: sink, NewUUID: e.newID, ToolSchema: prepared.toolSchema,
+		OnPayload: func(run *cursorwire.AgentRunRequest) { helps.FinalizeCursorPayload(run, prepared.finalize) },
+		Decode:    util.DecodeResponseBody,
+		OnRequest: func(url string, header http.Header, body []byte) {
+			helps.RecordAPIRequest(ctx, e.cfg, helps.UpstreamRequestLog{URL: url, Method: http.MethodPost, Headers: header.Clone(),
+				Body:     []byte(fmt.Sprintf("<cursor run request: %d bytes protobuf, model %s>", len(body), prepared.wireModelID)),
+				Provider: e.Identifier(), AuthID: cursorAuthField(auth, false), AuthLabel: cursorAuthField(auth, true)})
+		},
 	})
-
-	// HTTP/2 returns response headers while the request body stays open, so
-	// the run request goes out from its own goroutine.
-	go send(cursorFrame(runRequest))
-	go func() {
-		ticker := time.NewTicker(cursorHeartbeatInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				send(cursorHeartbeat())
-			}
-		}
-	}()
-
-	httpResp, err := helps.NewProxyAwareHTTPClient(ctx, e.cfg, auth, 0).Do(req)
 	if err != nil {
-		helps.RecordAPIResponseError(ctx, e.cfg, err)
-		return nil, err
-	}
-	defer func() { _ = httpResp.Body.Close() }()
-	helps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
-	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(httpResp.Body, 1<<20))
-		helps.AppendAPIResponseChunk(ctx, e.cfg, body)
-		return nil, cursorHTTPError(httpResp.StatusCode, body)
-	}
-
-	run := &cursorRun{conv: p.conv, blobs: blobs, send: send, emit: emit, emittedTools: map[string]bool{}}
-	frames := newCursorFrameReader(httpResp.Body)
-	for {
-		flags, payload, errFrame := frames.next()
-		if errFrame != nil {
-			if errors.Is(errFrame, io.EOF) {
-				break
-			}
-			if ctx.Err() != nil {
-				return run, ctx.Err()
-			}
-			if run.sawTurnEnded {
-				break
-			}
-			return run, statusErr{code: http.StatusBadGateway, msg: errFrame.Error()}
+		var runErr *cursorwire.RunError
+		if errors.As(err, &runErr) {
+			return turn, statusErr{code: runErr.HTTPStatus(), msg: runErr.Error()}
 		}
-		if flags&cursorFlagEndStream != 0 {
-			run.endErr = cursorEndStreamError(payload)
-			// The end frame is the server's last message: half-close our side.
-			closeWriter()
-			continue
-		}
-		if errHandle := run.handle(payload); errHandle != nil {
-			return run, errHandle
-		}
-		if run.done {
-			return run, nil
-		}
+		return turn, err
 	}
-	if status := httpResp.Trailer.Get("Grpc-Status"); status != "" && status != "0" && run.endErr == nil {
-		run.endErr = statusErr{code: http.StatusBadGateway, msg: "cursor: gRPC error " + status + ": " + httpResp.Trailer.Get("Grpc-Message")}
-	}
-	return run, run.complete()
+	return turn, nil
 }
 
 func cursorAuthField(a *cliproxyauth.Auth, label bool) string {
@@ -661,249 +346,426 @@ func cursorAuthField(a *cliproxyauth.Auth, label bool) string {
 	}
 }
 
-// runWithFallback runs the normalized wire model and, when Cursor rejects it
-// as not found before anything streamed, retries once with the discovered
-// slug in both identity fields (NeoPi's discovered wire mode).
-func (e *CursorExecutor) runWithFallback(ctx context.Context, auth *cliproxyauth.Auth, p *cursorPrepared, emit func(cursorEvent) error) (*cursorRun, error) {
-	wire := resolveCursorWireModel(p.slug, p.maxMode)
-	run, err := e.runCursor(ctx, auth, p, wire, emit)
-	if err == nil || (run != nil && run.emitted) || !cursorIsNotFound(err) {
-		return run, err
-	}
-	discovered := cursorWireModel{modelID: p.slug, detailsModelID: p.slug, maxMode: p.maxMode}
-	if discovered.modelID == wire.modelID && len(wire.params) == 0 {
-		return run, err
-	}
-	return e.runCursor(ctx, auth, p, discovered, emit)
-}
-
-// Execute performs a non-streaming request.
+// Execute runs one turn and answers with a chat completion.
 func (e *CursorExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
 	ctx = helps.EnsureSessionContext(ctx, opts, req.Payload)
-	baseModel := thinking.ParseSuffix(req.Model).ModelName
-	reporter := helps.NewExecutorUsageReporter(ctx, e, baseModel, auth)
+	prepared, err := e.prepare(ctx, auth, req, opts, false)
+	if err != nil {
+		return resp, err
+	}
+	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model.ID, auth)
 	defer reporter.TrackFailure(ctx, &err)
-
-	p, err := e.prepare(ctx, auth, req, opts, false)
+	reporter.SetUpstreamModel(prepared.wireModelID)
+	collector := &cursorCollector{}
+	turn, err := e.run(ctx, auth, prepared, reporter, collector)
 	if err != nil {
 		return resp, err
 	}
-	var text, reasoning strings.Builder
-	var toolCalls []any
-	run, err := e.runWithFallback(ctx, auth, p, func(ev cursorEvent) error {
-		switch ev.kind {
-		case cursorEventText:
-			text.WriteString(ev.text)
-		case cursorEventReasoning:
-			reasoning.WriteString(ev.text)
-		case cursorEventToolCall:
-			toolCalls = append(toolCalls, map[string]any{"id": ev.toolID, "type": "function", "function": map[string]any{"name": ev.toolName, "arguments": ev.toolArgs}})
-		}
-		return nil
-	})
-	if err != nil {
-		return resp, err
-	}
-	message := map[string]any{"role": "assistant", "content": text.String()}
-	if reasoning.Len() > 0 {
-		message["reasoning_content"] = reasoning.String()
-	}
-	finish := "stop"
-	if len(toolCalls) > 0 {
-		message["tool_calls"] = toolCalls
-		finish = "tool_calls"
-	}
-	usage := run.finalUsage()
-	completion := cursorJSON(map[string]any{
-		"id": "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", ""), "object": "chat.completion", "created": time.Now().Unix(), "model": req.Model,
-		"choices": []any{map[string]any{"index": 0, "message": message, "finish_reason": finish}},
-		"usage":   usage.openAI(),
-	})
+	completion := encodeCursorCompletion(turn.Output, collector, req.Model)
 	helps.AppendAPIResponseChunk(ctx, e.cfg, completion)
-	var param any
-	out := sdktranslator.TranslateNonStream(ctx, sdktranslator.FormatOpenAI, p.respFormat, req.Model, p.original, p.translated, completion, &param)
+	format := cliproxyexecutor.ResponseFormatOrSource(opts)
+	var state any
+	out := sdktranslator.TranslateNonStream(ctx, sdktranslator.FormatOpenAI, format, req.Model, helps.ApplyPatchOriginalRequest(req, opts), prepared.translated, completion, &state)
+	if helps.ApplyPatchTranslationError(state) != nil {
+		return resp, statusErr{code: http.StatusBadGateway, msg: helps.ApplyPatchUpstreamErrorMessage}
+	}
 	if len(out) == 0 {
 		return resp, statusErr{code: http.StatusBadGateway, msg: "cursor: response translation produced no output"}
 	}
 	reporter.Publish(ctx, helps.ParseOpenAIUsage(completion))
-	if p.respFormat == sdktranslator.FormatOpenAIResponse {
+	if format == sdktranslator.FormatOpenAIResponse {
 		out = helps.EnsureResponsesUsageDetails(out)
 	}
 	return cliproxyexecutor.Response{Payload: out, Headers: http.Header{"Content-Type": {"application/json"}}}, nil
 }
 
-// finalUsage prefers the turn's reported counters; a response that ended at a
-// tool handoff has only the streamed output estimate and the checkpoint's
-// context occupancy, whose remainder is the prompt.
-func (r *cursorRun) finalUsage() cursorUsage {
-	u := r.usage
-	if u.output == 0 {
-		u.output = r.outputEstimate
-	}
-	if u.input == 0 && r.contextUsed > u.output {
-		u.input = r.contextUsed - u.output
-	}
-	return u
-}
-
-// ExecuteStream performs a streaming request.
+// ExecuteStream runs one turn as chat completion chunks. A failure before
+// the first chunk is returned directly, so the caller can try another account.
 func (e *CursorExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (_ *cliproxyexecutor.StreamResult, err error) {
 	ctx = helps.EnsureSessionContext(ctx, opts, req.Payload)
-	baseModel := thinking.ParseSuffix(req.Model).ModelName
-	reporter := helps.NewExecutorUsageReporter(ctx, e, baseModel, auth)
-	defer reporter.TrackFailure(ctx, &err)
-
-	p, err := e.prepare(ctx, auth, req, opts, true)
+	prepared, err := e.prepare(ctx, auth, req, opts, true)
 	if err != nil {
 		return nil, err
 	}
-	out := make(chan cliproxyexecutor.StreamChunk)
+	reporter := helps.NewExecutorUsageReporter(ctx, e, prepared.model.ID, auth)
+	defer reporter.TrackFailure(ctx, &err)
+	reporter.SetUpstreamModel(prepared.wireModelID)
+
+	format := cliproxyexecutor.ResponseFormatOrSource(opts)
+	original := helps.ApplyPatchOriginalRequest(req, opts)
+	lines := make(chan []byte, 64)
+	done := make(chan error, 1)
+	encoder := newCursorChunkEncoder(req.Model, func(chunk []byte) error {
+		select {
+		case lines <- chunk:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	go func() {
+		turn, errRun := e.run(ctx, auth, prepared, reporter, encoder)
+		if errRun == nil {
+			errRun = encoder.finish(turn.Output)
+		}
+		close(lines)
+		done <- errRun
+	}()
+
+	// A successful turn always writes its finish chunk, so a stream that
+	// closes without one failed before producing anything.
+	first, ok := <-lines
+	if !ok {
+		if errRun := <-done; errRun != nil {
+			return nil, errRun
+		}
+		return nil, statusErr{code: http.StatusBadGateway, msg: "cursor: stream produced no output"}
+	}
+	out := make(chan cliproxyexecutor.StreamChunk, 1)
 	go func() {
 		defer close(out)
-		claudeInput := helps.NewClaudeInputTokenState(p.from, sdktranslator.FormatOpenAI, p.respFormat, p.original)
-		var param any
-		helps.InitializeApplyPatchStream(ctx, sdktranslator.FormatOpenAI, p.respFormat, req.Model, p.original, p.translated, &param)
-		var streamUsage helps.StreamUsageBuffer
-		builder := newCursorChatBuilder(req.Model)
-		forward := func(chunk []byte) error {
+		var usage helps.StreamUsageBuffer
+		var state any
+		claudeInput := helps.NewClaudeInputTokenState(opts.SourceFormat, sdktranslator.FormatOpenAI, format, original)
+		helps.InitializeApplyPatchStream(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, prepared.translated, &state)
+		forward := func(chunk []byte) bool {
 			line := append([]byte("data: "), chunk...)
 			helps.AppendAPIResponseChunk(ctx, e.cfg, line)
-			streamUsage.ObserveOpenAIStream(line)
+			usage.ObserveOpenAIStream(line)
 			helps.ObserveChatTokenEvent(reporter, chunk)
-			for _, translated := range helps.TranslateStreamWithClaudeInputTokens(ctx, sdktranslator.FormatOpenAI, p.respFormat, req.Model, p.original, p.translated, line, &param, claudeInput) {
+			for _, translated := range helps.TranslateStreamWithClaudeInputTokens(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, prepared.translated, line, &state, claudeInput) {
 				select {
-				case out <- cliproxyexecutor.StreamChunk{Payload: translated}:
+				case out <- cliproxyexecutor.StreamChunk{Payload: bytes.Clone(translated)}:
 				case <-ctx.Done():
-					return ctx.Err()
+					return false
 				}
 			}
-			return nil
+			return helps.ApplyPatchTranslationError(state) == nil
 		}
-		run, errRun := e.runWithFallback(ctx, auth, p, func(ev cursorEvent) error { return forward(builder.event(ev)) })
+		healthy := forward(first)
+		for chunk := range lines {
+			if healthy {
+				healthy = forward(chunk)
+			}
+		}
+		errRun := <-done
+		for _, chunk := range helps.FinalizeApplyPatchStream(state) {
+			select {
+			case out <- cliproxyexecutor.StreamChunk{Payload: chunk}:
+			case <-ctx.Done():
+				return
+			}
+		}
+		if helps.ApplyPatchTranslationError(state) != nil {
+			errRun = statusErr{code: http.StatusBadGateway, msg: helps.ApplyPatchUpstreamErrorMessage}
+		}
 		if errRun != nil {
-			if ctx.Err() == nil {
-				helps.RecordAPIResponseError(ctx, e.cfg, errRun)
-				reporter.PublishFailure(ctx, errRun)
-				select {
-				case out <- cliproxyexecutor.StreamChunk{Err: errRun}:
-				case <-ctx.Done():
-				}
+			if ctx.Err() != nil {
+				return
+			}
+			helps.RecordAPIResponseError(ctx, e.cfg, errRun)
+			usage.PublishFailure(ctx, reporter, errRun)
+			select {
+			case out <- cliproxyexecutor.StreamChunk{Err: errRun}:
+			case <-ctx.Done():
 			}
 			return
 		}
-		finish := "stop"
-		if run.toolCalls > 0 {
-			finish = "tool_calls"
-		}
-		if forward(builder.finish(finish)) != nil || forward(builder.usageChunk(run.finalUsage())) != nil || forward([]byte("[DONE]")) != nil {
-			return
-		}
-		streamUsage.Publish(ctx, reporter)
-		reporter.EnsurePublished(ctx)
+		usage.Publish(ctx, reporter)
 	}()
 	return &cliproxyexecutor.StreamResult{Headers: http.Header{"Content-Type": {"text/event-stream"}}, Chunks: out}, nil
 }
 
-// ---- errors ----
+// ---------------------------------------------------------------------------
+// OpenAI chat encoding (openai-chat-server encodeResponse / encodeStream)
+// ---------------------------------------------------------------------------
 
-// cursorErrorStatus maps aiserver.v1.CursorError codes to HTTP statuses (NeoPi's CURSOR_ERROR_STATUS).
-var cursorErrorStatus = map[uint64]int{
-	1: 401, 2: 401, 3: 401, 4: 403, 5: 404, 6: 404, 7: 429, 8: 429, 9: 429, 10: 429, 11: 401, 12: 401,
-	14: 429, 18: 401, 20: 413, 22: 429, 23: 403, 28: 429, 33: 404, 34: 429, 35: 429, 38: 401, 39: 404,
-	41: 429, 42: 401, 43: 413, 44: 429, 45: 429, 46: 403, 47: 403, 48: 403, 49: 403, 50: 429, 51: 429,
-	54: 403, 58: 403, 61: 404, 64: 403, 65: 401,
+// cursorClientCall is a call Cursor handed to the client: one carrying no
+// kCursorExecResolved marker (anthropic-messages-server isClientToolUse).
+func cursorClientCall(block *cursorwire.OutBlock) bool {
+	return block.Type == "toolCall" && !block.Resolved
 }
 
-var cursorRetryableErrors = map[uint64]bool{13: true, 25: true, 55: true, 56: true, 57: true, 59: true, 63: true}
-
-// cursorConnectStatus maps Connect error codes to HTTP statuses.
-var cursorConnectStatus = map[string]int{
-	"canceled": 499, "invalid_argument": 400, "deadline_exceeded": 504, "not_found": 404, "already_exists": 409,
-	"permission_denied": 403, "resource_exhausted": 429, "failed_precondition": 400, "aborted": 409,
-	"out_of_range": 400, "unimplemented": 501, "internal": 500, "unavailable": 503, "data_loss": 500,
-	"unauthenticated": 401,
+// cursorStringifyArgs is stringifyArgs: an unparseable inbound __raw passes
+// through verbatim.
+func cursorStringifyArgs(arguments any) string {
+	if object, ok := arguments.(*cursorwire.JSONObject); ok && object.Len() == 1 {
+		if raw, isString := func() (string, bool) { value, _ := object.Get("__raw"); text, ok := value.(string); return text, ok }(); isString {
+			return raw
+		}
+	}
+	if arguments == nil {
+		return "{}"
+	}
+	return cursorwire.StringifyJSON(arguments)
 }
 
-// cursorEndStreamError decodes a Connect end-of-stream frame; nil when it carries no error.
-func cursorEndStreamError(payload []byte) error {
-	if len(bytes.TrimSpace(payload)) == 0 {
-		return nil
+func cursorUsageJSON(usage cursorwire.Usage) map[string]any {
+	prompt := usage.Input + usage.CacheRead + usage.CacheWrite
+	out := map[string]any{
+		"prompt_tokens": prompt, "completion_tokens": usage.Output, "total_tokens": prompt + usage.Output,
+		"prompt_tokens_details": map[string]any{"cached_tokens": usage.CacheRead},
 	}
-	errNode := gjson.GetBytes(payload, "error")
-	if !errNode.Exists() || !errNode.IsObject() {
-		if !gjson.ValidBytes(payload) {
-			return statusErr{code: http.StatusBadGateway, msg: "cursor: malformed end-of-stream frame"}
-		}
-		return nil
+	if usage.Reasoning != nil {
+		out["completion_tokens_details"] = map[string]any{"reasoning_tokens": *usage.Reasoning}
 	}
-	return cursorConnectError(errNode)
+	return out
 }
 
-func cursorConnectError(errNode gjson.Result) error {
-	code := errNode.Get("code").String()
-	message := errNode.Get("message").String()
-	for _, d := range errNode.Get("details").Array() {
-		typ := d.Get("type").String()
-		if typ != "aiserver.v1.ErrorDetails" && typ != "type.googleapis.com/aiserver.v1.ErrorDetails" {
-			continue
-		}
-		raw, errDecode := base64.RawStdEncoding.DecodeString(strings.TrimRight(d.Get("value").String(), "="))
-		if errDecode != nil {
-			continue
-		}
-		detail, errParse := cursorParse(raw)
-		if errParse != nil {
-			continue
-		}
-		cursorCode := detail.uint(1)
-		var title, body string
-		var retryable, hasRetryable bool
-		if custom, ok := detail.sub(2); ok {
-			title, body = strings.TrimSpace(custom.str(1)), strings.TrimSpace(custom.str(2))
-			if f, okRetry := custom.field(4); okRetry {
-				hasRetryable, retryable = true, f.varint != 0
-			}
-		}
-		text := strings.Trim(strings.Join([]string{title, body}, ": "), ": ")
-		if text == "" {
-			text = message
-		}
-		full := fmt.Sprintf("Cursor error %d: %s", cursorCode, text)
-		if status, ok := cursorErrorStatus[cursorCode]; ok {
-			return statusErr{code: status, msg: full}
-		}
-		if retryable || (!hasRetryable && cursorRetryableErrors[cursorCode]) {
-			return statusErr{code: http.StatusServiceUnavailable, msg: full}
-		}
-		return statusErr{code: http.StatusBadRequest, msg: full}
+func cursorFinishReason(stopReason string, hasClientCalls bool) string {
+	switch {
+	case stopReason == "toolUse" || (hasClientCalls && stopReason == "stop"):
+		return "tool_calls"
+	case stopReason == "length":
+		return "length"
 	}
-	status, ok := cursorConnectStatus[code]
+	return "stop"
+}
+
+func cursorJSON(value any) []byte {
+	data, _ := json.Marshal(value)
+	return data
+}
+
+// cursorCollector gathers the non-streaming message (flattenAssistant).
+type cursorCollector struct {
+	text, reasoning strings.Builder
+	calls           []*cursorwire.OutBlock
+}
+
+func (c *cursorCollector) TextDelta(delta string)     { c.text.WriteString(delta) }
+func (c *cursorCollector) ThinkingDelta(delta string) { c.reasoning.WriteString(delta) }
+func (c *cursorCollector) ToolCallStart(block *cursorwire.OutBlock) {
+	if cursorClientCall(block) {
+		c.calls = append(c.calls, block)
+	}
+}
+func (c *cursorCollector) ToolCallDelta(*cursorwire.OutBlock, string) {}
+func (c *cursorCollector) ToolCallEnd(*cursorwire.OutBlock)           {}
+
+// encodeCursorCompletion is encodeResponse.
+func encodeCursorCompletion(output *cursorwire.Output, collected *cursorCollector, model string) []byte {
+	message := map[string]any{"role": "assistant", "content": nil, "refusal": nil}
+	if text := collected.text.String(); text != "" {
+		message["content"] = text
+	}
+	if reasoning := collected.reasoning.String(); reasoning != "" {
+		message["reasoning_content"] = reasoning
+	}
+	if len(collected.calls) > 0 {
+		calls := make([]any, len(collected.calls))
+		for i, call := range collected.calls {
+			calls[i] = map[string]any{"id": call.ID, "type": "function", "function": map[string]any{"name": call.Name, "arguments": cursorStringifyArgs(call.Arguments)}}
+		}
+		message["tool_calls"] = calls
+	}
+	return cursorJSON(map[string]any{
+		"id": "chatcmpl-" + uuid.NewString(), "object": "chat.completion", "created": time.Now().Unix(), "model": model, "system_fingerprint": nil,
+		"choices": []any{map[string]any{"index": 0, "message": message, "finish_reason": cursorFinishReason(output.StopReason, len(collected.calls) > 0), "logprobs": nil}},
+		"usage":   cursorUsageJSON(output.Usage),
+	})
+}
+
+type cursorSentTool struct {
+	id, name         string
+	hasArgumentBytes bool
+}
+
+// cursorChunkEncoder is encodeStream for client calls only. The role chunk
+// goes out with the first event, so a turn that fails before producing
+// anything has written nothing.
+type cursorChunkEncoder struct {
+	id      string
+	created int64
+	model   string
+	emit    func([]byte) error
+	err     error
+	started bool
+	index   map[*cursorwire.OutBlock]int
+	sent    []*cursorSentTool
+}
+
+func newCursorChunkEncoder(model string, emit func([]byte) error) *cursorChunkEncoder {
+	return &cursorChunkEncoder{id: "chatcmpl-" + uuid.NewString(), created: time.Now().Unix(), model: model, emit: emit, index: map[*cursorwire.OutBlock]int{}}
+}
+
+func (c *cursorChunkEncoder) write(delta map[string]any, finish any) {
+	if c.err != nil {
+		return
+	}
+	if !c.started {
+		c.started = true
+		c.write(map[string]any{"role": "assistant"}, nil)
+	}
+	c.err = c.emit(cursorJSON(map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
+		"system_fingerprint": nil, "choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": finish, "logprobs": nil}}}))
+}
+
+func (c *cursorChunkEncoder) TextDelta(delta string) {
+	if delta != "" {
+		c.write(map[string]any{"content": delta}, nil)
+	}
+}
+
+func (c *cursorChunkEncoder) ThinkingDelta(delta string) {
+	if delta != "" {
+		c.write(map[string]any{"reasoning_content": delta}, nil)
+	}
+}
+
+func (c *cursorChunkEncoder) ToolCallStart(block *cursorwire.OutBlock) {
+	if !cursorClientCall(block) {
+		return
+	}
+	index := len(c.sent)
+	c.index[block] = index
+	c.sent = append(c.sent, &cursorSentTool{id: block.ID, name: block.Name})
+	c.write(map[string]any{"tool_calls": []any{map[string]any{"index": index, "id": block.ID, "type": "function",
+		"function": map[string]any{"name": block.Name, "arguments": ""}}}}, nil)
+}
+
+func (c *cursorChunkEncoder) ToolCallDelta(block *cursorwire.OutBlock, delta string) {
+	index, ok := c.index[block]
 	if !ok {
-		status = http.StatusBadGateway
+		return
 	}
-	if code == "" {
-		code = "unknown"
+	if delta != "" {
+		c.sent[index].hasArgumentBytes = true
 	}
-	return statusErr{code: status, msg: "cursor: Connect error " + code + ": " + message}
+	c.write(map[string]any{"tool_calls": []any{map[string]any{"index": index, "function": map[string]any{"arguments": delta}}}}, nil)
 }
 
-func cursorHTTPError(status int, body []byte) error {
-	if errNode := gjson.ParseBytes(body); errNode.Get("code").Exists() {
-		if err, ok := cursorConnectError(errNode).(statusErr); ok {
-			if err.code == http.StatusBadGateway {
-				err.code = status
-			}
-			return err
-		}
+func (c *cursorChunkEncoder) ToolCallEnd(block *cursorwire.OutBlock) {
+	index, ok := c.index[block]
+	if !ok {
+		return
 	}
-	msg := strings.TrimSpace(string(body))
-	if msg == "" {
-		msg = http.StatusText(status)
+	sent := c.sent[index]
+	call := map[string]any{"index": index}
+	function := map[string]any{}
+	if sent.id == "" && block.ID != "" {
+		call["id"] = block.ID
 	}
-	return statusErr{code: status, msg: "cursor: upstream status " + strconv.Itoa(status) + ": " + msg}
+	if sent.name == "" && block.Name != "" {
+		function["name"] = block.Name
+	}
+	if !sent.hasArgumentBytes {
+		function["arguments"] = cursorStringifyArgs(block.Arguments)
+	}
+	if len(function) > 0 {
+		call["function"] = function
+	}
+	if len(call) > 1 {
+		c.write(map[string]any{"tool_calls": []any{call}}, nil)
+	}
 }
 
-func cursorIsNotFound(err error) bool {
-	var se statusErr
-	return errors.As(err, &se) && se.code == http.StatusNotFound
+// finish writes the finish chunk, the usage chunk and [DONE].
+func (c *cursorChunkEncoder) finish(output *cursorwire.Output) error {
+	c.write(map[string]any{}, cursorFinishReason(output.StopReason, len(c.sent) > 0))
+	if c.err != nil {
+		return c.err
+	}
+	if c.err = c.emit(cursorJSON(map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
+		"system_fingerprint": nil, "choices": []any{}, "usage": cursorUsageJSON(output.Usage)})); c.err != nil {
+		return c.err
+	}
+	c.err = c.emit([]byte("[DONE]"))
+	return c.err
+}
+
+// ---------------------------------------------------------------------------
+// Discovery
+// ---------------------------------------------------------------------------
+
+// cursorDiscoveryTimeout is fetchCursorUsableModels' default per-RPC deadline;
+// AvailableModels gets at most 2s of it.
+const cursorDiscoveryTimeout = 5 * time.Second
+
+// FetchCursorModels lists the account's models as NeoPi's cursor discovery
+// does: GetUsableModels, AvailableModels and GetDefaultModelForCli in
+// parallel, resolved into NeoPi records.
+func FetchCursorModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) ([]*registry.ModelInfo, error) {
+	apiKey := cursorAccessToken(auth)
+	if apiKey == "" {
+		return nil, errors.New("cursor models: account has no access token")
+	}
+	override := cursorBaseURL(auth)
+	baseURL := override
+	if baseURL == "" {
+		baseURL = cursorwire.DefaultBaseURL
+	}
+	client := helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0)
+	available := &cursorwire.AvailableModelsRequest{IncludeLongContextModels: true, UseModelParameters: ptrTrue(), DoNotUseMarkdown: ptrTrue(),
+		UseCloudAgentEffortModes: ptrTrue()}
+	type result struct {
+		index int
+		body  []byte
+	}
+	calls := []struct {
+		path    string
+		body    []byte
+		timeout time.Duration
+	}{
+		{cursorwire.GetUsableModelsPath, nil, cursorDiscoveryTimeout},
+		{cursorwire.AvailableModelsPath, available.Marshal(), 2 * time.Second},
+		{cursorwire.GetDefaultModelPath, nil, cursorDiscoveryTimeout},
+	}
+	results := make(chan result, len(calls))
+	for i, call := range calls {
+		go func() {
+			results <- result{index: i, body: cursorUnary(ctx, client, baseURL+call.path, apiKey, call.body, call.timeout)}
+		}()
+	}
+	bodies := make([][]byte, len(calls))
+	for range calls {
+		r := <-results
+		bodies[r.index] = r.body
+	}
+	models, ok := registry.CursorDiscoveredModels(registry.CursorDiscoveryResponses{Usable: bodies[0], Available: bodies[1], Default: bodies[2]}, override, time.Now())
+	if !ok {
+		return nil, errors.New("cursor models: neither GetUsableModels nor AvailableModels answered")
+	}
+	return models, nil
+}
+
+func ptrTrue() *bool {
+	value := true
+	return &value
+}
+
+// cursorUnary is fetchCursorUnary: one unary RPC under its deadline; a
+// transport failure or non-2xx status yields nil.
+func cursorUnary(ctx context.Context, client *http.Client, url, apiKey string, body []byte, timeout time.Duration) []byte {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil
+	}
+	cursorwire.SetFetchHeaders(request.Header)
+	cursorwire.SetClientHeaders(request.Header, apiKey, cursorwire.ContentTypeProto)
+	request.Header.Set("Connect-Protocol-Version", "1")
+	request.Header.Set("X-Request-Id", uuid.NewString())
+	response, err := client.Do(request)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil
+	}
+	decoded, err := util.DecodeResponseBody(response.Body, response.Header.Get("Content-Encoding"))
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = decoded.Close() }()
+	payload, err := io.ReadAll(decoded)
+	if err != nil {
+		return nil
+	}
+	if payload == nil {
+		payload = []byte{}
+	}
+	return payload
 }

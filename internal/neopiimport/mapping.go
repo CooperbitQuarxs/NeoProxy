@@ -13,6 +13,7 @@ import (
 	"time"
 
 	cursorauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cursor"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -327,7 +328,7 @@ func BuildAuthFile(c Credential, profile string, importedAt, now time.Time) (Aut
 		setNonEmpty(meta, "org_id", str(c.data, "orgId"))
 	case "cursor":
 		meta["access_token"] = access
-		meta["base_url"] = cursorauth.APIBaseURL
+		meta["base_url"] = cursorwire.DefaultBaseURL
 		meta["auth_kind"] = "oauth"
 		setNonEmpty(meta, "user_id", cursorauth.UserID(access))
 	default:
