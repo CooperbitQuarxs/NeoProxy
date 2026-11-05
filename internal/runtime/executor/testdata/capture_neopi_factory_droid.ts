@@ -55,23 +55,36 @@ const server = Bun.serve({
 const local = `http://127.0.0.1:${server.port}`;
 
 const lookup = { name: "lookup", description: "Look up a term.", parameters: { type: "object", properties: { term: { type: "string" } }, required: ["term"] } };
+const webSearch = { name: "web_search", description: "Search the web.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } };
+const dottedName = "my.tool/name is long enough to exceed the route tool name bound sixty-four";
+const dotted = { name: dottedName, description: "A very long tool name.", parameters: { type: "object", properties: { term: { type: "string" } }, required: ["term"] } };
 const usage = { input: 1, output: 1, totalTokens: 2, cost: { input: 0, output: 0, total: 0 } };
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
-type Turn = { kind: "user"; text?: string; image?: boolean } | { kind: "call" } | { kind: "result"; text: string; isError?: boolean };
+type Turn = { kind: "user"; text?: string; image?: boolean; thinking?: string; unsigned?: boolean; tool?: string } | { kind: "call"; thinking?: string; unsigned?: boolean; tool?: string } | { kind: "result"; text: string; isError?: boolean; tool?: string };
 const hello: Turn[] = [{ kind: "user", text: "Say hello." }];
 const ask: Turn[] = [{ kind: "user", text: "Use a tool." }];
-const history: Turn[] = [{ kind: "user", text: "Use a tool." }, { kind: "call" }, { kind: "result", text: "Found." }];
+const historyOf = (call: { thinking?: string; unsigned?: boolean; tool?: string } = {}): Turn[] => [
+	{ kind: "user", text: "Use a tool." },
+	{ kind: "call", ...call },
+	{ kind: "result", text: "Found.", tool: call.tool },
+];
+const history: Turn[] = historyOf();
 const describe: Turn[] = [{ kind: "user", text: "Describe.", image: true }];
 
-const neopiTurns = (model: any, turns: Turn[]) =>
+const neopiTurns = (model: any, turns: Turn[], withThinking: boolean) =>
 	turns.map(turn => {
 		if (turn.kind === "user")
 			return { role: "user", content: turn.image ? [{ type: "text", text: turn.text }, { type: "image", data: png, mimeType: "image/png" }] : turn.text, timestamp: 0 };
 		if (turn.kind === "call")
 			return {
 				role: "assistant",
-				content: [{ type: "toolCall", id: "call_capture_1", name: "lookup", arguments: { term: "a" } }],
+				content: [
+					...(withThinking
+						? [{ type: "thinking", thinking: turn.thinking ?? "Need a tool.", ...(turn.unsigned ? {} : { thinkingSignature: "" }) }]
+						: []),
+					{ type: "toolCall", id: "call_capture_1", name: turn.tool ?? "lookup", arguments: toolArgs(turn.tool ?? "lookup") },
+				],
 				api: model.api,
 				provider: model.provider,
 				model: model.id,
@@ -79,8 +92,10 @@ const neopiTurns = (model: any, turns: Turn[]) =>
 				stopReason: "toolUse",
 				timestamp: 0,
 			};
-		return { role: "toolResult", toolCallId: "call_capture_1", toolName: "lookup", content: [{ type: "text", text: turn.text }], isError: !!turn.isError, timestamp: 0 };
+		return { role: "toolResult", toolCallId: "call_capture_1", toolName: turn.tool ?? "lookup", content: [{ type: "text", text: turn.text }], isError: !!turn.isError, timestamp: 0 };
 	});
+
+const toolArgs = (tool: string) => (tool === "web_search" ? { query: "a" } : { term: "a" });
 
 // Downstream requests per client format.
 const claudeDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
@@ -89,7 +104,14 @@ const claudeDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 		messages: turns.map(turn => {
 			if (turn.kind === "user")
 				return { role: "user", content: turn.image ? [{ type: "text", text: turn.text }, { type: "image", source: { type: "base64", media_type: "image/png", data: png } }] : turn.text };
-			if (turn.kind === "call") return { role: "assistant", content: [{ type: "tool_use", id: "call_capture_1", name: "lookup", input: { term: "a" } }] };
+		if (turn.kind === "call")
+			return {
+				role: "assistant",
+				content: [
+					{ type: "thinking", thinking: turn.thinking ?? "Need a tool.", ...(turn.unsigned ? {} : { signature: "" }) },
+					{ type: "tool_use", id: "call_capture_1", name: turn.tool ?? "lookup", input: toolArgs(turn.tool ?? "lookup") },
+				],
+			};
 			return { role: "user", content: [{ type: "tool_result", tool_use_id: "call_capture_1", content: [{ type: "text", text: turn.text }], ...(turn.isError ? { is_error: true } : {}) }] };
 		}),
 		stream: true,
@@ -100,6 +122,8 @@ const claudeDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 	if (opts.temperature !== undefined) body.temperature = opts.temperature;
 	if (opts.disableReasoning) body.thinking = { type: "disabled" };
 	else if (opts.reasoning) Object.assign(body, { thinking: { type: "adaptive" }, output_config: { effort: opts.reasoning } });
+	if (opts.toolChoice === "any") body.tool_choice = { type: "any" };
+	else if (opts.toolChoice?.type === "tool") body.tool_choice = { type: "tool", name: opts.toolChoice.name };
 	return body;
 };
 const chatDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
@@ -108,7 +132,7 @@ const chatDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 		if (turn.kind === "user")
 			messages.push({ role: "user", content: turn.image ? [{ type: "text", text: turn.text }, { type: "image_url", image_url: { url: `data:image/png;base64,${png}` } }] : turn.text });
 		else if (turn.kind === "call")
-			messages.push({ role: "assistant", content: null, tool_calls: [{ id: "call_capture_1", type: "function", function: { name: "lookup", arguments: JSON.stringify({ term: "a" }) } }] });
+			messages.push({ role: "assistant", content: null, tool_calls: [{ id: "call_capture_1", type: "function", function: { name: turn.tool ?? "lookup", arguments: JSON.stringify(toolArgs(turn.tool ?? "lookup")) } }] });
 		else messages.push({ role: "tool", tool_call_id: "call_capture_1", content: turn.text });
 	}
 	const body: any = { model: model.id, messages, stream: true };
@@ -117,6 +141,7 @@ const chatDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
 	if (opts.temperature !== undefined) body.temperature = opts.temperature;
 	if (opts.disableReasoning) body.reasoning_effort = "none";
 	else if (opts.reasoning) body.reasoning_effort = opts.reasoning;
+	if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice;
 	return body;
 };
 const geminiDownstream = (model: any, turns: Turn[], opts: any, extra: any) => {
@@ -149,17 +174,29 @@ try {
 		for (const entry of registry) {
 			const model = buildFactoryDroidModel(entry, { ...identity, apiProviders: entry.policy.rotation });
 			const efforts: string[] = model.thinking?.efforts ?? [];
-			const add = (name: string, turns: Turn[], opts: any, extra: any = {}) => {
-				const context = { ...(extra.system ? { systemPrompt: [extra.system] } : {}), messages: neopiTurns(model, turns), ...(extra.tools ? { tools: extra.tools } : {}) };
-				scenarios.push({ name: `${model.id}/${name}`, model, context, options: opts, downstream: downstreamFor(wire)(model, turns, opts, extra) });
-			};
-			add("plain", hello, {});
-			for (const effort of efforts) add(`effort-${effort}`, hello, { reasoning: effort });
-			add("off", hello, { disableReasoning: true });
-			add("off-sampling", hello, { disableReasoning: true, temperature: 0.3, maxTokens: 300 });
-			add("system-tool", ask, { reasoning: efforts[0], maxTokens: 512 }, { system: "A source system.", tools: [lookup] });
-			add("tool-history", history, { reasoning: efforts[0] }, { tools: [lookup] });
-			if (model.input.includes("image")) add("user-image", describe, { reasoning: efforts[0] });
+		const add = (name: string, turns: Turn[], opts: any, extra: any = {}) => {
+			const context = { ...(extra.system ? { systemPrompt: [extra.system] } : {}), messages: neopiTurns(model, turns, wire === "anthropic-messages"), ...(extra.tools ? { tools: extra.tools } : {}) };
+			scenarios.push({ name: `${model.id}/${name}`, model, context, options: opts, downstream: downstreamFor(wire)(model, turns, opts, extra) });
+		};
+		add("plain", hello, {});
+		for (const effort of efforts) add(`effort-${effort}`, hello, { reasoning: effort });
+		add("off", hello, { disableReasoning: true });
+		add("off-sampling", hello, { disableReasoning: true, temperature: 0.3, maxTokens: 300 });
+		add("system-tool", ask, { reasoning: efforts[0], maxTokens: 512 }, { system: "A source system.", tools: [lookup] });
+		add("tool-history", history, { reasoning: efforts[0] }, { tools: [lookup] });
+		if (wire === "anthropic-messages") {
+			add("tool-result-blocks", historyOf(), { reasoning: efforts[0] }, { tools: [lookup] });
+			add("blank-thinking-history", historyOf({ thinking: "   " }), { reasoning: efforts[0] }, { tools: [lookup] });
+			add("unsigned-thinking-history", historyOf({ unsigned: true }), { reasoning: efforts[0] }, { tools: [lookup] });
+			add("builtin-tool-name", historyOf({ tool: "web_search" }), { reasoning: efforts[0] }, { tools: [lookup, webSearch] });
+			add("forced-any", ask, { reasoning: efforts[0], toolChoice: "any" }, { tools: [lookup] });
+			add("forced-named", ask, { reasoning: efforts[0], toolChoice: { type: "tool", name: "lookup" } }, { tools: [lookup] });
+		}
+		if (wire === "openai-completions") {
+			add("long-tool-name", historyOf({ tool: dottedName }), { reasoning: efforts[0] }, { tools: [lookup, dotted] });
+			add("forced-named", ask, { reasoning: efforts[0], toolChoice: { type: "function", function: { name: "lookup" } } }, { tools: [lookup] });
+		}
+		if (model.input.includes("image")) add("user-image", describe, { reasoning: efforts[0] });
 		}
 		const fixtures: any[] = [];
 		for (const scenario of scenarios) {
