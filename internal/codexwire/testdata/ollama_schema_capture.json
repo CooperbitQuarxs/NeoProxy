@@ -1,0 +1,440 @@
+{
+  "source": "NeoPi OWN toolWireSchema + sanitizeSchemaForOllama",
+  "cases": [
+    {
+      "name": "plain",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path."
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"File path.\"},\"n\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"path\"]}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"File path.\"},\"n\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"path\"]}"
+    },
+    {
+      "name": "empty-parameters",
+      "parameters": {},
+      "wire": "{}",
+      "ollama": "{}"
+    },
+    {
+      "name": "boolean-subschemas",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "anything": true,
+          "never": false,
+          "arr": {
+            "type": "array",
+            "items": true
+          },
+          "open": {}
+        },
+        "additionalProperties": false
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"anything\":true,\"never\":false,\"arr\":{\"type\":\"array\",\"items\":true},\"open\":true},\"additionalProperties\":false}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"anything\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]},\"never\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"arr\":{\"type\":\"array\",\"items\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"open\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}"
+    },
+    {
+      "name": "additional-properties",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "strict": {
+            "type": "object",
+            "additionalProperties": false
+          },
+          "loose": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "typed": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "open": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"strict\":{\"type\":\"object\",\"additionalProperties\":false},\"loose\":{\"type\":\"object\",\"additionalProperties\":true},\"typed\":{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"}},\"open\":{\"type\":\"object\",\"additionalProperties\":true}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"strict\":{\"type\":\"object\"},\"loose\":{\"type\":\"object\"},\"typed\":{\"type\":\"object\",\"additionalProperties\":{\"type\":\"string\"}},\"open\":{\"type\":\"object\"}}}"
+    },
+    {
+      "name": "unevaluated",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "type": "object",
+            "unevaluatedProperties": false,
+            "unevaluatedItems": true
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"object\",\"unevaluatedProperties\":false,\"unevaluatedItems\":true}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"object\",\"unevaluatedItems\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}}"
+    },
+    {
+      "name": "type-array-nullable",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "only": {
+            "type": [
+              "null"
+            ]
+          },
+          "dup": {
+            "type": [
+              "string",
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":[\"number\",\"null\"]},\"only\":{\"type\":[\"null\"]},\"dup\":{\"type\":[\"string\",\"string\",\"null\"]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":\"number\"},\"only\":{\"type\":\"null\"},\"dup\":{\"type\":\"string\"}}}"
+    },
+    {
+      "name": "type-array-multi",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "v": {
+            "type": [
+              "string",
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "w": {
+            "type": [
+              "integer",
+              "boolean"
+            ],
+            "allOf": [
+              {
+                "minimum": 0
+              }
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"type\":[\"string\",\"array\",\"null\"],\"items\":{\"type\":\"string\"}},\"w\":{\"type\":[\"integer\",\"boolean\"],\"allOf\":[{\"minimum\":0}]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"v\":{\"items\":{\"type\":\"string\"},\"allOf\":[{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"array\"},{\"type\":\"null\"}]}]},\"w\":{\"allOf\":[{\"anyOf\":[{\"type\":\"integer\"},{\"type\":\"boolean\"}]},{\"minimum\":0}]}}}"
+    },
+    {
+      "name": "type-array-allof-first",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "v": {
+            "allOf": [
+              {
+                "description": "x"
+              }
+            ],
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"v\":{\"allOf\":[{\"description\":\"x\"}],\"type\":[\"string\",\"number\"]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"v\":{\"allOf\":[{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"}]},{\"description\":\"x\"}]}}}"
+    },
+    {
+      "name": "type-array-odd",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "empty": {
+            "type": [],
+            "description": "Nothing."
+          },
+          "numbers": {
+            "type": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"empty\":{\"type\":[],\"description\":\"Nothing.\"},\"numbers\":{\"type\":[1,2]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"empty\":{\"description\":\"Nothing.\"},\"numbers\":{\"type\":1}}}"
+    },
+    {
+      "name": "combiners",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "a": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              true
+            ]
+          },
+          "b": {
+            "oneOf": [
+              false,
+              {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "c": {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "x": true
+                }
+              }
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"a\":{\"anyOf\":[{\"type\":\"string\"},true]},\"b\":{\"oneOf\":[false,{\"type\":[\"string\",\"null\"]}]},\"c\":{\"allOf\":[{\"type\":\"object\",\"properties\":{\"x\":true}}]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"a\":{\"anyOf\":[{\"type\":\"string\"},{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}]},\"b\":{\"oneOf\":[{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},{\"type\":\"string\"}]},\"c\":{\"allOf\":[{\"type\":\"object\",\"properties\":{\"x\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}]}}}"
+    },
+    {
+      "name": "tuple",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pair": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              true
+            ],
+            "items": false
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},true],\"items\":false}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}],\"items\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}}}"
+    },
+    {
+      "name": "draft7-items-array",
+      "parameters": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "pair": {
+            "type": "array",
+            "items": [
+              {
+                "type": "string"
+              },
+              true
+            ],
+            "additionalItems": false
+          }
+        }
+      },
+      "wire": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},true],\"items\":false}}}",
+      "ollama": "{\"$schema\":\"https://json-schema.org/draft/2020-12/schema\",\"type\":\"object\",\"properties\":{\"pair\":{\"type\":\"array\",\"prefixItems\":[{\"type\":\"string\"},{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}],\"items\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}}}"
+    },
+    {
+      "name": "conditionals",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "c": {
+            "if": {
+              "properties": {
+                "k": {
+                  "const": "a"
+                }
+              }
+            },
+            "then": true,
+            "else": false,
+            "not": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"c\":{\"if\":{\"properties\":{\"k\":{\"const\":\"a\"}}},\"then\":true,\"else\":false,\"not\":{\"type\":[\"string\",\"null\"]}}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"c\":{\"if\":{\"properties\":{\"k\":{\"const\":\"a\"}}},\"then\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]},\"else\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"not\":{\"type\":\"string\"}}}}"
+    },
+    {
+      "name": "value-keys",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "s": {
+            "type": "string",
+            "propertyNames": true,
+            "contentSchema": false
+          },
+          "arr": {
+            "type": "array",
+            "contains": true
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"s\":{\"type\":\"string\",\"propertyNames\":true,\"contentSchema\":false},\"arr\":{\"type\":\"array\",\"contains\":true}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"s\":{\"type\":\"string\",\"propertyNames\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]},\"contentSchema\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}},\"arr\":{\"type\":\"array\",\"contains\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}}}"
+    },
+    {
+      "name": "maps",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "node": {
+            "$ref": "#/$defs/Node"
+          }
+        },
+        "$defs": {
+          "Node": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "child": true
+            }
+          }
+        },
+        "definitions": {
+          "Leaf": false
+        },
+        "patternProperties": {
+          "^x": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          }
+        },
+        "dependentSchemas": {
+          "a": true
+        },
+        "dependencies": {
+          "b": [
+            "a"
+          ],
+          "c": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"node\":{\"$ref\":\"#/$defs/Node\"}},\"$defs\":{\"Node\":{\"type\":[\"object\",\"null\"],\"properties\":{\"child\":true}},\"Leaf\":false},\"patternProperties\":{\"^x\":{\"type\":[\"string\",\"integer\"]}},\"dependentSchemas\":{\"a\":true,\"c\":{\"type\":[\"string\",\"null\"]}},\"dependentRequired\":{\"b\":[\"a\"]}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"node\":{\"$ref\":\"#/$defs/Node\"}},\"$defs\":{\"Node\":{\"type\":\"object\",\"properties\":{\"child\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}},\"Leaf\":{\"not\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}}},\"patternProperties\":{\"^x\":{\"allOf\":[{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"integer\"}]}]}},\"dependentSchemas\":{\"a\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]},\"c\":{\"type\":\"string\"}},\"dependentRequired\":{\"b\":[\"a\"]}}"
+    },
+    {
+      "name": "non-schema-positions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "e": {
+            "enum": [
+              true,
+              false,
+              [
+                "a",
+                "b"
+              ]
+            ]
+          },
+          "d": {
+            "default": {
+              "additionalProperties": false,
+              "type": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          "x": {
+            "examples": [
+              true
+            ]
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"e\":{\"enum\":[true,false,[\"a\",\"b\"]]},\"d\":{\"default\":{\"additionalProperties\":false,\"type\":[\"a\",\"b\"]}},\"x\":{\"examples\":[true]}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"e\":{\"enum\":[true,false,[\"a\",\"b\"]]},\"d\":{\"default\":{\"additionalProperties\":false,\"type\":[\"a\",\"b\"]}},\"x\":{\"examples\":[true]}}}"
+    },
+    {
+      "name": "property-named-keywords",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "boolean"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "wire": "{\"type\":\"object\",\"properties\":{\"type\":{\"type\":[\"string\",\"null\"]},\"items\":{\"type\":\"boolean\"},\"additionalProperties\":{\"type\":\"string\"}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"type\":{\"type\":\"string\"},\"items\":{\"type\":\"boolean\"},\"additionalProperties\":{\"type\":\"string\"}}}"
+    },
+    {
+      "name": "root-type-array",
+      "parameters": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "a": {
+            "type": "string"
+          }
+        }
+      },
+      "wire": "{\"type\":[\"object\",\"null\"],\"properties\":{\"a\":{\"type\":\"string\"}}}",
+      "ollama": "{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"string\"}}}"
+    }
+  ]
+}

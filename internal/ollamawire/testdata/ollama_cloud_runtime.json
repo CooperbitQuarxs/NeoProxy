@@ -1,0 +1,1667 @@
+{
+	"source": "NeoPi OWN ollama-cloud streamSimple over openai-chat-server parseRequest against a scripted /api/chat",
+	"apiKey": "ollama-cloud-key-fixture",
+	"scenarios": [
+		{
+			"name": "text-thinking-usage",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"system\",\"content\":\"Be brief.\"},{\"role\":\"user\",\"content\":\"Hi\"}],\"reasoning_effort\":\"high\",\"temperature\":0.3,\"top_p\":0.9,\"stream\":true}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\"Thinking \"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\"more.\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Hello\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\" there!\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30,\"prompt_eval_cached_count\":100}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "179",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"system\",\"content\":\"Be brief.\"},{\"role\":\"user\",\"content\":\"Hi\"}],\"think\":\"high\",\"options\":{\"temperature\":0.3,\"top_p\":0.9},\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "thinking_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "Thinking "
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "more."
+				},
+				{
+					"type": "thinking_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 1
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": "Hello"
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": " there!"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 1
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "thinking",
+						"text": "Thinking more."
+					},
+					{
+						"type": "text",
+						"text": "Hello there!"
+					}
+				],
+				"usage": {
+					"input": 20,
+					"output": 30,
+					"cacheRead": 100,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "minimal-effort-no-system",
+			"body": "{\"model\":\"glm-5.1\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Part one.\"},{\"type\":\"text\",\"text\":\"Part two.\"}]}],\"reasoning_effort\":\"minimal\",\"max_tokens\":99999}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "109",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"glm-5.1\",\"messages\":[{\"role\":\"user\",\"content\":\"Part one.\\nPart two.\"}],\"think\":\"low\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "ok"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "ok"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "effort-none-and-unsupported-effort",
+			"body": "{\"model\":\"deepseek-v4-pro\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"reasoning_effort\":\"none\"}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "85",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"deepseek-v4-pro\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "ok"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "ok"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "effort-max-deepseek",
+			"body": "{\"model\":\"deepseek-v4-pro\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"reasoning_effort\":\"max\"}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\"deep\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"done\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "99",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"deepseek-v4-pro\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"think\":\"max\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "thinking_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "deep"
+				},
+				{
+					"type": "thinking_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 1
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": "done"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 1
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "thinking",
+						"text": "deep"
+					},
+					{
+						"type": "text",
+						"text": "done"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "effort-on-non-reasoning-row",
+			"body": "{\"model\":\"qwen3-coder:480b\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"reasoning_effort\":\"high\"}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "86",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"qwen3-coder:480b\",\"messages\":[{\"role\":\"user\",\"content\":\"Go\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "ok"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "ok"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "tools-structured-object-args",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Find cats\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}],\"tool_choice\":\"auto\"}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Let me look.\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"lookup\",\"arguments\":{\"query\":\"cats\",\"limit\":2}}}]},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "639",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Find cats\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"},\"extra\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"required\":[\"query\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "Let me look."
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "toolcall_start",
+					"contentIndex": 1,
+					"name": "lookup"
+				},
+				{
+					"type": "toolcall_delta",
+					"contentIndex": 1,
+					"delta": "{\"query\":\"cats\",\"limit\":2}"
+				},
+				{
+					"type": "toolcall_end",
+					"contentIndex": 1,
+					"name": "lookup"
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "toolUse",
+				"content": [
+					{
+						"type": "text",
+						"text": "Let me look."
+					},
+					{
+						"type": "toolCall",
+						"id": "ollama:1:lookup",
+						"name": "lookup",
+						"arguments": "{\"query\":\"cats\",\"limit\":2}"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "named-tool-choice-string-args",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Write it\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}],\"tool_choice\":{\"type\":\"function\",\"function\":{\"name\":\"write_file\"}}}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"write_file\",\"arguments\":\"{\\\"path\\\":\\\"a.txt\\\",\\\"content\\\":\\\"hi\\\"}\"}},{\"function\":{\"arguments\":null}}]},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"tool_calls\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "335",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Write it\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}],\"tool_choice\":\"required\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "toolcall_start",
+					"contentIndex": 0,
+					"name": "write_file"
+				},
+				{
+					"type": "toolcall_delta",
+					"contentIndex": 0,
+					"delta": "{\"path\":\"a.txt\",\"content\":\"hi\"}"
+				},
+				{
+					"type": "toolcall_start",
+					"contentIndex": 1,
+					"name": "unknown_tool"
+				},
+				{
+					"type": "toolcall_delta",
+					"contentIndex": 1,
+					"delta": "{}"
+				},
+				{
+					"type": "toolcall_end",
+					"contentIndex": 0,
+					"name": "write_file"
+				},
+				{
+					"type": "toolcall_end",
+					"contentIndex": 1,
+					"name": "unknown_tool"
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "toolUse",
+				"content": [
+					{
+						"type": "toolCall",
+						"id": "ollama:0:write_file",
+						"name": "write_file",
+						"arguments": "{\"path\":\"a.txt\",\"content\":\"hi\"}"
+					},
+					{
+						"type": "toolCall",
+						"id": "ollama:1:unknown_tool",
+						"name": "unknown_tool",
+						"arguments": "{}"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "required-and-missing-named-tool",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Use something\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}}],\"tool_choice\":{\"type\":\"tool\",\"name\":\"absent\"}}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"none fit\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "118",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Use something\"}],\"tool_choice\":\"required\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "none fit"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "none fit"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "tool-choice-none-and-required",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Answer\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}}],\"tool_choice\":\"none\"}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"answer\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "445",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Answer\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"},\"extra\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"required\":[\"query\"]}}}],\"tool_choice\":\"none\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "answer"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "answer"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "history-transform",
+			"body": "{\"model\":\"kimi-k2.6\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a helper.\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Look at this\"},{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,iVBORw0KGgo=\"}}]},{\"role\":\"assistant\",\"content\":\"Checking.\",\"reasoning_content\":\"I should look it up.  \",\"tool_calls\":[{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\\\"x\\\"}\"}},{\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\\\"y\\\"}\"}},{\"id\":\"call_2\",\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"arguments\":\"not json\"}},{\"id\":\"call_bad\",\"type\":\"function\",\"function\":{\"name\":\"bad name!\",\"arguments\":\"{}\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_1\",\"content\":\"x result\"},{\"role\":\"tool\",\"tool_call_id\":\"call_1\",\"content\":[{\"type\":\"text\",\"text\":\"y result\"},{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,iVBORw0KGgo=\"}}]},{\"role\":\"tool\",\"tool_call_id\":\"call_bad\",\"content\":\"bad result\"},{\"role\":\"tool\",\"tool_call_id\":\"orphan\",\"name\":\"ghost\",\"content\":\"stale text\"},{\"role\":\"assistant\",\"content\":[],\"reasoning_content\":\"   \"},{\"role\":\"developer\",\"content\":\"Developer note.\"},{\"role\":\"user\",\"content\":\"Continue\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Continuing.\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "1638",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"kimi-k2.6\",\"messages\":[{\"role\":\"system\",\"content\":\"You are a helper.\"},{\"role\":\"user\",\"content\":\"Look at this\",\"images\":[\"iVBORw0KGgo=\"]},{\"role\":\"assistant\",\"content\":\"<think>\\nI should look it up.  \\n</think>\\nChecking.\",\"tool_calls\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":{\"query\":\"x\"}}},{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"arguments\":{\"query\":\"y\"}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"arguments\":{\"__raw\":\"not json\"}}}]},{\"role\":\"tool\",\"tool_name\":\"lookup\",\"content\":\"x result\"},{\"role\":\"tool\",\"tool_name\":\"lookup\",\"content\":\"y result\"},{\"role\":\"tool\",\"tool_name\":\"write_file\",\"content\":\"No result provided\"},{\"role\":\"user\",\"content\":\"\",\"images\":[\"iVBORw0KGgo=\"]},{\"role\":\"user\",\"content\":\"<stale-tool-result tool=\\\"bad name!\\\" id=\\\"call_bad\\\">\\nbad result\\n</stale-tool-result>\"},{\"role\":\"user\",\"content\":\"<stale-tool-result tool=\\\"ghost\\\" id=\\\"orphan\\\">\\nstale text\\n</stale-tool-result>\"},{\"role\":\"assistant\",\"content\":\"\"},{\"role\":\"system\",\"content\":\"Developer note.\"},{\"role\":\"user\",\"content\":\"Continue\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"},\"extra\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"required\":[\"query\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Write a file.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "Continuing."
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "Continuing."
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "history-no-vision-placeholder",
+			"body": "{\"model\":\"glm-5.2\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,iVBORw0KGgo=\"}}]},{\"role\":\"assistant\",\"content\":\"Seen.\",\"reasoning_content\":\"glm thinking\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Again\"},{\"type\":\"image_url\",\"image_url\":{\"url\":\"data:image/png;base64,iVBORw0KGgo=\"}}]}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "275",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"glm-5.2\",\"messages\":[{\"role\":\"user\",\"content\":\"[image omitted: model does not support vision]\"},{\"role\":\"assistant\",\"content\":\"<think>\\nglm thinking\\n</think>\\nSeen.\"},{\"role\":\"user\",\"content\":\"Again\\n[image omitted: model does not support vision]\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "ok"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "ok"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "no-user-turn-demotes-developer",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"system\",\"content\":\"Sys.\"},{\"role\":\"developer\",\"content\":\"Plan approved.\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Starting.\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "129",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"system\",\"content\":\"Sys.\"},{\"role\":\"user\",\"content\":\"Plan approved.\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "Starting."
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "Starting."
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "leaked-thinking-healed",
+			"body": "{\"model\":\"qwen3-next:80b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"<think>hidden \"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"reasoning</think>Visible\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\" answer\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "84",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"qwen3-next:80b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "thinking_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "hidden "
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "reasoning"
+				},
+				{
+					"type": "thinking_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 1
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": "Visible"
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": " answer"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 1
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "thinking",
+						"text": "hidden reasoning"
+					},
+					{
+						"type": "text",
+						"text": "Visible answer"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "native-thinking-suppresses-healed",
+			"body": "{\"model\":\"qwen3-next:80b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\"native\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"<think>dup</think>Answer\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "84",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"qwen3-next:80b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "thinking_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "thinking_delta",
+					"contentIndex": 0,
+					"delta": "native"
+				},
+				{
+					"type": "thinking_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 1
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 1,
+					"delta": "Answer"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 1
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "thinking",
+						"text": "native"
+					},
+					{
+						"type": "text",
+						"text": "Answer"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "kimi-leaked-tool-call",
+			"body": "{\"model\":\"kimi-k2-thinking\",\"messages\":[{\"role\":\"user\",\"content\":\"Look\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":[\"integer\",\"null\"]},\"extra\":{}},\"required\":[\"query\"],\"additionalProperties\":false}}}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"Sure.<|tool_calls_section_begin|><|tool_call_begin|>functions.lookup:0<|tool_call_argument_begin|>\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"query\\\":\\\"k\\\"}<|tool_call_end|><|tool_calls_section_end|>\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "440",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"kimi-k2-thinking\",\"messages\":[{\"role\":\"user\",\"content\":\"Look\"}],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":\"lookup\",\"description\":\"Look a thing up.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"},\"limit\":{\"type\":\"integer\"},\"extra\":{\"anyOf\":[{\"type\":\"string\"},{\"type\":\"number\"},{\"type\":\"boolean\"},{\"type\":\"object\"},{\"type\":\"array\"},{\"type\":\"null\"}]}},\"required\":[\"query\"]}}}],\"think\":\"low\",\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "Sure."
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "toolcall_start",
+					"contentIndex": 1,
+					"name": "lookup"
+				},
+				{
+					"type": "toolcall_delta",
+					"contentIndex": 1,
+					"delta": "{\"query\":\"k\"}"
+				},
+				{
+					"type": "toolcall_end",
+					"contentIndex": 1,
+					"name": "lookup"
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "toolUse",
+				"content": [
+					{
+						"type": "text",
+						"text": "Sure."
+					},
+					{
+						"type": "toolCall",
+						"id": "call_bc733aa0b17340debfcd44dc",
+						"name": "lookup",
+						"arguments": "{\"query\":\"k\"}"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "length-empty-is-error",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Long\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"length\",\"prompt_eval_count\":120,\"eval_count\":0}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "84",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Long\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "error"
+				}
+			],
+			"final": {
+				"stopReason": "error",
+				"errorMessage": "Model returned no content: prompt filled the context window; raise Ollama num_ctx or shorten the prompt.",
+				"content": [],
+				"usage": {
+					"input": 120,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 120
+				}
+			}
+		},
+		{
+			"name": "length-with-content",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Long\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"partial\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"length\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "84",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Long\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "partial"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "length",
+				"content": [
+					{
+						"type": "text",
+						"text": "partial"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "load-is-error",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"load\",\"prompt_eval_count\":120,\"eval_count\":0}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "error"
+				}
+			],
+			"final": {
+				"stopReason": "error",
+				"errorMessage": "Ollama loaded the model but generated nothing (done_reason: load): the request contained no user-role message.",
+				"content": [],
+				"usage": {
+					"input": 120,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 120
+				}
+			}
+		},
+		{
+			"name": "stream-error-record",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"start\"},\"done\":false}\n{\"error\":\"model crashed\"}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "start"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "error"
+				}
+			],
+			"final": {
+				"stopReason": "error",
+				"errorMessage": "Ollama stream error: model crashed",
+				"content": [
+					{
+						"type": "text",
+						"text": "start"
+					}
+				],
+				"usage": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 0
+				}
+			}
+		},
+		{
+			"name": "empty-completion-retried",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":1}\n"
+				},
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"  \"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":1}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "  "
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "  "
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 1,
+					"cacheRead": 0,
+					"totalTokens": 121
+				}
+			}
+		},
+		{
+			"name": "empty-completion-exhausted",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":0}\n"
+				},
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":0}\n"
+				},
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":0}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [],
+				"usage": {
+					"input": 120,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 120
+				}
+			}
+		},
+		{
+			"name": "http-503-retried",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 503,
+					"body": "{\"error\":\"busy\"}",
+					"headers": {
+						"retry-after": "0"
+					}
+				},
+				{
+					"status": 200,
+					"body": "{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:00Z\",\"message\":{\"role\":\"assistant\",\"content\":\"ok\"},\"done\":false}\n{\"model\":\"m\",\"created_at\":\"2026-11-05T00:00:01Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":120,\"eval_count\":30}\n"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				},
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "text_start",
+					"contentIndex": 0
+				},
+				{
+					"type": "text_delta",
+					"contentIndex": 0,
+					"delta": "ok"
+				},
+				{
+					"type": "text_end",
+					"contentIndex": 0
+				},
+				{
+					"type": "done"
+				}
+			],
+			"final": {
+				"stopReason": "stop",
+				"content": [
+					{
+						"type": "text",
+						"text": "ok"
+					}
+				],
+				"usage": {
+					"input": 120,
+					"output": 30,
+					"cacheRead": 0,
+					"totalTokens": 150
+				}
+			}
+		},
+		{
+			"name": "http-500-tool-parse-not-retried",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 500,
+					"body": "{\"error\":\"failed to parse tool call arguments as JSON\"}"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "error"
+				}
+			],
+			"final": {
+				"stopReason": "error",
+				"errorMessage": "HTTP 500 from https://ollama.com/api/chat\nfailed to parse tool call arguments as JSON",
+				"content": [],
+				"usage": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 0
+				}
+			}
+		},
+		{
+			"name": "http-401",
+			"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}]}",
+			"replies": [
+				{
+					"status": 401,
+					"body": "{\"error\":\"unauthorized\"}"
+				}
+			],
+			"requests": [
+				{
+					"method": "POST",
+					"path": "/api/chat",
+					"headers": {
+						"accept": "*/*",
+						"accept-encoding": "gzip, deflate, br, zstd",
+						"authorization": "Bearer ollama-cloud-key-fixture",
+						"connection": "keep-alive",
+						"content-length": "82",
+						"content-type": "application/json",
+						"host": "127.0.0.1:40741",
+						"user-agent": "npi/18.14.0"
+					},
+					"body": "{\"model\":\"gpt-oss:120b\",\"messages\":[{\"role\":\"user\",\"content\":\"Hi\"}],\"stream\":true}"
+				}
+			],
+			"events": [
+				{
+					"type": "start"
+				},
+				{
+					"type": "error"
+				}
+			],
+			"final": {
+				"stopReason": "error",
+				"errorMessage": "HTTP 401 from https://ollama.com/api/chat\nunauthorized",
+				"content": [],
+				"usage": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"totalTokens": 0
+				}
+			}
+		}
+	]
+}

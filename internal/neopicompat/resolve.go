@@ -18,6 +18,7 @@ const (
 	APIOpenAIResponses   = "openai-responses"
 	APIAnthropicMessages = "anthropic-messages"
 	APIGoogleVertex      = "google-vertex"
+	APIOllamaChat        = "ollama-chat"
 )
 
 // Spec is the part of a NeoPi ModelSpec the policy resolves from. Thinking
@@ -49,13 +50,13 @@ type Policy struct {
 }
 
 // Resolve is resolveModelPolicy for an openai-completions, openai-responses,
-// anthropic-messages or google-vertex spec, plus buildModel's reasoning
-// materialization.
+// anthropic-messages, google-vertex or ollama-chat spec, plus buildModel's
+// reasoning materialization.
 func Resolve(spec Spec) (Policy, error) {
 	if err := load(); err != nil {
 		return Policy{}, err
 	}
-	if spec.API != APIOpenAICompletions && spec.API != APIOpenAIResponses && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex {
+	if spec.API != APIOpenAICompletions && spec.API != APIOpenAIResponses && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex && spec.API != APIOllamaChat {
 		return Policy{}, fmt.Errorf("neopicompat: api %q is not ported", spec.API)
 	}
 	// withoutUnverifiedThinking: an unverified ladder was derived, not authored.
@@ -81,6 +82,8 @@ func Resolve(spec Spec) (Policy, error) {
 		compat = resolveAnthropicPolicy(spec, facts, resolved)
 	case APIGoogleVertex:
 		compat = resolveGooglePolicy(spec, resolved)
+	case APIOllamaChat:
+		compat = resolveOllamaPolicy(spec, resolved)
 	case APIOpenAIResponses:
 		compat = resolveResponsesPolicy(spec, facts, resolved)
 	default:
@@ -111,6 +114,15 @@ func resolveGooglePolicy(spec Spec, a axes) map[string]any {
 		"maxImageDimension":                               nil,
 		"maxImagePayloadBytes":                            nil,
 	}
+	applyWireAxes(compat, a.wire, spec.API)
+	applyCompatOverrides(compat, spec.Compat)
+	return compat
+}
+
+// resolveOllamaPolicy is resolveOllamaPolicy: thinking history kept by
+// default, then the resolved wire axes and the spec's overrides.
+func resolveOllamaPolicy(spec Spec, a axes) map[string]any {
+	compat := map[string]any{"stripThinkingHistory": false}
 	applyWireAxes(compat, a.wire, spec.API)
 	applyCompatOverrides(compat, spec.Compat)
 	return compat
