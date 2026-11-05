@@ -180,15 +180,42 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesError(err error) error {
 	}
 	var inBand *openaiwire.InBandError
 	if errors.As(err, &inBand) {
+		if meta && len(inBand.Event) > 0 {
+			body := inBand.Event
+			if nested := gjson.GetBytes(body, "error"); !nested.IsObject() {
+				nested = gjson.GetBytes(body, "response.error")
+				if !nested.IsObject() {
+					nested = gjson.GetBytes(body, "response.status_details.error")
+				}
+				if nested.IsObject() {
+					body = append(append([]byte(`{"error":`), nested.Raw...), '}')
+				}
+			}
+			switch mapped := wrapMetaUpstreamError(inBand.Status, body).(type) {
+			case metaRateLimitError:
+				mapped.msg = inBand.Message
+				return mapped
+			case statusErr:
+				mapped.msg = inBand.Message
+				return mapped
+			}
+		}
 		return statusErr{code: inBand.Status, msg: inBand.Message}
 	}
 	var streamErr *openaiwire.StreamError
 	if errors.As(err, &streamErr) {
 		if len(streamErr.Event) > 0 {
 			if meta {
-				return metaStreamEventError(streamErr.Event)
+				switch mapped := metaStreamEventError(streamErr.Event).(type) {
+				case metaRateLimitError:
+					mapped.msg = streamErr.Message
+					return mapped
+				case statusErr:
+					mapped.msg = streamErr.Message
+					return mapped
+				}
 			}
-			return statusErr{code: http.StatusBadGateway, msg: string(streamErr.Event)}
+			return statusErr{code: http.StatusBadGateway, msg: streamErr.Message}
 		}
 		return statusErr{code: http.StatusRequestTimeout, msg: e.Identifier() + " stream error: " + streamErr.Message}
 	}
@@ -228,8 +255,7 @@ func (s *neoPiResponsesStream) publish(failure error) {
 // observeFailure records usage carried by an in-band failed response even
 // though the transport does not relay that terminal frame to the client.
 func (s *neoPiResponsesStream) observeFailure(err error) {
-	event := openaiwire.FailureEvent(err)
-	if gjson.GetBytes(event, "type").String() == "response.failed" {
+	if event := openaiwire.FailureEvent(err); len(event) > 0 {
 		s.usage.Observe(neoPiResponsesUsage(event))
 	}
 }

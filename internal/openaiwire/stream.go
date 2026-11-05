@@ -56,6 +56,7 @@ type StreamError struct {
 	// Event is the failure frame, when the server sent one.
 	Event      []byte
 	incomplete bool
+	retryable  bool
 }
 
 func (e *StreamError) Error() string { return e.Message }
@@ -112,6 +113,47 @@ func terminalEvent(kind string) bool {
 	return false
 }
 
+// responseFailure keeps the source terminal-error envelope distinct from the
+// in-band throttle probe. In particular, server_error has no implied HTTP
+// status: its original code/message supplies the transient retry flag.
+func responseFailure(event gjson.Result, frame []byte) error {
+	kind := event.Get("type").String()
+	response := event.Get("response")
+	status := response.Get("status").String()
+	if kind != "response.failed" && (!terminalEvent(kind) || status != "failed" && status != "cancelled") {
+		if terminalEvent(kind) && status == "incomplete" && response.Get("incomplete_details.reason").String() == "content_filter" {
+			return &StreamError{Message: "incomplete: content_filter", Event: frame}
+		}
+		return nil
+	}
+	details := response.Get("incomplete_details")
+	if !details.Exists() || details.Type == gjson.Null {
+		if inBand := classifyInBandFrame(frame); inBand != nil {
+			return inBand
+		}
+	}
+	failure := response.Get("error")
+	if !failure.Exists() || failure.Type == gjson.Null {
+		failure = response.Get("status_details.error")
+	}
+	message := "Unknown error (no error details in response)"
+	if failure.Exists() && failure.Type != gjson.Null {
+		code, detail := failure.Get("code").String(), failure.Get("message").String()
+		if code == "" {
+			code = "unknown"
+		}
+		if detail == "" {
+			detail = "no message"
+		}
+		message = code + ": " + detail
+	} else if reason := details.Get("reason").String(); reason != "" {
+		message = "incomplete: " + reason
+	} else if reason := response.Get("status_details.reason"); kind != "response.failed" && reason.Type == gjson.String && reason.String() != "" {
+		message = "status_details: " + reason.String()
+	}
+	return &StreamError{Message: message, Event: frame, retryable: providerRetryableMessage(message)}
+}
+
 // Run streams the turn's events to emit. Events before the first
 // replay-unsafe event are held so one transient stream failure can be retried
 // without the client seeing a duplicate, as NeoPi buffers its attempt stream.
@@ -128,7 +170,8 @@ func (t *Turn) Run(ctx context.Context, emit func([]byte) error) error {
 		var streamErr *StreamError
 		var inBand *InBandError
 		retryable := err != nil && !live && attempt < maxTransientStreamRetries && ctx.Err() == nil &&
-			(errors.As(err, &streamErr) && streamErr.incomplete || errors.As(err, &inBand) || isTransportFailure(err))
+			(errors.As(err, &streamErr) && (streamErr.incomplete || streamErr.retryable) ||
+				errors.As(err, &inBand) && inBand.retryable || isTransportFailure(err))
 		if !retryable {
 			return err
 		}
@@ -225,23 +268,28 @@ func (t *Turn) attempt(ctx context.Context, body []byte, emit func([]byte) error
 		}
 		event := gjson.ParseBytes(frame)
 		kind := event.Get("type").String()
-		if inBand := classifyInBandFrame(frame); inBand != nil {
-			return inBand
+		if failure := responseFailure(event, frame); failure != nil {
+			return failure
 		}
-		if kind == "error" || kind == "response.failed" || event.Get("error").Exists() ||
-			event.Get("code").Exists() || event.Get("message").Exists() ||
-			readInBandStatus(event.Get("status")) != 0 || inBandNonRetryableCode.MatchString(normalizeInBandCode(event.Get("type"))) {
-			message := event.Get("error.message").String()
-			if message == "" {
-				message = event.Get("message").String()
+		if !terminalEvent(kind) {
+			if inBand := classifyInBandFrame(frame); inBand != nil {
+				return inBand
 			}
-			if message == "" {
-				message = event.Get("response.error.message").String()
+			if kind == "error" || event.Get("error").Exists() ||
+				event.Get("code").Exists() || event.Get("message").Exists() ||
+				readInBandStatus(event.Get("status")) != 0 || inBandNonRetryableCode.MatchString(normalizeInBandCode(event.Get("type"))) {
+				message := event.Get("error.message").String()
+				if message == "" {
+					message = event.Get("message").String()
+				}
+				if message == "" {
+					message = event.Get("response.error.message").String()
+				}
+				if message == "" {
+					message = "An unknown error occurred"
+				}
+				return &StreamError{Message: message, Event: frame, retryable: providerRetryableMessage(message)}
 			}
-			if message == "" {
-				message = "An unknown error occurred"
-			}
-			return &StreamError{Message: message, Event: frame}
 		}
 		if terminalEvent(kind) {
 			sawTerminal = true
