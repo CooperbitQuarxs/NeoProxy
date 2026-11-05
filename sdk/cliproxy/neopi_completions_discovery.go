@@ -103,7 +103,8 @@ func neoPiCompletionsCatalogProvider(a *coreauth.Auth) string {
 // registerNeoPiCompletionsModels publishes a NeoPi completions account's
 // roster under its runtime provider key.
 func (s *Service) registerNeoPiCompletionsModels(ctx context.Context, cfg *config.Config, a *coreauth.Auth, fence modelRegistrationFence, provider, authKind, runtimeKey, catalog string, excluded []string) bool {
-	models := applyExcludedModels(s.registerNeoPiDiscovered(neoPiCompletionsDiscoveries[catalog], a), excluded)
+	models := neoPiConfiguredCompletionsModels(cfg, a, catalog, s.registerNeoPiDiscovered(neoPiCompletionsDiscoveries[catalog], a))
+	models = applyExcludedModels(models, excluded)
 	if ctx.Err() != nil {
 		return true
 	}
@@ -118,6 +119,73 @@ func (s *Service) registerNeoPiCompletionsModels(ctx context.Context, cfg *confi
 	models = applyOAuthSettingsForAuth(cfg, provider, authKind, models)
 	prefix, forcePrefix := a.Prefix, cfg != nil && cfg.ForceModelPrefix
 	return s.registerResolvedModelsForAuthFenced(a, fence, runtimeKey, applyModelPrefixes(models, prefix, forcePrefix))
+}
+
+// neoPiConfiguredCompletionsModels keeps an openai-compatibility entry's
+// configured models on its NeoPi roster: each configured upstream name is
+// served with NeoPi's record for it (the discovered row, else NeoPi's row for
+// an unknown id), so its wire policy is NeoPi's, and is listed under its
+// configured alias and display name. An entry without configured models
+// serves the roster unchanged.
+func neoPiConfiguredCompletionsModels(cfg *config.Config, a *coreauth.Auth, catalog string, roster []*ModelInfo) []*ModelInfo {
+	if cfg == nil {
+		return roster
+	}
+	_, compatName, ok := openAICompatInfoFromAuth(a)
+	if !ok {
+		return roster
+	}
+	entry := configEntryForAuthIndex(a, cfg.OpenAICompatibility)
+	if entry == nil || !strings.EqualFold(strings.TrimSpace(entry.Name), compatName) {
+		entry = nil
+		for i := range cfg.OpenAICompatibility {
+			if strings.EqualFold(strings.TrimSpace(cfg.OpenAICompatibility[i].Name), compatName) {
+				entry = &cfg.OpenAICompatibility[i]
+				break
+			}
+		}
+	}
+	if entry == nil || len(entry.Models) == 0 {
+		return roster
+	}
+	rows := make(map[string]*registry.NeoPiModel, len(roster))
+	for _, model := range roster {
+		if model != nil && model.NeoPi != nil {
+			rows[model.NeoPi.ID] = model.NeoPi
+		}
+	}
+	out := slices.Clone(roster)
+	index := make(map[string]int, len(out))
+	for i, model := range out {
+		index[model.ID] = i
+	}
+	for _, configured := range entry.Models {
+		name := strings.TrimSpace(configured.Name)
+		if name == "" || configured.Image {
+			continue
+		}
+		row := rows[name]
+		if row == nil {
+			row = registry.NeoPiCompletionsModel(catalog, name)
+		}
+		if row == nil {
+			continue
+		}
+		info := registry.NeoPiCompletionsModelInfo(row, entry.Name)
+		if alias := strings.TrimSpace(configured.Alias); alias != "" {
+			info.ID = alias
+		}
+		if display := strings.TrimSpace(configured.DisplayName); display != "" {
+			info.DisplayName = display
+		}
+		if at, exists := index[info.ID]; exists {
+			out[at] = info
+			continue
+		}
+		index[info.ID] = len(out)
+		out = append(out, info)
+	}
+	return out
 }
 
 // alibabaTokenPlanToken is the sk-... token pattern of a Token Plan key.

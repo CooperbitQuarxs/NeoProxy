@@ -98,6 +98,10 @@ func (c *quotaClients) client(a *coreauth.Auth) *http.Client {
 		// NeoPi bounds Umans usage only by the caller's signal.
 		key += ":umans"
 		timeout, idleTimeout = 0, 0
+	case tokenPlanCookie(a) != "":
+		// NeoPi bounds Token Plan usage only by the caller's signal.
+		key += ":alibaba-token-plan"
+		timeout, idleTimeout = 0, 0
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -641,6 +645,11 @@ func (q *quotaProber) refresh(ctx context.Context, a *coreauth.Auth, now time.Ti
 	} else {
 		entry.failing = true
 		entry.gen = gen
+		if quotaProvider(a) == "alibaba-token-plan" {
+			// NeoPi's Token Plan provider sets retainLastGoodOnFailure: false:
+			// an expired cookie or refused report makes the windows unknown.
+			entry.goodAt = time.Time{}
+		}
 	}
 	q.entries[a.ID] = entry
 	q.mu.Unlock()

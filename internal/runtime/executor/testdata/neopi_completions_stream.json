@@ -1854,6 +1854,278 @@
      "reasoningTokens": 0
     }
    }
+  },
+  {
+   "name": "heal-thinking-tags",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"before<thi\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"nk>reasoning</think>after\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "thinking"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "stop",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "before"
+     },
+     {
+      "type": "thinking",
+      "thinking": "reasoning"
+     },
+     {
+      "type": "text",
+      "text": "after"
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-thinking-suppressed-by-native-reasoning",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"native\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"<think>leaked</think>visible\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "thinking"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "stop",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "thinking",
+      "thinking": "native"
+     },
+     {
+      "type": "text",
+      "text": "visible"
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-kimi-tool-call-promotes-stop",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Reading.<|tool_calls_section_begin|><|tool_call_begin|>functions.read:0<|tool_call_\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"argument_begin|>{\\\"path\\\":\\\"a.txt\\\"}<|tool_call_end|><|tool_calls_section_end|>\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "kimi"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "toolUse",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "Reading."
+     },
+     {
+      "type": "toolCall",
+      "id": "call_6d0159c873c94eadb38330d6",
+      "name": "read",
+      "arguments": {
+       "path": "a.txt"
+      }
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-dsml-envelope",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Let me run it.\\n<｜DSML｜tool_calls>\\n<｜DSML｜invoke name=\\\"bash\\\">\\n<｜DSML｜parameter name=\\\"cmd\\\" string=\\\"true\\\">ls\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" -la</｜DSML｜parameter>\\n</｜DSML｜invoke>\\n</｜DSML｜tool_calls>\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "dsml"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "toolUse",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "Let me run it.\n"
+     },
+     {
+      "type": "toolCall",
+      "id": "call_7b62f4ccbdec41c99956c3ff",
+      "name": "bash",
+      "arguments": {
+       "cmd": "ls -la"
+      }
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-dsml-template-tokens",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>read<｜tool▁sep｜>{\\\"p\\\":1}<｜tool▁call▁end｜><｜tool▁calls▁end｜>\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "dsml"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "toolUse",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "toolCall",
+      "id": "call_e34b9b1a1ab941999b0d43b6",
+      "name": "read",
+      "arguments": {
+       "p": 1
+      }
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-with-structured-tool-calls",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"x<|tool_calls_section_begin|><|tool_call_begin|>functions.a:0<|tool_call_argument_begin|>{}<|tool_call_end|><|tool_calls_section_end|>y\",\"tool_calls\":[{\"index\":0,\"id\":\"call_struct\",\"type\":\"function\",\"function\":{\"name\":\"real\",\"arguments\":\"{\\\"k\\\":1}\"}}]},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "kimi"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "toolUse",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "xy"
+     },
+     {
+      "type": "toolCall",
+      "id": "call_struct",
+      "name": "real",
+      "arguments": {
+       "k": 1
+      }
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-qwen-xml",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"pre<tool_calls><read path=\\\"a\\\"/></tool_calls>\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"post\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "qwen"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "toolUse",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "pre"
+     },
+     {
+      "type": "toolCall",
+      "id": "call_436b929f6b884adfb0372ed7",
+      "name": "read",
+      "arguments": {
+       "path": "a"
+      }
+     },
+     {
+      "type": "text",
+      "text": "post"
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
+  },
+  {
+   "name": "heal-unterminated-thinking-at-end",
+   "body": "data: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"a<think>still thinking\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-scripted\",\"object\":\"chat.completion.chunk\",\"created\":7,\"model\":\"scripted\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n",
+   "compat": {
+    "streamMarkupHealingPattern": "dsml"
+   },
+   "headers": {},
+   "neopi": {
+    "stopReason": "length",
+    "errorMessage": null,
+    "errorStatus": null,
+    "content": [
+     {
+      "type": "text",
+      "text": "a"
+     },
+     {
+      "type": "thinking",
+      "thinking": "still thinking"
+     }
+    ],
+    "usage": {
+     "input": 0,
+     "output": 0,
+     "cacheRead": 0,
+     "cacheWrite": 0,
+     "totalTokens": 0,
+     "reasoningTokens": 0
+    }
+   }
   }
  ]
 }

@@ -361,6 +361,61 @@ const scenarios: Scenario[] = [
 		name: "refusal-and-role-only",
 		body: sse(chunk({ role: "assistant", content: "" }), chunk({ refusal: "no" }), chunk({ content: "yes" }), chunk({}, "stop"), done),
 	},
+	// StreamMarkupHealing: leaked template markup in the content channel.
+	{
+		name: "heal-thinking-tags",
+		compat: { streamMarkupHealingPattern: "thinking" },
+		body: sse(chunk({ content: "before<thi" }), chunk({ content: "nk>reasoning</think>after" }), chunk({}, "stop"), done),
+	},
+	{
+		name: "heal-thinking-suppressed-by-native-reasoning",
+		compat: { streamMarkupHealingPattern: "thinking" },
+		body: sse(chunk({ reasoning_content: "native" }), chunk({ content: "<think>leaked</think>visible" }), chunk({}, "stop"), done),
+	},
+	{
+		name: "heal-kimi-tool-call-promotes-stop",
+		compat: { streamMarkupHealingPattern: "kimi" },
+		body: sse(
+			chunk({ content: "Reading.<|tool_calls_section_begin|><|tool_call_begin|>functions.read:0<|tool_call_" }),
+			chunk({ content: 'argument_begin|>{"path":"a.txt"}<|tool_call_end|><|tool_calls_section_end|>' }),
+			chunk({}, "stop"),
+			done,
+		),
+	},
+	{
+		name: "heal-dsml-envelope",
+		compat: { streamMarkupHealingPattern: "dsml" },
+		body: sse(
+			chunk({ content: "Let me run it.\n<｜DSML｜tool_calls>\n<｜DSML｜invoke name=\"bash\">\n<｜DSML｜parameter name=\"cmd\" string=\"true\">ls" }),
+			chunk({ content: " -la</｜DSML｜parameter>\n</｜DSML｜invoke>\n</｜DSML｜tool_calls>" }),
+			chunk({}, "stop"),
+			done,
+		),
+	},
+	{
+		name: "heal-dsml-template-tokens",
+		compat: { streamMarkupHealingPattern: "dsml" },
+		body: sse(chunk({ content: "<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>read<｜tool▁sep｜>{\"p\":1}<｜tool▁call▁end｜><｜tool▁calls▁end｜>" }), chunk({}, "tool_calls"), done),
+	},
+	{
+		name: "heal-with-structured-tool-calls",
+		compat: { streamMarkupHealingPattern: "kimi" },
+		body: sse(
+			chunk({ content: "x<|tool_calls_section_begin|><|tool_call_begin|>functions.a:0<|tool_call_argument_begin|>{}<|tool_call_end|><|tool_calls_section_end|>y", tool_calls: [call(0, "call_struct", "real", '{"k":1}')] }),
+			chunk({}, "tool_calls"),
+			done,
+		),
+	},
+	{
+		name: "heal-qwen-xml",
+		compat: { streamMarkupHealingPattern: "qwen" },
+		body: sse(chunk({ content: "pre<tool_calls><read path=\"a\"/></tool_calls>" }), chunk({ content: "post" }), chunk({}, "stop"), done),
+	},
+	{
+		name: "heal-unterminated-thinking-at-end",
+		compat: { streamMarkupHealingPattern: "dsml" },
+		body: sse(chunk({ content: "a<think>still thinking" }), chunk({}, "length"), done),
+	},
 ];
 
 let current: Scenario | undefined;
