@@ -164,6 +164,9 @@ type neoPiPrepared struct {
 	// names: OAuth requests and escapeBuiltinToolNames models.
 	stripToolPrefix bool
 	finalize        helps.PayloadFinalizer
+	// reshape rebuilds body and headers at the current Claude Code version
+	// for an isOAuth request whose shaping is not the official account's.
+	reshape func() ([]byte, http.Header, error)
 }
 
 func (e *ClaudeExecutor) prepare(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, countOnly ...bool) (*neoPiPrepared, error) {
@@ -487,7 +490,16 @@ func (e *ClaudeExecutor) open(ctx context.Context, client *http.Client, prepared
 			} else {
 				err = &neoPiUpstreamError{code: response.StatusCode, body: string(data), headers: response.Header}
 			}
-			if prepared.oauth && anthropicnpi.AdoptRequiredVersion(err.Error()) {
+			if (prepared.oauth || prepared.reshape != nil) && anthropicnpi.AdoptRequiredVersion(err.Error()) {
+				if prepared.reshape != nil {
+					body, headers, reshapeErr := prepared.reshape()
+					if reshapeErr != nil {
+						return nil, reshapeErr
+					}
+					prepared.body, prepared.headers = body, headers
+					attempt--
+					continue
+				}
 				projected, headers, projectErr := projectNeoPiRequest(prepared.translated, prepared.model, prepared.base, anthropicnpi.WireVersion(), prepared.identity)
 				if projectErr != nil {
 					return nil, projectErr

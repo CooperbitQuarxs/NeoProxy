@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/gitlabduo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -92,12 +93,13 @@ func loadGitLabDuoCapture(t *testing.T) gitlabDuoCapture {
 
 // gitlabDuoLoopback answers GitLab's hosts in process: every request to
 // gitlab.com or cloud.gitlab.com reaches a loopback server that records what
-// crossed the wire. The mint gets mint's answer, a model request a 400 so no
-// executor retry follows.
+// crossed the wire. The mint gets mint's answer, a model request model's, or
+// a 400 so no executor retry follows.
 type gitlabDuoLoopback struct {
 	server *httptest.Server
 	calls  []gitlabDuoWireCall
 	mint   func(w http.ResponseWriter)
+	model  func(w http.ResponseWriter)
 }
 
 func newGitLabDuoLoopback(t *testing.T) *gitlabDuoLoopback {
@@ -114,6 +116,10 @@ func newGitLabDuoLoopback(t *testing.T) *gitlabDuoLoopback {
 		loop.calls = append(loop.calls, gitlabDuoWireCall{Method: r.Method, Host: host, Path: r.URL.RequestURI(), Headers: headers, RawBody: string(body)})
 		if r.URL.Path == "/api/v4/ai/third_party_agents/direct_access" {
 			loop.mint(w)
+			return
+		}
+		if loop.model != nil {
+			loop.model(w)
 			return
 		}
 		w.WriteHeader(http.StatusBadRequest)
@@ -317,15 +323,32 @@ func TestGitLabDuoDirectAccessMatchesNeoPi(t *testing.T) {
 				}
 				return
 			}
+			if kind == "version-too-old" {
+				// The adopted version is process-wide: start from the pinned one
+				// and put back whatever other tests left.
+				t.Setenv("PI_AI_CLAUDE_CODE_VERSION", "")
+				previous := anthropicnpi.SwapAdoptedVersionForTesting("")
+				defer anthropicnpi.SwapAdoptedVersionForTesting(previous)
+				answered := 0
+				loop.model = func(w http.ResponseWriter) {
+					answered++
+					w.WriteHeader(http.StatusBadRequest)
+					if answered == 1 {
+						_, _ = io.WriteString(w, `{"type":"error","error":{"type":"claude_code_version_too_old","message":"version 2.1.999 or newer is required"}}`)
+						return
+					}
+					_, _ = io.WriteString(w, "sentinel after adoption")
+				}
+			}
 			err := run()
 			if edge.ErrorMessage != nil {
-				if err == nil || err.Error() != *edge.ErrorMessage {
+				if err == nil {
+					t.Fatalf("succeeded, NeoPi failed with %q", *edge.ErrorMessage)
+				}
+				// NeoPi's text for a model error names a local request dump.
+				if kind != "version-too-old" && err.Error() != *edge.ErrorMessage {
 					t.Fatalf("error = %v, NeoPi failed with %q", err, *edge.ErrorMessage)
 				}
-				if len(loop.calls) != len(edge.Requests) {
-					t.Fatalf("sent %d requests, NeoPi sent %d", len(loop.calls), len(edge.Requests))
-				}
-				return
 			}
 			if len(loop.calls) != len(edge.Requests) {
 				t.Fatalf("sent %d requests, NeoPi sent %d", len(loop.calls), len(edge.Requests))

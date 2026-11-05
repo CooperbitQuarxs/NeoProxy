@@ -63,6 +63,8 @@ const responsesSse = [
 
 // The direct-access answer the current scenario wants.
 let mint: () => Response = () => Response.json({ token: directAccessToken, headers: directAccessHeaders });
+// The model answer a scenario overrides; the routes' SSE otherwise.
+let modelAnswer: (() => Response) | undefined;
 let captured: any[] = [];
 const server = Bun.serve({
 	hostname: "127.0.0.1",
@@ -71,6 +73,7 @@ const server = Bun.serve({
 		const url = new URL(request.url);
 		captured.push({ method: request.method, host: request.headers.get("host"), path: url.pathname + url.search, headers: Object.fromEntries(request.headers), rawBody: await request.text() });
 		if (url.pathname === "/api/v4/ai/third_party_agents/direct_access") return mint();
+		if (modelAnswer) return modelAnswer();
 		const sse = url.pathname.endsWith("/messages") ? anthropicSse : url.pathname.endsWith("/responses") ? responsesSse : completionsSse;
 		return new Response(sse, { headers: { "content-type": "text/event-stream" } });
 	},
@@ -266,6 +269,23 @@ try {
 		const expired = await run(s);
 		Date.now = realNow;
 		edges.push({ name: `${route}/cache`, model: model.id, route, downstream: s.downstream, first: first.requests.map(r => r.path), reused: reused.requests.map(r => r.path), expired: expired.requests.map(r => r.path) });
+	}
+	// Last, as the adopted Claude Code version outlives the stream: a server
+	// requiring a newer version gets one retry at that version, on the token
+	// already minted (anthropic.ts isOAuthToken adoption); its answer ends it.
+	{
+		const model = byRoute.get("anthropic-messages");
+		const s = scenario(model, "edge", hello, {});
+		delete process.env.PI_AI_CLAUDE_CODE_VERSION;
+		clearGitLabDuoDirectAccessCache();
+		let answered = 0;
+		modelAnswer = () =>
+			answered++ === 0
+				? Response.json({ type: "error", error: { type: "claude_code_version_too_old", message: "version 2.1.999 or newer is required" } }, { status: 400 })
+				: new Response("sentinel after adoption", { status: 400 });
+		const got = await run(s);
+		modelAnswer = undefined;
+		edges.push({ name: "anthropic-messages/version-too-old", model: model.id, route: "anthropic-messages", downstream: s.downstream, options: {}, ...got });
 	}
 	await Bun.write(join(import.meta.dir, "neopi_gitlab_duo.json.gz"), Bun.gzipSync(JSON.stringify({ source: "NeoPi OWN streamSimple over bundled gitlab-duo rows", installId: getInstallId(), apiKey, sessionId, directAccessToken, directAccessHeaders, fixtures, edges })));
 	console.log(`gitlab-duo: ${models.length} models, ${fixtures.length} fixtures, ${edges.length} edges`);

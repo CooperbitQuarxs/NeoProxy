@@ -59,3 +59,13 @@ func AdoptRequiredVersion(message string) bool {
 	}
 	return false
 }
+
+// SwapAdoptedVersionForTesting replaces the server-adopted version and
+// returns the previous one, so a test can restore this process-wide state.
+func SwapAdoptedVersionForTesting(version string) string {
+	wireVersionState.Lock()
+	defer wireVersionState.Unlock()
+	previous := wireVersionState.adopted
+	wireVersionState.adopted = version
+	return previous
+}
