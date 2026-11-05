@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -143,6 +144,13 @@ func jsString(value gjson.Result) string {
 	case value.Type == gjson.String:
 		return value.Str
 	case value.Type == gjson.Number:
+		// String(number), where jsjson.Number spells JSON's null for an
+		// overflowed (infinite) number.
+		if math.IsInf(value.Num, 1) {
+			return "Infinity"
+		} else if math.IsInf(value.Num, -1) {
+			return "-Infinity"
+		}
 		return jsjson.Number(value.Num)
 	case value.IsArray():
 		var parts []string
