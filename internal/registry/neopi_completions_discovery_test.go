@@ -230,11 +230,11 @@ func TestNeoPiCompletionsCapturedCompat(t *testing.T) {
 		"groq":               {0, 4, 20, nil},
 		"huggingface":        {0, 4, 82, nil},
 		"mistral":            {0, 4, 44, nil},
-		"moonshot":           {1, 11, 19, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDisableMode", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "ThinkingFormat"}},
+		"moonshot":           {1, 11, 19, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDisableMode", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamRevision", "ThinkingFormat"}},
 		"nanogpt":            {0, 6, 1197, nil},
 		"nvidia":             {0, 4, 175, nil},
 		"together":           {0, 4, 42, nil},
-		"alibaba-token-plan": {4, 12, 6, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDeltasMayBeCumulative", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamMarkupHealingPattern", "StripImageInput", "ThinkingLoopGuard", "ToolSchemaFlavor"}},
+		"alibaba-token-plan": {4, 12, 6, []string{"AlwaysSendMaxTokens", "DisableReasoningOnForcedToolChoice", "ReasoningDeltasMayBeCumulative", "RequiresAssistantContentForToolCalls", "RequiresReasoningContentForToolCalls", "StreamMarkupHealingPattern", "StreamRevision", "StripImageInput", "ThinkingLoopGuard", "ToolSchemaFlavor"}},
 	}
 	if len(byProvider) != len(expected) {
 		t.Fatalf("measured %d providers, want %d", len(byProvider), len(expected))
