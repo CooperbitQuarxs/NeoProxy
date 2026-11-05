@@ -43,6 +43,10 @@ const neoPiResponsesMuseVersion = "1.0.0"
 type NeoPiResponsesExecutor struct {
 	cfg        *config.Config
 	identifier string
+	// StreamSimple marks a provider reached through NeoPi's streamSimple, which
+	// requests the model's whole output allowance when the caller names none
+	// and floors a mandatory-reasoning model at its default effort.
+	StreamSimple bool
 }
 
 // NewNeoPiResponsesExecutor creates the executor for one provider id: "meta",

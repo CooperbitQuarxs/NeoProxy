@@ -8,6 +8,7 @@ package openaiwire
 import (
 	"encoding/json"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
@@ -118,6 +119,46 @@ func FromResponses(body []byte, model *registry.NeoPiModel) (Context, Options) {
 		}
 	}
 	return ctx, opts
+}
+
+// NormalizeMandatoryReasoning is streamSimple's
+// normalizeMandatoryReasoningOptions: a mandatory-reasoning model asked for
+// no effort, or for none, runs at its default supported effort unless it
+// suppresses thinking provider-side. Providers NeoPi reaches through
+// streamOpenAIResponses directly skip it.
+func NormalizeMandatoryReasoning(model *registry.NeoPiModel, opts *Options) {
+	if model == nil || !model.Reasoning || model.Thinking == nil || !model.Thinking.RequiresEffort || model.Thinking.SuppressWhenOff ||
+		(opts.Effort != "" && !opts.DisableReasoning) {
+		return
+	}
+	if floor := neoPiFloorEffort(model); floor != "" {
+		opts.Effort, opts.DisableReasoning = floor, false
+	}
+}
+
+// neoPiThinkingEfforts is THINKING_EFFORTS, least to most intensive.
+var neoPiThinkingEfforts = []string{"minimal", "low", "medium", "high", "xhigh", "max"}
+
+// neoPiFloorEffort is defaultSupportedEffort: the effort routed to the
+// row's default wire id, else the lowest effort it supports.
+func neoPiFloorEffort(model *registry.NeoPiModel) string {
+	efforts := model.Thinking.Efforts
+	if routing := model.Thinking.EffortRouting; routing != nil && model.RequestModelID != "" {
+		for _, effort := range neoPiThinkingEfforts {
+			if slices.Contains(efforts, effort) && routing[effort] == model.RequestModelID {
+				return effort
+			}
+		}
+	}
+	for _, effort := range neoPiThinkingEfforts {
+		if slices.Contains(efforts, effort) {
+			return effort
+		}
+	}
+	if len(efforts) > 0 {
+		return efforts[0]
+	}
+	return ""
 }
 
 // reasoningPolicy is the reasoning half of resolveOpenAICompatPolicy.

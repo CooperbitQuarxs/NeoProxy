@@ -108,6 +108,13 @@ func (e *NeoPiResponsesExecutor) shapeNeoPi(ctx context.Context, auth *cliproxya
 	_, token := e.neoPiResponsesCreds(auth)
 	conversation, options := openaiwire.FromResponses(body, model)
 	options.SessionID = neoPiResponsesSessionID(e.Identifier(), req, opts)
+	if e.StreamSimple {
+		if options.MaxTokens == nil && model.MaxTokens > 0 {
+			maxTokens := float64(model.MaxTokens)
+			options.MaxTokens = &maxTokens
+		}
+		openaiwire.NormalizeMandatoryReasoning(model, &options)
+	}
 	responseFormat := cliproxyexecutor.ResponseFormatOrSource(opts)
 	shaped := openaiwire.ShapeResponses(model, conversation, options, token)
 	shaped.Body = helps.FinalizePayload(ctx, shaped.Body)
