@@ -361,6 +361,14 @@ var providerCatalog = []ProviderInfo{
 		Subscription: device("Opens Kilo in a new tab and shows a code to confirm there. The token it grants lasts a year.").at("Kilo"),
 		APIKey:       openAIKey(kiloauth.BaseURL, "Kilo Gateway token (not checked before it is added)", "https://app.kilo.ai"),
 		Plans:        []ProviderPlan{}},
+	// Local OpenAI-compatible servers: an administrator names the server, and
+	// an empty key stands for NeoPi's no-auth placeholder.
+	{ID: "vllm", Name: "vLLM", Vendor: "vLLM", Hue: 60, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://127.0.0.1:8000/v1", EditableBaseURL: true, KeyHint: "Leave empty unless the server requires a key", GetKeyURL: "https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html", KeyOptional: true},
+		Plans:  []ProviderPlan{}},
+	{ID: "lm-studio", Name: "LM Studio", Vendor: "LM Studio", Hue: 220, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://127.0.0.1:1234/v1", EditableBaseURL: true, KeyHint: "Leave empty unless the server requires a key", KeyOptional: true},
+		Plans:  []ProviderPlan{}},
 	{ID: "custom", Name: "OpenAI-compatible server", Vendor: "Any", Hue: 0, Chroma: 0, Methods: []string{"apiKey"},
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:11434/v1", EditableBaseURL: true, KeyHint: "Leave empty for local servers such as Ollama or LM Studio", KeyOptional: true},
 		Plans:  []ProviderPlan{}},

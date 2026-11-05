@@ -15,7 +15,7 @@ const served = [
 	"aiand", "baseten", "coralbricks", "deepinfra", "firepass", "gmi-cloud", "helmcode", "inception", "novita", "qianfan",
 	"qwen-portal", "sambanova", "stepfun", "synthetic", "venice", "wafer-serverless", "xiaomi-token-plan-sgp",
 	"xiaomi-token-plan-ams", "xiaomi-token-plan-cn", "yolo-auto", "zhipu-coding-plan", "coreweave", "cline-pass", "aimlapi",
-	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn",
+	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn", "vllm", "lm-studio",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 const names: Record<string, string> = { groq: "Groq", mistral: "Mistral" };
@@ -35,6 +35,7 @@ for (const id of served) {
 		name: rule.name,
 		...(rule.login.normalize ? { normalize: rule.login.normalize } : {}),
 		...(v ? { validate: v } : {}),
+		...(rule.login.emptyFallback !== undefined ? { emptyFallback: rule.login.emptyFallback } : {}),
 	};
 }
 console.log(JSON.stringify({ source: "NeoPi rules.json auth.providers (login api-key)", logins }, null, "\t"));

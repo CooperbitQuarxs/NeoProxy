@@ -319,6 +319,14 @@
 				"label": "siliconflow-cn",
 				"url": "https://api.siliconflow.cn/v1/models"
 			}
+		},
+		"vllm": {
+			"name": "vLLM (Local OpenAI-compatible)",
+			"emptyFallback": "vllm-local"
+		},
+		"lm-studio": {
+			"name": "LM Studio (Local OpenAI-compatible)",
+			"emptyFallback": "lm-studio-local"
 		}
 	}
 }
