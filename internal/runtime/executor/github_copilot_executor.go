@@ -167,10 +167,7 @@ func (e *GitHubCopilotExecutor) wire(a *githubCopilotAttempt, req cliproxyexecut
 		// streamSimple: the model's whole output allowance when the caller
 		// names none, mandatory reasoning at its floor.
 		exec.StreamSimple = true
-		session := neoPiSession(opts, nil)
-		if session == "" {
-			session = neoPiResponsesSessionID(githubcopilot.Provider, req, opts)
-		}
+		session := neoPiBoundResponsesSession(githubcopilot.Provider, req, opts)
 		initiator := "user"
 		exec.binding = &neoPiResponsesBinding{model: a.row, token: a.credential.AccessToken, session: session,
 			shape: func(conversation *openaiwire.Context, _ *openaiwire.Options) {
