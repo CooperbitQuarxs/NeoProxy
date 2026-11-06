@@ -107,7 +107,8 @@ func TestNeoPiCompletionsRequestParity(t *testing.T) {
 					if string(body) != fixture.RawBody {
 						t.Errorf("body:\n got %s\nwant %s", body, fixture.RawBody)
 					}
-					headers := exec.requestHeaders(context.Background(), auth, nil, key, row, capture.SessionID)
+					// NeoPi's capture ran one session: its cache and conversation id.
+					headers := exec.requestHeaders(context.Background(), auth, nil, key, row, capture.SessionID, capture.SessionID)
 					want := map[string]string{}
 					for name, value := range fixture.Headers {
 						if name == "host" || name == "content-length" {
@@ -201,7 +202,7 @@ func readNeoPiCompletionsCapture(t *testing.T, path string) neoPiCompletionsCapt
 func TestNeoPiCompletionsTimeoutDisabled(t *testing.T) {
 	zero := 0
 	row := &registry.NeoPiModel{CompletionsCompat: &registry.NeoPiCompletionsCompat{StreamFirstEventTimeoutMs: &zero}}
-	if value := neoPiCompletionsHeaders(context.Background(), nil, nil, "key", row, "").Get("X-Stainless-Timeout"); value != "" {
+	if value := neoPiCompletionsHeaders(context.Background(), nil, nil, "key", row, "", "").Get("X-Stainless-Timeout"); value != "" {
 		t.Fatalf("disabled timeout sent %q", value)
 	}
 }
@@ -230,7 +231,7 @@ func TestNeoPiCompletionsCoreWeaveProjectHeader(t *testing.T) {
 				t.Setenv(name, tc.env[name])
 			}
 			auth := &cliproxyauth.Auth{Attributes: tc.configured}
-			headers := neoPiCompletionsHeaders(context.Background(), auth, nil, "key", row, "")
+			headers := neoPiCompletionsHeaders(context.Background(), auth, nil, "key", row, "", "")
 			if got := headers.Get("OpenAI-Project"); got != tc.want {
 				t.Fatalf("OpenAI-Project = %q, want %q", got, tc.want)
 			}

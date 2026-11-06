@@ -324,9 +324,9 @@ type NeoPiCompat struct {
 	// SessionHeader carries the conversation id (applySessionHeader).
 	SessionHeader string `json:"sessionHeader,omitempty"`
 	// StreamIdleTimeoutMs and StreamFirstEventTimeoutMs decide the
-	// pre-response deadline NeoPi announces in X-Stainless-Timeout (nil: the
-	// default; 0: none).
-	StreamIdleTimeoutMs       int  `json:"streamIdleTimeoutMs,omitempty"`
+	// pre-response deadline NeoPi announces in X-Stainless-Timeout; nil is
+	// NeoPi's undefined (the 300 s default), distinct from an explicit 0.
+	StreamIdleTimeoutMs       *int `json:"streamIdleTimeoutMs,omitempty"`
 	StreamFirstEventTimeoutMs *int `json:"streamFirstEventTimeoutMs,omitempty"`
 }
 
@@ -341,9 +341,11 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 	if m.Compat != nil {
 		compat := *m.Compat
 		compat.ReasoningEffortMap = maps.Clone(m.Compat.ReasoningEffortMap)
-		if m.Compat.StreamFirstEventTimeoutMs != nil {
-			timeout := *m.Compat.StreamFirstEventTimeoutMs
-			compat.StreamFirstEventTimeoutMs = &timeout
+		for _, timeout := range []**int{&compat.StreamIdleTimeoutMs, &compat.StreamFirstEventTimeoutMs} {
+			if *timeout != nil {
+				value := **timeout
+				*timeout = &value
+			}
 		}
 		out.Compat = &compat
 	}

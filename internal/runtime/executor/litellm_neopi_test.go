@@ -110,3 +110,48 @@ func TestLiteLLMReplaysNeoPiResponsesRequests(t *testing.T) {
 		})
 	}
 }
+
+// A LiteLLM Chat Completions request labels its session with the
+// conversation id NeoPi's options.sessionId carries (as the Responses lane
+// does), not the prompt cache identity; without a conversation id it falls
+// back to the request's stable session, as the Responses lane does.
+func TestLiteLLMCompletionsSessionHeaderIsConversationID(t *testing.T) {
+	var sent http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sent = r.Header.Clone()
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+	listing := []byte(`{"data":[{"model_group":"claude-opus-5-5","providers":["anthropic"],"mode":"chat","supports_vision":false}]}`)
+	infos, err := registry.NeoPiLiteLLMListing(server.URL+"/v1", nil, func(endpoint string) (int, []byte, error) {
+		if strings.HasSuffix(endpoint, "/model_group/info") {
+			return 200, listing, nil
+		}
+		return 404, nil, nil
+	})
+	if err != nil || len(infos) != 1 || infos[0].NeoPi.API != "openai-completions" {
+		t.Fatalf("discovered %v, %v", infos, err)
+	}
+	exec := NewNeoPiCompletionsExecutor(registry.NeoPiLiteLLMProvider, &config.Config{}, NeoPiCompletionsProfile{})
+	auth := &cliproxyauth.Auth{ID: "litellm-session", Provider: registry.NeoPiLiteLLMProvider, Attributes: map[string]string{"api_key": "sk-test"}}
+	payload := []byte(`{"model":"claude-opus-5-5","prompt_cache_key":"shared-cache","messages":[{"role":"user","content":"hi"}]}`)
+	for _, tc := range []struct {
+		name, session, want string
+	}{{"conversation", "conv-123", "conv-123"}, {"no conversation", "", "shared-cache"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			sent = nil
+			_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{
+				Model:    "claude-opus-5-5",
+				Payload:  payload,
+				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": infos[0]},
+			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, OriginalRequest: payload,
+				Metadata: map[string]any{cliproxyexecutor.ExecutionSessionMetadataKey: tc.session}})
+			if sent == nil {
+				t.Fatal("executor sent no request")
+			}
+			if got := sent.Get("X-Litellm-Session-Id"); got != tc.want {
+				t.Fatalf("x-litellm-session-id = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

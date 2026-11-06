@@ -454,7 +454,13 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 		}
 	}
 	body = helps.NewPayloadFinalizer(e.cfg, e.provider, row.ID, "openai", "", originalTranslated, req, opts)(body)
-	headers := e.requestHeaders(ctx, auth, opts.Headers, key, row, sessionID)
+	// options.sessionId: the conversation's own id, as the Responses lane
+	// takes it, else the request's stable session.
+	conversationID := neoPiSession(opts, nil)
+	if conversationID == "" {
+		conversationID = sessionID
+	}
+	headers := e.requestHeaders(ctx, auth, opts.Headers, key, row, sessionID, conversationID)
 	return &neoPiCompletionsPrepared{body: body, headers: headers, url: place(e.url(row)), model: row.ID}, nil
 }
 
@@ -475,8 +481,8 @@ func (e *NeoPiCompletionsExecutor) credential(ctx context.Context, auth *cliprox
 
 // requestHeaders are NeoPi's Chat Completions headers for the row, with the
 // provider's own additions and Cloudflare's gateway auth header.
-func (e *NeoPiCompletionsExecutor) requestHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID string) http.Header {
-	headers := neoPiCompletionsHeaders(ctx, auth, incoming, key, row, sessionID)
+func (e *NeoPiCompletionsExecutor) requestHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID, conversationID string) http.Header {
+	headers := neoPiCompletionsHeaders(ctx, auth, incoming, key, row, sessionID, conversationID)
 	if e.profile.Headers != nil {
 		e.profile.Headers(ctx, auth, incoming, key, row, headers, sessionID)
 	}

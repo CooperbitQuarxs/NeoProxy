@@ -20,27 +20,27 @@ const NeoPiUserAgent = "npi/" + neopiversion.Version
 // validation and other side requests.
 const BunUserAgent = "Bun/1.3.14"
 
-// defaultStreamIdleTimeoutMs is DEFAULT_STREAM_IDLE_TIMEOUT_MS, the floor
-// NeoPi's first-event deadline starts from.
-const defaultStreamIdleTimeoutMs = 300_000
+// defaultStreamTimeoutMs is DEFAULT_STREAM_FIRST_EVENT_TIMEOUT_MS and
+// DEFAULT_STREAM_IDLE_TIMEOUT_MS: what each timeout is when the row's compat
+// leaves it out.
+const defaultStreamTimeoutMs = 300_000
 
 // firstEventTimeoutHeader is the X-Stainless-Timeout NeoPi announces for a
-// row: its first-event timeout in seconds, never under the stream idle
-// timeout, or none when the row's compat disables it. It is a server hint,
-// not a locally enforced response deadline.
+// row (getOpenAIStreamFirstEventTimeoutMs): the larger of its first-event
+// and idle timeouts in seconds, or none when the first-event timeout is
+// disabled. It is a server hint, not a locally enforced response deadline.
 func firstEventTimeoutHeader(compat *registry.NeoPiCompat) string {
-	timeout := defaultStreamIdleTimeoutMs
+	first, idle := defaultStreamTimeoutMs, defaultStreamTimeoutMs
 	if compat != nil && compat.StreamFirstEventTimeoutMs != nil {
-		first := *compat.StreamFirstEventTimeoutMs
-		if first <= 0 {
-			return ""
-		}
-		timeout = max(timeout, first)
+		first = *compat.StreamFirstEventTimeoutMs
 	}
-	if compat != nil && compat.StreamIdleTimeoutMs > timeout {
-		timeout = compat.StreamIdleTimeoutMs
+	if compat != nil && compat.StreamIdleTimeoutMs != nil {
+		idle = *compat.StreamIdleTimeoutMs
 	}
-	return strconv.Itoa(timeout / 1000)
+	if first <= 0 {
+		return ""
+	}
+	return strconv.Itoa(max(first, idle) / 1000)
 }
 
 // Request is one shaped Responses POST.
