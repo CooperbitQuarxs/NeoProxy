@@ -31,9 +31,13 @@ type githubCopilotCapture struct {
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
 	// Listing and ModelsDev are what NeoPi's LiteLLM manager discovered its
-	// rows from (/model_group/info and the models.dev catalog).
-	Listing   string `json:"listing"`
-	ModelsDev string `json:"modelsDev"`
+	// rows from (/model_group/info and the models.dev catalog); Tags and
+	// Shows what its Ollama runtime discovery did (/api/tags and each
+	// /api/show).
+	Listing   string            `json:"listing"`
+	ModelsDev string            `json:"modelsDev"`
+	Tags      string            `json:"tags"`
+	Shows     map[string]string `json:"shows"`
 	Fixtures  []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`

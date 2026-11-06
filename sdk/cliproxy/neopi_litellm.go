@@ -23,6 +23,6 @@ func fetchNeoPiLiteLLMModels(ctx context.Context, cfg *config.Config, auth *core
 		header.Set("Authorization", "Bearer "+key)
 	}
 	return registry.NeoPiLiteLLMListing(base, modelsDev, func(endpoint string) (int, []byte, error) {
-		return neoPiDiscoveryDo(ctx, cfg, auth, registry.NeoPiLiteLLMProvider, endpoint, header.Clone())
+		return neoPiDiscoveryDo(ctx, cfg, auth, registry.NeoPiLiteLLMProvider, http.MethodGet, endpoint, header.Clone(), nil)
 	})
 }

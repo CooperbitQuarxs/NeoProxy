@@ -19,6 +19,7 @@ const served = [
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
 	"ollama-cloud",
 	"litellm",
+	"ollama",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 // NeoPi names no auth rule for MiniMax China's pay-as-you-go platform; the
