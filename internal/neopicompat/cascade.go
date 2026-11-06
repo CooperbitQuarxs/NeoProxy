@@ -76,6 +76,7 @@ type compiledData struct {
 	AnthropicWireKeys   []string            `json:"anthropicWireKeys"`
 	GoogleWireKeys      []string            `json:"googleWireKeys"`
 	OllamaWireKeys      []string            `json:"ollamaWireKeys"`
+	BedrockWireKeys     []string            `json:"bedrockWireKeys"`
 }
 
 type ruleIndex struct {
@@ -119,6 +120,7 @@ func load() error {
 			APIAnthropicMessages: keySet(data.AnthropicWireKeys),
 			APIGoogleVertex:      keySet(data.GoogleWireKeys),
 			APIOllamaChat:        keySet(data.OllamaWireKeys),
+			APIBedrockConverse:   keySet(data.BedrockWireKeys),
 		}
 		index, dataError = buildIndex(data.Cascade)
 	})
