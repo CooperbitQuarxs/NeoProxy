@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	awsauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/aws"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/tidwall/gjson"
 )
 
@@ -23,6 +25,10 @@ const (
 	ResponsesMuseCode   = "muse-code"
 	ResponsesSakana     = "sakana"
 	ResponsesAbliterate = "abliteration"
+	// ResponsesBedrockMantle is NeoPi's `bedrock-mantle` provider: OpenAI models
+	// on Amazon Bedrock's Responses endpoint, whose catalog base URL carries a
+	// `{region}` placeholder the transport resolves per request.
+	ResponsesBedrockMantle = "bedrock-mantle"
 )
 
 // responsesNeoPiJSON is NeoPi's resolved catalogs for the Responses lane,
@@ -97,6 +103,9 @@ func ResponsesSeed(provider string) []NeoPiModel {
 var (
 	museSparkLineage = regexp.MustCompile(`^(?:.*[-/])?muse-spark-(\d+)\.(\d+)(?:\.(\d+))?(-contributor)?$`)
 	sakanaFuguID     = regexp.MustCompile(`(?i)^fugu(?:$|-)`)
+	// bedrockMantleBaseURL is Bedrock Mantle's Responses address in any region,
+	// or the catalog's own `{region}` template.
+	bedrockMantleBaseURL = regexp.MustCompile(`(?i)^https://bedrock-mantle\.(?:[a-z0-9-]+|\{region\})\.api\.aws/openai/v1$`)
 )
 
 // museLineageRow is museSparkLineageSpec: a Muse Spark revision the seed lacks
@@ -157,7 +166,7 @@ func museRevisionLess(a, b []string) bool {
 // responsesDiscoveredRow maps one roster entry as the provider's NeoPi
 // mapModel does: the seed row (or, for Meta, its lineage row) supplies the
 // capability facts; the roster supplies the name and positive limits.
-func responsesDiscoveredRow(provider string, entry DiscoveredResponsesModel) NeoPiModel {
+func responsesDiscoveredRow(provider string, entry DiscoveredResponsesModel) *NeoPiModel {
 	var reference *NeoPiModel
 	for i := range responsesNeoPiCatalogs.Seeds[provider] {
 		if seed := &responsesNeoPiCatalogs.Seeds[provider][i]; seed.ID == entry.ID {
@@ -180,14 +189,29 @@ func responsesDiscoveredRow(provider string, entry DiscoveredResponsesModel) Neo
 		if entry.MaxCompletionTokens > 0 {
 			row.MaxTokens = entry.MaxCompletionTokens
 		}
-		return *row
+		return row
 	}
-	return *responsesUnseededRow(provider, entry)
+	return responsesUnseededRow(provider, entry)
 }
 
 // responsesUnseededRow is a roster id with no reference: fetchOpenAICompatibleModels'
-// defaults (text input, unknown limits) resolved by the provider's category rules.
+// defaults (text input, unknown limits) resolved by the provider's category
+// rules. nil means the row could not be built and is not offered.
 func responsesUnseededRow(provider string, entry DiscoveredResponsesModel) *NeoPiModel {
+	name := entry.ID
+	if entry.Name != "" {
+		name = entry.Name
+	}
+	if provider == ResponsesBedrockMantle {
+		// mapWithBundledReference without a reference keeps the defaults, so
+		// buildModel's compat engine decides the row from its id alone.
+		row, err := neoPiBuildRow(provider, ResponsesProviderBaseURL(provider),
+			&neoPiSpec{id: entry.ID, name: name, api: neopicompat.APIOpenAIResponses, input: []string{"text"}})
+		if err != nil {
+			return nil
+		}
+		return row
+	}
 	templates := responsesNeoPiCatalogs.Templates[provider]
 	var template NeoPiModel
 	switch provider {
@@ -210,10 +234,7 @@ func responsesUnseededRow(provider string, entry DiscoveredResponsesModel) *NeoP
 	}
 	row := template.Clone()
 	row.ID = entry.ID
-	row.Name = entry.ID
-	if entry.Name != "" {
-		row.Name = entry.Name
-	}
+	row.Name = name
 	return row
 }
 
@@ -246,14 +267,18 @@ func ResponsesNeoPiModels(provider string, listed []DiscoveredResponsesModel) []
 		entry, listedID := byID[seed.ID]
 		switch {
 		case listedID:
-			out = append(out, responsesDiscoveredRow(provider, entry))
+			if row := responsesDiscoveredRow(provider, entry); row != nil {
+				out = append(out, *row)
+			}
 		case !responsesAuthoritative(provider):
 			out = append(out, seed)
 		}
 	}
 	for _, id := range ids {
 		if !seeded[id] {
-			out = append(out, responsesDiscoveredRow(provider, byID[id]))
+			if row := responsesDiscoveredRow(provider, byID[id]); row != nil {
+				out = append(out, *row)
+			}
 		}
 	}
 	return out
@@ -281,8 +306,7 @@ func ResponsesNeoPiModel(provider, id string, listed []DiscoveredResponsesModel)
 	if IsResponsesExcluded(provider, id) {
 		return nil
 	}
-	row := responsesDiscoveredRow(provider, DiscoveredResponsesModel{ID: id})
-	return &row
+	return responsesDiscoveredRow(provider, DiscoveredResponsesModel{ID: id})
 }
 
 // ResponsesModels is ResponsesNeoPiModels as registry models owned by ownedBy.
@@ -303,8 +327,8 @@ func ResponsesModels(provider, ownedBy, modelType string, listed []DiscoveredRes
 }
 
 // ResponsesProviderForBaseURL names the Responses provider whose catalog
-// address is baseURL (Sakana, Abliteration; Meta's Model API), or "" when none
-// is. Trailing slashes and case do not matter.
+// address is baseURL (Sakana, Abliteration; Meta's Model API; Bedrock Mantle in
+// any region), or "" when none is. Trailing slashes and case do not matter.
 func ResponsesProviderForBaseURL(baseURL string) string {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
@@ -315,7 +339,21 @@ func ResponsesProviderForBaseURL(baseURL string) string {
 			return provider
 		}
 	}
+	if bedrockMantleBaseURL.MatchString(baseURL) {
+		return ResponsesBedrockMantle
+	}
 	return ""
+}
+
+// BedrockMantleBaseURL is prepareBedrockMantleRequest's endpoint: the
+// address's `{region}` becomes the region NeoPi's resolveAwsRegion selects from
+// the environment (AWS_REGION, AWS_DEFAULT_REGION, the shared-config profile,
+// else us-east-1). An address that names its region is kept.
+func BedrockMantleBaseURL(baseURL string) string {
+	if !strings.Contains(baseURL, "{region}") {
+		return baseURL
+	}
+	return strings.ReplaceAll(baseURL, "{region}", awsauth.EncodeURIComponent(awsauth.ResolveRegion("", "")))
 }
 
 // ParseResponsesRoster reads a `/models` body as NeoPi's

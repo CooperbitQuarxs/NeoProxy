@@ -1,8 +1,10 @@
 // Runs NeoPi's OWN openai-responses provider (streamOpenAIResponses) for the
-// meta, muse-code, sakana and abliteration models against a loopback capture
-// server only; no request can reach those hosts. Each scenario records the
-// request NeoPi sends (method, URL, headers, raw body) plus the equivalent
-// downstream Responses request NeoProxy receives, so the Go port can replay it.
+// meta, muse-code, sakana, abliteration and bedrock-mantle models against a
+// loopback capture server only; no request can reach those hosts. Each
+// scenario records the request NeoPi sends (method, URL, headers, raw body)
+// plus the equivalent downstream Responses request NeoProxy receives, so the Go
+// port can replay it. Run with no AWS_* region or bearer variables set: the
+// bedrock-mantle default-region scenario resolves to us-east-1.
 const root = process.env.NEOPI_SOURCE_MODULES;
 if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const { streamOpenAIResponses } = await import(root + "/pi-ai/src/providers/openai-responses.ts");
@@ -46,6 +48,9 @@ const credentials: Record<string, string> = {
 	"muse-code": museCredential,
 	sakana: "sakana-capture-key",
 	abliteration: "ak_capture_key",
+	// An Amazon Bedrock API key: NeoPi's bedrock-mantle transport sends it as
+	// the bearer (resolveAwsBearerToken) instead of signing with SigV4.
+	"bedrock-mantle": "ABSKbedrock-capture-key",
 };
 
 const seed = (provider: string, id: string) => {
@@ -62,7 +67,9 @@ const reasoningItem = { type: "reasoning", id: "rs_capture", summary: [], encryp
 const callItem = { type: "function_call", id: "fc_capture", call_id: "call_1", name: "lookup", arguments: "{\"term\":\"a\"}" };
 const imageB64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-type Spec = { name: string; provider: string; model: string; options: any; tools?: any[]; systemPrompt?: string[]; messages: any[]; downstream: any };
+// providerOptions is what NeoPi's provider transport receives beside the key
+// (bedrock-mantle's region); the Go replay carries it as account attributes.
+type Spec = { name: string; provider: string; model: string; options: any; tools?: any[]; systemPrompt?: string[]; messages: any[]; downstream: any; providerOptions?: any };
 const scenarios: Spec[] = [];
 const plain = (provider: string, model: string, effort: string | undefined, extra: Partial<Spec> = {}, label = effort ?? "no-effort"): Spec => ({
 	name: `${provider}-${model}-${label}`,
@@ -88,8 +95,12 @@ scenarios.push(plain("sakana", "fugu", "low", {}, "unsupported-low"));
 for (const model of ["abliterated-model", "abliterated-model-large", "abliterated-model-large-v2"]) {
 	for (const effort of [undefined, "minimal", "low", "medium", "high", "xhigh", "max"]) scenarios.push(plain("abliteration", model, effort));
 }
-for (const provider of ["meta", "muse-code", "sakana", "abliteration"]) {
-	const model = { meta: "muse-spark-1.3", "muse-code": "muse-spark-1.3-contributor", sakana: "fugu", abliteration: "abliterated-model" }[provider]!;
+const mantleSeeds = ["openai.gpt-5.4", "openai.gpt-5.5", "openai.gpt-5.6-luna", "openai.gpt-5.6-sol", "openai.gpt-5.6-terra"];
+for (const model of mantleSeeds) {
+	for (const effort of [undefined, "minimal", "low", "medium", "high", "xhigh", "max"]) scenarios.push(plain("bedrock-mantle", model, effort));
+}
+for (const provider of ["meta", "muse-code", "sakana", "abliteration", "bedrock-mantle"]) {
+	const model = { meta: "muse-spark-1.3", "muse-code": "muse-spark-1.3-contributor", sakana: "fugu", abliteration: "abliterated-model", "bedrock-mantle": "openai.gpt-5.6-terra" }[provider]!;
 	scenarios.push({
 		name: `${provider}-system-sampling`, provider, model, options: { reasoning: "high", temperature: 0.2, topP: 0.9, maxTokens: 99 }, systemPrompt: ["You are terse."],
 		messages: [{ role: "user", content: "Say hello." }],
@@ -169,6 +180,31 @@ for (const provider of ["meta", "muse-code", "sakana", "abliteration"]) {
 // Discovered ids with no seed row: NeoPi's mapped defaults decide the wire.
 scenarios.push({ ...plain("meta", "muse-spark-1.4", "xhigh"), name: "meta-lineage-muse-spark-1.4-xhigh" });
 scenarios.push({ ...plain("meta", "muse-spark-1.4", "max"), name: "meta-lineage-muse-spark-1.4-max" });
+// Bedrock Mantle ids its roster lists without a seed row: mapWithBundledReference
+// keeps fetchOpenAICompatibleModels' defaults, and buildModel's compat engine
+// decides the wire from the id (gpt-5.6* takes the reasoning-off instruction).
+const mantleDiscovered = new Set(["openai.gpt-oss-120b", "openai.gpt-5.6-nova"]);
+for (const model of mantleDiscovered) {
+	scenarios.push({ ...plain("bedrock-mantle", model, "high"), name: `bedrock-mantle-discovered-${model}-high` });
+	scenarios.push({ ...plain("bedrock-mantle", model, undefined), name: `bedrock-mantle-discovered-${model}-no-effort` });
+}
+// No configured region: resolveAwsRegion falls back to us-east-1.
+scenarios.push({ ...plain("bedrock-mantle", "openai.gpt-5.6-terra", "high"), name: "bedrock-mantle-default-region", providerOptions: {} });
+// The region every other bedrock-mantle scenario configures.
+const mantleRegion = "us-west-2";
+const mantleDefaults = (id: string) => ({
+	id,
+	name: id,
+	api: "openai-responses",
+	provider: "bedrock-mantle",
+	baseUrl: "https://bedrock-mantle.{region}.api.aws/openai/v1",
+	reasoning: false,
+	input: ["text"],
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+	contextWindow: null,
+	maxTokens: null,
+	discoveryMissingInput: true,
+});
 
 const fixtures: any[] = [];
 const lineage = (provider: string, id: string) => {
@@ -178,7 +214,13 @@ const lineage = (provider: string, id: string) => {
 };
 try {
 	for (const scenario of scenarios) {
-		const spec = scenario.model === "muse-spark-1.4" ? lineage(scenario.provider, scenario.model) : seed(scenario.provider, scenario.model);
+		const spec =
+			scenario.model === "muse-spark-1.4"
+				? lineage(scenario.provider, scenario.model)
+				: scenario.provider === "bedrock-mantle" && mantleDiscovered.has(scenario.model)
+					? mantleDefaults(scenario.model)
+					: seed(scenario.provider, scenario.model);
+		if (scenario.provider === "bedrock-mantle") scenario.providerOptions ??= { region: mantleRegion };
 		const model = buildModel(spec);
 		captured = [];
 		let requestedURL = "";
@@ -194,7 +236,7 @@ try {
 		// unwraps the minted key and adds x-api-version.
 		const definition = getProviderDefinition(scenario.provider);
 		const prepared = definition?.prepareRequest
-			? definition.prepareRequest(model, { apiKey: credentials[scenario.provider] })
+			? definition.prepareRequest(model, { apiKey: credentials[scenario.provider], ...(scenario.providerOptions ? { providerOptions: scenario.providerOptions } : {}) })
 			: { model, options: { apiKey: credentials[scenario.provider] } };
 		// NeoPi's agent clamps the requested level to the model's ladder before the
 		// provider sees it.
@@ -204,7 +246,7 @@ try {
 		if (result.stopReason !== "stop") throw new Error(`${scenario.name}: ${result.errorMessage}`);
 		fixtures.push({ name: scenario.name, requestedURL, scenario, requests: captured });
 	}
-	console.log(JSON.stringify({ source: "NeoPi OWN streamOpenAIResponses (meta, muse-code, sakana, abliteration)", userAgent: USER_AGENT, credentials, sessionId, response: sse, fixtures }, null, 2));
+	console.log(JSON.stringify({ source: "NeoPi OWN streamOpenAIResponses (meta, muse-code, sakana, abliteration, bedrock-mantle)", userAgent: USER_AGENT, credentials, sessionId, response: sse, fixtures }, null, 2));
 } finally {
 	server.stop(true);
 }

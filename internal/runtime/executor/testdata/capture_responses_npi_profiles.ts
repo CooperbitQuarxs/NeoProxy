@@ -1,5 +1,6 @@
 // Exports NeoPi's OWN resolved catalogs for the openai-responses providers the
-// NeoProxy `responses` lane ports (meta, muse-code, sakana, abliteration), and
+// NeoProxy `responses` lane ports (meta, muse-code, sakana, abliteration,
+// bedrock-mantle), and
 // the model manager's discovery results over scripted /v1/models rosters, as
 // internal/registry/models/responses_neopi.json. The rosters run through
 // NeoPi's real provider model managers (resolveProviderModels) against a
@@ -18,8 +19,16 @@ const { buildModel } = await import(root + "/pi-catalog/src/build.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
 const { isExcludedModel } = await import(root + "/pi-catalog/src/compat/behavior.ts");
-const { metaModelManagerOptions, museCodeModelManagerOptions, sakanaModelManagerOptions, abliterationModelManagerOptions } =
-	await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
+const {
+	metaModelManagerOptions,
+	museCodeModelManagerOptions,
+	sakanaModelManagerOptions,
+	abliterationModelManagerOptions,
+	bedrockMantleModelManagerOptions,
+} = await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
+// Bedrock Mantle's discovery auth and endpoint come from its transport, as
+// model-registry.ts feeds createModelManagerOptions(prepareModelDiscovery(config)).
+const { bedrockMantleTransport } = await import(root + "/pi-ai/src/registry/bedrock-mantle.ts");
 
 export const project = (model: any) => ({
 	id: model.id,
@@ -45,12 +54,13 @@ export const project = (model: any) => ({
 	compat: model.compat,
 });
 
-const providers = ["meta", "muse-code", "sakana", "abliteration"];
+const providers = ["meta", "muse-code", "sakana", "abliteration", "bedrock-mantle"];
 const managers: Record<string, (config: any) => any> = {
 	meta: metaModelManagerOptions,
 	"muse-code": museCodeModelManagerOptions,
 	sakana: sakanaModelManagerOptions,
 	abliteration: abliterationModelManagerOptions,
+	"bedrock-mantle": (config: any) => bedrockMantleModelManagerOptions(bedrockMantleTransport.prepareModelDiscovery(config)),
 };
 
 let roster: any[] = [];
@@ -77,7 +87,7 @@ const bundled: Record<string, any[]> = {};
 for (const provider of providers) bundled[provider] = getBundledModels(provider).map(project);
 
 const entry = (id: string, extra: Record<string, unknown> = {}) => ({ id, object: "model", created: 1, owned_by: "x", ...extra });
-const rosters: Record<string, { name: string; roster: any[] }[]> = {
+const rosters: Record<string, { name: string; roster: any[]; apiKey?: string }[]> = {
 	meta: [
 		{ name: "seeded", roster: ["muse-spark-1.1", "muse-spark-1.2", "muse-spark-1.2-contributor", "muse-spark-1.3", "muse-spark-1.3-contributor", "muse-wonder-1.0"].map(id => entry(id)) },
 		{ name: "partial", roster: [entry("muse-spark-1.3")] },
@@ -114,6 +124,23 @@ const rosters: Record<string, { name: string; roster: any[] }[]> = {
 		{ name: "new-and-unknown", roster: [entry("abliterated-model"), entry("abliterated-model-large-v3"), entry("something-else", { context_length: 4096, max_completion_tokens: 512 })] },
 		{ name: "empty", roster: [] },
 	],
+	"bedrock-mantle": [
+		{ name: "seeded", roster: ["openai.gpt-5.4", "openai.gpt-5.5", "openai.gpt-5.6-luna", "openai.gpt-5.6-sol", "openai.gpt-5.6-terra"].map(id => entry(id)) },
+		{ name: "partial", roster: [entry("openai.gpt-5.6-terra")] },
+		{
+			name: "new-and-unknown",
+			roster: [
+				entry("openai.gpt-5.5", { context_length: 400000, max_completion_tokens: 64000, name: "GPT Five Five" }),
+				entry("openai.gpt-5.6-nova"),
+				entry("openai.gpt-5.4-mini"),
+				entry("openai.gpt-oss-120b", { context_length: 131072 }),
+				entry("Openai.Gpt-Upper"),
+			],
+		},
+		{ name: "empty", roster: [] },
+		// No bearer: IAM-only discovery is unauthenticated, so no request is made.
+		{ name: "iam-only", roster: [entry("openai.gpt-5.6-terra")], apiKey: undefined },
+	],
 };
 
 const discovery: any[] = [];
@@ -122,7 +149,8 @@ for (const provider of providers) {
 		roster = scenario.roster;
 		requests.length = 0;
 		const dir = mkdtempSync(join(tmpdir(), "responses-npi-"));
-		const options = managers[provider]({ apiKey: "discovery-key", fetch: redirectFetch });
+		const apiKey = "apiKey" in scenario ? scenario.apiKey : "discovery-key";
+		const options = managers[provider]({ apiKey, fetch: redirectFetch });
 		const result = await resolveProviderModels({ ...options, cacheDbPath: join(dir, "cache.db") }, "online");
 		discovery.push({
 			provider,
@@ -136,7 +164,9 @@ for (const provider of providers) {
 	}
 }
 // Template rows: what a roster id with no seed row becomes, per category. The
-// Go registry clones these and swaps the id/name.
+// Go registry clones these and swaps the id/name. Bedrock Mantle has none: its
+// unseeded rows are buildModel over the compat engine, which the Go registry
+// runs itself (its id rules split gpt-5.4/5.5 from gpt-5.6 and other ids).
 const templateProbes: Record<string, Record<string, string>> = {
 	meta: { unknown: "zz-unknown-probe", bounded: "muse-wonder-9.9" },
 	"muse-code": { unknown: "zz-unknown-probe", bounded: "muse-wonder-9.9" },
@@ -144,7 +174,7 @@ const templateProbes: Record<string, Record<string, string>> = {
 	abliteration: { unseeded: "zz-unseeded-probe" },
 };
 const templates: Record<string, Record<string, any>> = {};
-for (const provider of providers) {
+for (const provider of Object.keys(templateProbes)) {
 	roster = Object.values(templateProbes[provider]).map(id => entry(id));
 	const dir = mkdtempSync(join(tmpdir(), "responses-npi-"));
 	const options = managers[provider]({ apiKey: "discovery-key", fetch: redirectFetch });
