@@ -163,6 +163,25 @@ async function discoveredRows(provider: string, apiKey: string): Promise<{ model
 	const listing = provider === "litellm" ? JSON.stringify({ data: entries }) : JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
 	const modelsDev = modelsDevPayloads[provider] ? JSON.stringify(modelsDevPayloads[provider]) : undefined;
 	const native = provider === "lm-studio" ? { v0: JSON.stringify(lmStudioNative.v0), v1: JSON.stringify(lmStudioNative.v1) } : undefined;
+	if (provider === "lm-studio") {
+		// NeoPi's runtime lists LM Studio through coding-agent's
+		// discoverOpenAIModelsList (its implicit provider), not the catalog
+		// manager; the same answers are recorded.
+		const checkout = process.env.NEOPI_CHECKOUT ?? "/home/shayna/source/github/PsychedelicShayna/neopi-nightly";
+		const runtime = await import(join(checkout, "packages/coding-agent/src/config/model-discovery.ts"));
+		const models = await runtime.discoverModelsByProviderType(
+			{ provider: "lm-studio", api: "openai-completions", baseUrl: "http://127.0.0.1:1234/v1", discovery: { type: "lm-studio" } },
+			{
+				getBearerApiKeyResolver: async () => apiKey,
+				fetch: async (input: any) => {
+					const url = new URL(typeof input === "string" ? input : input.url);
+					const body = url.pathname === "/api/v0/models" ? native!.v0 : url.pathname === "/api/v1/models" ? native!.v1 : url.pathname === "/v1/models" ? listing : undefined;
+					return body ? new Response(body, { status: 200, headers: { "content-type": "application/json" } }) : new Response("not found", { status: 404 });
+				},
+			},
+		);
+		return { models, listing, lmStudioV0: native!.v0, lmStudioV1: native!.v1 };
+	}
 	const options = descriptor.createModelManagerOptions({
 		apiKey,
 		fetch: async (input: any) => {

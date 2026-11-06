@@ -59,9 +59,9 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		// fetch runs without one.
 		ttl := 2 * time.Hour
 		switch provider {
-		case registry.NeoPiOllamaProvider:
-			// A local Ollama is the runtime's configured discovery, whose
-			// rows NeoPi caches for a day (model-registry.ts
+		case registry.NeoPiOllamaProvider, "lm-studio":
+			// A local Ollama or LM Studio is the runtime's configured
+			// discovery, whose rows NeoPi caches for a day (model-registry.ts
 			// #discoverProviderModels).
 			ttl = 24 * time.Hour
 		case registry.NeoPiLlamaCppProvider:
@@ -320,7 +320,7 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		case "siliconflow", "siliconflow-cn":
 			return fetchNeoPiSiliconFlowModels(ctx, cfg, auth, provider, key, base)
 		case "lm-studio":
-			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key, base)
+			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key)
 		case registry.NeoPiLiteLLMProvider:
 			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
 		case registry.NeoPiOllamaProvider:

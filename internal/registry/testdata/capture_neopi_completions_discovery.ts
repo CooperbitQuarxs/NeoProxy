@@ -71,7 +71,6 @@ const managers: Record<string, (config: any) => any> = {
 	siliconflow: m.siliconflowModelManagerOptions,
 	"siliconflow-cn": m.siliconflowCnModelManagerOptions,
 	vllm: m.vllmModelManagerOptions,
-	"lm-studio": m.lmStudioModelManagerOptions,
 	zenmux: m.zenmuxModelManagerOptions,
 	"cloudflare-ai-gateway": m.cloudflareAiGatewayModelManagerOptions,
 	commandcode: m.commandCodeModelManagerOptions,
@@ -353,8 +352,6 @@ function entries(provider: string, bundled: string[]): unknown[] {
 			{ id: "qwen3.9-coder", max_model_len: -1 },
 			{ id: "meta-llama/Llama-4-Scout-17B-16E-Instruct" },
 		],
-		// LM Studio's listing; its native metadata answers per scenario.
-		"lm-studio": [{ id: "qwen/qwen3.8-vl-8b" }, { id: "google/gemma-4-12b" }, { id: "lm-judge" }, { id: "lm-judge:2" }, { id: "zz-lms-cap" }],
 		// ZenMux: Claude ids (by class, or by owner) move to the Anthropic
 		// route; prices come from bucketed pricings, cache writes preferring
 		// the 1-hour tier, then 5-minute, then the flat one.
@@ -455,7 +452,7 @@ function fireworksPages(bundled: string[]): Reply[] {
 // baseUrl override), absent for the manager's default.
 // paths answers a proxy by path and query (LiteLLM's management endpoints);
 // any other path answers 404.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string; paths?: Record<string, Reply> };
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; baseUrl?: string; paths?: Record<string, Reply> };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -660,33 +657,6 @@ function scenarios(provider: string, bundled: string[]): Scenario[] {
 		// (without Authorization); the others serve the bundled roster.
 		{ name: "no key", keyless: true, replies: [json({ object: "list", data: list })] },
 	];
-	if (provider === "lm-studio") {
-		// LM Studio's native /api/v0 (input, served window) and /api/v1
-		// (decision judges) answers; without them only the listing counts.
-		const v0 = json({
-			data: [
-				{ id: "qwen/qwen3.8-vl-8b", type: "vlm", max_context_length: 131072 },
-				{ id: "google/gemma-4-12b", type: "LLM", state: "loaded", loaded_context_length: 8192, max_context_length: 131072 },
-				{ id: "zz-lms-cap", type: "llm", state: "unloaded", loaded_context_length: 4096, capabilities: ["Vision", 5], context_length: "16384" },
-				{ id: "", type: "vlm" },
-				"junk",
-			],
-		});
-		const v1 = json({
-			models: [
-				{ key: "lm-judge", type: "decision", has_vision_adapter: true, max_context_length: 4096, loaded_instances: [{ id: "lm-judge:2", config: { context_length: 2048 } }, "junk"] },
-				{ key: "google/gemma-4-12b", type: "llm" },
-			],
-		});
-		const listing = json({ object: "list", data: list });
-		return [
-			...generic,
-			{ name: "native metadata", native: { v0, v1 }, replies: [listing] },
-			{ name: "native v1 only", native: { v0: json({ error: "no" }, 404), v1 }, replies: [listing] },
-			{ name: "native v0 only", native: { v0, v1: { status: 200, body: "oops" } }, replies: [listing] },
-			{ name: "native junk", native: { v0: json({ data: "x" }), v1: json({ models: {} }) }, replies: [listing] },
-		];
-	}
 	if (provider === "siliconflow" || provider === "siliconflow-cn") {
 		// models.dev answers each scenario; without it only the bundled
 		// reference index hydrates.
@@ -791,16 +761,13 @@ for (const [provider, build] of Object.entries(managers)) {
 				query: Object.fromEntries(url.searchParams),
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
 			});
-			const nativeKey = provider !== "lm-studio" ? undefined : url.pathname === "/api/v0/models" ? "v0" : url.pathname === "/api/v1/models" ? "v1" : undefined;
 			const reply = scenario.paths
 				? (scenario.paths[url.pathname + url.search] ?? { status: 404, body: "not found" })
-				: nativeKey
-					? (scenario.native?.[nativeKey] ?? { status: 404, body: "{}" })
-					: scenario.roster
-						? url.hostname === "openrouter.ai"
-							? scenario.live!
-							: scenario.roster
-						: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
+				: scenario.roster
+					? url.hostname === "openrouter.ai"
+						? scenario.live!
+						: scenario.roster
+					: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
 		const options = build({
@@ -818,7 +785,6 @@ for (const [provider, build] of Object.entries(managers)) {
 			...(scenario.baseUrl ? { baseUrl: scenario.baseUrl } : {}),
 			...(scenario.keyless ? { keyless: true } : {}),
 			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
-			...(scenario.native ? { native: scenario.native } : {}),
 			...(scenario.paths ? { paths: scenario.paths } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
@@ -889,7 +855,15 @@ const referenceRow = (model: any): number => {
 	if (index === undefined) {
 		index = referenceRows.length;
 		referenceRowIndex.set(model, index);
-		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}), cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 } });
+		// The reference's effort compat, which LM Studio's runtime discovery
+		// lends a listed row (discoverOpenAIModelsList).
+		const compat = model.compat ?? {};
+		const effortCompat = {
+			...(compat.supportsReasoningEffort !== undefined ? { supportsReasoningEffort: compat.supportsReasoningEffort } : {}),
+			...(compat.reasoningEffortMap ? { reasoningEffortMap: compat.reasoningEffortMap } : {}),
+			...(compat.omitReasoningEffort !== undefined ? { omitReasoningEffort: compat.omitReasoningEffort } : {}),
+		};
+		referenceRows.push({ provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning, input: model.input, contextWindow: model.contextWindow ?? null, maxTokens: model.maxTokens ?? null, ...(model.thinking ? { thinking: model.thinking } : {}), cost: { input: model.cost?.input ?? 0, output: model.cost?.output ?? 0, cacheRead: model.cost?.cacheRead ?? 0, cacheWrite: model.cost?.cacheWrite ?? 0 }, ...(Object.keys(effortCompat).length > 0 ? { compat: effortCompat } : {}) });
 	}
 	return index;
 };

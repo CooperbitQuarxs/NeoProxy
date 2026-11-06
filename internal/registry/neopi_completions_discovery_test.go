@@ -41,12 +41,6 @@ type neoPiDiscoveryResult struct {
 	// ModelsDev is the models.dev catalog's answer (SiliconFlow); absent, it
 	// answered 503.
 	ModelsDev *neoPiCaptureReply `json:"modelsDev"`
-	// Native holds LM Studio's /api/v0 and /api/v1 answers; absent, they
-	// answered 404.
-	Native struct {
-		V0 *neoPiCaptureReply `json:"v0"`
-		V1 *neoPiCaptureReply `json:"v1"`
-	} `json:"native"`
 	// Paths answers a LiteLLM proxy by path and query; any other path
 	// answered 404.
 	Paths    map[string]neoPiCaptureReply `json:"paths"`
@@ -284,16 +278,6 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 		return NeoPiClinePassListing(baseURL, []byte(result.Roster.Body), live)
 	case len(result.Replies) == 0 || result.Replies[0].Status/100 != 2:
 		return nil, ErrNeoPiListing
-	}
-	if result.Provider == "lm-studio" {
-		// fetchJson: only a 2xx native answer carries metadata.
-		body := func(reply *neoPiCaptureReply) []byte {
-			if reply == nil || reply.Status/100 != 2 {
-				return nil
-			}
-			return []byte(reply.Body)
-		}
-		return NeoPiLmStudioListing(baseURL, []byte(result.Replies[0].Body), body(result.Native.V0), body(result.Native.V1))
 	}
 	if result.Provider == "siliconflow" || result.Provider == "siliconflow-cn" {
 		var modelsDev []byte
