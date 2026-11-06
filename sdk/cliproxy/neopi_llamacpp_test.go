@@ -37,7 +37,7 @@ func TestNeoPiLocalServerDiscoveryBearer(t *testing.T) {
 	defer server.Close()
 	for _, tc := range []struct {
 		provider, key, base string
-		want               []string
+		want                []string
 	}{
 		{registry.NeoPiLlamaCppProvider, "sk-llama", server.URL, []string{"/models Bearer sk-llama", "/props Bearer sk-llama"}},
 		{registry.NeoPiLlamaCppProvider, registry.NeoPiLlamaCppKeylessMarker, server.URL, []string{"/models ", "/props "}},
