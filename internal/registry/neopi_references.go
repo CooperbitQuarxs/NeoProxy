@@ -57,6 +57,7 @@ type neoPiGlobalReferenceRow struct {
 	MaxTokens      int             `json:"maxTokens"`
 	RequestModelID string          `json:"requestModelId"`
 	Thinking       json.RawMessage `json:"thinking"`
+	Compat         map[string]any  `json:"compat"`
 	Cost           NeoPiCost       `json:"cost"`
 }
 
@@ -64,8 +65,28 @@ var (
 	neoPiReferencesOnce sync.Once
 	neoPiAPIRoutes      []neoPiAPIRouteTable
 	neoPiGlobalRefs     map[string]*NeoPiModel
-	neoPiReferencesErr  error
+	// neoPiKindAPIs is each provider's runner api per non-chat kind (its
+	// compiled kindApis), and neoPiReferenceIsolated the providers whose rows
+	// never serve as bare-id references (behavior.referenceIsolatedProviders).
+	neoPiKindAPIs          map[string]map[string]string
+	neoPiReferenceIsolated []string
+	// neoPiResponsesHeuristic is behavior.openaiResponsesHeuristic, and
+	// neoPiExcludeDiscoveryModes behavior.excludeDiscoveryModes.
+	neoPiResponsesHeuristic    neoPiOpenAIResponsesHeuristic
+	neoPiExcludeDiscoveryModes []neoPiDiscoveryModes
+	neoPiReferencesErr         error
 )
+
+type neoPiOpenAIResponsesHeuristic struct {
+	IncludePrefixes   []string `json:"includePrefixes"`
+	ExcludePrefixes   []string `json:"excludePrefixes"`
+	ExcludeSubstrings []string `json:"excludeSubstrings"`
+}
+
+type neoPiDiscoveryModes struct {
+	Provider string   `json:"provider"`
+	Modes    []string `json:"modes"`
+}
 
 func loadNeoPiReferences() {
 	if err := json.Unmarshal(neoPiAPIRoutesJSON, &neoPiAPIRoutes); err != nil {
@@ -83,12 +104,18 @@ func loadNeoPiReferences() {
 		return
 	}
 	var file struct {
-		References []neoPiGlobalReferenceRow `json:"references"`
+		References                 []neoPiGlobalReferenceRow     `json:"references"`
+		KindAPIs                   map[string]map[string]string  `json:"kindApis"`
+		ReferenceIsolatedProviders []string                      `json:"referenceIsolatedProviders"`
+		OpenAIResponsesHeuristic   neoPiOpenAIResponsesHeuristic `json:"openaiResponsesHeuristic"`
+		ExcludeDiscoveryModes      []neoPiDiscoveryModes         `json:"excludeDiscoveryModes"`
 	}
 	if err = json.Unmarshal(raw, &file); err != nil {
 		neoPiReferencesErr = fmt.Errorf("registry: global_references.json.gz: %w", err)
 		return
 	}
+	neoPiKindAPIs, neoPiReferenceIsolated = file.KindAPIs, file.ReferenceIsolatedProviders
+	neoPiResponsesHeuristic, neoPiExcludeDiscoveryModes = file.OpenAIResponsesHeuristic, file.ExcludeDiscoveryModes
 	neoPiGlobalRefs = make(map[string]*NeoPiModel, len(file.References))
 	for _, ref := range file.References {
 		thinking, requiresEffortSet, errThinking := neoPiDecodeThinking(ref.Thinking)
@@ -98,8 +125,43 @@ func loadNeoPiReferences() {
 		}
 		neoPiGlobalRefs[ref.ID] = &NeoPiModel{ID: ref.ID, Name: ref.Name, API: ref.API, Provider: ref.Provider, Reasoning: ref.Reasoning,
 			Input: ref.Input, ContextWindow: ref.ContextWindow, MaxTokens: ref.MaxTokens, RequestModelID: ref.RequestModelID,
-			Thinking: thinking, thinkingRequiresEffortSet: requiresEffortSet, cost: ref.Cost}
+			Thinking: thinking, thinkingRequiresEffortSet: requiresEffortSet, CompatConfig: ref.Compat, cost: ref.Cost}
 	}
+}
+
+// neoPiIsLikelyOpenAIResponsesID is isLikelyOpenAIResponsesId: an id the
+// heuristic's include prefixes claim and neither exclusion rejects.
+func neoPiIsLikelyOpenAIResponsesID(model string) bool {
+	neoPiReferencesOnce.Do(loadNeoPiReferences)
+	rule := neoPiResponsesHeuristic
+	for _, prefix := range rule.ExcludePrefixes {
+		if strings.HasPrefix(model, prefix) {
+			return false
+		}
+	}
+	for _, sub := range rule.ExcludeSubstrings {
+		if strings.Contains(model, sub) {
+			return false
+		}
+	}
+	for _, prefix := range rule.IncludePrefixes {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// neoPiExcludedDiscoveryMode is isExcludedDiscoveryMode: a mode provider's
+// discovery treats as non-conversational.
+func neoPiExcludedDiscoveryMode(provider, mode string) bool {
+	neoPiReferencesOnce.Do(loadNeoPiReferences)
+	for _, rule := range neoPiExcludeDiscoveryModes {
+		if rule.Provider == provider && slices.Contains(rule.Modes, mode) {
+			return true
+		}
+	}
+	return false
 }
 
 // neoPiAPIRouteFor is apiRouteFor: the API the provider's route table sends

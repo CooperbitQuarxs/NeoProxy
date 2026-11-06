@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -44,6 +47,13 @@ type neoPiDiscoveryResult struct {
 		V0 *neoPiCaptureReply `json:"v0"`
 		V1 *neoPiCaptureReply `json:"v1"`
 	} `json:"native"`
+	// Paths answers a LiteLLM proxy by path and query; any other path
+	// answered 404.
+	Paths    map[string]neoPiCaptureReply `json:"paths"`
+	Requests []struct {
+		Path  string            `json:"path"`
+		Query map[string]string `json:"query"`
+	} `json:"requests"`
 	Models []struct {
 		ID            string         `json:"id"`
 		API           string         `json:"api"`
@@ -257,6 +267,12 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 			}
 		}
 		return nil, err
+	case result.Provider == NeoPiLiteLLMProvider:
+		var modelsDev []byte
+		if result.ModelsDev != nil && result.ModelsDev.Status/100 == 2 {
+			modelsDev = []byte(result.ModelsDev.Body)
+		}
+		return NeoPiLiteLLMListing(baseURL, modelsDev, neoPiLiteLLMReplay(result, nil))
 	case result.Roster != nil:
 		if result.Roster.Status/100 != 2 {
 			return nil, ErrNeoPiListing
@@ -291,6 +307,74 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 		return NeoPiCompletionsListing(result.Provider, NeoPiCloudflareListingBase(result.BaseURL), []byte(result.Replies[0].Body))
 	}
 	return NeoPiCompletionsListing(result.Provider, baseURL, []byte(result.Replies[0].Body))
+}
+
+// neoPiLiteLLMReplay answers a LiteLLM discovery from a captured scenario's
+// paths, recording each endpoint asked as path?query.
+func neoPiLiteLLMReplay(result neoPiDiscoveryResult, asked *[]string) NeoPiLiteLLMGet {
+	var mu sync.Mutex
+	return func(endpoint string) (int, []byte, error) {
+		parsed, err := url.Parse(endpoint)
+		if err != nil {
+			return 0, nil, err
+		}
+		key := parsed.EscapedPath()
+		if parsed.RawQuery != "" {
+			key += "?" + parsed.RawQuery
+		}
+		if asked != nil {
+			mu.Lock()
+			*asked = append(*asked, key)
+			mu.Unlock()
+		}
+		if reply, ok := result.Paths[key]; ok {
+			return reply.Status, []byte(reply.Body), nil
+		}
+		return 404, []byte("not found"), nil
+	}
+}
+
+// A LiteLLM discovery asks the endpoints NeoPi's manager asked, as often:
+// the management endpoints in order until the roster's metadata is
+// complete, each /v2/model/info page, and /models when no endpoint answered.
+func TestNeoPiLiteLLMDiscoveryRequestsMatchNeoPi(t *testing.T) {
+	capture := loadNeoPiDiscoveryCapture(t)
+	scenarios := 0
+	for _, result := range capture.Results {
+		if result.Provider != NeoPiLiteLLMProvider {
+			continue
+		}
+		scenarios++
+		t.Run(result.Scenario, func(t *testing.T) {
+			baseURL := NeoPiCompletionsListingBase(result.Provider)
+			if result.BaseURL != "" {
+				baseURL = NeoPiV1BaseURL(result.Provider, result.BaseURL)
+			}
+			var asked []string
+			var modelsDev []byte
+			if result.ModelsDev != nil && result.ModelsDev.Status/100 == 2 {
+				modelsDev = []byte(result.ModelsDev.Body)
+			}
+			_, _ = NeoPiLiteLLMListing(baseURL, modelsDev, neoPiLiteLLMReplay(result, &asked))
+			var want []string
+			for _, request := range result.Requests {
+				key := request.Path
+				if page, ok := request.Query["page"]; ok {
+					key += "?page=" + page
+				}
+				want = append(want, key)
+			}
+			// Pages are fetched concurrently, in either order.
+			slices.Sort(asked)
+			slices.Sort(want)
+			if !reflect.DeepEqual(asked, want) {
+				t.Errorf("asked %q, NeoPi asked %q", asked, want)
+			}
+		})
+	}
+	if scenarios == 0 {
+		t.Fatal("capture holds no LiteLLM scenarios")
+	}
 }
 
 func neoPiReplayFireworks(baseURL string, replies []neoPiCaptureReply) ([]*ModelInfo, error) {

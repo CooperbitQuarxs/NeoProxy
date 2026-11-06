@@ -376,6 +376,9 @@
 		},
 		"ollama-cloud": {
 			"name": "Ollama Cloud"
+		},
+		"litellm": {
+			"name": "LiteLLM"
 		}
 	}
 }

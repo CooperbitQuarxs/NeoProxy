@@ -70,6 +70,42 @@ const discoveredRosters: Record<string, any[]> = {
 	],
 	// LM Studio's native metadata marks VLMs, served windows and judges.
 	"lm-studio": ["qwen/qwen3.8-vl-8b", "google/gemma-4-12b", "lm-judge", "lm-judge:2", "zz-lms-new"].map(id => ({ id })),
+	// LiteLLM answers /model_group/info: OpenAI groups run on Responses, a
+	// decisions group judges, non-chat modes and sentinels drop, and ids are
+	// hydrated from models.dev, then NeoPi's bundled references.
+	litellm: [
+		{
+			model_group: "gpt-6-proxy",
+			providers: ["openai"],
+			mode: "chat",
+			max_input_tokens: 400000,
+			max_output_tokens: 128000,
+			supports_vision: true,
+			supports_reasoning: true,
+			supported_openai_params: ["tools", "tool_choice", "reasoning_effort"],
+			input_cost_per_token: 0.00000125,
+			output_cost_per_token: 0.00001,
+			cache_read_input_token_cost: 1.25e-7,
+		},
+		{
+			model_group: "claude-opus-5-5",
+			providers: ["anthropic"],
+			mode: "chat",
+			max_input_tokens: 1000000,
+			max_output_tokens: 128000,
+			supports_vision: true,
+			supports_reasoning: true,
+			supports_function_calling: true,
+			supported_openai_params: ["tools", "tool_choice", "reasoning_effort", "thinking"],
+		},
+		{ model_group: "kimi-k3", providers: ["fireworks_ai"], mode: "chat", supports_vision: false },
+		{ model_group: "deepseek-v4-flash", providers: ["deepseek"], mode: "chat", supports_vision: false, supports_reasoning: true },
+		{ model_group: "glm-5.1", model_name: "GLM 5.1 (2x usage)", providers: ["zai"], mode: "chat", supports_vision: false },
+		{ model_group: "judge-1", providers: ["openai"], mode: "decisions", supports_vision: false },
+		{ model_group: "text-embed-x", providers: ["openai"], mode: "embedding" },
+		{ model_group: "all-proxy-models", providers: [] },
+		{ model_group: "zz-proxy-alias", providers: ["bedrock"], mode: "chat", supports_vision: false, max_input_tokens: 64000 },
+	],
 };
 
 // LM Studio's native answers (GET /api/v0/models and /api/v1/models).
@@ -105,13 +141,21 @@ const modelsDevPayloads: Record<string, any> = {
 			},
 		},
 	},
+	// LiteLLM hydrates ids against every models.dev provider.
+	litellm: {
+		moonshotai: {
+			models: {
+				"kimi-k3": { name: "Kimi K3", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, cost: { input: 0.6, output: 2.5, cache_read: 0.15 }, limit: { context: 262144, output: 32768 } },
+			},
+		},
+	},
 };
 
 async function discoveredRows(provider: string, apiKey: string): Promise<{ models: any[]; listing?: string; modelsDev?: string; lmStudioV0?: string; lmStudioV1?: string }> {
 	const entries = discoveredRosters[provider];
 	if (!entries) return { models: [] };
 	const descriptor = PROVIDER_DESCRIPTORS.find((entry: any) => entry.providerId === provider);
-	const listing = JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
+	const listing = provider === "litellm" ? JSON.stringify({ data: entries }) : JSON.stringify({ object: "list", data: entries.map(entry => ({ object: "model", ...entry })) });
 	const modelsDev = modelsDevPayloads[provider] ? JSON.stringify(modelsDevPayloads[provider]) : undefined;
 	const native = provider === "lm-studio" ? { v0: JSON.stringify(lmStudioNative.v0), v1: JSON.stringify(lmStudioNative.v1) } : undefined;
 	const options = descriptor.createModelManagerOptions({
@@ -123,6 +167,13 @@ async function discoveredRows(provider: string, apiKey: string): Promise<{ model
 			}
 			if (native && url.pathname === "/api/v0/models") return new Response(native.v0, { status: 200, headers: { "content-type": "application/json" } });
 			if (native && url.pathname === "/api/v1/models") return new Response(native.v1, { status: 200, headers: { "content-type": "application/json" } });
+			// LiteLLM's groups answer on /model_group/info; its other
+			// management endpoints are absent.
+			if (provider === "litellm") {
+				return url.pathname === "/model_group/info"
+					? new Response(listing, { status: 200, headers: { "content-type": "application/json" } })
+					: new Response("not found", { status: 404 });
+			}
 			return new Response(listing, { status: 200, headers: { "content-type": "application/json" } });
 		},
 	});

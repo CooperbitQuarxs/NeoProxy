@@ -35,6 +35,7 @@ var neoPiCompletionsProviders = []string{
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
+	"litellm",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -300,6 +301,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiSiliconFlowModels(ctx, cfg, auth, provider, key, base)
 		case "lm-studio":
 			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key, base)
+		case registry.NeoPiLiteLLMProvider:
+			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
 		case "cloudflare-ai-gateway":
 			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
@@ -467,13 +470,27 @@ func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.A
 	return neoPiDiscoveryFetch(ctx, cfg, auth, provider, endpoint, header)
 }
 
-// neoPiDiscoveryFetch GETs a discovery endpoint with header, under the
-// runtime's User-Agent unless header names one. The named credential headers
-// are dropped from any redirect hop that leaves the endpoint's origin.
+// neoPiDiscoveryFetch GETs a discovery endpoint with header (see
+// neoPiDiscoveryDo) and returns the body of a 2xx answer.
 func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	status, body, err := neoPiDiscoveryDo(ctx, cfg, auth, provider, endpoint, header, credentialHeaders...)
 	if err != nil {
 		return nil, err
+	}
+	if status < 200 || status > 299 {
+		return nil, fmt.Errorf("%s models: %s returned HTTP %d", provider, endpoint, status)
+	}
+	return body, nil
+}
+
+// neoPiDiscoveryDo GETs a discovery endpoint with header, under the runtime's
+// User-Agent unless header names one, and returns the answer's status and
+// body. The named credential headers are dropped from any redirect hop that
+// leaves the endpoint's origin.
+func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return 0, nil, err
 	}
 	req.Header = header
 	if req.Header.Get("User-Agent") == "" {
@@ -481,15 +498,12 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 	}
 	resp, err := helps.GuardCredentialRedirects(helps.NewProxyAwareHTTPClient(ctx, cfg, auth, 0), credentialHeaders...).Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%s models: %w", provider, err)
+		return 0, nil, fmt.Errorf("%s models: %w", provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("%s models: %s returned HTTP %d", provider, endpoint, resp.StatusCode)
-	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, neoPiDiscoveryBodyLimit))
 	if err != nil {
-		return nil, fmt.Errorf("%s models: read %s: %w", provider, endpoint, err)
+		return 0, nil, fmt.Errorf("%s models: read %s: %w", provider, endpoint, err)
 	}
-	return body, nil
+	return resp.StatusCode, body, nil
 }

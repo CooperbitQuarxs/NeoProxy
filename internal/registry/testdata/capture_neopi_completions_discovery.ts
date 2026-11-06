@@ -75,6 +75,7 @@ const managers: Record<string, (config: any) => any> = {
 	zenmux: m.zenmuxModelManagerOptions,
 	"cloudflare-ai-gateway": m.cloudflareAiGatewayModelManagerOptions,
 	commandcode: m.commandCodeModelManagerOptions,
+	litellm: m.litellmModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -452,7 +453,9 @@ function fireworksPages(bundled: string[]): Reply[] {
 // its scenarios answer each host with its own reply.
 // baseUrl is the provider base an account configures (NeoPi's provider
 // baseUrl override), absent for the manager's default.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string };
+// paths answers a proxy by path and query (LiteLLM's management endpoints);
+// any other path answers 404.
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string; paths?: Record<string, Reply> };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -513,9 +516,125 @@ function clinePassScenarios(bundled: string[]): Scenario[] {
 	];
 }
 
+// LiteLLM's management endpoints (/model_group/info, paginated
+// /v2/model/info, /model/info, /v1/model/info) and its /v1/models fallback,
+// hydrated from models.dev, then NeoPi's bundled references.
+function liteLLMScenarios(): Scenario[] {
+	const modelsDev = json({
+		moonshotai: { models: { "kimi-k3": { name: "Kimi K3", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, cost: { input: 0.6, output: 2.5, cache_read: 0.15 }, limit: { context: 262144, output: 32768 } } } },
+		openai: { models: { "gpt-6": { name: "GPT-6", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, cost: { input: 1.25, output: 10 }, limit: { context: 400000, output: 128000 } } } },
+	});
+	const complete = { mode: "chat", supports_vision: false, input_cost_per_token: 0.000001, output_cost_per_token: 0.000002, cache_read_input_token_cost: 1e-7, cache_creation_input_token_cost: 2e-6 };
+	const groups = [
+		{ model_group: "gpt-6", providers: ["openai"], ...complete, supports_vision: true, supports_reasoning: true, max_input_tokens: 400000, max_output_tokens: 128000, supported_openai_params: ["tools", "reasoning_effort"] },
+		{ model_group: "claude-opus-5-5", providers: ["anthropic"], ...complete, supports_function_calling: true, max_input_tokens: 1000000 },
+		{ model_group: "kimi-k3", providers: ["fireworks_ai"], mode: "chat", supports_vision: false },
+		{ model_group: "fancy", model_name: "Fancy Model (2x usage)", litellm_params: { model: "openai/gpt-6-mini" }, ...complete },
+		{ model_group: "judge-1", providers: ["openai"], mode: "decisions", supports_vision: false },
+		{ model_group: "embedder", providers: ["openai"], mode: "embedding" },
+		{ model_group: "all-team-models", providers: [] },
+		{ model_group: "all-proxy-models", providers: [], max_input_tokens: 32000 },
+		{ model_group: "future-mode", providers: ["vertex_ai"], mode: "responses", supports_vision: true },
+		{ model_group: "partial-price", providers: ["groq"], mode: "chat", supports_vision: false, input_cost_per_token: 0.0000005 },
+	];
+	const page = (current: number, data: unknown[], extra: Record<string, unknown> = {}) => json({ current_page: current, total_pages: 3, total_count: 5, data, ...extra });
+	const v2 = [
+		{ model_name: "alpha", model_info: { mode: "chat", supports_vision: true, max_input_tokens: 64000 }, litellm_params: { model: "anthropic/claude-x", custom_llm_provider: "anthropic" } },
+		{ model_name: "beta", model_info: { mode: "chat", supports_vision: false, input_cost_per_token: 0.000003, output_cost_per_token: 0.000009 }, litellm_params: { model: "openai/gpt-6" } },
+		{ model_name: "gamma", model_info: { mode: "embedding" } },
+		{ model_name: "delta", model_info: { mode: "chat", supports_vision: false, base_model: "openai/o4-mini" } },
+		{ model_name: "epsilon", model_info: { mode: "chat", supports_vision: false }, litellm_params: { model: "bedrock/llama" } },
+	];
+	const listing = json({
+		data: [
+			{ id: "gpt-6", object: "model" },
+			{ id: "openai/gpt-6-mini", object: "model" },
+			{ id: "kimi-k3", object: "model", context_length: 100000 },
+			{ id: "claude-opus-5-5", object: "model" },
+			{ id: "embed-x", object: "model", mode: "embedding" },
+			{ id: "glm-5.1", object: "model", name: "GLM 5.1 (1.5x Usage)" },
+			{ id: "zz-proxy-new", object: "model" },
+		],
+	});
+	const down = json({ error: "boom" }, 500);
+	const refused = json({ error: "forbidden" }, 403);
+	return [
+		{ name: "model groups", modelsDev, replies: [], paths: { "/model_group/info": json({ data: groups }) } },
+		{ name: "model groups, keyless", keyless: true, modelsDev, replies: [], paths: { "/model_group/info": json({ data: groups }) } },
+		{ name: "model groups, no models.dev", replies: [], paths: { "/model_group/info": json(groups) } },
+		{
+			name: "groups enriched by model info",
+			modelsDev,
+			replies: [],
+			paths: {
+				"/model_group/info": json({ data: [
+					{ model_group: "a-group", providers: ["anthropic"], mode: "chat", supported_openai_params: ["tools"], max_input_tokens: 50000 },
+					{ model_group: "b-group", model_name: "b-group", providers: ["mistral"] },
+				] }),
+				"/model/info": json({ data: [
+					{ model_name: "a-group", model_info: { supports_vision: true, max_output_tokens: 7000, input_cost_per_token: 0.000004 } },
+					{ model_name: "b-group", model_info: { mode: "chat", supports_vision: true, supports_reasoning: true, supported_openai_params: ["reasoning_effort"], max_input_tokens: 90000 }, litellm_params: { model: "openai/gpt-6" } },
+					{ model_name: "c-new", model_info: { mode: "chat", supports_vision: false } },
+				] }),
+			},
+		},
+		{
+			name: "duplicate groups in one endpoint",
+			replies: [],
+			paths: {
+				"/model_group/info": json({ data: [
+					{ model_group: "dup", providers: ["openai"], mode: "chat", max_input_tokens: 10000 },
+					{ model_group: "dup", model_name: "Dup Name", providers: ["anthropic"], mode: "chat", supports_vision: true, ...complete, supports_vision: true },
+				] }),
+			},
+		},
+		{
+			name: "v2 pages",
+			modelsDev,
+			replies: [],
+			paths: {
+				"/model_group/info": json({ error: "no" }, 404),
+				"/v2/model/info": page(1, v2.slice(0, 2)),
+				"/v2/model/info?page=2": page(2, v2.slice(2, 4)),
+				"/v2/model/info?page=3": page(3, v2.slice(4)),
+			},
+		},
+		{
+			name: "v2 page out of order",
+			replies: [],
+			paths: {
+				"/v2/model/info": page(1, v2.slice(0, 2)),
+				"/v2/model/info?page=2": page(3, v2.slice(2, 4)),
+				"/v2/model/info?page=3": page(3, v2.slice(4)),
+				"/model/info": json({ data: [{ model_name: "from-model-info", model_info: { mode: "chat", supports_vision: false } }] }),
+			},
+		},
+		{ name: "v2 too many pages", replies: [], paths: { "/v2/model/info": json({ current_page: 1, total_pages: 101, data: v2 }), "/v1/models": listing } },
+		{ name: "v2 count short", replies: [], paths: { "/v2/model/info": json({ current_page: 1, total_pages: 1, total_count: 1, data: v2 }), "/v1/model/info": json({ data: v2.slice(0, 1) }) } },
+		{ name: "v2 unpaginated", replies: [], paths: { "/v2/model/info": json({ data: v2 }) } },
+		{ name: "every group excluded", replies: [], paths: { "/model_group/info": json({ data: [{ model_group: "e1", mode: "embedding" }, { model_group: "r1", mode: "rerank" }] }), "/v1/models": listing } },
+		{
+			name: "later endpoint excludes a group",
+			replies: [],
+			paths: {
+				"/model_group/info": json({ data: [{ model_group: "keep", providers: ["groq"], mode: "chat" }, { model_group: "drop", providers: ["groq"], mode: "chat" }] }),
+				"/model/info": json({ data: [{ model_name: "drop", model_info: { mode: "embedding" } }] }),
+			},
+		},
+		{ name: "management refused, listing", modelsDev, replies: [], paths: { "/model_group/info": refused, "/v2/model/info": down, "/model/info": json({ error: "x" }, 401), "/v1/model/info": { status: 200, body: "oops" }, "/v1/models": listing } },
+		{ name: "empty management, listing", modelsDev, replies: [], paths: { "/model_group/info": json({ data: [] }), "/model/info": json({ data: [{ model_group: "all-team-models" }] }), "/v1/models": listing } },
+		{ name: "nothing answers", replies: [], paths: { "/model_group/info": down, "/v1/models": down } },
+		{ name: "listing not json", replies: [], paths: { "/v1/models": { status: 200, body: "oops" } } },
+		{ name: "configured base with slash", baseUrl: "http://proxy.example:4000/v1/", replies: [], paths: { "/model_group/info": json({ data: groups.slice(0, 3) }) } },
+		{ name: "configured base subpath", baseUrl: "https://proxy.example/litellm/v1", replies: [], paths: { "/litellm/model_group/info": json({ data: groups.slice(0, 3) }) } },
+		{ name: "configured base without v1", baseUrl: "http://proxy.example:4000", replies: [], paths: { "/models": listing } },
+	];
+}
+
 function scenarios(provider: string, bundled: string[]): Scenario[] {
 	const list = entries(provider, bundled);
 	if (provider === "cline-pass") return clinePassScenarios(bundled);
+	if (provider === "litellm") return liteLLMScenarios();
 	if (provider === "fireworks") {
 		return [
 			{ name: "control-plane pages", replies: fireworksPages(bundled) },
@@ -673,13 +792,15 @@ for (const [provider, build] of Object.entries(managers)) {
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
 			});
 			const nativeKey = provider !== "lm-studio" ? undefined : url.pathname === "/api/v0/models" ? "v0" : url.pathname === "/api/v1/models" ? "v1" : undefined;
-			const reply = nativeKey
-				? (scenario.native?.[nativeKey] ?? { status: 404, body: "{}" })
-				: scenario.roster
-					? url.hostname === "openrouter.ai"
-						? scenario.live!
-						: scenario.roster
-					: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
+			const reply = scenario.paths
+				? (scenario.paths[url.pathname + url.search] ?? { status: 404, body: "not found" })
+				: nativeKey
+					? (scenario.native?.[nativeKey] ?? { status: 404, body: "{}" })
+					: scenario.roster
+						? url.hostname === "openrouter.ai"
+							? scenario.live!
+							: scenario.roster
+						: scenario.replies[Math.min(call++, scenario.replies.length - 1)];
 			return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 		};
 		const options = build({
@@ -698,6 +819,7 @@ for (const [provider, build] of Object.entries(managers)) {
 			...(scenario.keyless ? { keyless: true } : {}),
 			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
 			...(scenario.native ? { native: scenario.native } : {}),
+			...(scenario.paths ? { paths: scenario.paths } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,

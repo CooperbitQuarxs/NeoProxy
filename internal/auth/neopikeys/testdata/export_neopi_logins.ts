@@ -18,6 +18,7 @@ const served = [
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
 	"ollama-cloud",
+	"litellm",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 // NeoPi names no auth rule for MiniMax China's pay-as-you-go platform; the
