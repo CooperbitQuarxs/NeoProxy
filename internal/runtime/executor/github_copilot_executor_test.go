@@ -33,11 +33,13 @@ type githubCopilotCapture struct {
 	// Listing and ModelsDev are what NeoPi's LiteLLM manager discovered its
 	// rows from (/model_group/info and the models.dev catalog); Tags and
 	// Shows what its Ollama runtime discovery did (/api/tags and each
-	// /api/show).
+	// /api/show); Listing and Props what its llama.cpp runtime discovery did
+	// (/models and /props).
 	Listing   string            `json:"listing"`
 	ModelsDev string            `json:"modelsDev"`
 	Tags      string            `json:"tags"`
 	Shows     map[string]string `json:"shows"`
+	Props     string            `json:"props"`
 	Fixtures  []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`

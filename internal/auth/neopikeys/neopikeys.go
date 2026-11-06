@@ -113,6 +113,20 @@ func LoginFor(provider string) (Login, bool) {
 	return login, ok
 }
 
+// Keyless reports a key that carries no auth for provider: the provider's
+// login takes an empty answer (a local server: Ollama, vLLM, LM Studio,
+// llama.cpp) and key is empty or that login's keyless-mode marker
+// (cascade.ts isKeylessFallback). NeoPi never sends such a key as a bearer:
+// discovery strips it (isDiscoveryBearerApiKey), and its agent requests these
+// local providers with kNoAuth, the behavior Shayna chose for NeoProxy.
+func Keyless(provider, key string) bool {
+	login, ok := logins[provider]
+	if !ok || login.EmptyFallback == nil {
+		return false
+	}
+	return key == "" || key == *login.EmptyFallback
+}
+
 // The Alibaba Coding Plan sign-in's International and China endpoints, and
 // the model its chat probe asks for.
 const (

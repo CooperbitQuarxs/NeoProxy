@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitaxonomy"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
@@ -128,7 +129,10 @@ func (e *NeoPiCompletionsExecutor) postRunner(ctx context.Context, auth *cliprox
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+e.apiKey(auth))
+	// A keyless local account (NO_AUTH_SENTINEL) sends no Authorization.
+	if key := e.apiKey(auth); !neopikeys.Keyless(e.profile.Provider, key) {
+		httpReq.Header.Set("Authorization", "Bearer "+key)
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("User-Agent", openaiwire.NeoPiUserAgent)
 	if auth != nil {

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -36,7 +37,7 @@ var neoPiCompletionsProviders = []string{
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
-	"litellm", "ollama",
+	"litellm", "ollama", "llama.cpp",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -57,11 +58,17 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		// repository bans deadlines after the connection is up, so the
 		// fetch runs without one.
 		ttl := 2 * time.Hour
-		if provider == registry.NeoPiOllamaProvider {
+		switch provider {
+		case registry.NeoPiOllamaProvider:
 			// A local Ollama is the runtime's configured discovery, whose
 			// rows NeoPi caches for a day (model-registry.ts
 			// #discoverProviderModels).
 			ttl = 24 * time.Hour
+		case registry.NeoPiLlamaCppProvider:
+			// llama.cpp bypasses that cache on every refresh, which the
+			// gateway runs each 15 minutes (auth-gateway-cli.ts
+			// CATALOG_REFRESH_INTERVAL_MS).
+			ttl = 15 * time.Minute
 		}
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
@@ -221,6 +228,11 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 		}
 		base = strings.TrimSpace(auth.Attributes["base_url"])
 	}
+	if neopikeys.Keyless(provider, key) {
+		// isDiscoveryBearerApiKey: a local server's keyless marker is never a
+		// bearer.
+		key = ""
+	}
 	if key == "" && !registry.NeoPiCompletionsDiscoversWithoutKey(provider) {
 		return "", "", fmt.Errorf("%s models: account has no api key", provider)
 	}
@@ -313,6 +325,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
 		case registry.NeoPiOllamaProvider:
 			return fetchNeoPiOllamaModels(ctx, cfg, auth, base)
+		case registry.NeoPiLlamaCppProvider:
+			return fetchNeoPiLlamaCppModels(ctx, cfg, auth, key)
 		case "cloudflare-ai-gateway":
 			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
