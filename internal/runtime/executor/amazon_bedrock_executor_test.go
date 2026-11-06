@@ -417,6 +417,38 @@ func TestAmazonBedrockAccountsUsageTheClientDeclined(t *testing.T) {
 	}
 }
 
+// NeoPi frames usage by include_usage only in its chat encoder: a chat
+// request answered in another format (here Claude) keeps the usage chunk its
+// translation reads, so the translated turn reports the upstream tokens.
+func TestAmazonBedrockKeepsUsageForOtherResponseFormats(t *testing.T) {
+	reply := amazonBedrockReply{Status: http.StatusOK, Frames: []amazonBedrockFrame{
+		{Event: "messageStart", Payload: json.RawMessage(`{"role":"assistant"}`)},
+		{Event: "contentBlockDelta", Payload: json.RawMessage(`{"contentBlockIndex":0,"delta":{"text":"ok"}}`)},
+		{Event: "messageStop", Payload: json.RawMessage(`{"stopReason":"end_turn"}`)},
+		{Event: "metadata", Payload: json.RawMessage(`{"usage":{"inputTokens":17,"outputTokens":5,"totalTokens":22}}`)},
+	}}
+	server, _ := amazonBedrockServer(t, []amazonBedrockReply{reply})
+	exec := newAmazonBedrockTestExecutor(&config.Config{}, nil)
+	auth := &cliproxyauth.Auth{ID: t.Name(), Provider: "amazon-bedrock", Attributes: map[string]string{"api_key": "key", "base_url": server.URL}}
+	body := `{"model":"meta.llama3-1-70b-instruct-v1:0","messages":[{"role":"user","content":"Hi"}],"stream":true}`
+	req := cliproxyexecutor.Request{Model: "meta.llama3-1-70b-instruct-v1:0", Payload: []byte(body)}
+	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, ResponseFormat: sdktranslator.FormatClaude, Stream: true}
+	stream, err := exec.ExecuteStream(context.Background(), auth, req, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	for chunk := range stream.Chunks {
+		if chunk.Err != nil {
+			t.Fatal(chunk.Err)
+		}
+		out.Write(chunk.Payload)
+	}
+	if !strings.Contains(out.String(), `"input_tokens":17`) || !strings.Contains(out.String(), `"output_tokens":5`) {
+		t.Fatalf("Claude stream lost the upstream usage:\n%s", out.String())
+	}
+}
+
 // Configured payload rules are the last word on the Converse body, on the
 // first attempt and on the retry that drops prefix-bound reasoning: an
 // override replaces the thinking fields the request resolved, and nothing

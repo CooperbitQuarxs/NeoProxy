@@ -84,8 +84,9 @@ type amazonBedrockPrepared struct {
 	headers      http.Header
 	translated   []byte
 	// includeUsage is the chat client's stream_options.include_usage, which
-	// NeoPi's gateway frames its stream by; nil for other client formats,
-	// whose translation needs the usage chunk.
+	// NeoPi's chat encoder frames its stream by; nil unless the client both
+	// sends and reads OpenAI chat, as another response format's translation
+	// needs the usage chunk.
 	includeUsage *bool
 }
 
@@ -215,7 +216,7 @@ func (e *AmazonBedrockExecutor) prepare(ctx context.Context, auth *cliproxyauth.
 		headers:    amazonBedrockHeaders(ctx, auth, opts.Headers, bearer),
 		translated: translated,
 		includeUsage: func() *bool {
-			if opts.SourceFormat != sdktranslator.FormatOpenAI {
+			if opts.SourceFormat != sdktranslator.FormatOpenAI || cliproxyexecutor.ResponseFormatOrSource(opts) != sdktranslator.FormatOpenAI {
 				return nil
 			}
 			include := parsed.IncludeStreamUsage
