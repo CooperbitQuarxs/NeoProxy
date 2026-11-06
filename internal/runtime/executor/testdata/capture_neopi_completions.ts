@@ -190,6 +190,16 @@ async function discoveredRows(provider: string, apiKey: string): Promise<{ model
 const providers = (process.env.NEOPI_PROVIDERS ?? "cerebras,deepseek,fireworks,groq,huggingface,mistral,moonshot,nanogpt,nvidia,together,alibaba-token-plan").split(",");
 const maxRepresentatives = Number(process.env.MAX_MODELS_PER_PROVIDER ?? 24);
 
+// Providers NeoPi's runtime discovers itself, with no catalog model manager
+// (coding-agent model-registry.ts implicit local providers): their export
+// carries the runtime's default endpoint and its keyless discovery.
+const runtimeDiscovered: Record<string, { baseUrl: string }> = {};
+if (providers.includes("llama.cpp")) {
+	const checkout = process.env.NEOPI_CHECKOUT ?? "/home/shayna/source/github/PsychedelicShayna/neopi-nightly";
+	const discovery = await import(join(checkout, "packages/coding-agent/src/config/model-discovery.ts"));
+	runtimeDiscovered["llama.cpp"] = { baseUrl: discovery.ensureLlamaCppV1BaseUrl(discovery.LLAMA_CPP_DEFAULT_BASE_URLS[0]) };
+}
+
 const sessionId = "capture-session-completions-0001";
 const chatChunks = [
 	{ id: "chatcmpl-capture", object: "chat.completion.chunk", created: 1, model: "capture", choices: [{ index: 0, delta: { role: "assistant", content: "Captured." }, finish_reason: null }] },
@@ -340,7 +350,7 @@ for (const provider of providers) {
 	// The provider's Chat Completions endpoint; a provider NeoPi serves only
 	// over Anthropic Messages (MiniMax) keeps its bundled rows' endpoint, one
 	// whose discovered rows all run on Responses (Ollama) theirs.
-	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl ?? listed[0]?.baseUrl;
+	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl ?? listed[0]?.baseUrl ?? runtimeDiscovered[provider]?.baseUrl;
 	const rows = exported.map((model: any) => ({
 		id: model.id,
 		name: model.name,
@@ -388,10 +398,11 @@ for (const provider of providers) {
 		// (xiaomiModelManagerOptions).
 		seeds: seedModels(provider).map((model: any) => model.id),
 		discovery: {
-			// Whether the model manager fetches a live listing at all.
-			listing: typeof manager?.fetchDynamicModels === "function",
+			// Whether the model manager (or NeoPi's runtime) fetches a live
+			// listing at all.
+			listing: typeof manager?.fetchDynamicModels === "function" || !!runtimeDiscovered[provider],
 			// Whether that listing also runs without a key (no Authorization).
-			unauthenticated: typeof keyless?.fetchDynamicModels === "function",
+			unauthenticated: typeof keyless?.fetchDynamicModels === "function" || !!runtimeDiscovered[provider],
 			// The descriptor's KDL flag only steers bundle generation; the
 			// runtime model manager reads its own options.
 			modelsAuthoritative: !!manager?.dynamicModelsAuthoritative,

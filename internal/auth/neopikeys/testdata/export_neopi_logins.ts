@@ -20,6 +20,7 @@ const served = [
 	"ollama-cloud",
 	"litellm",
 	"ollama",
+	"llama.cpp",
 ];
 const byId = new Map<string, any>(rules.auth.providers.map((p: any) => [p.id, p]));
 // NeoPi names no auth rule for MiniMax China's pay-as-you-go platform; the

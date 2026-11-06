@@ -772,8 +772,9 @@ var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singular
 // endpoint, and any other keeps its host and gains a missing /v1. ZenMux's
 // Anthropic route names its OpenAI one (normalizeZenMuxOpenAiBaseUrl), and
 // an Ollama account's rows run at its server's /v1 (NeoPiOllamaBaseURL: the
-// configured origin, else NeoPi's implicit server). Other providers' URLs
-// are returned trimmed, the catalog's when blank.
+// configured origin, else NeoPi's implicit server), and a llama.cpp
+// account's at its normalized base's /v1 (ensureLlamaCppV1BaseUrl). Other
+// providers' URLs are returned trimmed, the catalog's when blank.
 func NeoPiV1BaseURL(provider, configured string) string {
 	if provider == NeoPiOllamaProvider {
 		return NeoPiOllamaBaseURL(configured, os.Getenv)
@@ -781,6 +782,9 @@ func NeoPiV1BaseURL(provider, configured string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(configured), "/")
 	if trimmed == "" {
 		return NeoPiCompletionsListingBase(provider)
+	}
+	if provider == NeoPiLlamaCppProvider {
+		return NeoPiLlamaCppV1BaseURL(NeoPiLlamaCppBaseURL(configured))
 	}
 	if provider == "zenmux" && strings.HasSuffix(trimmed, "/api/anthropic") {
 		return strings.Replace(trimmed, "/api/anthropic", "/api/v1", 1)

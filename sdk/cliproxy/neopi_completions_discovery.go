@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/anthropicnpi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
@@ -36,7 +37,7 @@ var neoPiCompletionsProviders = []string{
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
-	"litellm", "ollama",
+	"litellm", "ollama", "llama.cpp",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -57,11 +58,17 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		// repository bans deadlines after the connection is up, so the
 		// fetch runs without one.
 		ttl := 2 * time.Hour
-		if provider == registry.NeoPiOllamaProvider {
+		switch provider {
+		case registry.NeoPiOllamaProvider:
 			// A local Ollama is the runtime's configured discovery, whose
 			// rows NeoPi caches for a day (model-registry.ts
 			// #discoverProviderModels).
 			ttl = 24 * time.Hour
+		case registry.NeoPiLlamaCppProvider:
+			// llama.cpp bypasses that cache on every refresh, which the
+			// gateway runs each 15 minutes (auth-gateway-cli.ts
+			// CATALOG_REFRESH_INTERVAL_MS).
+			ttl = 15 * time.Minute
 		}
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
@@ -221,6 +228,11 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 		}
 		base = strings.TrimSpace(auth.Attributes["base_url"])
 	}
+	if !neopikeys.DiscoveryBearer(key) {
+		// isDiscoveryBearerApiKey: NeoPi's no-auth key and any local login's
+		// keyless marker are never a discovery bearer.
+		key = ""
+	}
 	if key == "" && !registry.NeoPiCompletionsDiscoversWithoutKey(provider) {
 		return "", "", fmt.Errorf("%s models: account has no api key", provider)
 	}
@@ -313,6 +325,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
 		case registry.NeoPiOllamaProvider:
 			return fetchNeoPiOllamaModels(ctx, cfg, auth, base)
+		case registry.NeoPiLlamaCppProvider:
+			return fetchNeoPiLlamaCppModels(ctx, cfg, auth, key)
 		case "cloudflare-ai-gateway":
 			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
@@ -495,8 +509,11 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 
 // neoPiDiscoveryDo sends a discovery request (method, with body when it is
 // not nil) with header, under the runtime's User-Agent unless header names
-// one, and returns the answer's status and body. The named credential
-// headers are dropped from any redirect hop that leaves the endpoint's origin.
+// one, and returns the answer's status and body. A failure status returns
+// without its body, as NeoPi checks response.ok before reading: the server's
+// verdict stands even when its error body is cut short or never ends. The
+// named credential headers are dropped from any redirect hop that leaves the
+// endpoint's origin.
 func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, method, endpoint string, header http.Header, body []byte, credentialHeaders ...string) (int, []byte, error) {
 	var payload io.Reader
 	if body != nil {
@@ -515,6 +532,9 @@ func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Au
 		return 0, nil, fmt.Errorf("%s models: %w", provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return resp.StatusCode, nil, nil
+	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, neoPiDiscoveryBodyLimit))
 	if err != nil {
 		return 0, nil, fmt.Errorf("%s models: read %s: %w", provider, endpoint, err)
