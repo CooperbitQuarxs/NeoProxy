@@ -321,6 +321,13 @@ type NeoPiCompat struct {
 	ClampOutputToModelMax                        bool              `json:"clampOutputToModelMax"`
 	RejectRootObjectUnion                        bool              `json:"rejectRootObjectUnion"`
 	PromptCacheSessionHeader                     string            `json:"promptCacheSessionHeader,omitempty"`
+	// SessionHeader carries the conversation id (applySessionHeader).
+	SessionHeader string `json:"sessionHeader,omitempty"`
+	// StreamIdleTimeoutMs and StreamFirstEventTimeoutMs decide the
+	// pre-response deadline NeoPi announces in X-Stainless-Timeout (nil: the
+	// default; 0: none).
+	StreamIdleTimeoutMs       int  `json:"streamIdleTimeoutMs,omitempty"`
+	StreamFirstEventTimeoutMs *int `json:"streamFirstEventTimeoutMs,omitempty"`
 }
 
 // Clone deep-copies the record so registry readers cannot alias its maps.
@@ -334,6 +341,10 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 	if m.Compat != nil {
 		compat := *m.Compat
 		compat.ReasoningEffortMap = maps.Clone(m.Compat.ReasoningEffortMap)
+		if m.Compat.StreamFirstEventTimeoutMs != nil {
+			timeout := *m.Compat.StreamFirstEventTimeoutMs
+			compat.StreamFirstEventTimeoutMs = &timeout
+		}
 		out.Compat = &compat
 	}
 	if m.AnthropicCompat != nil {

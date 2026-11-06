@@ -30,6 +30,10 @@ type githubCopilotCapture struct {
 	Wire      string `json:"wire"`
 	APIKey    string `json:"apiKey"`
 	SessionID string `json:"sessionId"`
+	// Listing and ModelsDev are what NeoPi's LiteLLM manager discovered its
+	// rows from (/model_group/info and the models.dev catalog).
+	Listing   string `json:"listing"`
+	ModelsDev string `json:"modelsDev"`
 	Fixtures  []struct {
 		Name         string            `json:"name"`
 		Model        string            `json:"model"`

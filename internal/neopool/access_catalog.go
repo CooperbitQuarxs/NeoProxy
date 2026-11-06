@@ -447,6 +447,12 @@ var providerCatalog = []ProviderInfo{
 			{ID: "gatewayId", Label: "AI Gateway ID", Placeholder: "default", Hint: "The name of the gateway under AI → AI Gateway."},
 		},
 		Plans: []ProviderPlan{}},
+	// A LiteLLM proxy (NeoPi treats it as a proxy, not a local server): an
+	// administrator names its address, and NeoPi's login asks for a master or
+	// virtual key without checking it.
+	{ID: "litellm", Name: "LiteLLM", Vendor: "LiteLLM", Hue: 300, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "http://localhost:4000/v1", EditableBaseURL: true, KeyHint: "sk-... (master key or virtual key)", GetKeyURL: "https://docs.litellm.ai/docs/proxy/deploy"},
+		Plans:  []ProviderPlan{}},
 	// Local OpenAI-compatible servers: an administrator names the server, and
 	// an empty key stands for NeoPi's no-auth placeholder.
 	{ID: "vllm", Name: "vLLM", Vendor: "vLLM", Hue: 60, Chroma: providerChroma, Methods: []string{"apiKey"},

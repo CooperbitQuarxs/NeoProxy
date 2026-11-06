@@ -39,6 +39,9 @@ func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incom
 		case "coreweave":
 			neoPiApplyCoreWeaveProjectHeader(headers, os.Getenv)
 		}
+		if row.CompletionsCompat != nil {
+			neoPiApplySessionHeader(headers, row.CompletionsCompat.SessionHeader, sessionID)
+		}
 	}
 	headers.Set("Accept", "text/event-stream")
 	headers.Set("Accept-Encoding", "gzip, deflate, br, zstd")
@@ -52,6 +55,16 @@ func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incom
 		headers.Set("X-Stainless-Timeout", timeout)
 	}
 	return headers
+}
+
+// neoPiApplySessionHeader is applySessionHeader: the conversation id under
+// the row's resolved session header (LiteLLM's x-litellm-session-id), unless
+// the configured headers already carry that field; nothing without an id.
+func neoPiApplySessionHeader(headers http.Header, name, sessionID string) {
+	if name == "" || sessionID == "" || len(headers.Values(name)) > 0 {
+		return
+	}
+	headers.Set(name, sessionID)
 }
 
 // neoPiCompletionsTimeoutHeader is the pre-response deadline NeoPi announces:
