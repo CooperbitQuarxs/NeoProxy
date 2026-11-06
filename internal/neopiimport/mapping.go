@@ -117,6 +117,8 @@ var apiKeyRoutes = map[string]route{
 	"charm-hyper":           {target: "charm-hyper"},
 	"commandcode":           {target: "commandcode"},
 	"ollama-cloud":          {target: "ollama-cloud"},
+	// An Amazon Bedrock API key stored for NeoPi's Converse provider.
+	"amazon-bedrock": {target: "amazon-bedrock"},
 	// A GitLab personal access token (GITLAB_TOKEN) is the account's key.
 	"gitlab-duo": {target: "gitlab-duo"},
 	// GITLAB_TOKEN stored for GitLab Duo Agent stays the agent's own key.
