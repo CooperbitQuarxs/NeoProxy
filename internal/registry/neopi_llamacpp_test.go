@@ -219,13 +219,21 @@ func TestNeoPiLlamaCppModelsFailureDoesNotWaitForProps(t *testing.T) {
 }
 
 // normalizeLlamaCppBaseUrl reads the base with new URL, which maps an IDNA
-// host to its ASCII form (expected values from Bun's URL).
+// host to its ASCII form and rejects an invalid punycode label, leaving such
+// a base as it is (expected values from Bun's URL).
 func TestNeoPiLlamaCppBaseURLIDNA(t *testing.T) {
 	for input, want := range map[string]string{
 		"http://münchen.local:8080/v1/":    "http://xn--mnchen-3ya.local:8080/v1",
 		"http://MÜNCHEN.local/v1":          "http://xn--mnchen-3ya.local/v1",
 		"http://bücher.example:80/":        "http://xn--bcher-kva.example",
 		"http://xn--mnchen-3ya.local/v1//": "http://xn--mnchen-3ya.local/v1",
+		"http://XN--MNCHEN-3YA.local/v1":   "http://xn--mnchen-3ya.local/v1",
+		"http://xn--ls8h.example/":         "http://xn--ls8h.example",
+		"http://ab--cd.example/":           "http://ab--cd.example",
+		"http://server.xn--/v1/":           "http://server.xn--/v1/",
+		"http://xn--.example/v1":           "http://xn--.example/v1",
+		"http://xn--zz.example/v1":         "http://xn--zz.example/v1",
+		"http://xn--a.example/":            "http://xn--a.example/",
 	} {
 		if got := NeoPiLlamaCppBaseURL(input); got != want {
 			t.Errorf("NeoPiLlamaCppBaseURL(%q) = %q, want %q", input, got, want)

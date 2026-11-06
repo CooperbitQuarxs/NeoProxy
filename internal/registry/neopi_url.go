@@ -163,7 +163,7 @@ func neoPiWHATWGHost(input string) (string, bool) {
 	// punycode label.
 	if neoPiNeedsIDNA(decoded) {
 		ascii, err := neoPiWHATWGIDNA.ToASCII(decoded)
-		if err != nil || ascii == "" {
+		if err != nil || ascii == "" || !neoPiValidACELabels(decoded, ascii) {
 			return "", false
 		}
 		decoded = ascii
@@ -187,13 +187,51 @@ func neoPiWHATWGHost(input string) (string, bool) {
 // neoPiNeedsIDNA reports a domain domain-to-ASCII must process: one with a
 // non-ASCII code point or a label starting with xn-- (any case).
 func neoPiNeedsIDNA(domain string) bool {
-	for i := 0; i < len(domain); i++ {
-		if domain[i] >= 0x80 {
-			return true
-		}
+	if neoPiHasNonASCII(domain) {
+		return true
 	}
 	for _, label := range strings.Split(domain, ".") {
 		if len(label) >= 4 && strings.EqualFold(label[:4], "xn--") {
+			return true
+		}
+	}
+	return false
+}
+
+// neoPiValidACELabels applies UTS #46's xn-- label rule, which x/net's
+// profile relaxes: every input label starting with xn-- must decode to a
+// label that is not empty, has a non-ASCII code point, and is valid, so
+// re-encoding it gives that label back. new URL rejects any other (server.xn--,
+// xn--zz, xn--a). Labels split on the separators UTS #46 maps to a dot; a
+// count that disagrees with ascii's fails closed.
+func neoPiValidACELabels(input, ascii string) bool {
+	labels := strings.Split(strings.NewReplacer("\u3002", ".", "\uff0e", ".", "\uff61", ".").Replace(input), ".")
+	out := strings.Split(ascii, ".")
+	if len(labels) != len(out) {
+		return false
+	}
+	for i, label := range labels {
+		if len(label) < 4 || !strings.EqualFold(label[:4], "xn--") {
+			continue
+		}
+		ace := out[i]
+		if len(ace) <= 4 || ace[:4] != "xn--" {
+			return false
+		}
+		unicode, err := idna.Punycode.ToUnicode(ace)
+		if err != nil || unicode == "" || !neoPiHasNonASCII(unicode) {
+			return false
+		}
+		if back, errBack := neoPiWHATWGIDNA.ToASCII(unicode); errBack != nil || back != ace {
+			return false
+		}
+	}
+	return true
+}
+
+func neoPiHasNonASCII(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if value[i] >= 0x80 {
 			return true
 		}
 	}
