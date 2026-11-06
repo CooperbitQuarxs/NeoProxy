@@ -88,6 +88,8 @@ const scenarios: Scenario[] = [
 	{ name: "listing data not a list", replies: { [`${local}/v1/models`]: json({ data: { id: "x" } }) } },
 	{ name: "listing data a string", replies: { [`${local}/v1/models`]: json({ data: "abc" }) } },
 	{ name: "listing null entry", replies: { [`${local}/v1/models`]: json({ data: [{ id: "zz-unknown-local" }, null] }) } },
+	{ name: "listing non-string id", replies: { [`${local}/v1/models`]: json({ data: [{ id: 7 }] }) } },
+	{ name: "listing valid then non-string id", replies: { [`${local}/v1/models`]: json({ data: [{ id: "zz-unknown-local" }, { id: 0 }, { id: true }] }) } },
 	{ name: "listing null", replies: { [`${local}/v1/models`]: json(null) } },
 	{ name: "listing down", replies: { [`${local}/v1/models`]: json({ error: "x" }, 503), [`${local}/api/v0/models`]: nativeV0 } },
 	{ name: "listing unauthorized", apiKey: "sk-wrong", replies: { [`${local}/v1/models`]: json({ error: "no" }, 401) } },

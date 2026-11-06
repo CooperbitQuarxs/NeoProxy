@@ -136,6 +136,11 @@ func NeoPiLmStudioRuntimeListing(ctx context.Context, base string, do NeoPiLmStu
 		if item.Type == gjson.Null {
 			return nil, fmt.Errorf("%w: lm-studio: null /models entry", ErrNeoPiListing)
 		}
+		// A falsy id is skipped; any other non-string id reaches
+		// resolveModelReference's startsWith and the whole discovery throws.
+		if id := item.Get("id"); neoPiJSTruthy(id) && id.Type != gjson.String {
+			return nil, fmt.Errorf("%w: lm-studio: /models entry id is not a string", ErrNeoPiListing)
+		}
 		if spec, ok := neoPiLmStudioRuntimeSpec(item, metadata); ok {
 			specs = append(specs, spec)
 		}

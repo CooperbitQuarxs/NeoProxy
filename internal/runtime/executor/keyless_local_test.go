@@ -51,6 +51,13 @@ func TestKeylessLocalServersSendNoAuthorization(t *testing.T) {
 				}
 				return 404, nil, nil
 			})
+		case "lm-studio":
+			infos, err = registry.NeoPiLmStudioRuntimeListing(context.Background(), registry.NeoPiLmStudioBaseURL("", noEnv), func(_ context.Context, endpoint string, native bool) (int, []byte, error) {
+				if !native && strings.HasSuffix(endpoint, "/models") {
+					return 200, []byte(`{"data":[{"id":"Qwen/Qwen3-32B"}]}`), nil
+				}
+				return 404, nil, nil
+			})
 		default:
 			infos, err = registry.NeoPiCompletionsListing(provider, registry.NeoPiCompletionsListingBase(provider), []byte(`{"data":[{"id":"Qwen/Qwen3-32B"}]}`))
 		}
