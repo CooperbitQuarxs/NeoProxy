@@ -20,7 +20,7 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	if spec.baseURL != "" {
 		baseURL = spec.baseURL
 	}
-	if neoPiRunnerAPI(spec.api) || spec.api == "openai-decisions" {
+	if neoPiRunnerAPI(spec.api) || spec.api == "openai-decisions" || spec.api == "openai-embeddings" {
 		return &NeoPiModel{ID: spec.id, Name: cleanModelName(spec.name), API: spec.api, Kind: spec.kind, Provider: provider,
 			BaseURL: baseURL, Input: slices.Clone(spec.input), ContextWindow: spec.contextWindow, MaxTokens: spec.maxTokens, cost: spec.cost}, nil
 	}

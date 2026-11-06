@@ -2,59 +2,38 @@ package cliproxy
 
 import (
 	"context"
-	"fmt"
 	"net/http"
-	"sync"
+	"os"
+	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
-// fetchNeoPiLmStudioModels is lmStudioModelManagerOptions' fetchDynamicModels:
-// the OpenAI /models listing, with LM Studio's native metadata (GET
-// /api/v0/models and /api/v1/models beside the /v1 base) fetched alongside
-// it. Native answers that fail add no metadata. NeoPi bounds the native
-// fetch with a deadline; NeoProxy sets none after the connection is
+// fetchNeoPiLmStudioModels is NeoPi's runtime discovery of an LM Studio
+// server (coding-agent discoverOpenAIModelsList, discovery type lm-studio):
+// GET <base>/models with no headers of its own beside LM Studio's native
+// GET /api/v0/models and /api/v1/models (Accept: application/json), all
+// three with the key as a bearer when the account holds a real one (key
+// arrives with the keyless marker already stripped), at the account's
+// configured base, else LM_STUDIO_BASE_URL, else 127.0.0.1:1234. NeoPi bounds
+// the probes with deadlines; NeoProxy sets none after the connection is
 // established.
-func fetchNeoPiLmStudioModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key, base string) ([]*ModelInfo, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	native := registry.NeoPiLmStudioNativeBaseURL(base)
-	var v0, v1 []byte
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() { defer wg.Done(); v0 = neoPiLmStudioNative(ctx, cfg, auth, native+"/api/v0/models", key) }()
-	go func() { defer wg.Done(); v1 = neoPiLmStudioNative(ctx, cfg, auth, native+"/api/v1/models", key) }()
-	endpoint := base + "/models"
-	body, err := neoPiDiscoveryGet(ctx, cfg, auth, "lm-studio", endpoint, key)
-	if err != nil {
-		return nil, err
+func fetchNeoPiLmStudioModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key string) ([]*ModelInfo, error) {
+	var configured string
+	if auth != nil {
+		configured = strings.TrimSpace(auth.Attributes["base_url"])
 	}
-	// An unusable listing fails before the native probes are awaited; the
-	// deferred cancel abandons them.
-	if !registry.NeoPiLmStudioListingUsable(body) {
-		return nil, fmt.Errorf("lm-studio models: %s: %w", endpoint, registry.ErrNeoPiListing)
-	}
-	wg.Wait()
-	models, err := registry.NeoPiLmStudioListing(base, body, v0, v1)
-	if err != nil {
-		return nil, fmt.Errorf("lm-studio models: %s: %w", endpoint, err)
-	}
-	return models, nil
-}
-
-// neoPiLmStudioNative is fetchLmStudioNativeModelMetadata's fetchJson: the
-// body of a 2xx answer, nil otherwise.
-func neoPiLmStudioNative(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, endpoint, key string) []byte {
-	header := http.Header{}
-	header.Set("Accept", "application/json")
-	if key != "" {
-		header.Set("Authorization", "Bearer "+key)
-	}
-	body, err := neoPiDiscoveryFetch(ctx, cfg, auth, "lm-studio", endpoint, header)
-	if err != nil {
-		return nil
-	}
-	return body
+	base := registry.NeoPiLmStudioBaseURL(configured, os.Getenv)
+	return registry.NeoPiLmStudioRuntimeListing(ctx, base, func(ctx context.Context, endpoint string, native bool) (int, []byte, error) {
+		header := http.Header{}
+		if native {
+			header.Set("Accept", "application/json")
+		}
+		if key != "" {
+			header.Set("Authorization", "Bearer "+key)
+		}
+		return neoPiDiscoveryDo(ctx, cfg, auth, "lm-studio", http.MethodGet, endpoint, header, nil, "Authorization")
+	})
 }

@@ -783,8 +783,12 @@ func NeoPiV1BaseURL(provider, configured string) string {
 	if trimmed == "" {
 		return NeoPiCompletionsListingBase(provider)
 	}
-	if provider == NeoPiLlamaCppProvider {
+	switch provider {
+	case NeoPiLlamaCppProvider:
 		return NeoPiLlamaCppV1BaseURL(NeoPiLlamaCppBaseURL(configured))
+	case "lm-studio":
+		// normalizeOpenAIModelsListBaseUrl: the configured base on /v1.
+		return NeoPiLmStudioBaseURL(configured, os.Getenv)
 	}
 	if provider == "zenmux" && strings.HasSuffix(trimmed, "/api/anthropic") {
 		return strings.Replace(trimmed, "/api/anthropic", "/api/v1", 1)
