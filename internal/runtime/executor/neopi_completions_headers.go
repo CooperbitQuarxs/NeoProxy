@@ -45,7 +45,10 @@ func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incom
 	}
 	headers.Set("Accept", "text/event-stream")
 	headers.Set("Accept-Encoding", "gzip, deflate, br, zstd")
-	headers.Set("Authorization", "Bearer "+key)
+	// A keyless account's NO_AUTH_SENTINEL sends no Authorization.
+	if key != openaiwire.NoAuthSentinel {
+		headers.Set("Authorization", "Bearer "+key)
+	}
 	headers.Set("Connection", "keep-alive")
 	headers.Set("Content-Type", "application/json")
 	if headers.Get("User-Agent") == "" {

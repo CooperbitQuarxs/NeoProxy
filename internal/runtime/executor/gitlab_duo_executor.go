@@ -139,10 +139,7 @@ func (e *GitLabDuoExecutor) wire(a *gitlabDuoAttempt, req cliproxyexecutor.Reque
 	case "openai-responses":
 		exec := NewNeoPiResponsesExecutor(e.provider, e.cfg)
 		exec.StreamSimple = true
-		session := neoPiSession(opts, nil)
-		if session == "" {
-			session = neoPiResponsesSessionID(gitlabduo.Provider, req, opts)
-		}
+		session := neoPiBoundResponsesSession(gitlabduo.Provider, req, opts)
 		// streamGitLabDuo's inner model is named by its upstream id.
 		inner := row.Clone()
 		if inner.RequestModelID != "" {

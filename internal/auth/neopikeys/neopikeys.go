@@ -113,6 +113,40 @@ func LoginFor(provider string) (Login, bool) {
 	return login, ok
 }
 
+// Keyless reports a key that carries no auth for provider: the provider's
+// login takes an empty answer (a local server: Ollama, vLLM, LM Studio,
+// llama.cpp) and key is empty or that login's keyless-mode marker
+// (cascade.ts isKeylessFallback). NeoPi never sends such a key as a bearer:
+// discovery strips it (isDiscoveryBearerApiKey), and its agent requests these
+// local providers with kNoAuth, the behavior Shayna chose for NeoProxy.
+func Keyless(provider, key string) bool {
+	login, ok := logins[provider]
+	if !ok || login.EmptyFallback == nil {
+		return false
+	}
+	return key == "" || key == *login.EmptyFallback
+}
+
+// localPlaceholders is LOCAL_PROVIDER_PLACEHOLDERS: every api-key login's
+// empty-answer marker.
+var localPlaceholders = func() map[string]bool {
+	out := map[string]bool{}
+	for _, login := range logins {
+		if login.EmptyFallback != nil {
+			out[*login.EmptyFallback] = true
+		}
+	}
+	return out
+}()
+
+// DiscoveryBearer is isDiscoveryBearerApiKey: whether model discovery sends
+// key as a bearer. NeoPi's no-auth key (kNoAuth) and every local login's
+// marker are excluded, whichever provider holds them; requests are Keyless's
+// concern.
+func DiscoveryBearer(key string) bool {
+	return key != "" && key != openaiwire.NoAuthSentinel && !localPlaceholders[key]
+}
+
 // The Alibaba Coding Plan sign-in's International and China endpoints, and
 // the model its chat probe asks for.
 const (

@@ -123,10 +123,10 @@ func (e *FactoryDroidExecutor) attempt(auth *cliproxyauth.Auth, req cliproxyexec
 	}
 	requestID := e.newID()
 	// The proxy expects v4-shaped ids; a session id maps to a stable one.
-	session := neoPiSession(opts, nil)
-	if session == "" {
-		session = helps.ProviderSessionUUID(e.Identifier(), req.Metadata, opts.Metadata)
-	}
+	// NeoPi's options.sessionId is the client's prompt cache identity first
+	// (auth-gateway/server.ts buildStreamOptions), which factory-droid.ts
+	// turns into its session UUID on every wire.
+	session := neoPiBoundResponsesSession(e.Identifier(), req, opts)
 	sessionUUID := requestID
 	if session != "" {
 		sessionUUID = helps.FactoryDroidDeterministicUUID(session)

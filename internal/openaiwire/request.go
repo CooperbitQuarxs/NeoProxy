@@ -72,9 +72,16 @@ func ShapeResponses(model *registry.NeoPiModel, ctx Context, opts Options, acces
 		header.Set(name, opts.SessionID)
 	}
 	header.Set("User-Agent", NeoPiUserAgent)
-	header.Set("Authorization", "Bearer "+accessToken)
+	// A keyless account's NO_AUTH_SENTINEL sends no Authorization.
+	if accessToken != NoAuthSentinel {
+		header.Set("Authorization", "Bearer "+accessToken)
+	}
 	if timeout := firstEventTimeoutHeader(model.Compat); timeout != "" {
 		header.Set("X-Stainless-Timeout", timeout)
 	}
 	return &Request{URL: baseURL + "/responses", Header: header, Body: BuildResponses(model, ctx, opts)}
 }
+
+// NoAuthSentinel is NeoPi's NO_AUTH_SENTINEL: the key a keyless account
+// resolves to, for which resolveOpenAIRequestSetup sends no Authorization.
+const NoAuthSentinel = "N/A"

@@ -39,13 +39,36 @@ type neoPiResponsesTurn struct {
 	claudeTokens    *helps.ClaudeInputTokenState
 }
 
-// neoPiResponsesSessionID is NeoPi's options.sessionId for a downstream
-// request: the client's prompt cache identity, else the stable execution session.
-func neoPiResponsesSessionID(provider string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
+// neoPiClientPromptCacheKey is the client's prompt cache identity, if any.
+func neoPiClientPromptCacheKey(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
 	for _, payload := range [][]byte{opts.OriginalRequest, req.Payload} {
 		if key := strings.TrimSpace(gjson.GetBytes(payload, "prompt_cache_key").String()); key != "" {
 			return key
 		}
+	}
+	return ""
+}
+
+// neoPiResponsesSessionID is NeoPi's options.sessionId for a downstream
+// request: the client's prompt cache identity, else the stable execution session.
+func neoPiResponsesSessionID(provider string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
+	if key := neoPiClientPromptCacheKey(req, opts); key != "" {
+		return key
+	}
+	return helps.ProviderSessionUUID(provider, req.Metadata, opts.Metadata)
+}
+
+// neoPiBoundResponsesSession is the session a provider binding hands NeoPi's
+// Responses port. NeoPi's gateway takes the client's prompt cache identity
+// over any other session (auth-gateway/server.ts buildStreamOptions); the
+// caller's own session, then the stable execution session, apply only
+// without one.
+func neoPiBoundResponsesSession(provider string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
+	if key := neoPiClientPromptCacheKey(req, opts); key != "" {
+		return key
+	}
+	if session := neoPiSession(opts, nil); session != "" {
+		return session
 	}
 	return helps.ProviderSessionUUID(provider, req.Metadata, opts.Metadata)
 }

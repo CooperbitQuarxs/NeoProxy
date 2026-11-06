@@ -22,7 +22,7 @@ if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const wires = (process.env.COPILOT_APIS ?? "anthropic-messages,openai-completions,openai-responses").split(",").filter(Boolean);
 const provider = process.env.NEOPI_PROVIDER ?? "github-copilot";
 // The host each provider's rows are served from, which the capture answers.
-const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai", litellm: "http://localhost:4000", ollama: "http://127.0.0.1:11434" };
+const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai", litellm: "http://localhost:4000", ollama: "http://127.0.0.1:11434", "llama.cpp": "http://127.0.0.1:8080" };
 const origin = origins[provider];
 if (!origin) throw new Error(`no capture origin for ${provider}`);
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
@@ -35,8 +35,8 @@ const { litellmModelManagerOptions } = await import(root + "/pi-catalog/src/prov
 const { parseRequest } = await import(root + "/pi-ai/src/providers/openai-responses-server.ts");
 
 // The bearer: a GitHub OAuth token used directly by Copilot, a Command Code
-// Provider API key, a key a proxy or an Ollama server checks.
-const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : provider === "litellm" ? "sk-capture-litellm-key" : provider === "ollama" ? "sk-capture-ollama-key" : "gho_capturefixturetoken0000000000000000";
+// Provider API key, a key a proxy or a local server checks.
+const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : provider === "litellm" ? "sk-capture-litellm-key" : provider === "ollama" ? "sk-capture-ollama-key" : provider === "llama.cpp" ? "sk-capture-llama-key" : "gho_capturefixturetoken0000000000000000";
 const sessionId = `capture-session-${provider}-0001`;
 
 // LiteLLM bundles no rows: its groups come from the proxy's
@@ -61,7 +61,32 @@ const ollamaShows: Record<string, string> = {
 	"llava:7b": JSON.stringify({ capabilities: ["completion", "vision"], model_info: { "llama.context_length": 4096 } }),
 	"llama3.2:3b": JSON.stringify({ capabilities: ["completion", "tools"], model_info: { "llama.context_length": 131072 } }),
 };
+// llama.cpp likewise: NeoPi's runtime lists llama-server's native /models
+// beside its /props (discoverLlamaCppModels); a Qwen model runs on Chat
+// Completions (its KDL discovery-api), the rest on Responses.
+const llamaCppModels = JSON.stringify({ object: "list", data: [
+	{ id: "Qwen3-8B-Q4_K_M.gguf", object: "model", meta: { n_ctx: 32768, n_ctx_train: 262144 } },
+	{ id: "gemma-3-4b-it-Q4_K_M", object: "model", architecture: { input_modalities: ["text", "image"] }, meta: { n_ctx: 8192 } },
+	{ id: "Llama-3.2-3B-Instruct-Q8_0", object: "model" },
+] });
+const llamaCppProps = JSON.stringify({ default_generation_settings: { n_ctx: 65536, params: { n_predict: -1 } }, modalities: { vision: false } });
 async function rowsFor(wire: string): Promise<any[]> {
+	if (provider === "llama.cpp") {
+		const checkout = process.env.NEOPI_CHECKOUT ?? "/home/shayna/source/github/PsychedelicShayna/neopi-nightly";
+		const discovery = await import(join(checkout, "packages/coding-agent/src/config/model-discovery.ts"));
+		const models = await discovery.discoverModelsByProviderType(
+			{ provider: "llama.cpp", api: "openai-responses", baseUrl: origin, discovery: { type: "llama.cpp" } },
+			{
+				getBearerApiKeyResolver: async () => apiKey,
+				fetch: async (input: any) => {
+					const url = new URL(typeof input === "string" ? input : input.url);
+					const body = url.pathname === "/models" ? llamaCppModels : url.pathname === "/props" ? llamaCppProps : undefined;
+					return body ? new Response(body, { status: 200, headers: { "content-type": "application/json" } }) : new Response("not found", { status: 404 });
+				},
+			},
+		);
+		return models.filter((entry: any) => entry.api === wire);
+	}
 	if (provider === "ollama") {
 		const checkout = process.env.NEOPI_CHECKOUT ?? "/home/shayna/source/github/PsychedelicShayna/neopi-nightly";
 		const discovery = await import(join(checkout, "packages/coding-agent/src/config/model-discovery.ts"));
@@ -326,6 +351,7 @@ try {
 			sessionId,
 			...(provider === "litellm" ? { listing: liteLLMListing, modelsDev: liteLLMModelsDev } : {}),
 			...(provider === "ollama" ? { tags: ollamaTags, shows: ollamaShows } : {}),
+			...(provider === "llama.cpp" ? { listing: llamaCppModels, props: llamaCppProps } : {}),
 			fixtures,
 		})));
 		console.log(`${wire}: ${registry.length} models, ${fixtures.length} fixtures`);
