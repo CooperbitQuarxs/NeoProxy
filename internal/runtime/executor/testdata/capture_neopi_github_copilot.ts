@@ -1,7 +1,7 @@
 // Runs NeoPi's OWN streamSimple over every bundled model of a routed host
-// (NEOPI_PROVIDER: github-copilot, the default, commandcode, or litellm, whose
-// rows NeoPi's own manager discovers from a scripted proxy; each row on
-// its own API) against a loopback capture server only; the key is fake and
+// (NEOPI_PROVIDER: github-copilot, the default, commandcode, or litellm and
+// ollama, whose rows NeoPi's own manager discovers from a scripted server;
+// each row on its own API) against a loopback capture server only; the key is fake and
 // no request can reach the host. Each scenario is recorded beside the
 // downstream request a client sends NeoProxy for it, in the format the
 // model's API takes: Claude Messages for anthropic-messages, Chat
@@ -21,21 +21,21 @@ if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const wires = (process.env.COPILOT_APIS ?? "anthropic-messages,openai-completions,openai-responses").split(",").filter(Boolean);
 const provider = process.env.NEOPI_PROVIDER ?? "github-copilot";
 // The host each provider's rows are served from, which the capture answers.
-const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai", litellm: "http://localhost:4000" };
+const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai", litellm: "http://localhost:4000", ollama: "http://127.0.0.1:11434" };
 const origin = origins[provider];
 if (!origin) throw new Error(`no capture origin for ${provider}`);
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
 const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
-const { litellmModelManagerOptions } = await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
+const { litellmModelManagerOptions, ollamaModelManagerOptions } = await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
 // A Responses client reaches NeoPi through its server boundary, which keeps
 // each user item's native form for replay; the other wires' clients map onto
 // NeoPi's own messages.
 const { parseRequest } = await import(root + "/pi-ai/src/providers/openai-responses-server.ts");
 
 // The bearer: a GitHub OAuth token used directly by Copilot, a Command Code
-// Provider API key.
-const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : provider === "litellm" ? "sk-capture-litellm-key" : "gho_capturefixturetoken0000000000000000";
+// Provider API key, a key a proxy or an Ollama server checks.
+const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : provider === "litellm" ? "sk-capture-litellm-key" : provider === "ollama" ? "sk-capture-ollama-key" : "gho_capturefixturetoken0000000000000000";
 const sessionId = `capture-session-${provider}-0001`;
 
 // LiteLLM bundles no rows: its groups come from the proxy's
@@ -49,7 +49,28 @@ const liteLLMListing = JSON.stringify({
 	],
 });
 const liteLLMModelsDev = JSON.stringify({ openai: { models: { "o4-mini": { name: "o4-mini", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, cost: { input: 1.1, output: 4.4 }, limit: { context: 200000, output: 100000 } } } } });
+// Ollama bundles no rows: its models come from /v1/models, each enriched by
+// its /api/show answer (recorded, so NeoProxy discovers the same rows).
+const ollamaListing = JSON.stringify({ object: "list", data: [{ id: "qwen3:8b", object: "model" }, { id: "llava:7b", object: "model" }, { id: "llama3.2:3b", object: "model" }] });
+const ollamaShows: Record<string, string> = {
+	"qwen3:8b": JSON.stringify({ capabilities: ["completion", "tools", "thinking"], model_info: { "qwen3.context_length": 40960 } }),
+	"llava:7b": JSON.stringify({ capabilities: ["completion", "vision"], model_info: { "llama.context_length": 32768 } }),
+	"llama3.2:3b": JSON.stringify({ capabilities: ["completion", "tools"], model_info: { "llama.context_length": 131072 } }),
+};
 async function rowsFor(wire: string): Promise<any[]> {
+	if (provider === "ollama") {
+		const options = ollamaModelManagerOptions({
+			apiKey,
+			fetch: async (input: any, init: any) => {
+				const url = new URL(typeof input === "string" ? input : input.url);
+				if (url.pathname === "/v1/models") return new Response(ollamaListing, { status: 200, headers: { "content-type": "application/json" } });
+				const show = url.pathname === "/api/show" ? ollamaShows[JSON.parse(init?.body ?? "{}").model] : undefined;
+				return show ? new Response(show, { status: 200, headers: { "content-type": "application/json" } }) : new Response("not found", { status: 404 });
+			},
+		});
+		options.cacheDbPath = join(mkdtempSync(join(tmpdir(), "neopi-ollama-")), "ollama.db");
+		return (await resolveProviderModels(options, "online")).models.filter((entry: any) => entry.api === wire);
+	}
 	if (provider !== "litellm") return getBundledModels(provider).filter((entry: any) => entry.api === wire);
 	const options = litellmModelManagerOptions({
 		apiKey,
@@ -292,11 +313,12 @@ try {
 			fixtures.push({ name: scenario.name, model: scenario.model.id, options: scenario.options, downstream: scenario.downstream, requestedURL, ...captured[0] });
 		}
 		await Bun.write(join(outDir, `${wire}.json.gz`), Bun.gzipSync(JSON.stringify({
-			source: `NeoPi OWN streamSimple over ${provider === "litellm" ? "discovered" : "bundled"} ${provider} ${wire} rows`,
+			source: `NeoPi OWN streamSimple over ${provider === "litellm" || provider === "ollama" ? "discovered" : "bundled"} ${provider} ${wire} rows`,
 			wire,
 			apiKey,
 			sessionId,
 			...(provider === "litellm" ? { listing: liteLLMListing, modelsDev: liteLLMModelsDev } : {}),
+			...(provider === "ollama" ? { listing: ollamaListing, shows: ollamaShows } : {}),
 			fixtures,
 		})));
 		console.log(`${wire}: ${registry.length} models, ${fixtures.length} fixtures`);

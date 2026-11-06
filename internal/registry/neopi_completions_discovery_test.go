@@ -47,12 +47,17 @@ type neoPiDiscoveryResult struct {
 		V0 *neoPiCaptureReply `json:"v0"`
 		V1 *neoPiCaptureReply `json:"v1"`
 	} `json:"native"`
-	// Paths answers a LiteLLM proxy by path and query; any other path
-	// answered 404.
-	Paths    map[string]neoPiCaptureReply `json:"paths"`
+	// Paths answers a LiteLLM proxy or an Ollama server by path and query;
+	// any other path answered 404.
+	Paths map[string]neoPiCaptureReply `json:"paths"`
+	// Shows answers Ollama's POST /api/show by the model its body names;
+	// any other model answered 404.
+	Shows    map[string]neoPiCaptureReply `json:"shows"`
 	Requests []struct {
-		Path  string            `json:"path"`
-		Query map[string]string `json:"query"`
+		Method string            `json:"method"`
+		Path   string            `json:"path"`
+		Query  map[string]string `json:"query"`
+		Body   string            `json:"body"`
 	} `json:"requests"`
 	Models []struct {
 		ID            string         `json:"id"`
@@ -142,8 +147,9 @@ func TestNeoPiCompletionsDiscoveryParity(t *testing.T) {
 					want = append(want, model)
 				}
 			}
-			if len(byID) != len(want) {
-				t.Errorf("roster size: port %d, NeoPi %d", len(byID), len(want))
+			// Rows, not ids: NeoPi keeps a native Ollama roster's duplicates.
+			if len(got) != len(want) {
+				t.Errorf("roster size: port %d, NeoPi %d", len(got), len(want))
 			}
 			for _, want := range want {
 				row := byID[want.ID]
@@ -267,6 +273,8 @@ func neoPiReplayListing(baseURL string, result neoPiDiscoveryResult) ([]*ModelIn
 			}
 		}
 		return nil, err
+	case result.Provider == NeoPiOllamaProvider:
+		return NeoPiOllamaListing(baseURL, NewNeoPiOllamaShows(), neoPiOllamaReplay(result, nil))
 	case result.Provider == NeoPiLiteLLMProvider:
 		var modelsDev []byte
 		if result.ModelsDev != nil && result.ModelsDev.Status/100 == 2 {
@@ -331,6 +339,121 @@ func neoPiLiteLLMReplay(result neoPiDiscoveryResult, asked *[]string) NeoPiLiteL
 			return reply.Status, []byte(reply.Body), nil
 		}
 		return 404, []byte("not found"), nil
+	}
+}
+
+// neoPiOllamaReplay answers an Ollama discovery from a captured scenario:
+// /api/show by the model its body names, everything else by path and query.
+// It records each request asked as "METHOD path body".
+func neoPiOllamaReplay(result neoPiDiscoveryResult, asked *[]string) NeoPiOllamaRequest {
+	var mu sync.Mutex
+	return func(endpoint string, body []byte, _ bool) (int, []byte, error) {
+		parsed, err := url.Parse(endpoint)
+		if err != nil {
+			return 0, nil, err
+		}
+		method := "GET"
+		if body != nil {
+			method = "POST"
+		}
+		if asked != nil {
+			mu.Lock()
+			*asked = append(*asked, method+" "+parsed.EscapedPath()+" "+string(body))
+			mu.Unlock()
+		}
+		reply, ok := neoPiCaptureReply{}, false
+		if strings.HasSuffix(parsed.Path, "/api/show") {
+			var request struct {
+				Model string `json:"model"`
+			}
+			if err := json.Unmarshal(body, &request); err != nil {
+				return 0, nil, err
+			}
+			reply, ok = result.Shows[request.Model]
+		} else {
+			key := parsed.EscapedPath()
+			if parsed.RawQuery != "" {
+				key += "?" + parsed.RawQuery
+			}
+			reply, ok = result.Paths[key]
+		}
+		if !ok {
+			return 404, []byte("not found"), nil
+		}
+		return reply.Status, []byte(reply.Body), nil
+	}
+}
+
+// An Ollama discovery sends the requests NeoPi's manager sent: the listing,
+// one /api/show per distinct model (duplicates share one), and /api/tags
+// when the listing fails or names nothing.
+func TestNeoPiOllamaDiscoveryRequestsMatchNeoPi(t *testing.T) {
+	capture := loadNeoPiDiscoveryCapture(t)
+	scenarios := 0
+	for _, result := range capture.Results {
+		if result.Provider != NeoPiOllamaProvider {
+			continue
+		}
+		scenarios++
+		t.Run(result.Scenario, func(t *testing.T) {
+			var asked []string
+			_, _ = NeoPiOllamaListing(result.BaseURL, NewNeoPiOllamaShows(), neoPiOllamaReplay(result, &asked))
+			var want []string
+			for _, request := range result.Requests {
+				want = append(want, request.Method+" "+request.Path+" "+request.Body)
+			}
+			// The lookups run concurrently, in any order.
+			slices.Sort(asked)
+			slices.Sort(want)
+			if !reflect.DeepEqual(asked, want) {
+				t.Errorf("asked %q, NeoPi asked %q", asked, want)
+			}
+		})
+	}
+	if scenarios == 0 {
+		t.Fatal("capture holds no Ollama scenarios")
+	}
+}
+
+// A later refresh asks /api/show only for models whose earlier lookup
+// failed: the manager keeps every answer that succeeded.
+func TestNeoPiOllamaShowsCacheSuccesses(t *testing.T) {
+	shows := NewNeoPiOllamaShows()
+	var asked []string
+	failing := map[string]bool{"b:1": true}
+	do := func(endpoint string, body []byte, _ bool) (int, []byte, error) {
+		if body == nil {
+			return 200, []byte(`{"data":[{"id":"a:1"},{"id":"b:1"}]}`), nil
+		}
+		var request struct {
+			Model string `json:"model"`
+		}
+		_ = json.Unmarshal(body, &request)
+		asked = append(asked, request.Model)
+		if failing[request.Model] {
+			return 500, []byte(`{}`), nil
+		}
+		return 200, []byte(`{"capabilities":["thinking"],"model_info":{"x.context_length":4096}}`), nil
+	}
+	if _, err := NeoPiOllamaListing("", shows, do); err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(asked)
+	if !reflect.DeepEqual(asked, []string{"a:1", "b:1"}) {
+		t.Fatalf("first refresh asked %q", asked)
+	}
+	asked, failing = nil, map[string]bool{}
+	models, err := NeoPiOllamaListing("", shows, do)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(asked, []string{"b:1"}) {
+		t.Fatalf("second refresh asked %q, want only the failed b:1", asked)
+	}
+	for _, model := range models {
+		if model.ContextLength != 4096 {
+			t.Errorf("%s: context %d, want 4096 from /api/show", model.ID, model.ContextLength)
+		}
 	}
 }
 

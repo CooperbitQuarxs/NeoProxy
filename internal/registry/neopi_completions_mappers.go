@@ -763,8 +763,8 @@ func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 
 // neoPiV1BaseProviders are the providers whose configured base URL NeoPi
 // resolves onto the gateway's /v1 surface (normalizeSingularityApiBaseUrl,
-// normalizeCharmHyperBaseUrl).
-var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true, "commandcode": true}
+// normalizeCharmHyperBaseUrl, normalizeOllamaBaseUrl).
+var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true, "commandcode": true, NeoPiOllamaProvider: true}
 
 // NeoPiV1BaseURL is the discovery and inference endpoint of a provider in
 // neoPiV1BaseProviders: a blank configured URL is the provider's canonical
