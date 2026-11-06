@@ -305,6 +305,10 @@ func (s *Service) registerExecutorForAuth(a *coreauth.Auth, forceReplace bool) {
 	if s.bindOllamaCloudExecutor(cfg, a, forceReplace) {
 		return
 	}
+	// NeoPi serves Amazon Bedrock keys through its native Converse provider.
+	if s.bindAmazonBedrockExecutor(cfg, a, forceReplace) {
+		return
+	}
 	if providerKey, catalogProvider, ok := neoPiCompletionsIdentity(a); ok {
 		if !forceReplace {
 			if existing, ok := s.coreManager.Executor(providerKey); ok {

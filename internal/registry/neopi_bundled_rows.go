@@ -34,10 +34,13 @@ type neoPiBundledCatalog struct {
 		MaxTokens      int      `json:"maxTokens"`
 		RequestModelID string   `json:"requestModelId"`
 		// OmitMaxOutputTokens is model.omitMaxOutputTokens (ollama-chat rows).
-		OmitMaxOutputTokens bool            `json:"omitMaxOutputTokens"`
-		Thinking            json.RawMessage `json:"thinking"`
-		Compat              json.RawMessage `json:"compat"`
-		Cost                NeoPiCost       `json:"cost"`
+		OmitMaxOutputTokens bool `json:"omitMaxOutputTokens"`
+		// RequiresToolResultImageHoisting is the catalog's
+		// requiresToolResultImageHoisting (bedrock-converse-stream rows).
+		RequiresToolResultImageHoisting bool            `json:"requiresToolResultImageHoisting"`
+		Thinking                        json.RawMessage `json:"thinking"`
+		Compat                          json.RawMessage `json:"compat"`
+		Cost                            NeoPiCost       `json:"cost"`
 	} `json:"models"`
 }
 
@@ -76,7 +79,7 @@ func decodeNeoPiBundledRows(name string, file []byte) ([]*NeoPiModel, error) {
 		row := &NeoPiModel{ID: entry.ID, Name: entry.Name, API: entry.API, Provider: entry.Provider, BaseURL: entry.BaseURL,
 			Reasoning: entry.Reasoning, Input: entry.Input, ContextWindow: entry.ContextWindow, MaxTokens: entry.MaxTokens,
 			Thinking: thinking, RequestModelID: entry.RequestModelID, OmitMaxOutputTokens: entry.OmitMaxOutputTokens, cost: entry.Cost,
-			thinkingRequiresEffortSet: requiresEffortSet}
+			RequiresToolResultImageHoisting: entry.RequiresToolResultImageHoisting, thinkingRequiresEffortSet: requiresEffortSet}
 		// The compat belongs to the row's own API.
 		var target any
 		switch entry.API {
@@ -92,6 +95,9 @@ func decodeNeoPiBundledRows(name string, file []byte) ([]*NeoPiModel, error) {
 		case "ollama-chat":
 			row.OllamaCompat = &NeoPiOllamaCompat{}
 			target = row.OllamaCompat
+		case "bedrock-converse-stream":
+			row.BedrockCompat = &NeoPiBedrockCompat{}
+			target = row.BedrockCompat
 		default:
 			return nil, fmt.Errorf("registry: %s %s: unknown api %s", name, entry.ID, entry.API)
 		}

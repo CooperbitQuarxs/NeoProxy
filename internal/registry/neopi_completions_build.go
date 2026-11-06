@@ -26,7 +26,7 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 	}
 	api := neopicompat.APIOpenAICompletions
 	switch spec.api {
-	case neopicompat.APIAnthropicMessages, neopicompat.APIOpenAIResponses, neopicompat.APIOllamaChat:
+	case neopicompat.APIAnthropicMessages, neopicompat.APIOpenAIResponses, neopicompat.APIOllamaChat, neopicompat.APIBedrockConverse:
 		api = spec.api
 	}
 	policy, err := neopicompat.Resolve(neopicompat.Spec{
@@ -57,6 +57,9 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 		row.OmitMaxOutputTokens = spec.omitMaxOutputTokens || omit
 		row.OllamaCompat = &NeoPiOllamaCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.OllamaCompat)
+	case neopicompat.APIBedrockConverse:
+		row.BedrockCompat = &NeoPiBedrockCompat{}
+		err = neoPiDecodePolicy(policy.Compat, row.BedrockCompat)
 	default:
 		row.CompletionsCompat = &NeoPiCompletionsCompat{}
 		err = neoPiDecodePolicy(policy.Compat, row.CompletionsCompat)
@@ -83,14 +86,15 @@ func neoPiBuildRow(provider, baseURL string, spec *neoPiSpec) (*NeoPiModel, erro
 var neoPiModelKinds = []string{"chat", "tiny", "image", "tts", "stt", "search", "judge", "embedding", "rerank", "video"}
 
 // neoPiApplyCatalog is the part of buildModel's applyCatalogAssignments and
-// applyCatalogCorrections a NeoPiModel carries: the rule-owned kind, and the
-// reviewed limit and input corrections (limits-patch, max-tokens-fallback,
-// max-tokens-ceiling, context-window-floor, input-modalities). A zero limit
-// is NeoPi's null.
+// applyCatalogCorrections a NeoPiModel carries: the rule-owned kind and
+// tool-result image hoisting, and the reviewed limit and input corrections
+// (limits-patch, max-tokens-fallback, max-tokens-ceiling,
+// context-window-floor, input-modalities). A zero limit is NeoPi's null.
 func neoPiApplyCatalog(row *NeoPiModel, catalog map[string]any) {
 	if kind, ok := catalog["kind"].(string); ok && slices.Contains(neoPiModelKinds, kind) {
 		row.Kind = kind
 	}
+	row.RequiresToolResultImageHoisting = catalog["requiresToolResultImageHoisting"] == true
 	if patch, ok := catalog["limitsPatch"].(map[string]any); ok {
 		if value, ok := patch["contextWindow"].(float64); ok {
 			row.ContextWindow = int(value)

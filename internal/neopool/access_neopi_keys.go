@@ -12,6 +12,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/kilo"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/xiaomi"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 )
 
 // Providers NeoProxy serves through NeoPi's OpenAI Chat Completions provider
@@ -64,6 +65,11 @@ func validateNeoPiKey(ctx context.Context, info ProviderInfo, base string, prefe
 		// NeoPi reads a GitLab personal access token from GITLAB_TOKEN, for
 		// either GitLab provider, and never checks it.
 		return gitlabduo.BaseURL, true, nil
+	}
+	if info.ID == registry.AmazonBedrockProvider {
+		// NeoPi's amazon-bedrock auth rule has an environment hook and no
+		// validate hook: the key (or its absence) is kept as entered.
+		return base, true, nil
 	}
 	login, ok := neopikeys.LoginFor(info.ID)
 	if !ok {

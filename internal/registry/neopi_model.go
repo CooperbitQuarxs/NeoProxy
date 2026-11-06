@@ -54,6 +54,30 @@ type NeoPiModel struct {
 	FactoryDroid *NeoPiFactoryDroid `json:"factoryDroid,omitempty"`
 	// OllamaCompat is the compat NeoPi resolves for an ollama-chat row.
 	OllamaCompat *NeoPiOllamaCompat `json:"ollamaCompat,omitempty"`
+	// BedrockCompat is the compat NeoPi resolves for a bedrock-converse-stream row.
+	BedrockCompat *NeoPiBedrockCompat `json:"bedrockCompat,omitempty"`
+	// RequiresToolResultImageHoisting is model.requiresToolResultImageHoisting:
+	// tool-result images move into sibling user content blocks.
+	RequiresToolResultImageHoisting bool `json:"requiresToolResultImageHoisting,omitempty"`
+}
+
+// NeoPiBedrockCompat is the resolved compat NeoPi's Bedrock Converse provider
+// and its stream option mapping read (ResolvedBedrockCompat with the
+// bedrock-converse-stream wire axes), under NeoPi's names.
+type NeoPiBedrockCompat struct {
+	// PromptCacheMode is "none", "automatic" or "explicit"; only explicit
+	// places cachePoint blocks.
+	PromptCacheMode                  string `json:"promptCacheMode"`
+	PromptCacheMaximumCheckpoints    int    `json:"promptCacheMaximumCheckpoints"`
+	SupportsLongPromptCacheRetention bool   `json:"supportsLongPromptCacheRetention"`
+	SupportsForcedToolChoice         bool   `json:"supportsForcedToolChoice"`
+	SupportsThinkingBindingControls  bool   `json:"supportsThinkingBindingControls"`
+	// DisabledThinking "disabled" sends an explicit thinking-off block when
+	// no effort is requested.
+	DisabledThinking string `json:"disabledThinking,omitempty"`
+	// SupportsSamplingParams is unset unless a rule assigns it; only false
+	// strips the sampling controls.
+	SupportsSamplingParams *bool `json:"supportsSamplingParams,omitempty"`
 }
 
 // NeoPiOllamaCompat is ResolvedOllamaCompat: whether replayed assistant
@@ -376,6 +400,14 @@ func (m *NeoPiModel) Clone() *NeoPiModel {
 	if m.OllamaCompat != nil {
 		compat := *m.OllamaCompat
 		out.OllamaCompat = &compat
+	}
+	if m.BedrockCompat != nil {
+		compat := *m.BedrockCompat
+		if compat.SupportsSamplingParams != nil {
+			sampling := *compat.SupportsSamplingParams
+			compat.SupportsSamplingParams = &sampling
+		}
+		out.BedrockCompat = &compat
 	}
 	out.CompatConfig = maps.Clone(m.CompatConfig)
 	return &out
