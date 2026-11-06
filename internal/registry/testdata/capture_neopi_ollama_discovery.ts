@@ -76,10 +76,17 @@ const scenarios: Scenario[] = [
 	{ name: "context length override", tags: json({ models: [{ model: "qwen3:8b" }, { model: "j:1" }] }), shows, contextLength: "50000" },
 	{ name: "small context length override", tags: json({ models: [{ model: "qwen3:8b" }] }), shows, contextLength: " 4096 " },
 	{ name: "unusable context length override", tags: json({ models: [{ model: "qwen3:8b" }] }), shows, contextLength: "1.5" },
+	// Ollama allows any model name; a name NeoPi's catalog patches keeps the
+	// patched limits, and the registry's override then replaces them.
+	{ name: "catalog-patched names", tags: json({ models: [{ model: "gpt-5.4" }, { model: "gpt-5.1-codex" }] }), shows: { "gpt-5.4": json({ parameters: "num_ctx 8192" }), "gpt-5.1-codex": json({ parameters: "num_ctx 8192" }) } },
+	{ name: "catalog-patched names with override", tags: json({ models: [{ model: "gpt-5.4" }, { model: "gpt-5.1-codex" }] }), shows: { "gpt-5.4": json({ parameters: "num_ctx 8192" }), "gpt-5.1-codex": json({ parameters: "num_ctx 8192" }) }, contextLength: "4096" },
 	{ name: "configured base with path", baseUrl: "http://box.lan:11434/some/path/v1", tags: json({ models: [{ model: "qwen3:8b" }] }), shows },
 	{ name: "configured https base", baseUrl: "https://ollama.example", tags: json({ models: [{ model: "a:1" }] }), shows },
 	{ name: "configured base with default port", baseUrl: "http://BOX.lan:80/", tags: json({ models: [{ model: "a:1" }] }), shows },
 	{ name: "configured ipv6 base", baseUrl: "http://[::1]:11500/v1", tags: json({ models: [{ model: "a:1" }] }), shows },
+	{ name: "configured base without slashes", baseUrl: "http:gpu.lan:11500", tags: json({ models: [{ model: "a:1" }] }), shows },
+	{ name: "configured base with encoded host", baseUrl: "http://gpu%2Dbox.lan:11500", tags: json({ models: [{ model: "a:1" }] }), shows },
+	{ name: "configured shorthand ipv4 base", baseUrl: "http://127.1:11500/v1", tags: json({ models: [{ model: "a:1" }] }), shows },
 	{ name: "unparsable base", baseUrl: "not a url", tags: json({ models: [{ model: "a:1" }] }), shows },
 ];
 
@@ -174,11 +181,31 @@ for (const value of ["", "   ", "8192", " 4096 ", "0", "-5", "1.5", "abc", "1e3"
 delete Bun.env.OLLAMA_CONTEXT_LENGTH;
 
 const out = join(import.meta.dir, "neopi_ollama_discovery.json.gz");
+// How NeoPi's runtime (Bun's WHATWG URL) reads the bases a local server's
+// account may configure: the parity table for NeoProxy's URL reading.
+const urlCases = [
+	"http://box.lan:11434/some/path/v1", "HTTP://BOX.lan:11434", "http://BOX.lan:80/", "https://h:443/x", "https://h:8443",
+	"http:gpu.lan:11500", "http:/gpu.lan", "http:\\\\gpu.lan\\v1", "http:////gpu.lan///v1//", "  http://gpu.lan:1/x  ", "http://gp\tu.lan/",
+	"http://gpu%2Dbox.lan:11500", "http://GPU%2dBOX.lan", "http://user:pw@gpu.lan:9/x",
+	"http://127.1:11500/v1", "http://0x7f.1/", "http://0177.0.0.1/", "http://2130706433/", "http://127.0.0.1./", "http://1.2.3.4.5/", "http://256.1.1.1/", "http://0x100000000/",
+	"http://[::1]:11500/v1", "http://[0:0:0:0:0:0:0:1]/", "http://[2001:DB8::1]:80/", "http://[::ffff:1.2.3.4]/", "http://[1::]/", "http://[::]/",
+	"http://gpu.lan:/x", "http://gpu.lan:99999/", "http://gpu.lan:12a/", "http://gp u.lan/", "http://gpu.lan/a/./b/../c", "http://gpu.lan/a/%2e%2E/c", "http://gpu.lan/v1?x=1#f",
+	"not a url", "", "http://", "http:///", "box.lan:11434", "ftp://h:21/x", "ws://h:80/", "wss://h:443/", "mailto:x@y",
+];
+const parsedUrls = urlCases.map(input => {
+	try {
+		const parsed = new URL(input);
+		return { input, ok: true, protocol: parsed.protocol, host: parsed.host, hostname: parsed.hostname, port: parsed.port, pathname: parsed.pathname };
+	} catch {
+		return { input, ok: false };
+	}
+});
 writeFileSync(out, Bun.gzipSync(JSON.stringify({
 	source: "NeoPi OWN coding-agent config/model-discovery.ts discoverModelsByProviderType({discovery: {type: \"ollama\"}})",
 	maxTokensDefault: discovery.DISCOVERY_DEFAULT_MAX_TOKENS,
 	results,
 	implicitBase,
 	contextOverride,
+	urlCases: parsedUrls,
 })));
 console.log(`wrote ${results.length} scenarios to ${out}`);

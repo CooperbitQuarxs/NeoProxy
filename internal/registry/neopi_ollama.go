@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -52,18 +51,18 @@ type NeoPiOllamaRequest func(endpoint string, body []byte) (status int, data []b
 // NeoPiOllamaOrigin is the server an account reaches: its configured base,
 // else NeoPi's implicit one (getImplicitOllamaBaseUrl: OLLAMA_BASE_URL, else
 // OLLAMA_HOST, else the default), reduced to its origin as
-// normalizeOllamaBaseUrl does (a base that does not parse is the default).
+// normalizeOllamaBaseUrl does through the WHATWG URL parser (a base that does
+// not parse is the default).
 func NeoPiOllamaOrigin(configured string, getenv func(string) string) string {
 	base := configured
 	if strings.TrimSpace(base) == "" {
 		base = neoPiOllamaImplicitBase(getenv)
 	}
-	parsed, err := url.Parse(strings.TrimSpace(base))
-	if err != nil || parsed.Scheme == "" || (neoPiOllamaSpecialScheme(parsed.Scheme) && parsed.Host == "") {
+	parsed, ok := neoPiParseWHATWG(base)
+	if !ok {
 		return neoPiOllamaDefaultOrigin
 	}
-	scheme := strings.ToLower(parsed.Scheme)
-	return scheme + "://" + neoPiOllamaHost(scheme, parsed)
+	return parsed.scheme + "://" + parsed.host
 }
 
 // neoPiOllamaImplicitBase is getImplicitOllamaBaseUrl.
@@ -94,55 +93,16 @@ func neoPiOllamaHostEnv(value string) string {
 	case strings.HasPrefix(trimmed, ":"):
 		candidate = "http://127.0.0.1" + trimmed
 	}
-	parsed, err := url.Parse(candidate)
-	if err != nil {
+	parsed, ok := neoPiParseWHATWG(candidate)
+	if !ok || parsed.hostname == "" || (parsed.scheme != "http" && parsed.scheme != "https") {
 		return ""
 	}
-	scheme := strings.ToLower(parsed.Scheme)
-	if parsed.Hostname() == "" || (scheme != "http" && scheme != "https") {
-		return ""
-	}
-	host := neoPiOllamaHost(scheme, parsed)
+	host := parsed.host
 	// URL.port is empty for an absent or default port.
-	if scheme == "http" && (parsed.Port() == "" || parsed.Port() == "80") {
-		host += ":" + neoPiOllamaHostPort
+	if parsed.scheme == "http" && parsed.port == "" {
+		host = parsed.hostname + ":" + neoPiOllamaHostPort
 	}
-	return scheme + "://" + host
-}
-
-// neoPiOllamaHost is URL.host: the lowercased host, its scheme's default port
-// dropped.
-func neoPiOllamaHost(scheme string, parsed *url.URL) string {
-	host := strings.ToLower(parsed.Hostname())
-	if strings.Contains(host, ":") {
-		host = "[" + host + "]"
-	}
-	if port := parsed.Port(); port != "" && port != neoPiOllamaDefaultPort(scheme) {
-		host += ":" + port
-	}
-	return host
-}
-
-func neoPiOllamaDefaultPort(scheme string) string {
-	switch scheme {
-	case "http", "ws":
-		return "80"
-	case "https", "wss":
-		return "443"
-	case "ftp":
-		return "21"
-	}
-	return ""
-}
-
-// neoPiOllamaSpecialScheme reports a WHATWG special scheme, which a URL must
-// give a host.
-func neoPiOllamaSpecialScheme(scheme string) bool {
-	switch strings.ToLower(scheme) {
-	case "http", "https", "ws", "wss", "ftp", "file":
-		return true
-	}
-	return false
+	return parsed.scheme + "://" + host
 }
 
 // NeoPiOllamaBaseURL is the endpoint an account's rows run on: its server's
@@ -305,21 +265,28 @@ func neoPiOllamaToken(value gjson.Result) string {
 // /api/tags entry with an id (its model, else its name; its name, else the
 // id, as the name; JavaScript truthiness), in roster order with duplicates,
 // each enriched by its own /api/show, at the server's /v1 on the Responses
-// API, then OLLAMA_CONTEXT_LENGTH applied. A failed or unreadable roster, or
-// one NeoPi cannot build (a null entry, a non-string id or name), is
-// ErrNeoPiListing; an empty one is a NeoPiEmptyListing.
+// API, then OLLAMA_CONTEXT_LENGTH applied to the built rows. A failed or
+// unreadable roster, or one NeoPi cannot build (a null entry, a non-string
+// id or name), is ErrNeoPiListing; an empty one is a NeoPiEmptyListing.
 func NeoPiOllamaListing(configured string, getenv func(string) string, do NeoPiOllamaRequest) ([]*ModelInfo, error) {
 	origin := NeoPiOllamaOrigin(configured, getenv)
 	specs, err := neoPiOllamaRoster(origin, do)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrNeoPiListing, NeoPiOllamaProvider, err)
 	}
-	if override := neoPiOllamaContextOverride(getenv); override > 0 {
-		for i := range specs {
-			specs[i].contextWindow, specs[i].maxTokens = override, min(override, neoPiOllamaDefaultMax)
-		}
+	models, err := neoPiMergeListing(NeoPiOllamaProvider, origin+"/v1", specs, false)
+	override := neoPiOllamaContextOverride(getenv)
+	if err != nil || override == 0 {
+		return models, err
 	}
-	return neoPiMergeListing(NeoPiOllamaProvider, origin+"/v1", specs, false)
+	// #normalizeDiscoverableModels overrides built rows, so the override wins
+	// over the limits the catalog patches onto an id it knows.
+	for i, info := range models {
+		row := info.NeoPi.Clone()
+		row.ContextWindow, row.MaxTokens = override, min(override, neoPiOllamaDefaultMax)
+		models[i] = NeoPiCompletionsModelInfo(row, NeoPiOllamaProvider)
+	}
+	return models, nil
 }
 
 // neoPiOllamaRoster is discoverOllamaModels' fetch and mapping.

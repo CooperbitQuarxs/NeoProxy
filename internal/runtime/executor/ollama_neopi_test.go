@@ -21,8 +21,8 @@ import (
 
 // A local Ollama row sends the Responses request NeoPi's own transport sends
 // for the same scenario (testdata/neopi_ollama, captured by
-// capture_neopi_github_copilot.ts over rows NeoPi's Ollama manager discovered
-// from /v1/models and /api/show): method, path, body bytes and headers.
+// capture_neopi_github_copilot.ts over rows NeoPi's runtime discovery built
+// from /api/tags and /api/show): method, path, body bytes and headers.
 func TestOllamaReplaysNeoPiResponsesRequests(t *testing.T) {
 	var sent struct {
 		method, path string

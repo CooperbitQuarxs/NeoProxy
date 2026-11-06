@@ -52,6 +52,16 @@ type neoPiOllamaCapture struct {
 		Value    string `json:"value"`
 		Override *int   `json:"override"`
 	} `json:"contextOverride"`
+	// URLCases are Bun's own new URL() readings of local-server bases.
+	URLCases []struct {
+		Input    string `json:"input"`
+		OK       bool   `json:"ok"`
+		Protocol string `json:"protocol"`
+		Host     string `json:"host"`
+		Hostname string `json:"hostname"`
+		Port     string `json:"port"`
+		Pathname string `json:"pathname"`
+	} `json:"urlCases"`
 }
 
 func loadNeoPiOllamaCapture(t *testing.T) *neoPiOllamaCapture {
@@ -203,5 +213,28 @@ func TestNeoPiOllamaEnvironmentMatchesNeoPi(t *testing.T) {
 	}
 	if len(capture.ImplicitBase) == 0 || len(capture.ContextOverride) == 0 {
 		t.Fatal("capture holds no environment cases")
+	}
+}
+
+// NeoProxy reads a local server's base as NeoPi's runtime (Bun's WHATWG URL
+// parser) does: scheme, host, hostname, port and path, or no URL at all.
+func TestNeoPiWHATWGURLMatchesBun(t *testing.T) {
+	capture := loadNeoPiOllamaCapture(t)
+	if len(capture.URLCases) == 0 {
+		t.Fatal("capture holds no URL cases")
+	}
+	for _, want := range capture.URLCases {
+		got, ok := neoPiParseWHATWG(want.Input)
+		if ok != want.OK {
+			t.Errorf("%q: parses %v, Bun %v (%+v)", want.Input, ok, want.OK, got)
+			continue
+		}
+		if !ok {
+			continue
+		}
+		if got.scheme+":" != want.Protocol || got.host != want.Host || got.hostname != want.Hostname || got.port != want.Port || got.path != want.Pathname {
+			t.Errorf("%q: %s: host %q hostname %q port %q path %q; Bun %s host %q hostname %q port %q path %q",
+				want.Input, got.scheme, got.host, got.hostname, got.port, got.path, want.Protocol, want.Host, want.Hostname, want.Port, want.Pathname)
+		}
 	}
 }

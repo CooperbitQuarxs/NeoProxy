@@ -106,8 +106,10 @@ const discoveredRosters: Record<string, any[]> = {
 		{ model_group: "all-proxy-models", providers: [] },
 		{ model_group: "zz-proxy-alias", providers: ["bedrock"], mode: "chat", supports_vision: false, max_input_tokens: 64000 },
 	],
-	// Local Ollama lists over /v1/models; its rows run on Responses, so the
-	// export keeps only the endpoint and the discovery flags.
+	// Local Ollama: NeoPi's runtime discovers it through coding-agent's
+	// discoverOllamaModels, not this catalog manager, whose listing only
+	// supplies the same endpoint and keyless-discovery flags for the export.
+	// Its rows run on Responses, so nothing else is exported.
 	ollama: [{ id: "qwen3:8b" }],
 };
 
