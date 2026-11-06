@@ -64,7 +64,7 @@ func (m neoPiClinePassMetadata) thinking() (*NeoPiThinking, bool) {
 }
 
 // neoPiReferenceRow is the part of a bundled upstream row discovery reads
-// (ClinePass, GMI Cloud). A zero limit is NeoPi's undefined.
+// (ClinePass, GMI Cloud, LM Studio). A zero limit is NeoPi's undefined.
 type neoPiReferenceRow struct {
 	Provider      string          `json:"provider"`
 	ID            string          `json:"id"`
@@ -75,6 +75,16 @@ type neoPiReferenceRow struct {
 	MaxTokens     int             `json:"maxTokens"`
 	Thinking      json.RawMessage `json:"thinking"`
 	Cost          NeoPiCost       `json:"cost"`
+	// Compat is the reference's effort compat, which LM Studio's runtime
+	// discovery lends a listed row; nil when the reference sets none.
+	Compat *neoPiReferenceCompat `json:"compat"`
+}
+
+// neoPiReferenceCompat is a reference row's effort compat.
+type neoPiReferenceCompat struct {
+	SupportsReasoningEffort *bool             `json:"supportsReasoningEffort"`
+	ReasoningEffortMap      map[string]string `json:"reasoningEffortMap"`
+	OmitReasoningEffort     *bool             `json:"omitReasoningEffort"`
 }
 
 // neoPiJSParseFloatPrefix is parseFloat's grammar: the longest decimal (or

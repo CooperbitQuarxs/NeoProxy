@@ -185,10 +185,9 @@ func NeoPiCompletionsListing(provider, baseURL string, body []byte) ([]*ModelInf
 }
 
 // neoPiListingExtras are what a manager fetched beside its listing: the
-// models.dev references (SiliconFlow) and LM Studio's native metadata.
+// models.dev references (SiliconFlow).
 type neoPiListingExtras struct {
 	modelsDev map[string]*NeoPiModel
-	lmStudio  map[string]neoPiLmStudioMetadata
 }
 
 // NeoPiSiliconFlowListing is NeoPiCompletionsListing for SiliconFlow, whose
@@ -222,9 +221,6 @@ func neoPiCompletionsListing(provider, baseURL string, body []byte, extras neoPi
 	}
 	baseURL = neoPiNormalizeBase(baseURL)
 	specs, authoritative := neoPiListingSpecs(provider, baseURL, entries, extras.modelsDev)
-	if extras.lmStudio != nil {
-		neoPiApplyLmStudioMetadata(specs, extras.lmStudio)
-	}
 	// A listing that names no models comes back as NeoPiEmptyListing with
 	// the bundled rows the merge keeps (runner rows, for an authoritative
 	// provider), which the discovery cache retries after its short interval.

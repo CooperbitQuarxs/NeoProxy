@@ -13,10 +13,14 @@ import (
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
-// An unusable /models answer fails discovery without awaiting LM Studio's
-// native probes, which here never answer until their request is cancelled.
+// A /models answer that fails or does not parse fails discovery without
+// awaiting LM Studio's native probes (NeoPi's Promise.all rejects first),
+// which here never answer until their request is cancelled.
 func TestLmStudioUnusableListingSkipsNativeProbes(t *testing.T) {
-	for name, listing := range map[string]string{"malformed": `{"data":[`, "null": `null`, "no entries": `{"object":"list"}`} {
+	for name, listing := range map[string]struct {
+		status int
+		body   string
+	}{"malformed": {http.StatusOK, `{"data":[`}, "refused": {http.StatusServiceUnavailable, `{"error":"x"}`}} {
 		t.Run(name, func(t *testing.T) {
 			// release frees a still-blocked probe so a failing run ends at
 			// its guard instead of in server.Close.
@@ -30,7 +34,8 @@ func TestLmStudioUnusableListingSkipsNativeProbes(t *testing.T) {
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(listing))
+				w.WriteHeader(listing.status)
+				_, _ = w.Write([]byte(listing.body))
 			}))
 			defer server.Close()
 			defer close(release)

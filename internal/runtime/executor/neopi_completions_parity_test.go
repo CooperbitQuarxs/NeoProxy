@@ -32,7 +32,8 @@ type neoPiCompletionsCapture struct {
 	// Env is the environment NeoPi's provider transport read while capturing
 	// (Snowflake's SNOWFLAKE_ACCOUNT).
 	Env map[string]string `json:"env"`
-	// LmStudioV0 and LmStudioV1 are LM Studio's native metadata answers.
+	// LmStudioV0 and LmStudioV1 are LM Studio's native metadata answers,
+	// which NeoPi's runtime discovery read beside the listing.
 	LmStudioV0 string `json:"lmStudioV0"`
 	LmStudioV1 string `json:"lmStudioV1"`
 	Fixtures   []struct {
@@ -160,8 +161,20 @@ func neoPiCapturedListingRows(t *testing.T, capture neoPiCompletionsCapture) map
 		})
 	case capture.ModelsDev != "":
 		infos, err = registry.NeoPiSiliconFlowListing(capture.Provider, base, []byte(capture.Listing), []byte(capture.ModelsDev))
-	case capture.LmStudioV0 != "" || capture.LmStudioV1 != "":
-		infos, err = registry.NeoPiLmStudioListing(base, []byte(capture.Listing), []byte(capture.LmStudioV0), []byte(capture.LmStudioV1))
+	case capture.Provider == "lm-studio":
+		// NeoPi's runtime discovery read the listing beside LM Studio's
+		// native answers.
+		infos, err = registry.NeoPiLmStudioRuntimeListing(context.Background(), base, func(_ context.Context, endpoint string, _ bool) (int, []byte, error) {
+			switch {
+			case strings.HasSuffix(endpoint, "/api/v0/models"):
+				return 200, []byte(capture.LmStudioV0), nil
+			case strings.HasSuffix(endpoint, "/api/v1/models"):
+				return 200, []byte(capture.LmStudioV1), nil
+			case strings.HasSuffix(endpoint, "/v1/models"):
+				return 200, []byte(capture.Listing), nil
+			}
+			return 404, []byte("not found"), nil
+		})
 	}
 	if err != nil {
 		t.Fatalf("listing: %v", err)
