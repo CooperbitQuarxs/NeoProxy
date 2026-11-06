@@ -111,11 +111,12 @@ func TestLiteLLMReplaysNeoPiResponsesRequests(t *testing.T) {
 	}
 }
 
-// A LiteLLM Chat Completions request labels its session with the
-// conversation id NeoPi's options.sessionId carries (as the Responses lane
-// does), not the prompt cache identity; without a conversation id it falls
-// back to the request's stable session, as the Responses lane does.
-func TestLiteLLMCompletionsSessionHeaderIsConversationID(t *testing.T) {
+// A LiteLLM Chat Completions request labels its session as NeoPi's gateway
+// does (auth-gateway/server.ts buildStreamOptions: options.sessionId is the
+// prompt cache key, the client's prompt_cache_key else an id derived for the
+// conversation): a client cache key wins over the conversation's own id, and
+// a request without one still carries its stable session.
+func TestLiteLLMCompletionsSessionHeaderIsGatewaySession(t *testing.T) {
 	var sent http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sent = r.Header.Clone()
@@ -134,23 +135,29 @@ func TestLiteLLMCompletionsSessionHeaderIsConversationID(t *testing.T) {
 	}
 	exec := NewNeoPiCompletionsExecutor(registry.NeoPiLiteLLMProvider, &config.Config{}, NeoPiCompletionsProfile{})
 	auth := &cliproxyauth.Auth{ID: "litellm-session", Provider: registry.NeoPiLiteLLMProvider, Attributes: map[string]string{"api_key": "sk-test"}}
-	payload := []byte(`{"model":"claude-opus-5-5","prompt_cache_key":"shared-cache","messages":[{"role":"user","content":"hi"}]}`)
 	for _, tc := range []struct {
-		name, session, want string
-	}{{"conversation", "conv-123", "conv-123"}, {"no conversation", "", "shared-cache"}} {
+		name, payload string
+		cacheKey      bool
+	}{
+		{"client cache key", `{"model":"claude-opus-5-5","prompt_cache_key":"shared-cache","messages":[{"role":"user","content":"hi"}]}`, true},
+		{"no cache key", `{"model":"claude-opus-5-5","messages":[{"role":"user","content":"hi"}]}`, false},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
+			req := cliproxyexecutor.Request{Model: "claude-opus-5-5", Payload: []byte(tc.payload),
+				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": infos[0]}}
+			opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, OriginalRequest: []byte(tc.payload),
+				Metadata: map[string]any{cliproxyexecutor.ExecutionSessionMetadataKey: "conv-123"}}
+			want := "shared-cache"
+			if !tc.cacheKey {
+				want = exec.sessionID(req, opts)
+			}
 			sent = nil
-			_, _ = exec.Execute(context.Background(), auth, cliproxyexecutor.Request{
-				Model:    "claude-opus-5-5",
-				Payload:  payload,
-				Metadata: map[string]any{"cliproxy.resolved_oauth_model_info": infos[0]},
-			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, OriginalRequest: payload,
-				Metadata: map[string]any{cliproxyexecutor.ExecutionSessionMetadataKey: tc.session}})
+			_, _ = exec.Execute(context.Background(), auth, req, opts)
 			if sent == nil {
 				t.Fatal("executor sent no request")
 			}
-			if got := sent.Get("X-Litellm-Session-Id"); got != tc.want {
-				t.Fatalf("x-litellm-session-id = %q, want %q", got, tc.want)
+			if got := sent.Get("X-Litellm-Session-Id"); got == "" || got != want {
+				t.Fatalf("x-litellm-session-id = %q, want %q", got, want)
 			}
 		})
 	}

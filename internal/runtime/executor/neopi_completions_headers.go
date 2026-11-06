@@ -20,10 +20,8 @@ const neoPiCompletionsDefaultIdleTimeoutMs = 300_000
 // neoPiCompletionsHeaders is the OpenAI client's request headers as NeoPi sends
 // them for a Chat Completions row: the account's configured headers first,
 // then the ones NeoPi's client enforces. sessionID is NeoPi's
-// promptCacheSessionId, which ClinePass carries as its task id;
-// conversationID is its options.sessionId, which the row's session header
-// carries.
-func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID, conversationID string) http.Header {
+// promptCacheSessionId, which ClinePass carries as its task id.
+func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incoming http.Header, key string, row *registry.NeoPiModel, sessionID string) http.Header {
 	headers := make(http.Header)
 	if auth != nil {
 		request := (&http.Request{Header: headers}).WithContext(ctx)
@@ -42,7 +40,7 @@ func neoPiCompletionsHeaders(ctx context.Context, auth *cliproxyauth.Auth, incom
 			neoPiApplyCoreWeaveProjectHeader(headers, os.Getenv)
 		}
 		if row.CompletionsCompat != nil {
-			neoPiApplySessionHeader(headers, row.CompletionsCompat.SessionHeader, conversationID)
+			neoPiApplySessionHeader(headers, row.CompletionsCompat.SessionHeader, sessionID)
 		}
 	}
 	headers.Set("Accept", "text/event-stream")
