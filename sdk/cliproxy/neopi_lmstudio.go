@@ -21,16 +21,12 @@ import (
 // the probes with deadlines; NeoProxy sets none after the connection is
 // established.
 func fetchNeoPiLmStudioModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key string) ([]*ModelInfo, error) {
-	// A failed listing returns without awaiting the native probes; the
-	// deferred cancel abandons them.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	var configured string
 	if auth != nil {
 		configured = strings.TrimSpace(auth.Attributes["base_url"])
 	}
 	base := registry.NeoPiLmStudioBaseURL(configured, os.Getenv)
-	return registry.NeoPiLmStudioRuntimeListing(base, func(endpoint string, native bool) (int, []byte, error) {
+	return registry.NeoPiLmStudioRuntimeListing(ctx, base, func(ctx context.Context, endpoint string, native bool) (int, []byte, error) {
 		header := http.Header{}
 		if native {
 			header.Set("Accept", "application/json")

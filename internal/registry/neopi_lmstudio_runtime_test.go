@@ -3,6 +3,7 @@ package registry
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // The port discovers each captured LM Studio server as NeoPi's runtime does
@@ -69,7 +71,7 @@ func TestNeoPiLmStudioRuntimeMatchesNeoPi(t *testing.T) {
 			var mu sync.Mutex
 			var asked []string
 			base := NeoPiLmStudioBaseURL(result.BaseURL, noEnv)
-			got, err := NeoPiLmStudioRuntimeListing(base, func(endpoint string, _ bool) (int, []byte, error) {
+			got, err := NeoPiLmStudioRuntimeListing(t.Context(), base, func(_ context.Context, endpoint string, _ bool) (int, []byte, error) {
 				parsed, errParse := url.Parse(endpoint)
 				if errParse != nil || parsed.Scheme == "" || parsed.Host == "" {
 					// fetch rejects a URL that does not parse before sending.
@@ -160,5 +162,51 @@ func TestNeoPiLmStudioRuntimeMatchesNeoPi(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// discoverOpenAIModelsList awaits /models and the native probes with
+// Promise.all, which rejects as soon as /models fails: the listing reports the
+// failure without waiting for a native probe that never answers, and the
+// probes it abandons are cancelled before it returns.
+func TestNeoPiLmStudioListingFailureCancelsNatives(t *testing.T) {
+	var cancelled [2]chan struct{}
+	for i := range cancelled {
+		cancelled[i] = make(chan struct{})
+	}
+	do := func(ctx context.Context, endpoint string, native bool) (int, []byte, error) {
+		switch {
+		case !native:
+			return 401, nil, nil
+		case strings.HasSuffix(endpoint, "/api/v0/models"):
+			<-ctx.Done()
+			close(cancelled[0])
+		default:
+			<-ctx.Done()
+			close(cancelled[1])
+		}
+		return 0, nil, ctx.Err()
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := NeoPiLmStudioRuntimeListing(t.Context(), "http://127.0.0.1:1234/v1", do)
+		done <- err
+	}()
+	var err error
+	select {
+	case err = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("discovery waited on a native probe after /models failed")
+	}
+	var httpErr *neoPiLmStudioHTTPError
+	if !errors.As(err, &httpErr) || httpErr.status != 401 {
+		t.Fatalf("err = %v; want the /models HTTP 401", err)
+	}
+	for i, ch := range cancelled {
+		select {
+		case <-ch:
+		default:
+			t.Errorf("native probe %d still running when the listing returned", i)
+		}
 	}
 }

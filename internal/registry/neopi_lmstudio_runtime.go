@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -33,10 +34,10 @@ const (
 // neoPiAdvertisedEfforts is ADVERTISED_REASONING_EFFORTS, least to most.
 var neoPiAdvertisedEfforts = []string{"low", "medium", "high", "xhigh", "max"}
 
-// NeoPiLmStudioRequest performs one discovery GET with the given headers
-// (the key as a bearer when the account holds a real one; Accept on the
-// native requests): the status and body, or a transport error.
-type NeoPiLmStudioRequest func(endpoint string, native bool) (status int, data []byte, err error)
+// NeoPiLmStudioRequest performs one discovery GET under ctx with the given
+// headers (the key as a bearer when the account holds a real one; Accept on
+// the native requests): the status and body, or a transport error.
+type NeoPiLmStudioRequest func(ctx context.Context, endpoint string, native bool) (status int, data []byte, err error)
 
 // neoPiLmStudioHTTPError is DiscoveryHttpError: /models answered with a
 // failure status.
@@ -74,44 +75,44 @@ func NeoPiLmStudioBaseURL(configured string, getenv func(string) string) string 
 
 // NeoPiLmStudioRuntimeListing discovers an LM Studio server at base (already
 // NeoPiLmStudioBaseURL) as NeoPi's runtime does. A failed or unreadable
-// /models listing is ErrNeoPiListing, returned without waiting for the
-// native probes (Promise.all rejects first; the caller cancels them); an
-// empty listing is a NeoPiEmptyListing.
-func NeoPiLmStudioRuntimeListing(base string, do NeoPiLmStudioRequest) ([]*ModelInfo, error) {
-	var payload gjson.Result
-	var listErr error
-	var v0, v1 []byte
-	listed := make(chan struct{})
-	go func() {
-		defer close(listed)
-		endpoint := base + "/models"
-		status, data, err := do(endpoint, false)
-		switch {
-		case err != nil:
-			listErr = err
-		case status < 200 || status > 299:
-			listErr = &neoPiLmStudioHTTPError{status: status, endpoint: endpoint}
-		case !gjson.ValidBytes(data):
-			listErr = errors.New("unreadable /models answer")
-		default:
-			payload = gjson.ParseBytes(data)
-		}
-	}()
+// /models listing is ErrNeoPiListing; like Promise.all it does not wait for
+// the native probes to answer: once dispatched they are cancelled (no
+// deadline is involved) and return promptly. An empty listing is a
+// NeoPiEmptyListing.
+func NeoPiLmStudioRuntimeListing(ctx context.Context, base string, do NeoPiLmStudioRequest) ([]*ModelInfo, error) {
+	nativeCtx, cancelNatives := context.WithCancel(ctx)
+	defer cancelNatives()
 	native := NeoPiLmStudioNativeBaseURL(base)
-	var natives sync.WaitGroup
+	var v0, v1 []byte
+	var dispatched, natives sync.WaitGroup
+	dispatched.Add(2)
 	natives.Add(2)
 	nativeBody := func(path string, into *[]byte) {
 		defer natives.Done()
-		if status, data, err := do(native+path, true); err == nil && status >= 200 && status <= 299 {
+		dispatched.Done()
+		if status, data, err := do(nativeCtx, native+path, true); err == nil && status >= 200 && status <= 299 {
 			*into = data
 		}
 	}
 	go nativeBody("/api/v0/models", &v0)
 	go nativeBody("/api/v1/models", &v1)
-	<-listed
-	if listErr != nil {
-		return nil, fmt.Errorf("%w: lm-studio: %w", ErrNeoPiListing, listErr)
+	fail := func(err error) ([]*ModelInfo, error) {
+		dispatched.Wait()
+		cancelNatives()
+		natives.Wait()
+		return nil, fmt.Errorf("%w: lm-studio: %w", ErrNeoPiListing, err)
 	}
+	endpoint := base + "/models"
+	status, data, err := do(ctx, endpoint, false)
+	switch {
+	case err != nil:
+		return fail(err)
+	case status < 200 || status > 299:
+		return fail(&neoPiLmStudioHTTPError{status: status, endpoint: endpoint})
+	case !gjson.ValidBytes(data):
+		return fail(errors.New("unreadable /models answer"))
+	}
+	payload := gjson.ParseBytes(data)
 	natives.Wait()
 	if payload.Type == gjson.Null {
 		// payload.data on null throws.

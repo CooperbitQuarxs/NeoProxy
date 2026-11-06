@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -11,7 +12,7 @@ import (
 func TestLmStudioDecisionThinkingPairStaysOutOfChat(t *testing.T) {
 	listing := `{"object":"list","data":[{"id":"zz-local","object":"model"},{"id":"zz-local-thinking","object":"model"},{"id":"zz-chat","object":"model"}]}`
 	v1 := `{"models":[{"key":"zz-local","type":"decision","loaded_instances":[{"id":"zz-local-thinking"}]}]}`
-	models, err := NeoPiLmStudioRuntimeListing("http://127.0.0.1:1234/v1", func(endpoint string, _ bool) (int, []byte, error) {
+	models, err := NeoPiLmStudioRuntimeListing(t.Context(), "http://127.0.0.1:1234/v1", func(_ context.Context, endpoint string, _ bool) (int, []byte, error) {
 		switch {
 		case strings.HasSuffix(endpoint, "/v1/models") && !strings.Contains(endpoint, "/api/"):
 			return 200, []byte(listing), nil

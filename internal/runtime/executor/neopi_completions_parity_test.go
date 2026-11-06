@@ -164,7 +164,7 @@ func neoPiCapturedListingRows(t *testing.T, capture neoPiCompletionsCapture) map
 	case capture.Provider == "lm-studio":
 		// NeoPi's runtime discovery read the listing beside LM Studio's
 		// native answers.
-		infos, err = registry.NeoPiLmStudioRuntimeListing(base, func(endpoint string, _ bool) (int, []byte, error) {
+		infos, err = registry.NeoPiLmStudioRuntimeListing(context.Background(), base, func(_ context.Context, endpoint string, _ bool) (int, []byte, error) {
 			switch {
 			case strings.HasSuffix(endpoint, "/api/v0/models"):
 				return 200, []byte(capture.LmStudioV0), nil
