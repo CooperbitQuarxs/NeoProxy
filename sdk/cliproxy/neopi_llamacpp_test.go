@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -15,9 +16,9 @@ import (
 
 // The real discovery fetch for a llama.cpp account asks llama-server's
 // /models beside its /props, both with the account's key as a bearer, and
-// with none when the account holds only NeoPi's keyless marker
-// (isDiscoveryBearerApiKey). A vLLM account holding its own marker likewise
-// lists without one.
+// with none when the account holds NeoPi's no-auth key or any local login's
+// keyless marker (isDiscoveryBearerApiKey). A vLLM account holding its own
+// marker likewise lists without one.
 func TestNeoPiLocalServerDiscoveryBearer(t *testing.T) {
 	var mu sync.Mutex
 	var got []string
@@ -41,6 +42,8 @@ func TestNeoPiLocalServerDiscoveryBearer(t *testing.T) {
 	}{
 		{registry.NeoPiLlamaCppProvider, "sk-llama", server.URL, []string{"/models Bearer sk-llama", "/props Bearer sk-llama"}},
 		{registry.NeoPiLlamaCppProvider, registry.NeoPiLlamaCppKeylessMarker, server.URL, []string{"/models ", "/props "}},
+		{registry.NeoPiLlamaCppProvider, "N/A", server.URL, []string{"/models ", "/props "}},
+		{registry.NeoPiLlamaCppProvider, "vllm-local", server.URL, []string{"/models ", "/props "}},
 		{"vllm", "vllm-local", server.URL + "/v1", []string{"/v1/models "}},
 	} {
 		got = nil
@@ -62,5 +65,32 @@ func TestNeoPiLocalServerDiscoveryBearer(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+// A server that answers /models with a failure status has rejected the
+// request even when its error body is cut short: NeoPi checks response.ok
+// before reading, so discovery reports the HTTP failure (which ends it, with
+// no fallback) rather than an unreadable answer.
+func TestNeoPiLlamaCppAnsweredFailureKeepsStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			_, _ = w.Write([]byte(`{"default_generation_settings":{"n_ctx":8192}}`))
+			return
+		}
+		conn, buf, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		_, _ = buf.WriteString("HTTP/1.1 401 Unauthorized\r\nContent-Length: 100\r\n\r\nno")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+	defer server.Close()
+	auth := &coreauth.Auth{ID: "llama", Provider: registry.NeoPiLlamaCppProvider, Attributes: map[string]string{"api_key": "sk-llama", "base_url": server.URL}}
+	_, err := fetchNeoPiCompletionsModels(registry.NeoPiLlamaCppProvider)(context.Background(), &config.Config{}, auth)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 401 from") {
+		t.Fatalf("err = %v; want the server's HTTP 401", err)
 	}
 }

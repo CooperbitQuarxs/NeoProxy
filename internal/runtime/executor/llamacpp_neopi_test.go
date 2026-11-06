@@ -38,7 +38,7 @@ func TestLlamaCppReplaysNeoPiRequests(t *testing.T) {
 	defer server.Close()
 	for _, wire := range []string{"openai-completions", "openai-responses"} {
 		capture := loadGitHubCopilotCapture(t, "testdata/neopi_llama.cpp/"+wire+".json.gz")
-		infos, err := registry.NeoPiLlamaCppListing([]string{"http://127.0.0.1:8080"}, func(endpoint string) (int, []byte, error) {
+		infos, err := registry.NeoPiLlamaCppListing(context.Background(), []string{"http://127.0.0.1:8080"}, func(_ context.Context, endpoint string) (int, []byte, error) {
 			switch {
 			case strings.HasSuffix(endpoint, "/models"):
 				return 200, []byte(capture.Listing), nil

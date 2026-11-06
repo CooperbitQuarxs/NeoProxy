@@ -228,9 +228,9 @@ func neoPiCompletionsDiscoveryAccount(provider string, auth *coreauth.Auth) (key
 		}
 		base = strings.TrimSpace(auth.Attributes["base_url"])
 	}
-	if neopikeys.Keyless(provider, key) {
-		// isDiscoveryBearerApiKey: a local server's keyless marker is never a
-		// bearer.
+	if !neopikeys.DiscoveryBearer(key) {
+		// isDiscoveryBearerApiKey: NeoPi's no-auth key and any local login's
+		// keyless marker are never a discovery bearer.
 		key = ""
 	}
 	if key == "" && !registry.NeoPiCompletionsDiscoversWithoutKey(provider) {
@@ -509,8 +509,11 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 
 // neoPiDiscoveryDo sends a discovery request (method, with body when it is
 // not nil) with header, under the runtime's User-Agent unless header names
-// one, and returns the answer's status and body. The named credential
-// headers are dropped from any redirect hop that leaves the endpoint's origin.
+// one, and returns the answer's status and body. A failure status returns
+// without its body, as NeoPi checks response.ok before reading: the server's
+// verdict stands even when its error body is cut short or never ends. The
+// named credential headers are dropped from any redirect hop that leaves the
+// endpoint's origin.
 func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, method, endpoint string, header http.Header, body []byte, credentialHeaders ...string) (int, []byte, error) {
 	var payload io.Reader
 	if body != nil {
@@ -529,6 +532,9 @@ func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Au
 		return 0, nil, fmt.Errorf("%s models: %w", provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return resp.StatusCode, nil, nil
+	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, neoPiDiscoveryBodyLimit))
 	if err != nil {
 		return 0, nil, fmt.Errorf("%s models: read %s: %w", provider, endpoint, err)

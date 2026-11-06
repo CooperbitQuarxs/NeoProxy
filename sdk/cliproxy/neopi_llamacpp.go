@@ -25,7 +25,7 @@ func fetchNeoPiLlamaCppModels(ctx context.Context, cfg *config.Config, auth *cor
 		configured = strings.TrimSpace(auth.Attributes["base_url"])
 	}
 	bases := registry.NeoPiLlamaCppBases(configured, os.Getenv)
-	return registry.NeoPiLlamaCppListing(bases, func(endpoint string) (int, []byte, error) {
+	return registry.NeoPiLlamaCppListing(ctx, bases, func(ctx context.Context, endpoint string) (int, []byte, error) {
 		header := http.Header{}
 		if key != "" {
 			header.Set("Authorization", "Bearer "+key)

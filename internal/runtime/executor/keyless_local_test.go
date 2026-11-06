@@ -45,7 +45,7 @@ func TestKeylessLocalServersSendNoAuthorization(t *testing.T) {
 				return 404, nil, nil
 			})
 		case registry.NeoPiLlamaCppProvider:
-			infos, err = registry.NeoPiLlamaCppListing([]string{"http://127.0.0.1:8080"}, func(endpoint string) (int, []byte, error) {
+			infos, err = registry.NeoPiLlamaCppListing(context.Background(), []string{"http://127.0.0.1:8080"}, func(_ context.Context, endpoint string) (int, []byte, error) {
 				if strings.HasSuffix(endpoint, "/models") {
 					return 200, []byte(`{"data":[{"id":"Qwen3-8B-Q4_K_M"},{"id":"Llama-3.2-3B"}]}`), nil
 				}

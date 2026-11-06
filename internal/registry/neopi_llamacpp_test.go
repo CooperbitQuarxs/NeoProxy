@@ -3,6 +3,7 @@ package registry
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 )
 
 // The port discovers each captured llama.cpp server as NeoPi's runtime does
@@ -69,7 +71,7 @@ func TestNeoPiLlamaCppDiscoveryMatchesNeoPi(t *testing.T) {
 			var mu sync.Mutex
 			var asked []string
 			bases := append([]string{result.BaseURL}, result.FallbackBaseURLs...)
-			got, err := NeoPiLlamaCppListing(bases, func(endpoint string) (int, []byte, error) {
+			got, err := NeoPiLlamaCppListing(t.Context(), bases, func(_ context.Context, endpoint string) (int, []byte, error) {
 				parsed, errParse := url.Parse(endpoint)
 				if errParse != nil || parsed.Scheme == "" || parsed.Host == "" {
 					// fetch rejects a URL that does not parse before sending.
@@ -151,5 +153,85 @@ func TestNeoPiLlamaCppDiscoveryMatchesNeoPi(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// discoverLlamaCppModelsAt awaits /models and /props with Promise.all, which
+// rejects as soon as /models fails: a /props that never answers neither holds
+// back the /models rejection nor keeps an unreachable server from yielding to
+// its fallback. The abandoned /props request is cancelled.
+func TestNeoPiLlamaCppModelsFailureDoesNotWaitForProps(t *testing.T) {
+	roster := []byte(`{"data":[{"id":"Qwen3-8B-Q4_K_M"}]}`)
+	cases := []struct {
+		name      string
+		primary   func() (int, []byte, error)
+		wantHTTP  bool
+		wantModel bool
+	}{
+		{name: "HTTP failure ends discovery", primary: func() (int, []byte, error) { return 401, nil, nil }, wantHTTP: true},
+		{name: "transport failure moves on", primary: func() (int, []byte, error) { return 0, nil, errors.New("connection refused") }, wantModel: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cancelled := make(chan struct{})
+			do := func(ctx context.Context, endpoint string) (int, []byte, error) {
+				switch endpoint {
+				case "http://primary.test/models":
+					return tc.primary()
+				case "http://primary.test/props":
+					<-ctx.Done()
+					close(cancelled)
+					return 0, nil, ctx.Err()
+				case "http://fallback.test/models":
+					return 200, roster, nil
+				}
+				return 404, nil, nil
+			}
+			type outcome struct {
+				models []*ModelInfo
+				err    error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				models, err := NeoPiLlamaCppListing(t.Context(), []string{"http://primary.test", "http://fallback.test"}, do)
+				done <- outcome{models, err}
+			}()
+			var got outcome
+			select {
+			case got = <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("discovery waited on the primary's /props after its /models failed")
+			}
+			var httpErr *neoPiLlamaCppHTTPError
+			if isHTTP := errors.As(got.err, &httpErr); isHTTP != tc.wantHTTP {
+				t.Fatalf("err = %v; want HTTP failure %v", got.err, tc.wantHTTP)
+			}
+			if tc.wantModel && (got.err != nil || len(got.models) != 1) {
+				t.Fatalf("fallback listing = %v, %v; want its one model", got.models, got.err)
+			}
+			select {
+			case <-cancelled:
+			case <-time.After(10 * time.Second):
+				t.Fatal("the abandoned /props request was not cancelled")
+			}
+		})
+	}
+}
+
+// normalizeLlamaCppBaseUrl reads the base with new URL, which maps an IDNA
+// host to its ASCII form (expected values from Bun's URL).
+func TestNeoPiLlamaCppBaseURLIDNA(t *testing.T) {
+	for input, want := range map[string]string{
+		"http://münchen.local:8080/v1/":    "http://xn--mnchen-3ya.local:8080/v1",
+		"http://MÜNCHEN.local/v1":          "http://xn--mnchen-3ya.local/v1",
+		"http://bücher.example:80/":        "http://xn--bcher-kva.example",
+		"http://xn--mnchen-3ya.local/v1//": "http://xn--mnchen-3ya.local/v1",
+	} {
+		if got := NeoPiLlamaCppBaseURL(input); got != want {
+			t.Errorf("NeoPiLlamaCppBaseURL(%q) = %q, want %q", input, got, want)
+		}
+	}
+	if got := neoPiLlamaCppNativeBase(NeoPiLlamaCppBaseURL("http://münchen.local:8080/v1/")); got != "http://xn--mnchen-3ya.local:8080" {
+		t.Errorf("native base %q, want http://xn--mnchen-3ya.local:8080", got)
 	}
 }

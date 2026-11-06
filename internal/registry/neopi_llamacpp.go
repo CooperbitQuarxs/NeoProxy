@@ -1,11 +1,11 @@
 package registry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
-	"sync"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopicompat"
 	"github.com/tidwall/gjson"
@@ -35,9 +35,10 @@ var neoPiLlamaCppDefaultBases = []string{"http://127.0.0.1:8080", "http://127.0.
 // neoPiLlamaCppIniCtx is extractLlamaCppCtxSizeFromIni's pattern.
 var neoPiLlamaCppIniCtx = regexp.MustCompile(`(?:^|\n)\s*ctx-size\s*=\s*(-?\d+)\s*(?:$|\n)`)
 
-// NeoPiLlamaCppRequest performs one discovery GET (the account's key as a
-// bearer when it holds a real one): the status and body, or a transport error.
-type NeoPiLlamaCppRequest func(endpoint string) (status int, data []byte, err error)
+// NeoPiLlamaCppRequest performs one discovery GET under ctx (the account's key
+// as a bearer when it holds a real one): the status and body, or a transport
+// error.
+type NeoPiLlamaCppRequest func(ctx context.Context, endpoint string) (status int, data []byte, err error)
 
 // neoPiLlamaCppHTTPError is DiscoveryHttpError: the server answered /models
 // with a failure status, which ends discovery without trying another server.
@@ -124,11 +125,11 @@ type neoPiLlamaCppServer struct {
 // defines the roster. A server that answers /models with a failure status
 // ends discovery; only an unreachable or unreadable one moves on to the
 // next. Failure is ErrNeoPiListing; an empty roster is a NeoPiEmptyListing.
-func NeoPiLlamaCppListing(bases []string, do NeoPiLlamaCppRequest) ([]*ModelInfo, error) {
+func NeoPiLlamaCppListing(ctx context.Context, bases []string, do NeoPiLlamaCppRequest) ([]*ModelInfo, error) {
 	var primary error
 	for i, base := range bases {
 		normalized := NeoPiLlamaCppBaseURL(base)
-		specs, err := neoPiLlamaCppAt(normalized, do)
+		specs, err := neoPiLlamaCppAt(ctx, normalized, do)
 		if err == nil {
 			return neoPiMergeListing(NeoPiLlamaCppProvider, NeoPiLlamaCppV1BaseURL(normalized), specs, false)
 		}
@@ -143,36 +144,39 @@ func NeoPiLlamaCppListing(bases []string, do NeoPiLlamaCppRequest) ([]*ModelInfo
 }
 
 // neoPiLlamaCppAt is discoverLlamaCppModelsAt for a normalized base: /models
-// and /props fetched together, each entry mapped to its row.
-func neoPiLlamaCppAt(base string, do NeoPiLlamaCppRequest) ([]neoPiSpec, error) {
-	var payload gjson.Result
-	var listErr error
-	var server *neoPiLlamaCppServer
-	var wg sync.WaitGroup
-	wg.Add(2)
+// and /props fetched together, each entry mapped to its row. Like its
+// Promise.all, both requests are sent and a failed /models ends the attempt
+// without waiting for /props to answer: once dispatched, the /props request
+// is cancelled (no deadline is involved) and returns promptly.
+func neoPiLlamaCppAt(ctx context.Context, base string, do NeoPiLlamaCppRequest) ([]neoPiSpec, error) {
+	propsCtx, cancelProps := context.WithCancel(ctx)
+	defer cancelProps()
+	props := make(chan *neoPiLlamaCppServer, 1)
+	dispatched := make(chan struct{})
 	go func() {
-		defer wg.Done()
-		endpoint := base + "/models"
-		status, data, err := do(endpoint)
-		switch {
-		case err != nil:
-			listErr = err
-		case status < 200 || status > 299:
-			listErr = &neoPiLlamaCppHTTPError{status: status, endpoint: endpoint}
-		case !gjson.ValidBytes(data):
-			listErr = errors.New("unreadable /models answer")
-		default:
-			payload = gjson.ParseBytes(data)
-		}
+		props <- neoPiLlamaCppFetchServer(propsCtx, base, func(ctx context.Context, endpoint string) (int, []byte, error) {
+			close(dispatched)
+			return do(ctx, endpoint)
+		})
 	}()
-	go func() {
-		defer wg.Done()
-		server = neoPiLlamaCppFetchServer(base, do)
-	}()
-	wg.Wait()
-	if listErr != nil {
-		return nil, listErr
+	fail := func(err error) ([]neoPiSpec, error) {
+		<-dispatched
+		cancelProps()
+		<-props
+		return nil, err
 	}
+	endpoint := base + "/models"
+	status, data, err := do(ctx, endpoint)
+	switch {
+	case err != nil:
+		return fail(err)
+	case status < 200 || status > 299:
+		return fail(&neoPiLlamaCppHTTPError{status: status, endpoint: endpoint})
+	case !gjson.ValidBytes(data):
+		return fail(errors.New("unreadable /models answer"))
+	}
+	payload := gjson.ParseBytes(data)
+	server := <-props
 	v1 := NeoPiLlamaCppV1BaseURL(base)
 	var specs []neoPiSpec
 	for _, entry := range neoPiLlamaCppEntries(payload) {
@@ -296,8 +300,8 @@ func neoPiLlamaCppArgsCtx(args gjson.Result) float64 {
 
 // neoPiLlamaCppFetchServer is discoverLlamaCppServerMetadata: GET /props at
 // the native base; nil when it does not answer with a JSON object.
-func neoPiLlamaCppFetchServer(base string, do NeoPiLlamaCppRequest) *neoPiLlamaCppServer {
-	status, data, err := do(neoPiLlamaCppNativeBase(base) + "/props")
+func neoPiLlamaCppFetchServer(ctx context.Context, base string, do NeoPiLlamaCppRequest) *neoPiLlamaCppServer {
+	status, data, err := do(ctx, neoPiLlamaCppNativeBase(base)+"/props")
 	if err != nil || status < 200 || status > 299 || !gjson.ValidBytes(data) {
 		return nil
 	}

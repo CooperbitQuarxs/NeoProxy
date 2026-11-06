@@ -127,6 +127,26 @@ func Keyless(provider, key string) bool {
 	return key == "" || key == *login.EmptyFallback
 }
 
+// localPlaceholders is LOCAL_PROVIDER_PLACEHOLDERS: every api-key login's
+// empty-answer marker.
+var localPlaceholders = func() map[string]bool {
+	out := map[string]bool{}
+	for _, login := range logins {
+		if login.EmptyFallback != nil {
+			out[*login.EmptyFallback] = true
+		}
+	}
+	return out
+}()
+
+// DiscoveryBearer is isDiscoveryBearerApiKey: whether model discovery sends
+// key as a bearer. NeoPi's no-auth key (kNoAuth) and every local login's
+// marker are excluded, whichever provider holds them; requests are Keyless's
+// concern.
+func DiscoveryBearer(key string) bool {
+	return key != "" && key != openaiwire.NoAuthSentinel && !localPlaceholders[key]
+}
+
 // The Alibaba Coding Plan sign-in's International and China endpoints, and
 // the model its chat probe asks for.
 const (
