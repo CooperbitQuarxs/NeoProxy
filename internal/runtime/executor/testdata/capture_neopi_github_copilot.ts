@@ -1,5 +1,6 @@
 // Runs NeoPi's OWN streamSimple over every bundled model of a routed host
-// (NEOPI_PROVIDER: github-copilot, the default, or commandcode; each row on
+// (NEOPI_PROVIDER: github-copilot, the default, commandcode, or litellm, whose
+// rows NeoPi's own manager discovers from a scripted proxy; each row on
 // its own API) against a loopback capture server only; the key is fake and
 // no request can reach the host. Each scenario is recorded beside the
 // downstream request a client sends NeoProxy for it, in the format the
@@ -11,7 +12,8 @@
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     NEOPI_PROVIDER=github-copilot COPILOT_APIS=anthropic-messages,openai-completions,openai-responses \
 //     bun --preserve-symlinks capture_neopi_github_copilot.ts
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = process.env.NEOPI_SOURCE_MODULES;
@@ -19,11 +21,13 @@ if (!root) throw new Error("NEOPI_SOURCE_MODULES is required");
 const wires = (process.env.COPILOT_APIS ?? "anthropic-messages,openai-completions,openai-responses").split(",").filter(Boolean);
 const provider = process.env.NEOPI_PROVIDER ?? "github-copilot";
 // The host each provider's rows are served from, which the capture answers.
-const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai" };
+const origins: Record<string, string> = { "github-copilot": "https://api.githubcopilot.com", commandcode: "https://api.commandcode.ai", litellm: "http://localhost:4000" };
 const origin = origins[provider];
 if (!origin) throw new Error(`no capture origin for ${provider}`);
 const { streamSimple } = await import(root + "/pi-ai/src/stream.ts");
 const { getBundledModels } = await import(root + "/pi-catalog/src/models.ts");
+const { resolveProviderModels } = await import(root + "/pi-catalog/src/model-manager.ts");
+const { litellmModelManagerOptions } = await import(root + "/pi-catalog/src/provider-models/openai-compat.ts");
 // A Responses client reaches NeoPi through its server boundary, which keeps
 // each user item's native form for replay; the other wires' clients map onto
 // NeoPi's own messages.
@@ -31,8 +35,34 @@ const { parseRequest } = await import(root + "/pi-ai/src/providers/openai-respon
 
 // The bearer: a GitHub OAuth token used directly by Copilot, a Command Code
 // Provider API key.
-const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : "gho_capturefixturetoken0000000000000000";
+const apiKey = provider === "commandcode" ? "user_capturefixturekey00000000000000" : provider === "litellm" ? "sk-capture-litellm-key" : "gho_capturefixturetoken0000000000000000";
 const sessionId = `capture-session-${provider}-0001`;
+
+// LiteLLM bundles no rows: its groups come from the proxy's
+// /model_group/info (recorded as listing, with the models.dev catalog, so
+// NeoProxy discovers the same rows). OpenAI-backed groups run on Responses.
+const liteLLMListing = JSON.stringify({
+	data: [
+		{ model_group: "gpt-6-proxy", providers: ["openai"], mode: "chat", max_input_tokens: 400000, max_output_tokens: 128000, supports_vision: true, supports_reasoning: true, supported_openai_params: ["tools", "tool_choice", "reasoning_effort"] },
+		{ model_group: "o4-mini", mode: "chat", supports_vision: false, supports_reasoning: true },
+		{ model_group: "claude-opus-5-5", providers: ["anthropic"], mode: "chat", supports_vision: true },
+	],
+});
+const liteLLMModelsDev = JSON.stringify({ openai: { models: { "o4-mini": { name: "o4-mini", reasoning: true, tool_call: true, modalities: { input: ["text", "image"] }, cost: { input: 1.1, output: 4.4 }, limit: { context: 200000, output: 100000 } } } } });
+async function rowsFor(wire: string): Promise<any[]> {
+	if (provider !== "litellm") return getBundledModels(provider).filter((entry: any) => entry.api === wire);
+	const options = litellmModelManagerOptions({
+		apiKey,
+		fetch: async (input: any) => {
+			const url = new URL(typeof input === "string" ? input : input.url);
+			if (url.hostname === "catalog.stencil.so") return new Response(liteLLMModelsDev, { status: 200, headers: { "content-type": "application/json" } });
+			if (url.pathname === "/model_group/info") return new Response(liteLLMListing, { status: 200, headers: { "content-type": "application/json" } });
+			return new Response("not found", { status: 404 });
+		},
+	});
+	options.cacheDbPath = join(mkdtempSync(join(tmpdir(), "neopi-litellm-")), "litellm.db");
+	return (await resolveProviderModels(options, "online")).models.filter((entry: any) => entry.api === wire);
+}
 
 // Minimal successful streams per wire; the request is what is compared.
 const anthropicSse = [
@@ -209,7 +239,7 @@ mkdirSync(outDir, { recursive: true });
 try {
 	for (const wire of wires) {
 		currentWire = wire;
-		const registry = getBundledModels(provider).filter((entry: any) => entry.api === wire);
+		const registry = await rowsFor(wire);
 		const scenarios: any[] = [];
 		for (const model of registry) {
 			const efforts: string[] = model.thinking?.efforts ?? [];
@@ -261,7 +291,14 @@ try {
 			if (captured.length !== 1) throw new Error(`Capture ${scenario.name} saw ${captured.length} requests`);
 			fixtures.push({ name: scenario.name, model: scenario.model.id, options: scenario.options, downstream: scenario.downstream, requestedURL, ...captured[0] });
 		}
-		await Bun.write(join(outDir, `${wire}.json.gz`), Bun.gzipSync(JSON.stringify({ source: `NeoPi OWN streamSimple over bundled ${provider} ${wire} rows`, wire, apiKey, sessionId, fixtures })));
+		await Bun.write(join(outDir, `${wire}.json.gz`), Bun.gzipSync(JSON.stringify({
+			source: `NeoPi OWN streamSimple over ${provider === "litellm" ? "discovered" : "bundled"} ${provider} ${wire} rows`,
+			wire,
+			apiKey,
+			sessionId,
+			...(provider === "litellm" ? { listing: liteLLMListing, modelsDev: liteLLMModelsDev } : {}),
+			fixtures,
+		})));
 		console.log(`${wire}: ${registry.length} models, ${fixtures.length} fixtures`);
 	}
 } finally {

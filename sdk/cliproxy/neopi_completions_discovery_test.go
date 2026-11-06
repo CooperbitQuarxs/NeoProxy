@@ -63,6 +63,9 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			Requests []neoPiCapturedRequest `json:"requests"`
 			// Keyless results ran NeoPi's manager without a key.
 			Keyless bool `json:"keyless"`
+			// Paths answers a LiteLLM proxy by path and query; any other
+			// path answered 404.
+			Paths map[string]neoPiCapturedReply `json:"paths"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &capture); err != nil {
@@ -106,6 +109,19 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 				// LM Studio's native metadata answered 404 in these scenarios.
 				if result.Provider == "lm-studio" && (r.URL.Path == "/api/v0/models" || r.URL.Path == "/api/v1/models") {
 					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				if result.Paths != nil {
+					key := r.URL.Path
+					if r.URL.RawQuery != "" {
+						key += "?" + r.URL.RawQuery
+					}
+					reply, ok := result.Paths[key]
+					if !ok {
+						reply = neoPiCapturedReply{Status: http.StatusNotFound, Body: "not found"}
+					}
+					w.WriteHeader(reply.Status)
+					_, _ = w.Write([]byte(reply.Body))
 					return
 				}
 				reply := result.Replies[min(call, len(result.Replies)-1)]

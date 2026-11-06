@@ -2,6 +2,7 @@ package openaiwire
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
@@ -19,9 +20,28 @@ const NeoPiUserAgent = "npi/" + neopiversion.Version
 // validation and other side requests.
 const BunUserAgent = "Bun/1.3.14"
 
-// firstEventTimeoutSeconds preserves NeoPi's X-Stainless-Timeout header.
-// It is a server hint, not a locally enforced response deadline.
-const firstEventTimeoutSeconds = "300"
+// defaultStreamTimeoutMs is DEFAULT_STREAM_FIRST_EVENT_TIMEOUT_MS and
+// DEFAULT_STREAM_IDLE_TIMEOUT_MS: what each timeout is when the row's compat
+// leaves it out.
+const defaultStreamTimeoutMs = 300_000
+
+// firstEventTimeoutHeader is the X-Stainless-Timeout NeoPi announces for a
+// row (getOpenAIStreamFirstEventTimeoutMs): the larger of its first-event
+// and idle timeouts in seconds, or none when the first-event timeout is
+// disabled. It is a server hint, not a locally enforced response deadline.
+func firstEventTimeoutHeader(compat *registry.NeoPiCompat) string {
+	first, idle := defaultStreamTimeoutMs, defaultStreamTimeoutMs
+	if compat != nil && compat.StreamFirstEventTimeoutMs != nil {
+		first = *compat.StreamFirstEventTimeoutMs
+	}
+	if compat != nil && compat.StreamIdleTimeoutMs != nil {
+		idle = *compat.StreamIdleTimeoutMs
+	}
+	if first <= 0 {
+		return ""
+	}
+	return strconv.Itoa(max(first, idle) / 1000)
+}
 
 // Request is one shaped Responses POST.
 type Request struct {
@@ -46,8 +66,15 @@ func ShapeResponses(model *registry.NeoPiModel, ctx Context, opts Options, acces
 			header.Set(name, key)
 		}
 	}
+	// applySessionHeader: the literal conversation id under the row's session
+	// header (LiteLLM's x-litellm-session-id), unless already set.
+	if name := model.Compat.SessionHeader; name != "" && opts.SessionID != "" && len(header.Values(name)) == 0 {
+		header.Set(name, opts.SessionID)
+	}
 	header.Set("User-Agent", NeoPiUserAgent)
 	header.Set("Authorization", "Bearer "+accessToken)
-	header.Set("X-Stainless-Timeout", firstEventTimeoutSeconds)
+	if timeout := firstEventTimeoutHeader(model.Compat); timeout != "" {
+		header.Set("X-Stainless-Timeout", timeout)
+	}
 	return &Request{URL: baseURL + "/responses", Header: header, Body: BuildResponses(model, ctx, opts)}
 }

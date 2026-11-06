@@ -149,6 +149,15 @@ func neoPiCapturedListingRows(t *testing.T, capture neoPiCompletionsCapture) map
 	base := registry.NeoPiCompletionsListingBase(capture.Provider)
 	infos, err := registry.NeoPiCompletionsListing(capture.Provider, base, []byte(capture.Listing))
 	switch {
+	case capture.Provider == registry.NeoPiLiteLLMProvider:
+		// NeoPi's scripted proxy answered /model_group/info with the listing
+		// and 404 everywhere else.
+		infos, err = registry.NeoPiLiteLLMListing(base, []byte(capture.ModelsDev), func(endpoint string) (int, []byte, error) {
+			if strings.HasSuffix(endpoint, "/model_group/info") {
+				return 200, []byte(capture.Listing), nil
+			}
+			return 404, []byte("not found"), nil
+		})
 	case capture.ModelsDev != "":
 		infos, err = registry.NeoPiSiliconFlowListing(capture.Provider, base, []byte(capture.Listing), []byte(capture.ModelsDev))
 	case capture.LmStudioV0 != "" || capture.LmStudioV1 != "":
