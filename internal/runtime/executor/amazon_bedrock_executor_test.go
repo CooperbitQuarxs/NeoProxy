@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"hash/crc32"
 	"io"
 	"net/http"
@@ -324,6 +325,46 @@ func TestAmazonBedrockMatchesNeoPiGateway(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("client turn:\n got %+v\nwant %+v", got, want)
+			}
+		})
+	}
+}
+
+// The bearer is the account's key, else AWS_BEARER_TOKEN_BEDROCK; an
+// account with neither is refused with a 401 before anything is sent, as
+// NeoPi's SigV4 credential chain is not ported.
+func TestAmazonBedrockBearerPrecedence(t *testing.T) {
+	ok := amazonBedrockReply{Status: http.StatusOK, Frames: []amazonBedrockFrame{
+		{Event: "messageStart", Payload: json.RawMessage(`{"role":"assistant"}`)},
+		{Event: "messageStop", Payload: json.RawMessage(`{"stopReason":"end_turn"}`)},
+	}}
+	body := `{"model":"meta.llama3-1-70b-instruct-v1:0","messages":[{"role":"user","content":"Hi"}],"stream":true}`
+	for _, tc := range []struct{ name, key, env, want string }{
+		{"account key wins", "ABSK-account", "ABSK-env", "Bearer ABSK-account"},
+		{"environment fallback", "", "ABSK-env", "Bearer ABSK-env"},
+		{"neither", "", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AWS_BEARER_TOKEN_BEDROCK", tc.env)
+			server, recorded := amazonBedrockServer(t, []amazonBedrockReply{ok})
+			exec := newAmazonBedrockTestExecutor(&config.Config{}, nil)
+			auth := &cliproxyauth.Auth{ID: "amazon-bedrock-test", Provider: "amazon-bedrock", Attributes: map[string]string{"api_key": tc.key, "base_url": server.URL}}
+			req := cliproxyexecutor.Request{Model: "meta.llama3-1-70b-instruct-v1:0", Payload: []byte(body)}
+			stream, err := exec.ExecuteStream(context.Background(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, Stream: true})
+			if tc.want == "" {
+				var status interface{ StatusCode() int }
+				if !errors.As(err, &status) || status.StatusCode() != http.StatusUnauthorized || len(recorded()) != 0 {
+					t.Fatalf("err = %v, requests = %d; want a 401 and nothing sent", err, len(recorded()))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			for range stream.Chunks {
+			}
+			if got := recorded(); len(got) != 1 || got[0].headers.Get("Authorization") != tc.want {
+				t.Fatalf("requests = %+v, want one with %q", got, tc.want)
 			}
 		})
 	}
