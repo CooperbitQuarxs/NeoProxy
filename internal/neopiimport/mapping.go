@@ -66,6 +66,7 @@ var apiKeyRoutes = map[string]route{
 	"alibaba-token-plan": {target: "alibaba-token-plan"},
 	"sakana":             {target: "sakana"},
 	"abliteration":       {target: "abliteration"},
+	"bedrock-mantle":     {target: "bedrock-mantle"},
 	"umans":              {target: "umans"},
 	"aiand":              {target: "aiand"},
 	"baseten":            {target: "baseten"},

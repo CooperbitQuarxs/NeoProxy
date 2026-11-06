@@ -302,6 +302,15 @@ var providerCatalog = []ProviderInfo{
 	{ID: "abliteration", Name: "Abliteration", Vendor: "Abliteration", Hue: 57, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://api.abliteration.ai/v1", "ak_...", "https://abliteration.ai/console"), Plans: []ProviderPlan{},
 		dialect: "responses"},
+	// Bedrock Mantle serves OpenAI models on Amazon Bedrock's Responses
+	// endpoint. NeoPi's auth rule declares no key check and allows a missing
+	// key: an empty one falls back to the server's AWS_BEARER_TOKEN_BEDROCK.
+	// The account keeps the region the server's AWS settings select when it is
+	// added (see validateCatalogKey).
+	{ID: "bedrock-mantle", Name: "Amazon Bedrock Mantle", Vendor: "Amazon Web Services", Hue: 65, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "https://bedrock-mantle.{region}.api.aws/openai/v1",
+			KeyHint: "Amazon Bedrock API key (not checked before it is added); leave empty to use the server's AWS_BEARER_TOKEN_BEDROCK", KeyOptional: true},
+		Plans: []ProviderPlan{}, dialect: "responses"},
 	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://router.huggingface.co/v1", "hf_...", "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained"), Plans: []ProviderPlan{}},
 	// NVIDIA's free catalogue keeps listing models an account cannot call

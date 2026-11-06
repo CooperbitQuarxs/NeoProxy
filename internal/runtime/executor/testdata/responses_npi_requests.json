@@ -1,11 +1,12 @@
 {
-  "source": "NeoPi OWN streamOpenAIResponses (meta, muse-code, sakana, abliteration)",
+  "source": "NeoPi OWN streamOpenAIResponses (meta, muse-code, sakana, abliteration, bedrock-mantle)",
   "userAgent": "npi/18.14.0",
   "credentials": {
     "meta": "LLM|payg-key",
     "muse-code": "{\"oauthAccessToken\":\"meta-account-access\",\"apiKey\":\"LLM|subscription-key\"}",
     "sakana": "sakana-capture-key",
-    "abliteration": "ak_capture_key"
+    "abliteration": "ak_capture_key",
+    "bedrock-mantle": "ABSKbedrock-capture-key"
   },
   "sessionId": "capture-session-0001",
   "response": "event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_capture\",\"status\":\"in_progress\",\"output\":[]}}\n\nevent: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"in_progress\",\"content\":[]}}\n\nevent: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"text\":\"\",\"annotations\":[]}}\n\nevent: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"delta\":\"Captured.\"}\n\nevent: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"item_id\":\"msg_capture\",\"output_index\":0,\"content_index\":0,\"text\":\"Captured.\"}\n\nevent: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}}\n\nevent: response.completed\ndata: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_capture\",\"status\":\"completed\",\"output\":[{\"id\":\"msg_capture\",\"type\":\"message\",\"role\":\"assistant\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"text\":\"Captured.\",\"annotations\":[]}]}],\"usage\":{\"input_tokens\":3,\"output_tokens\":1,\"total_tokens\":4}}}\n\n",
@@ -2941,6 +2942,1941 @@
             "x-stainless-timeout": "300"
           },
           "rawBody": "{\"model\":\"abliterated-model-large-v2\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "218",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-minimal",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-minimal",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "264",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-low",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-low",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "264",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-medium",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-medium",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "267",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "265",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-xhigh",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-xhigh",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "266",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.4-max",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.4-max",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.4",
+        "options": {
+          "reasoning": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.4",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "266",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "218",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-minimal",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-minimal",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "264",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-low",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-low",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "264",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-medium",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-medium",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "267",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "265",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-xhigh",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-xhigh",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "266",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.5-max",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.5-max",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.5",
+        "options": {
+          "reasoning": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.5",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "266",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.5\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "223",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-minimal",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-minimal",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "269",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-low",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-low",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "269",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-medium",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-medium",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "272",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "270",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-xhigh",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-xhigh",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "271",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-luna-max",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-luna-max",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-luna",
+        "options": {
+          "reasoning": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-luna",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "269",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-luna\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "222",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-minimal",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-minimal",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "268",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-low",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-low",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "268",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-medium",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-medium",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "271",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "269",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-xhigh",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-xhigh",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "270",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-sol-max",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-sol-max",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-sol",
+        "options": {
+          "reasoning": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-sol",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "268",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-sol\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "224",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-minimal",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-minimal",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "minimal"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "minimal"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "270",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-low",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-low",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "low"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "270",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-medium",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-medium",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "medium"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "273",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"medium\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "271",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-xhigh",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-xhigh",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "xhigh"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "272",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-openai.gpt-5.6-terra-max",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-openai.gpt-5.6-terra-max",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "max"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "270",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"max\",\"summary\":\"auto\"}}"
         }
       ]
     },
@@ -7751,6 +9687,1246 @@
       ]
     },
     {
+      "name": "bedrock-mantle-system-sampling",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-system-sampling",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "temperature": 0.2,
+          "topP": 0.9,
+          "maxTokens": 99
+        },
+        "systemPrompt": [
+          "You are terse."
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "instructions": "You are terse.",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          },
+          "stream": true,
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "max_output_tokens": 99,
+          "store": true
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "326",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"instructions\":\"You are terse.\",\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"max_output_tokens\":99,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-tools-auto",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-tools-auto",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "toolChoice": "auto"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "tool_choice": "auto",
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "462",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"tool_choice\":\"auto\",\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-tools-required",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-tools-required",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "toolChoice": "required"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "tool_choice": "required",
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "466",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"tool_choice\":\"required\",\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-tools-none",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-tools-none",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "toolChoice": "none"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "tool_choice": "none",
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "462",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"tool_choice\":\"none\",\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-tools-named",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-tools-named",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "toolChoice": {
+            "type": "tool",
+            "name": "lookup"
+          }
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "tool_choice": {
+            "type": "function",
+            "name": "lookup"
+          },
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "491",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"tool_choice\":{\"type\":\"function\",\"name\":\"lookup\"},\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-tool-history-replay",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-tool-history-replay",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high"
+        },
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "toolCall",
+                "id": "call_1|fc_capture",
+                "name": "lookup",
+                "arguments": {
+                  "term": "a"
+                }
+              }
+            ],
+            "api": "openai-responses",
+            "provider": "bedrock-mantle",
+            "model": "openai.gpt-5.6-terra",
+            "usage": {
+              "input": 1,
+              "output": 1,
+              "totalTokens": 2,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "total": 0
+              }
+            },
+            "stopReason": "toolUse",
+            "timestamp": 1,
+            "providerPayload": {
+              "type": "openaiResponsesHistory",
+              "provider": "bedrock-mantle",
+              "dt": true,
+              "items": [
+                {
+                  "type": "reasoning",
+                  "id": "rs_capture",
+                  "summary": [],
+                  "encrypted_content": "enc-capture"
+                },
+                {
+                  "type": "function_call",
+                  "id": "fc_capture",
+                  "call_id": "call_1",
+                  "name": "lookup",
+                  "arguments": "{\"term\":\"a\"}"
+                }
+              ]
+            }
+          },
+          {
+            "role": "toolResult",
+            "toolCallId": "call_1|fc_capture",
+            "toolName": "lookup",
+            "content": [
+              {
+                "type": "text",
+                "text": "Found."
+              }
+            ],
+            "isError": false,
+            "timestamp": 2
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            },
+            {
+              "type": "reasoning",
+              "id": "rs_capture",
+              "summary": [],
+              "encrypted_content": "enc-capture"
+            },
+            {
+              "type": "function_call",
+              "id": "fc_capture",
+              "call_id": "call_1",
+              "name": "lookup",
+              "arguments": "{\"term\":\"a\"}"
+            },
+            {
+              "type": "function_call_output",
+              "call_id": "call_1",
+              "output": "Found."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "669",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]},{\"type\":\"reasoning\",\"summary\":[],\"encrypted_content\":\"enc-capture\"},{\"type\":\"function_call\",\"call_id\":\"call_1\",\"name\":\"lookup\",\"arguments\":\"{\\\"term\\\":\\\"a\\\"}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_1\",\"output\":\"Found.\"}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-max-output-clamp",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-max-output-clamp",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "maxTokens": 900000
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Long."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Long."
+                }
+              ]
+            }
+          ],
+          "max_output_tokens": 900000
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "245",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Long.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"max_output_tokens\":64000,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-summary-null",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-summary-null",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "reasoningSummary": null
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Quiet."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Quiet."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high",
+            "summary": null
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "250",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Quiet.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-summary-none",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-summary-none",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high",
+          "reasoningSummary": null
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Quiet."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Quiet."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high",
+            "summary": "none"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "250",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Quiet.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-explicit-encrypted-include",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-explicit-encrypted-include",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Think."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Think."
+                }
+              ]
+            }
+          ],
+          "include": [
+            "reasoning.encrypted_content"
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "220",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Think.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-reconstructed-assistant-history",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-reconstructed-assistant-history",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {},
+        "tools": [
+          {
+            "name": "lookup",
+            "description": "Look up a term.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "term": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term"
+              ]
+            }
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Use lookup."
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Looking."
+              },
+              {
+                "type": "toolCall",
+                "id": "call_1|fc_capture",
+                "name": "lookup",
+                "arguments": {
+                  "term": "a"
+                }
+              }
+            ],
+            "api": "openai-responses",
+            "provider": "bedrock-mantle",
+            "model": "openai.gpt-5.6-terra",
+            "usage": {
+              "input": 1,
+              "output": 1,
+              "totalTokens": 2,
+              "cost": {
+                "input": 0,
+                "output": 0,
+                "total": 0
+              }
+            },
+            "stopReason": "toolUse",
+            "timestamp": 1
+          },
+          {
+            "role": "toolResult",
+            "toolCallId": "call_1|fc_capture",
+            "toolName": "lookup",
+            "content": [
+              {
+                "type": "text",
+                "text": "Found."
+              }
+            ],
+            "isError": false,
+            "timestamp": 2
+          },
+          {
+            "role": "user",
+            "content": "Continue."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Use lookup."
+                }
+              ]
+            },
+            {
+              "role": "assistant",
+              "content": [
+                {
+                  "type": "output_text",
+                  "text": "Looking."
+                }
+              ]
+            },
+            {
+              "type": "function_call",
+              "id": "fc_capture",
+              "call_id": "call_1",
+              "name": "lookup",
+              "arguments": "{\"term\":\"a\"}"
+            },
+            {
+              "type": "function_call_output",
+              "call_id": "call_1",
+              "output": "Found."
+            },
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Continue."
+                }
+              ]
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "name": "lookup",
+              "description": "Look up a term.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "term": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "term"
+                ]
+              }
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "752",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Use lookup.\"}]},{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"Looking.\",\"annotations\":[]}],\"status\":\"completed\"},{\"type\":\"function_call\",\"call_id\":\"call_1\",\"name\":\"lookup\",\"arguments\":\"{\\\"term\\\":\\\"a\\\"}\"},{\"type\":\"function_call_output\",\"call_id\":\"call_1\",\"output\":\"Found.\"},{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Continue.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"tools\":[{\"type\":\"function\",\"name\":\"lookup\",\"description\":\"Look up a term.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"term\":{\"type\":\"string\"}},\"required\":[\"term\"]}}],\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-reasoning-none",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-reasoning-none",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "disableReasoning": true
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fast."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Fast."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "none"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "248",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Fast.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"low\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-image-input",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-image-input",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Describe."
+              },
+              {
+                "type": "image",
+                "mimeType": "image/png",
+                "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+              }
+            ],
+            "providerPayload": {
+              "type": "openaiResponsesHistory",
+              "items": [
+                {
+                  "role": "user",
+                  "content": [
+                    {
+                      "type": "input_text",
+                      "text": "Describe."
+                    },
+                    {
+                      "type": "input_image",
+                      "detail": "auto",
+                      "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                    }
+                  ]
+                }
+              ],
+              "dt": true
+            }
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Describe."
+                },
+                {
+                  "type": "input_image",
+                  "detail": "auto",
+                  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "395",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Describe.\"},{\"type\":\"input_image\",\"detail\":\"auto\",\"image_url\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-image-original",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-image-original",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Describe."
+              },
+              {
+                "type": "image",
+                "mimeType": "image/png",
+                "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+                "detail": "original"
+              }
+            ],
+            "providerPayload": {
+              "type": "openaiResponsesHistory",
+              "items": [
+                {
+                  "type": "message",
+                  "role": "user",
+                  "content": [
+                    {
+                      "type": "input_text",
+                      "text": "Describe."
+                    },
+                    {
+                      "type": "input_image",
+                      "detail": "original",
+                      "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                    }
+                  ]
+                }
+              ],
+              "dt": true
+            }
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Describe."
+                },
+                {
+                  "type": "input_image",
+                  "detail": "original",
+                  "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "412",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"type\":\"message\",\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Describe.\"},{\"type\":\"input_image\",\"detail\":\"auto\",\"image_url\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"]}"
+        }
+      ]
+    },
+    {
       "name": "meta-lineage-muse-spark-1.4-xhigh",
       "requestedURL": "https://api.meta.ai/v1/responses",
       "scenario": {
@@ -7853,6 +11029,274 @@
             "x-stainless-timeout": "300"
           },
           "rawBody": "{\"model\":\"muse-spark-1.4\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"xhigh\",\"summary\":\"auto\"}}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-discovered-openai.gpt-oss-120b-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-discovered-openai.gpt-oss-120b-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-oss-120b",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-oss-120b",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "181",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-oss-120b\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-discovered-openai.gpt-oss-120b-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-discovered-openai.gpt-oss-120b-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-oss-120b",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-oss-120b",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "181",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-oss-120b\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-discovered-openai.gpt-5.6-nova-high",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-discovered-openai.gpt-5.6-nova-high",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-nova",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-nova",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "181",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-nova\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-discovered-openai.gpt-5.6-nova-no-effort",
+      "requestedURL": "https://bedrock-mantle.us-west-2.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-discovered-openai.gpt-5.6-nova-no-effort",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-nova",
+        "options": {},
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-nova",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ]
+        },
+        "providerOptions": {
+          "region": "us-west-2"
+        }
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "181",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-west-2.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-nova\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false}"
+        }
+      ]
+    },
+    {
+      "name": "bedrock-mantle-default-region",
+      "requestedURL": "https://bedrock-mantle.us-east-1.api.aws/openai/v1/responses",
+      "scenario": {
+        "name": "bedrock-mantle-default-region",
+        "provider": "bedrock-mantle",
+        "model": "openai.gpt-5.6-terra",
+        "options": {
+          "reasoning": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          }
+        ],
+        "downstream": {
+          "model": "openai.gpt-5.6-terra",
+          "input": [
+            {
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Say hello."
+                }
+              ]
+            }
+          ],
+          "reasoning": {
+            "effort": "high"
+          }
+        },
+        "providerOptions": {}
+      },
+      "requests": [
+        {
+          "method": "POST",
+          "path": "/openai/v1/responses",
+          "headers": {
+            "accept": "text/event-stream",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "authorization": "Bearer ABSKbedrock-capture-key",
+            "connection": "keep-alive",
+            "content-length": "271",
+            "content-type": "application/json",
+            "host": "bedrock-mantle.us-east-1.api.aws",
+            "user-agent": "npi/18.14.0",
+            "x-stainless-timeout": "300"
+          },
+          "rawBody": "{\"model\":\"openai.gpt-5.6-terra\",\"input\":[{\"role\":\"user\",\"content\":[{\"type\":\"input_text\",\"text\":\"Say hello.\"}]}],\"stream\":true,\"prompt_cache_key\":\"capture-session-0001\",\"store\":false,\"include\":[\"reasoning.encrypted_content\"],\"reasoning\":{\"effort\":\"high\",\"summary\":\"auto\"}}"
         }
       ]
     }
