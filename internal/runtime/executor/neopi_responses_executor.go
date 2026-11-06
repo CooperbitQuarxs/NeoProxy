@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	awsauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/aws"
 	metaauth "github.com/router-for-me/CLIProxyAPI/v8/internal/auth/meta"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
@@ -34,8 +35,9 @@ const neoPiResponsesDialect = "codex"
 const neoPiResponsesMuseVersion = "1.0.0"
 
 // NeoPiResponsesExecutor serves the providers NeoPi runs on its generic
-// openai-responses transport: Meta (a Model API key or a Muse subscription)
-// and the key-only Sakana and Abliteration gateways. Requests are shaped by
+// openai-responses transport: Meta (a Model API key or a Muse subscription),
+// the key-only Sakana and Abliteration gateways, and Bedrock Mantle (an Amazon
+// Bedrock API key). Requests are shaped by
 // internal/openaiwire from the NeoPi catalog row of the requested model, so the
 // upstream sees what NeoPi sends. The executor is registered under each
 // provider's own id; the auth decides which NeoPi provider (and catalog) a
@@ -116,7 +118,9 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesProvider(auth *cliproxyauth.Auth)
 	return neoPiResponsesProviderOf(e.Identifier(), auth)
 }
 
-// neoPiResponsesCredsOf returns the endpoint and bearer an auth carries.
+// neoPiResponsesCredsOf returns the endpoint and bearer an auth carries. A
+// Bedrock Mantle account without a stored key takes NeoPi's
+// resolveAwsBearerToken fallback, AWS_BEARER_TOKEN_BEDROCK.
 func neoPiResponsesCredsOf(identifier string, auth *cliproxyauth.Auth) (baseURL, token string) {
 	if identifier == "meta" || auth != nil && strings.EqualFold(strings.TrimSpace(auth.Provider), "meta") {
 		return metaCreds(auth)
@@ -130,6 +134,9 @@ func neoPiResponsesCredsOf(identifier string, auth *cliproxyauth.Auth) (baseURL,
 		if key, ok := auth.Metadata["api_key"].(string); ok {
 			token = strings.TrimSpace(key)
 		}
+	}
+	if registry.ResponsesProviderForBaseURL(baseURL) == registry.ResponsesBedrockMantle {
+		token = awsauth.BearerToken(token)
 	}
 	return baseURL, token
 }
@@ -164,6 +171,9 @@ func (e *NeoPiResponsesExecutor) neoPiResponsesModel(auth *cliproxyauth.Auth, re
 		if baseURL, _ := e.neoPiResponsesCreds(auth); baseURL != "" && strings.TrimRight(baseURL, "/") != strings.TrimRight(registry.ResponsesProviderBaseURL(provider), "/") {
 			model.BaseURL = baseURL
 		}
+	}
+	if model.Provider == registry.ResponsesBedrockMantle {
+		model.BaseURL = registry.BedrockMantleBaseURL(model.BaseURL)
 	}
 	return model
 }
@@ -306,6 +316,9 @@ func (e *NeoPiResponsesExecutor) ensureAuth(ctx context.Context, auth *cliproxya
 		}
 	}
 	if token == "" {
+		if e.neoPiResponsesProvider(auth) == registry.ResponsesBedrockMantle {
+			return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + " executor: no Amazon Bedrock API key on the account or in AWS_BEARER_TOKEN_BEDROCK; AWS IAM (SigV4) credentials are not supported yet"}
+		}
 		return nil, statusErr{code: http.StatusUnauthorized, msg: e.Identifier() + " executor: missing API key or access token"}
 	}
 	return auth, nil

@@ -17,21 +17,34 @@ import (
 // FetchResponsesModels lists an account's models as NeoPi's provider model
 // manager does: GET <base>/models with the account's key (Muse Code adds its
 // x-api-version), mapped through the provider's seed rows and rules. The
-// listing is authoritative for Muse Code, Sakana and Abliteration; Meta's
-// Model API keeps its seed rows beside it.
+// listing is authoritative for Muse Code, Sakana, Abliteration and Bedrock
+// Mantle; Meta's Model API keeps its seed rows beside it. Bedrock Mantle lists
+// at its region's /v1/models, and only with a bearer: an account without one
+// is unauthenticated to NeoPi's discovery and serves the seed rows.
 func FetchResponsesModels(ctx context.Context, cfg *config.Config, auth *cliproxyauth.Auth) ([]*registry.ModelInfo, error) {
 	provider := neoPiResponsesProviderOf("", auth)
 	if provider == "" {
 		return nil, fmt.Errorf("responses models: %s is not a NeoPi Responses provider", authProviderName(auth))
 	}
+	ownedBy, modelType := "meta", "meta"
+	if !strings.EqualFold(strings.TrimSpace(authProviderName(auth)), "meta") {
+		ownedBy, modelType = compatOwner(auth), "openai-compatibility"
+	}
 	baseURL, token := neoPiResponsesCredsOf("", auth)
+	if token == "" && provider == registry.ResponsesBedrockMantle {
+		return registry.ResponsesModels(provider, ownedBy, modelType, nil), nil
+	}
 	if token == "" {
 		return nil, fmt.Errorf("%s models: credential has no key", provider)
 	}
 	if baseURL == "" {
 		baseURL = registry.ResponsesProviderBaseURL(provider)
 	}
-	target := strings.TrimRight(baseURL, "/") + "/models"
+	baseURL = strings.TrimRight(baseURL, "/")
+	if provider == registry.ResponsesBedrockMantle {
+		baseURL = strings.TrimSuffix(registry.BedrockMantleBaseURL(baseURL), "/openai/v1") + "/v1"
+	}
+	target := baseURL + "/models"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
@@ -57,10 +70,6 @@ func FetchResponsesModels(ctx context.Context, cfg *config.Config, auth *cliprox
 	roster := registry.ParseResponsesRoster(body)
 	if roster == nil {
 		return nil, fmt.Errorf("%s models: %s did not return a model list", provider, target)
-	}
-	ownedBy, modelType := "meta", "meta"
-	if !strings.EqualFold(strings.TrimSpace(authProviderName(auth)), "meta") {
-		ownedBy, modelType = compatOwner(auth), "openai-compatibility"
 	}
 	return registry.ResponsesModels(provider, ownedBy, modelType, roster), nil
 }
