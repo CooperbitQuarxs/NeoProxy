@@ -383,6 +383,10 @@
 		"ollama": {
 			"name": "Ollama (Local OpenAI-compatible)",
 			"emptyFallback": ""
+		},
+		"llama.cpp": {
+			"name": "llama.cpp (Local OpenAI-compatible)",
+			"emptyFallback": "llama-cpp-local"
 		}
 	}
 }

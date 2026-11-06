@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/cloudflare"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/neopikeys"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/snowflake"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/openaiwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
@@ -222,7 +224,7 @@ func (e *NeoPiCompletionsExecutor) HttpRequest(ctx context.Context, auth *clipro
 			return nil, err
 		}
 		request.Header.Set("Authorization", "Bearer "+token)
-	} else if key := e.apiKey(auth); key != "" {
+	} else if key := e.apiKey(auth); key != "" && !neopikeys.Keyless(e.profile.Provider, key) {
 		if e.profile.Provider == cloudflare.Provider {
 			request.Header.Set(cloudflareAuthHeader, "Bearer "+key)
 		} else {
@@ -461,12 +463,17 @@ func (e *NeoPiCompletionsExecutor) prepare(ctx context.Context, auth *cliproxyau
 // credential is the bearer the request carries and the placement its URL
 // takes: the account's key on the row's own endpoint, or for a Vertex
 // Model Garden row an ADC access token (createVertexAuthenticatedFetch) on
-// the account's project and location.
+// the account's project and location. A local server's account without a
+// real key resolves to NeoPi's NO_AUTH_SENTINEL, so it requests with no
+// Authorization.
 func (e *NeoPiCompletionsExecutor) credential(ctx context.Context, auth *cliproxyauth.Auth) (string, func(string) string, error) {
 	if e.profile.Provider == vertexNeoPiProvider {
 		return vertexAuthenticatedRequest(ctx, e.cfg, auth)
 	}
 	key := e.apiKey(auth)
+	if neopikeys.Keyless(e.profile.Provider, key) {
+		return openaiwire.NoAuthSentinel, func(url string) string { return url }, nil
+	}
 	if key == "" {
 		return "", nil, statusErr{code: http.StatusUnauthorized, msg: e.provider + ": account has no API key"}
 	}

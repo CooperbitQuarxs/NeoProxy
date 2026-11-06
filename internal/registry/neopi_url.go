@@ -5,7 +5,15 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/net/idna"
 )
+
+// neoPiWHATWGIDNA is the URL Standard's domain to ASCII with beStrict false:
+// UTS #46 non-transitional processing with CheckBidi and CheckJoiners, and
+// without CheckHyphens, UseSTD3ASCIIRules or VerifyDnsLength.
+var neoPiWHATWGIDNA = idna.New(idna.MapForLookup(), idna.BidiRule(), idna.Transitional(false), idna.CheckHyphens(false),
+	idna.CheckJoiners(true), idna.StrictDomainName(false), idna.VerifyDNSLength(false))
 
 // neoPiURL is what NeoPi's runtime reads from a URL through the WHATWG
 // parser (new URL): the lowercase scheme, URL.host (hostname plus a
@@ -19,8 +27,8 @@ type neoPiURL struct {
 // backslashes after the colon, userinfo dropped, percent-decoded and
 // lowercased hosts, IPv4 in any of its number forms, IPv6 serialized
 // compressed, default ports elided, and dot segments resolved. ok is false
-// where new URL throws, and for what this port leaves out: non-ASCII (IDNA)
-// hosts, file: URLs, and percent-encoding a path's other characters.
+// where new URL throws, and for what this port leaves out: file: URLs and
+// percent-encoding a path's other characters.
 func neoPiParseWHATWG(raw string) (neoPiURL, bool) {
 	input := strings.TrimFunc(raw, func(r rune) bool { return r <= 0x20 })
 	input = strings.Map(func(r rune) rune {
@@ -151,12 +159,17 @@ func neoPiWHATWGHost(input string) (string, bool) {
 	if !utf8.ValidString(decoded) {
 		return "", false
 	}
-	for i := 0; i < len(decoded); i++ {
-		c := decoded[i]
-		if c >= 0x80 {
-			// IDNA (UTS #46) is not ported.
+	// Domain to ASCII; its fast path lowercases an ASCII domain with no
+	// punycode label.
+	if neoPiNeedsIDNA(decoded) {
+		ascii, err := neoPiWHATWGIDNA.ToASCII(decoded)
+		if err != nil || ascii == "" || !neoPiValidACELabels(decoded, ascii) {
 			return "", false
 		}
+		decoded = ascii
+	}
+	for i := 0; i < len(decoded); i++ {
+		c := decoded[i]
 		if c <= 0x20 || c == 0x7f || strings.IndexByte("#%/:<>?@[\\]^|", c) >= 0 {
 			return "", false
 		}
@@ -169,6 +182,60 @@ func neoPiWHATWGHost(input string) (string, bool) {
 		return neoPiWHATWGIPv4(domain)
 	}
 	return domain, true
+}
+
+// neoPiNeedsIDNA reports a domain domain-to-ASCII must process: one with a
+// non-ASCII code point or a label starting with xn-- (any case).
+func neoPiNeedsIDNA(domain string) bool {
+	if neoPiHasNonASCII(domain) {
+		return true
+	}
+	for _, label := range strings.Split(domain, ".") {
+		if len(label) >= 4 && strings.EqualFold(label[:4], "xn--") {
+			return true
+		}
+	}
+	return false
+}
+
+// neoPiValidACELabels applies UTS #46's xn-- label rule, which x/net's
+// profile relaxes: every input label starting with xn-- must decode to a
+// label that is not empty, has a non-ASCII code point, and is valid, so
+// re-encoding it gives that label back. new URL rejects any other (server.xn--,
+// xn--zz, xn--a). Labels split on the separators UTS #46 maps to a dot; a
+// count that disagrees with ascii's fails closed.
+func neoPiValidACELabels(input, ascii string) bool {
+	labels := strings.Split(strings.NewReplacer("\u3002", ".", "\uff0e", ".", "\uff61", ".").Replace(input), ".")
+	out := strings.Split(ascii, ".")
+	if len(labels) != len(out) {
+		return false
+	}
+	for i, label := range labels {
+		if len(label) < 4 || !strings.EqualFold(label[:4], "xn--") {
+			continue
+		}
+		ace := out[i]
+		if len(ace) <= 4 || ace[:4] != "xn--" {
+			return false
+		}
+		unicode, err := idna.Punycode.ToUnicode(ace)
+		if err != nil || unicode == "" || !neoPiHasNonASCII(unicode) {
+			return false
+		}
+		if back, errBack := neoPiWHATWGIDNA.ToASCII(unicode); errBack != nil || back != ace {
+			return false
+		}
+	}
+	return true
+}
+
+func neoPiHasNonASCII(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if value[i] >= 0x80 {
+			return true
+		}
+	}
+	return false
 }
 
 // neoPiPercentDecode decodes %XX sequences, leaving malformed ones as they are.
