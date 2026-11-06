@@ -126,10 +126,7 @@ func (e *NeoPiCompletionsExecutor) responsesWire(ctx context.Context, auth *clip
 	}
 	exec := NewNeoPiResponsesExecutor(e.provider, e.cfg)
 	exec.StreamSimple = true
-	session := neoPiSession(opts, nil)
-	if session == "" {
-		session = neoPiResponsesSessionID(e.profile.Provider, req, opts)
-	}
+	session := neoPiBoundResponsesSession(e.profile.Provider, req, opts)
 	exec.binding = &neoPiResponsesBinding{model: row, token: key, session: session,
 		headers: func(_ context.Context, auth *cliproxyauth.Auth, header, clientHeaders http.Header) {
 			exec.applyTransportHeaders(header, auth, row, clientHeaders)
