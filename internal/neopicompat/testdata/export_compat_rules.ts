@@ -1,8 +1,8 @@
 // Exports the data NeoPi's catalog compat engine resolves model policy from
 // (pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, and the wire
 // axis keys axes.ts applies to an openai-completions, openai-responses,
-// anthropic-messages, google-vertex or ollama-chat compat record) as
-// internal/neopicompat/compat_rules.json.gz.
+// anthropic-messages, google-vertex, ollama-chat or bedrock-converse-stream
+// compat record) as internal/neopicompat/compat_rules.json.gz.
 //
 //   cd <neopi>/env && HOME=$PWD/home NEOPI_SOURCE_MODULES=$PWD/node_modules/@oh-my-pi \
 //     bun --preserve-symlinks export_compat_rules.ts
@@ -30,13 +30,14 @@ const responsesWireKeys = wireKeysFor("openai-responses");
 const anthropicWireKeys = wireKeysFor("anthropic-messages");
 const googleWireKeys = wireKeysFor("google-vertex");
 const ollamaWireKeys = wireKeysFor("ollama-chat");
+const bedrockWireKeys = wireKeysFor("bedrock-converse-stream");
 
 const out = join(dirname(new URL(import.meta.url).pathname), "..", "compat_rules.json.gz");
 writeFileSync(
 	out,
 	Bun.gzipSync(
 		JSON.stringify({
-			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions, openai-responses, anthropic-messages, google-vertex and ollama-chat wire keys",
+			source: "NeoPi OWN pi-catalog compat/rules.json cascade, hosts.ts KNOWN_HOSTS, axes.ts openai-completions, openai-responses, anthropic-messages, google-vertex, ollama-chat and bedrock-converse-stream wire keys",
 			cascade: rules.cascade.rules,
 			hosts: KNOWN_HOSTS,
 			completionsWireKeys,
@@ -44,6 +45,7 @@ writeFileSync(
 			anthropicWireKeys,
 			googleWireKeys,
 			ollamaWireKeys,
+			bedrockWireKeys,
 		}),
 	),
 );

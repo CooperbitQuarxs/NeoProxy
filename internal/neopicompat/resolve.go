@@ -19,6 +19,7 @@ const (
 	APIAnthropicMessages = "anthropic-messages"
 	APIGoogleVertex      = "google-vertex"
 	APIOllamaChat        = "ollama-chat"
+	APIBedrockConverse   = "bedrock-converse-stream"
 )
 
 // Spec is the part of a NeoPi ModelSpec the policy resolves from. Thinking
@@ -50,13 +51,13 @@ type Policy struct {
 }
 
 // Resolve is resolveModelPolicy for an openai-completions, openai-responses,
-// anthropic-messages, google-vertex or ollama-chat spec, plus buildModel's
-// reasoning materialization.
+// anthropic-messages, google-vertex, ollama-chat or bedrock-converse-stream
+// spec, plus buildModel's reasoning materialization.
 func Resolve(spec Spec) (Policy, error) {
 	if err := load(); err != nil {
 		return Policy{}, err
 	}
-	if spec.API != APIOpenAICompletions && spec.API != APIOpenAIResponses && spec.API != APIAnthropicMessages && spec.API != APIGoogleVertex && spec.API != APIOllamaChat {
+	if !slices.Contains([]string{APIOpenAICompletions, APIOpenAIResponses, APIAnthropicMessages, APIGoogleVertex, APIOllamaChat, APIBedrockConverse}, spec.API) {
 		return Policy{}, fmt.Errorf("neopicompat: api %q is not ported", spec.API)
 	}
 	// withoutUnverifiedThinking: an unverified ladder was derived, not authored.
@@ -84,6 +85,8 @@ func Resolve(spec Spec) (Policy, error) {
 		compat = resolveGooglePolicy(spec, resolved)
 	case APIOllamaChat:
 		compat = resolveOllamaPolicy(spec, resolved)
+	case APIBedrockConverse:
+		compat = resolveBedrockPolicy(spec, resolved)
 	case APIOpenAIResponses:
 		compat = resolveResponsesPolicy(spec, facts, resolved)
 	default:
@@ -123,6 +126,33 @@ func resolveGooglePolicy(spec Spec, a axes) map[string]any {
 // default, then the resolved wire axes and the spec's overrides.
 func resolveOllamaPolicy(spec Spec, a axes) map[string]any {
 	compat := map[string]any{"stripThinkingHistory": false}
+	applyWireAxes(compat, a.wire, spec.API)
+	applyCompatOverrides(compat, spec.Compat)
+	return compat
+}
+
+// bedrockReasoningStreamIdleTimeoutMs is BEDROCK_REASONING_STREAM_IDLE_TIMEOUT_MS.
+const bedrockReasoningStreamIdleTimeoutMs = 600_000
+
+// resolveBedrockPolicy is resolveBedrockPolicy: the conservative
+// no-checkpoint cache baseline (checkpoint tables are rule-owned), forced tool
+// choice and thinking binding controls on until a rule says otherwise, the
+// reasoning idle window for reasoning-capable rows, then the resolved wire
+// axes and the spec's overrides.
+func resolveBedrockPolicy(spec Spec, a axes) map[string]any {
+	compat := map[string]any{
+		"promptCacheMode":                  "none",
+		"supportsServerCompaction":         false,
+		"supportsLongPromptCacheRetention": false,
+		"promptCacheMinimumTokens":         0,
+		"promptCacheMaximumCheckpoints":    0,
+		"supportsForcedToolChoice":         true,
+		"supportsThinkingBindingControls":  true,
+		"streamIdleTimeoutMs":              nil,
+	}
+	if compatReasoning(spec, a) {
+		compat["streamIdleTimeoutMs"] = bedrockReasoningStreamIdleTimeoutMs
+	}
 	applyWireAxes(compat, a.wire, spec.API)
 	applyCompatOverrides(compat, spec.Compat)
 	return compat

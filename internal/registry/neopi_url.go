@@ -17,9 +17,40 @@ var neoPiWHATWGIDNA = idna.New(idna.MapForLookup(), idna.BidiRule(), idna.Transi
 
 // neoPiURL is what NeoPi's runtime reads from a URL through the WHATWG
 // parser (new URL): the lowercase scheme, URL.host (hostname plus a
-// non-default port), URL.hostname, URL.port and URL.pathname.
+// non-default port), URL.hostname, URL.port, URL.pathname and URL.search.
 type neoPiURL struct {
-	scheme, host, hostname, port, path string
+	scheme, host, hostname, port, path, search string
+}
+
+// NeoPiURLParts is new URL(raw) for an http or https base: its scheme,
+// URL.host, URL.pathname and URL.search. ok is false where new URL throws
+// and for other schemes, whose origin is null.
+func NeoPiURLParts(raw string) (scheme, host, path, search string, ok bool) {
+	parsed, ok := neoPiParseWHATWG(raw)
+	if !ok || (parsed.scheme != "http" && parsed.scheme != "https") {
+		return "", "", "", "", false
+	}
+	return parsed.scheme, parsed.host, parsed.path, parsed.search, true
+}
+
+// neoPiWHATWGSearch is URL.search: the query percent-encoded with the
+// special-query set (controls, space, ", #, <, >, ' and non-ASCII), "?"
+// prefixed, or "" for an empty query.
+func neoPiWHATWGSearch(query string) string {
+	if query == "" {
+		return ""
+	}
+	const hex = "0123456789ABCDEF"
+	out := []byte{'?'}
+	for i := 0; i < len(query); i++ {
+		c := query[i]
+		if c <= 0x20 || c >= 0x7F || c == '"' || c == '#' || c == '<' || c == '>' || c == '\'' {
+			out = append(out, '%', hex[c>>4], hex[c&15])
+			continue
+		}
+		out = append(out, c)
+	}
+	return string(out)
 }
 
 // neoPiParseWHATWG parses raw as new URL(raw) does, for the bases a local
@@ -47,8 +78,12 @@ func neoPiParseWHATWG(raw string) (neoPiURL, bool) {
 		}
 	}
 	scheme, rest := strings.ToLower(input[:colon]), input[colon+1:]
-	if end := strings.IndexAny(rest, "?#"); end >= 0 {
+	query := ""
+	if end := strings.IndexByte(rest, '#'); end >= 0 {
 		rest = rest[:end]
+	}
+	if start := strings.IndexByte(rest, '?'); start >= 0 {
+		rest, query = rest[:start], rest[start+1:]
 	}
 	switch scheme {
 	case "file":
@@ -83,7 +118,7 @@ func neoPiParseWHATWG(raw string) (neoPiURL, bool) {
 	if port != "" {
 		host += ":" + port
 	}
-	return neoPiURL{scheme: scheme, host: host, hostname: hostname, port: port, path: neoPiWHATWGPath(tail)}, true
+	return neoPiURL{scheme: scheme, host: host, hostname: hostname, port: port, path: neoPiWHATWGPath(tail), search: neoPiWHATWGSearch(query)}, true
 }
 
 func neoPiASCIIAlpha(c byte) bool { return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' }

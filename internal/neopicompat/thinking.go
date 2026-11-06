@@ -153,14 +153,27 @@ func defaultThinkingMode(spec Spec, facts identityFacts) string {
 			}
 		}
 		return "budget"
+	case APIBedrockConverse:
+		if facts.is("anthropic") {
+			if facts.anthropicAdaptiveGenAtLeast("4.6") {
+				return "anthropic-adaptive"
+			}
+			if facts.family("opus") && facts.revGte("4.5") {
+				return "anthropic-budget-effort"
+			}
+		}
+		if facts.is("openai") {
+			return "effort"
+		}
+		return "budget"
 	}
 	return "effort"
 }
 
 // defaultSupportsDisplay is defaultSupportsDisplay: an Anthropic-wire lineage
-// fact, false on openai-completions.
+// fact (anthropic-messages and bedrock-converse-stream), false elsewhere.
 func defaultSupportsDisplay(spec Spec, facts identityFacts) bool {
-	return spec.API == APIAnthropicMessages && facts.anthropicAdaptiveGenAtLeast("4.7")
+	return (spec.API == APIAnthropicMessages || spec.API == APIBedrockConverse) && facts.anthropicAdaptiveGenAtLeast("4.7")
 }
 
 // ruleSupportsDisplay is `rule.supportsDisplay ?? defaultSupportsDisplay(...)`.

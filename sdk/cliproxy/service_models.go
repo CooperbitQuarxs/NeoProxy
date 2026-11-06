@@ -91,6 +91,10 @@ func (s *Service) registerModelsForAuthWithConfigAndCache(ctx context.Context, c
 	if runtimeKey, ok := ollamaCloudIdentity(a); ok {
 		return s.registerOllamaCloudModels(ctx, cfg, a, fence, provider, authKind, runtimeKey, excluded)
 	}
+	// NeoPi's Amazon Bedrock serves its bundled roster (no discovery).
+	if runtimeKey, ok := amazonBedrockIdentity(a); ok {
+		return s.registerAmazonBedrockModels(ctx, cfg, a, fence, provider, authKind, runtimeKey, excluded)
+	}
 	// NeoPi's Chat Completions providers resolve their roster by NeoPi's own
 	// discovery and register under the account's runtime key, which differs
 	// from the catalog provider for an OpenAI-compatibility account.

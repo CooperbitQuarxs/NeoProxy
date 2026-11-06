@@ -583,6 +583,14 @@ type cursorChunkEncoder struct {
 	started bool
 	index   map[*cursorwire.OutBlock]int
 	sent    []*cursorSentTool
+	// includeUsage is the client's stream_options.include_usage under NeoPi's
+	// encodeStream framing: true puts usage:null on every chunk and sends the
+	// usage chunk, false sends neither. nil keeps the usage chunk without the
+	// per-chunk field.
+	includeUsage *bool
+	// hidden receives the usage chunk a client did not ask for, so it can
+	// still be accounted.
+	hidden func([]byte) error
 }
 
 func newCursorChunkEncoder(model string, emit func([]byte) error) *cursorChunkEncoder {
@@ -597,8 +605,12 @@ func (c *cursorChunkEncoder) write(delta map[string]any, finish any) {
 		c.started = true
 		c.write(map[string]any{"role": "assistant"}, nil)
 	}
-	c.err = c.emit(cursorJSON(map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
-		"system_fingerprint": nil, "choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": finish, "logprobs": nil}}}))
+	chunk := map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
+		"system_fingerprint": nil, "choices": []any{map[string]any{"index": 0, "delta": delta, "finish_reason": finish, "logprobs": nil}}}
+	if c.includeUsage != nil && *c.includeUsage {
+		chunk["usage"] = nil
+	}
+	c.err = c.emit(cursorJSON(chunk))
 }
 
 func (c *cursorChunkEncoder) TextDelta(delta string) {
@@ -666,8 +678,15 @@ func (c *cursorChunkEncoder) finish(output *cursorwire.Output) error {
 	if c.err != nil {
 		return c.err
 	}
-	if c.err = c.emit(cursorJSON(map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
-		"system_fingerprint": nil, "choices": []any{}, "usage": cursorUsageJSON(output.Usage)})); c.err != nil {
+	usage := cursorJSON(map[string]any{"id": c.id, "object": "chat.completion.chunk", "created": c.created, "model": c.model,
+		"system_fingerprint": nil, "choices": []any{}, "usage": cursorUsageJSON(output.Usage)})
+	switch {
+	case c.includeUsage == nil || *c.includeUsage:
+		c.err = c.emit(usage)
+	case c.hidden != nil:
+		c.err = c.hidden(usage)
+	}
+	if c.err != nil {
 		return c.err
 	}
 	c.err = c.emit([]byte("[DONE]"))

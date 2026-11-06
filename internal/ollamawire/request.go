@@ -7,6 +7,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/codexwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/cursorwire"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/jsjson"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/neopitransform"
 	"github.com/tidwall/gjson"
 )
 
@@ -309,7 +310,7 @@ func convertMessages(model *Model, ctx *cursorwire.Context) json.RawMessage {
 	history = append(history, ctx.Messages...)
 	converted := make([]message, 0, len(history))
 	hasUser := false
-	for _, msg := range transformMessages(history, model.ID) {
+	for _, msg := range neopitransform.Messages(history, neopitransform.Target{ModelID: model.ID}) {
 		out := convertMessage(msg, model.SupportsImages)
 		if model.StripThinkingHistory && out.role == "assistant" {
 			out.thinking = ""

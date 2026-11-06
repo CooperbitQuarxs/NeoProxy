@@ -311,6 +311,13 @@ var providerCatalog = []ProviderInfo{
 		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "https://bedrock-mantle.{region}.api.aws/openai/v1",
 			KeyHint: "Amazon Bedrock API key (not checked before it is added); leave empty to use the server's AWS_BEARER_TOKEN_BEDROCK", KeyOptional: true},
 		Plans: []ProviderPlan{}, dialect: "responses"},
+	// An Amazon Bedrock API key reaches NeoPi's native Converse provider at the
+	// AWS regional host, re-pointed per request at the region the model and
+	// the server's AWS settings select. NeoPi adds it without checking it.
+	{ID: "amazon-bedrock", Name: "Amazon Bedrock", Vendor: "Amazon Web Services", Hue: 65, Chroma: providerChroma, Methods: []string{"apiKey"},
+		APIKey: &ProviderAPIKey{Style: "openai", BaseURL: "https://bedrock-runtime.us-east-1.amazonaws.com",
+			KeyHint: "Amazon Bedrock API key (not checked before it is added); leave empty to use the server's AWS_BEARER_TOKEN_BEDROCK", KeyOptional: true},
+		Plans: []ProviderPlan{}},
 	{ID: "huggingface", Name: "Hugging Face", Vendor: "Hugging Face", Hue: 85, Chroma: providerChroma, Methods: []string{"apiKey"},
 		APIKey: openAIKey("https://router.huggingface.co/v1", "hf_...", "https://huggingface.co/settings/tokens/new?ownUserPermissions=inference.serverless.write&tokenType=fineGrained"), Plans: []ProviderPlan{}},
 	// NVIDIA's free catalogue keeps listing models an account cannot call

@@ -1,8 +1,7 @@
-// Package ollamawire is NeoPi's Ollama chat transport (pi-ai
-// providers/ollama.ts, api "ollama-chat") for the Ollama Cloud provider:
-// the /api/chat request body built from a gateway Context and the NDJSON
-// stream read back into assistant events.
-package ollamawire
+// Package neopitransform is NeoPi's transformMessages (pi-ai
+// providers/transform-messages.ts) over history the auth gateway parsed, for
+// the native transports that replay it.
+package neopitransform
 
 import (
 	"regexp"
@@ -15,54 +14,75 @@ import (
 )
 
 const (
-	// maxToolCallIDLength is MAX_TOOL_CALL_ID_LENGTH, which bounds only the
+	// maxToolCallIDLength is MAX_TOOL_CALL_ID_LENGTH, which bounds the
 	// segments of a duplicate id's replacement.
 	maxToolCallIDLength = 64
-	// maxToolCallNameLength is MAX_TOOL_CALL_NAME_LENGTH; no catalog rule
-	// narrows tool names for ollama-chat.
-	maxToolCallNameLength = 128
-	noResultProvided      = "No result provided"
+	// defaultMaxToolCallNameLength is MAX_TOOL_CALL_NAME_LENGTH, the bound
+	// for targets without an authored tool-name policy.
+	defaultMaxToolCallNameLength = 128
+	noResultProvided             = "No result provided"
 )
 
 // strictToolCallName is STRICT_TOOL_CALL_NAME_RE.
 var strictToolCallName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-// transformMessages is transformMessages(messages, model) for an ollama-chat
-// target over history the auth gateway parsed. Every gateway assistant turn
-// is stamped openai-completions/openai, so it is never the target's own and
-// carries no stop reason: its thinking is demoted to text in the target's
-// dialect (blank thinking dropped), tool-call ids stay as sent (no
-// normalizer, not an Anthropic target) but later duplicates get _dupN
-// suffixes, every call is answered by exactly one result ("No result
-// provided" when none arrived), and orphan results become a stale-tool-result
-// note or are dropped. Credential redaction is off by default and not ported.
-func transformMessages(messages []cursorwire.Message, modelID string) []cursorwire.Message {
-	messages = sanitizeMalformedToolCalls(messages)
+// Target is what transformMessages reads from the target model.
+type Target struct {
+	// ModelID picks the dialect demoted thinking is rendered in.
+	ModelID string
+	// MaxToolCallNameLength is the catalog's toolCallNameMaxLength for the
+	// target's API (ASCII charset); 0 is the 128 default.
+	MaxToolCallNameLength int
+	// NormalizeToolCallID is the provider's normalizer; nil keeps ids as sent.
+	NormalizeToolCallID func(string) string
+}
+
+// Messages is transformMessages(messages, model, normalizeToolCallId) for a
+// non-Anthropic target. Every gateway assistant turn is stamped
+// openai-completions/openai, so it is never the target's own and carries no
+// stop reason: its thinking is demoted to text in the target's dialect (blank
+// thinking dropped), tool-call ids pass through the target's normalizer
+// (their results follow), later duplicates get _dupN suffixes, every call is
+// answered by exactly one result ("No result provided" when none arrived),
+// and orphan results become a stale-tool-result note or are dropped.
+// Credential redaction is off by default and not ported.
+func Messages(messages []cursorwire.Message, target Target) []cursorwire.Message {
+	maxName := target.MaxToolCallNameLength
+	if maxName <= 0 {
+		maxName = defaultMaxToolCallNameLength
+	}
+	messages = sanitizeMalformedToolCalls(messages, maxName)
+	idMap := map[string]string{}
 	normalized := make([]cursorwire.Message, len(messages))
 	for index, msg := range messages {
-		if msg.Role == "assistant" {
-			msg = demoteForeignAssistant(msg, modelID)
+		switch msg.Role {
+		case "assistant":
+			msg = demoteForeignAssistant(msg, target, idMap)
+		case "toolResult":
+			if id, ok := idMap[msg.ToolCallID]; ok {
+				msg.ToolCallID = id
+			}
 		}
 		normalized[index] = msg
 	}
 	return pairToolResults(deduplicateToolCallIDs(normalized))
 }
 
-func isMalformedToolCall(block cursorwire.Block) bool {
+func isMalformedToolCall(block cursorwire.Block, maxName int) bool {
 	if jsTrim(block.ID) == "" {
 		return true
 	}
-	return len(utf16.Encode([]rune(block.Name))) > maxToolCallNameLength || !strictToolCallName.MatchString(block.Name)
+	return len(utf16.Encode([]rune(block.Name))) > maxName || !strictToolCallName.MatchString(block.Name)
 }
 
 // sanitizeMalformedToolCalls drops tool calls whose id or name the target
 // cannot replay, the results that answer them (per id, first in first out
 // within each result window), and assistant turns left empty.
-func sanitizeMalformedToolCalls(messages []cursorwire.Message) []cursorwire.Message {
+func sanitizeMalformedToolCalls(messages []cursorwire.Message, maxName int) []cursorwire.Message {
 	hasMalformed := false
 	for _, msg := range messages {
 		for _, block := range msg.Blocks {
-			if msg.Role == "assistant" && block.Type == "toolCall" && isMalformedToolCall(block) {
+			if msg.Role == "assistant" && block.Type == "toolCall" && isMalformedToolCall(block, maxName) {
 				hasMalformed = true
 			}
 		}
@@ -79,7 +99,7 @@ func sanitizeMalformedToolCalls(messages []cursorwire.Message) []cursorwire.Mess
 			var kept []cursorwire.Block
 			for _, block := range msg.Blocks {
 				if block.Type == "toolCall" {
-					malformed := isMalformedToolCall(block)
+					malformed := isMalformedToolCall(block, maxName)
 					dropQueues[block.ID] = append(dropQueues[block.ID], malformed)
 					if malformed {
 						continue
@@ -109,9 +129,10 @@ func sanitizeMalformedToolCalls(messages []cursorwire.Message) []cursorwire.Mess
 }
 
 // demoteForeignAssistant is the first pass over a foreign assistant turn:
-// non-blank thinking becomes demoted text, text is copied, tool calls keep
-// their ids, and a trailing demoted block loses its trailing whitespace.
-func demoteForeignAssistant(msg cursorwire.Message, modelID string) cursorwire.Message {
+// non-blank thinking becomes demoted text, text is copied, tool calls take
+// the normalized id (recorded so their results follow), and a trailing
+// demoted block loses its trailing whitespace.
+func demoteForeignAssistant(msg cursorwire.Message, target Target, idMap map[string]string) cursorwire.Message {
 	blocks := make([]cursorwire.Block, 0, len(msg.Blocks))
 	trailingDemoted := false
 	for _, block := range msg.Blocks {
@@ -120,12 +141,18 @@ func demoteForeignAssistant(msg cursorwire.Message, modelID string) cursorwire.M
 			if jsTrim(block.Thinking) == "" {
 				continue
 			}
-			blocks = append(blocks, cursorwire.Block{Type: "text", Text: neopidialect.RenderDemotedThinking(modelID, block.Thinking)})
+			blocks = append(blocks, cursorwire.Block{Type: "text", Text: neopidialect.RenderDemotedThinking(target.ModelID, block.Thinking)})
 			trailingDemoted = true
 			continue
 		case "text":
 			blocks = append(blocks, cursorwire.Block{Type: "text", Text: block.Text})
 		case "toolCall":
+			if target.NormalizeToolCallID != nil {
+				if id := target.NormalizeToolCallID(block.ID); id != block.ID {
+					idMap[block.ID] = id
+					block.ID = id
+				}
+			}
 			blocks = append(blocks, block)
 		default:
 			continue
