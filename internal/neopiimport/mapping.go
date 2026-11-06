@@ -97,6 +97,7 @@ var apiKeyRoutes = map[string]route{
 	// action, as their address is editable).
 	"vllm":                  {target: "vllm"},
 	"lm-studio":             {target: "lm-studio"},
+	"litellm":               {target: "litellm"},
 	"venice":                {target: "venice"},
 	"wafer-serverless":      {target: "wafer-serverless"},
 	"xiaomi-token-plan-sgp": {target: "xiaomi-token-plan-sgp"},
