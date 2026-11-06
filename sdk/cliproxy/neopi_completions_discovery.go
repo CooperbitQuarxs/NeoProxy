@@ -1,6 +1,7 @@
 package cliproxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,7 +36,7 @@ var neoPiCompletionsProviders = []string{
 	"singularityapi-dev", "singularityapi-tech", "charm-hyper", "alibaba-coding-plan", "kilo",
 	"siliconflow", "siliconflow-cn", "vllm", "lm-studio", "zenmux",
 	"minimax", "minimax-cn", "minimax-code", "minimax-code-cn", "snowflake", "cloudflare-ai-gateway", "commandcode",
-	"litellm",
+	"litellm", "ollama",
 }
 
 // neoPiCompletionsDiscoveries holds one discovery per provider, keyed by
@@ -55,9 +56,16 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		// failure. NeoPi bounds openai-compatible discovery at 10s; the
 		// repository bans deadlines after the connection is up, so the
 		// fetch runs without one.
+		ttl := 2 * time.Hour
+		if provider == registry.NeoPiOllamaProvider {
+			// A local Ollama is the runtime's configured discovery, whose
+			// rows NeoPi caches for a day (model-registry.ts
+			// #discoverProviderModels).
+			ttl = 24 * time.Hour
+		}
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
-			ttl:      2 * time.Hour, retry: 5 * time.Minute,
+			ttl:      ttl, retry: 5 * time.Minute,
 			bundled: func(*coreauth.Auth) []*ModelInfo { return registry.NeoPiCompletionsBundledModels(provider, provider) },
 			fetch:   fetchNeoPiCompletionsModels(provider),
 			match:   func(a *coreauth.Auth) bool { return neoPiCompletionsCatalogProvider(a) == provider },
@@ -303,6 +311,8 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 			return fetchNeoPiLmStudioModels(ctx, cfg, auth, key, base)
 		case registry.NeoPiLiteLLMProvider:
 			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
+		case registry.NeoPiOllamaProvider:
+			return fetchNeoPiOllamaModels(ctx, cfg, auth, base)
 		case "cloudflare-ai-gateway":
 			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":
@@ -473,7 +483,7 @@ func neoPiDiscoveryGet(ctx context.Context, cfg *config.Config, auth *coreauth.A
 // neoPiDiscoveryFetch GETs a discovery endpoint with header (see
 // neoPiDiscoveryDo) and returns the body of a 2xx answer.
 func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) ([]byte, error) {
-	status, body, err := neoPiDiscoveryDo(ctx, cfg, auth, provider, endpoint, header, credentialHeaders...)
+	status, body, err := neoPiDiscoveryDo(ctx, cfg, auth, provider, http.MethodGet, endpoint, header, nil, credentialHeaders...)
 	if err != nil {
 		return nil, err
 	}
@@ -483,12 +493,16 @@ func neoPiDiscoveryFetch(ctx context.Context, cfg *config.Config, auth *coreauth
 	return body, nil
 }
 
-// neoPiDiscoveryDo GETs a discovery endpoint with header, under the runtime's
-// User-Agent unless header names one, and returns the answer's status and
-// body. The named credential headers are dropped from any redirect hop that
-// leaves the endpoint's origin.
-func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, endpoint string, header http.Header, credentialHeaders ...string) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+// neoPiDiscoveryDo sends a discovery request (method, with body when it is
+// not nil) with header, under the runtime's User-Agent unless header names
+// one, and returns the answer's status and body. The named credential
+// headers are dropped from any redirect hop that leaves the endpoint's origin.
+func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, provider, method, endpoint string, header http.Header, body []byte, credentialHeaders ...string) (int, []byte, error) {
+	var payload io.Reader
+	if body != nil {
+		payload = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, endpoint, payload)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -501,9 +515,9 @@ func neoPiDiscoveryDo(ctx context.Context, cfg *config.Config, auth *coreauth.Au
 		return 0, nil, fmt.Errorf("%s models: %w", provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, neoPiDiscoveryBodyLimit))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, neoPiDiscoveryBodyLimit))
 	if err != nil {
 		return 0, nil, fmt.Errorf("%s models: read %s: %w", provider, endpoint, err)
 	}
-	return resp.StatusCode, body, nil
+	return resp.StatusCode, data, nil
 }
