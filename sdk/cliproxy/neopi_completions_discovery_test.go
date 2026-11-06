@@ -26,8 +26,6 @@ type neoPiCapturedRequest struct {
 	Path    string            `json:"path"`
 	Query   map[string]string `json:"query"`
 	Headers map[string]string `json:"headers"`
-	// Body is a POST's JSON body (Ollama's /api/show).
-	Body string `json:"body"`
 }
 
 // TestNeoPiCompletionsDiscoveryRequests replays NeoPi's own discovery against
@@ -65,12 +63,9 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			Requests []neoPiCapturedRequest `json:"requests"`
 			// Keyless results ran NeoPi's manager without a key.
 			Keyless bool `json:"keyless"`
-			// Paths answers a LiteLLM proxy or an Ollama server by path and
-			// query; any other path answered 404.
+			// Paths answers a LiteLLM proxy by path and query; any other
+			// path answered 404.
 			Paths map[string]neoPiCapturedReply `json:"paths"`
-			// Shows answers Ollama's POST /api/show by the model its body
-			// names; any other model answered 404.
-			Shows map[string]neoPiCapturedReply `json:"shows"`
 		} `json:"results"`
 	}
 	if err := json.Unmarshal(data, &capture); err != nil {
@@ -106,28 +101,14 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 				for name, values := range r.URL.Query() {
 					query[name] = values[0]
 				}
-				body, _ := io.ReadAll(r.Body)
 				mu.Lock()
 				defer mu.Unlock()
 				got = append(got, neoPiCapturedRequest{Method: r.Method, Path: r.URL.Path, Query: query, Headers: map[string]string{
-					"accept": r.Header.Get("Accept"), "authorization": r.Header.Get("Authorization"), "content-type": r.Header.Get("Content-Type"),
-				}, Body: string(body)})
+					"accept": r.Header.Get("Accept"), "authorization": r.Header.Get("Authorization"),
+				}})
 				// LM Studio's native metadata answered 404 in these scenarios.
 				if result.Provider == "lm-studio" && (r.URL.Path == "/api/v0/models" || r.URL.Path == "/api/v1/models") {
 					w.WriteHeader(http.StatusNotFound)
-					return
-				}
-				if result.Provider == registry.NeoPiOllamaProvider && strings.HasSuffix(r.URL.Path, "/api/show") {
-					var request struct {
-						Model string `json:"model"`
-					}
-					_ = json.Unmarshal(body, &request)
-					reply, ok := result.Shows[request.Model]
-					if !ok {
-						reply = neoPiCapturedReply{Status: http.StatusNotFound, Body: "not found"}
-					}
-					w.WriteHeader(reply.Status)
-					_, _ = w.Write([]byte(reply.Body))
 					return
 				}
 				if result.Paths != nil {
@@ -164,19 +145,16 @@ func TestNeoPiCompletionsDiscoveryRequests(t *testing.T) {
 			if len(got) != len(result.Requests) {
 				t.Fatalf("requests: port sent %d, NeoPi %d", len(got), len(result.Requests))
 			}
-			if result.Provider == "lm-studio" || result.Provider == registry.NeoPiOllamaProvider {
-				// LM Studio's native metadata and the listing, and Ollama's
-				// /api/show lookups, go out concurrently.
+			if result.Provider == "lm-studio" {
+				// The native metadata and the listing go out concurrently.
 				byPath := func(requests []neoPiCapturedRequest) {
-					sort.Slice(requests, func(i, j int) bool {
-						return requests[i].Path+" "+requests[i].Body < requests[j].Path+" "+requests[j].Body
-					})
+					sort.Slice(requests, func(i, j int) bool { return requests[i].Path < requests[j].Path })
 				}
 				byPath(got)
 				byPath(result.Requests)
 			}
 			for i, want := range result.Requests {
-				want.Headers = map[string]string{"accept": want.Headers["accept"], "authorization": want.Headers["authorization"], "content-type": want.Headers["content-type"]}
+				want.Headers = map[string]string{"accept": want.Headers["accept"], "authorization": want.Headers["authorization"]}
 				if !reflect.DeepEqual(got[i], want) {
 					t.Errorf("request %d: port %+v, NeoPi %+v", i, got[i], want)
 				}

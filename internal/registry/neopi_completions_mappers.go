@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -763,15 +764,20 @@ func neoPiMapSingularityApi(entry gjson.Result, defaults neoPiSpec) neoPiSpec {
 
 // neoPiV1BaseProviders are the providers whose configured base URL NeoPi
 // resolves onto the gateway's /v1 surface (normalizeSingularityApiBaseUrl,
-// normalizeCharmHyperBaseUrl, normalizeOllamaBaseUrl).
-var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true, "commandcode": true, NeoPiOllamaProvider: true}
+// normalizeCharmHyperBaseUrl).
+var neoPiV1BaseProviders = map[string]bool{"singularityapi-dev": true, "singularityapi-tech": true, "charm-hyper": true, "commandcode": true}
 
 // NeoPiV1BaseURL is the discovery and inference endpoint of a provider in
 // neoPiV1BaseProviders: a blank configured URL is the provider's canonical
 // endpoint, and any other keeps its host and gains a missing /v1. ZenMux's
-// Anthropic route names its OpenAI one (normalizeZenMuxOpenAiBaseUrl). Other
-// providers' URLs are returned trimmed, the catalog's when blank.
+// Anthropic route names its OpenAI one (normalizeZenMuxOpenAiBaseUrl), and
+// an Ollama account's rows run at its server's /v1 (NeoPiOllamaBaseURL: the
+// configured origin, else NeoPi's implicit server). Other providers' URLs
+// are returned trimmed, the catalog's when blank.
 func NeoPiV1BaseURL(provider, configured string) string {
+	if provider == NeoPiOllamaProvider {
+		return NeoPiOllamaBaseURL(configured, os.Getenv)
+	}
 	trimmed := strings.TrimRight(strings.TrimSpace(configured), "/")
 	if trimmed == "" {
 		return NeoPiCompletionsListingBase(provider)

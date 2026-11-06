@@ -3,40 +3,26 @@ package cliproxy
 import (
 	"context"
 	"net/http"
-	"sync"
+	"os"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
-// neoPiOllamaShows holds one /api/show cache per Ollama server (keyed by its
-// normalized base URL), kept for the process as NeoPi's model manager keeps
-// its own for its lifetime.
-var neoPiOllamaShows sync.Map
-
-// fetchNeoPiOllamaModels is ollamaModelManagerOptions' fetchDynamicModels:
-// GET <base>/models (Accept: application/json, the key as a bearer token when
-// there is one), a POST /api/show per listed model (Content-Type and Accept,
-// never the key), and GET /api/tags (Accept only) when the listing fails or
-// names nothing. NeoPi bounds the listing with a deadline; NeoProxy sets none
-// after the connection is established.
-func fetchNeoPiOllamaModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, key, base string) ([]*ModelInfo, error) {
-	server := registry.NeoPiOllamaBaseURL(base)
-	cache, ok := neoPiOllamaShows.Load(server)
-	if !ok {
-		cache, _ = neoPiOllamaShows.LoadOrStore(server, registry.NewNeoPiOllamaShows())
-	}
-	return registry.NeoPiOllamaListing(base, cache.(*registry.NeoPiOllamaShows), func(endpoint string, body []byte, authorized bool) (int, []byte, error) {
+// fetchNeoPiOllamaModels is NeoPi's runtime discovery of a local Ollama
+// server (coding-agent discoverOllamaModels): GET /api/tags with no headers
+// of its own, then a POST /api/show per entry with only a JSON Content-Type.
+// NeoPi's implicit provider configures no headers, so neither request carries
+// the account's key. NeoPi bounds both with probe deadlines; NeoProxy sets
+// none after the connection is established.
+func fetchNeoPiOllamaModels(ctx context.Context, cfg *config.Config, auth *coreauth.Auth, base string) ([]*ModelInfo, error) {
+	return registry.NeoPiOllamaListing(base, os.Getenv, func(endpoint string, body []byte) (int, []byte, error) {
 		method := http.MethodGet
 		header := http.Header{}
 		if body != nil {
 			method = http.MethodPost
 			header.Set("Content-Type", "application/json")
-		}
-		header.Set("Accept", "application/json")
-		if authorized && key != "" {
-			header.Set("Authorization", "Bearer "+key)
 		}
 		return neoPiDiscoveryDo(ctx, cfg, auth, registry.NeoPiOllamaProvider, method, endpoint, header, body)
 	})

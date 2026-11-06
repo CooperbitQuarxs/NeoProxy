@@ -56,9 +56,16 @@ func newNeoPiCompletionsDiscoveries() map[string]*neoPiDiscovery {
 		// failure. NeoPi bounds openai-compatible discovery at 10s; the
 		// repository bans deadlines after the connection is up, so the
 		// fetch runs without one.
+		ttl := 2 * time.Hour
+		if provider == registry.NeoPiOllamaProvider {
+			// A local Ollama is the runtime's configured discovery, whose
+			// rows NeoPi caches for a day (model-registry.ts
+			// #discoverProviderModels).
+			ttl = 24 * time.Hour
+		}
 		out[provider] = &neoPiDiscovery{
 			provider: provider,
-			ttl:      2 * time.Hour, retry: 5 * time.Minute,
+			ttl:      ttl, retry: 5 * time.Minute,
 			bundled: func(*coreauth.Auth) []*ModelInfo { return registry.NeoPiCompletionsBundledModels(provider, provider) },
 			fetch:   fetchNeoPiCompletionsModels(provider),
 			match:   func(a *coreauth.Auth) bool { return neoPiCompletionsCatalogProvider(a) == provider },
@@ -305,7 +312,7 @@ func fetchNeoPiCompletionsModels(provider string) func(context.Context, *config.
 		case registry.NeoPiLiteLLMProvider:
 			return fetchNeoPiLiteLLMModels(ctx, cfg, auth, key, base)
 		case registry.NeoPiOllamaProvider:
-			return fetchNeoPiOllamaModels(ctx, cfg, auth, key, base)
+			return fetchNeoPiOllamaModels(ctx, cfg, auth, base)
 		case "cloudflare-ai-gateway":
 			return fetchNeoPiCloudflareModels(ctx, cfg, auth, key, base)
 		case "xiaomi":

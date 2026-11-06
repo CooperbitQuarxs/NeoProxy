@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -12,331 +16,404 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// NeoPi's local Ollama model manager (provider-models/openai-compat.ts
-// ollamaModelManagerOptions): the server's OpenAI-compatible /v1/models
-// listing, each listed model enriched from Ollama's native POST /api/show
-// (served window, thinking, vision), and the native GET /api/tags roster when
-// the listing fails or names nothing. Every row runs on the Responses API.
+// NeoPi's local Ollama discovery, the path its runtime takes. The model
+// registry registers `ollama` as an implicit discoverable provider
+// (coding-agent config/model-registry.ts #addImplicitDiscoverableProviders,
+// in gateway mode too), which excludes the catalog's model manager. A local
+// server is therefore listed by config/model-discovery.ts
+// discoverOllamaModels: the native GET /api/tags roster, each entry enriched
+// from POST /api/show (served window, thinking, vision). Every row runs on the
+// Responses API at the server's /v1.
 
 // NeoPiOllamaProvider is NeoPi's local Ollama provider id.
 const NeoPiOllamaProvider = "ollama"
 
 const (
-	neoPiOllamaDefaultBase = "http://127.0.0.1:11434/v1"
-	// OLLAMA_FALLBACK_CONTEXT_WINDOW and OLLAMA_DEFAULT_MAX_TOKENS.
-	neoPiOllamaFallbackContext = 128_000
-	neoPiOllamaDefaultMax      = 8192
+	// DEFAULT_OLLAMA_BASE_URL and OLLAMA_HOST_DEFAULT_PORT.
+	neoPiOllamaDefaultOrigin = "http://127.0.0.1:11434"
+	neoPiOllamaHostPort      = "11434"
+	// DISCOVERY_DEFAULT_CONTEXT_WINDOW and DISCOVERY_DEFAULT_MAX_TOKENS.
+	neoPiOllamaDefaultContext = 128_000
+	neoPiOllamaDefaultMax     = 32_768
 )
 
-// errNeoPiOllamaNative is a native /api/tags answer NeoPi cannot read; it
-// reads that answer outside its guards, so the whole discovery fails.
-var errNeoPiOllamaNative = errors.New("unreadable /api/tags answer")
+// errNeoPiOllamaRoster is an /api/tags answer NeoPi's discovery throws on.
+var errNeoPiOllamaRoster = errors.New("unreadable /api/tags answer")
+
+// neoPiOllamaNumCtx is extractOllamaRuntimeContextWindow's pattern: the
+// num_ctx line of the model's runtime parameters.
+var neoPiOllamaNumCtx = regexp.MustCompile(`(?m)(?:^|\n)\s*num_ctx\s+(\d+)\s*(?:$|\n)`)
 
 // NeoPiOllamaRequest performs one discovery request: a GET of endpoint when
-// body is nil, else a POST of the JSON body. authorized marks the one request
-// NeoPi sends the key on (the /v1/models listing, as a bearer token when
-// there is a key). It returns the status and body, or a transport error.
-type NeoPiOllamaRequest func(endpoint string, body []byte, authorized bool) (status int, data []byte, err error)
+// body is nil, else a POST of the JSON body. NeoPi's discovery sends no key.
+// It returns the status and body, or a transport error.
+type NeoPiOllamaRequest func(endpoint string, body []byte) (status int, data []byte, err error)
 
-// NeoPiOllamaBaseURL is normalizeOllamaBaseUrl: the configured base trimmed,
-// without one trailing slash and ending in /v1; empty is Ollama's default.
-func NeoPiOllamaBaseURL(base string) string {
-	value := neoPiJSTrim(base)
+// NeoPiOllamaOrigin is the server an account reaches: its configured base,
+// else NeoPi's implicit one (getImplicitOllamaBaseUrl: OLLAMA_BASE_URL, else
+// OLLAMA_HOST, else the default), reduced to its origin as
+// normalizeOllamaBaseUrl does (a base that does not parse is the default).
+func NeoPiOllamaOrigin(configured string, getenv func(string) string) string {
+	base := configured
+	if strings.TrimSpace(base) == "" {
+		base = neoPiOllamaImplicitBase(getenv)
+	}
+	parsed, err := url.Parse(strings.TrimSpace(base))
+	if err != nil || parsed.Scheme == "" || (neoPiOllamaSpecialScheme(parsed.Scheme) && parsed.Host == "") {
+		return neoPiOllamaDefaultOrigin
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	return scheme + "://" + neoPiOllamaHost(scheme, parsed)
+}
+
+// neoPiOllamaImplicitBase is getImplicitOllamaBaseUrl.
+func neoPiOllamaImplicitBase(getenv func(string) string) string {
+	if base := neoPiJSTrim(getenv("OLLAMA_BASE_URL")); base != "" {
+		return base
+	}
+	if host := neoPiOllamaHostEnv(getenv("OLLAMA_HOST")); host != "" {
+		return host
+	}
+	return neoPiOllamaDefaultOrigin
+}
+
+// neoPiOllamaHostEnv is normalizeOllamaHostEnv: an OLLAMA_HOST value as an
+// http(s) origin, Ollama's port added to an http host without one; empty
+// when the value is blank or names another scheme.
+func neoPiOllamaHostEnv(value string) string {
+	trimmed := neoPiJSTrim(value)
+	if trimmed == "" {
+		return ""
+	}
+	candidate := "http://" + trimmed
+	switch {
+	case strings.Contains(trimmed, "://"):
+		candidate = trimmed
+	case strings.HasPrefix(trimmed, "//"):
+		candidate = "http:" + trimmed
+	case strings.HasPrefix(trimmed, ":"):
+		candidate = "http://127.0.0.1" + trimmed
+	}
+	parsed, err := url.Parse(candidate)
+	if err != nil {
+		return ""
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if parsed.Hostname() == "" || (scheme != "http" && scheme != "https") {
+		return ""
+	}
+	host := neoPiOllamaHost(scheme, parsed)
+	// URL.port is empty for an absent or default port.
+	if scheme == "http" && (parsed.Port() == "" || parsed.Port() == "80") {
+		host += ":" + neoPiOllamaHostPort
+	}
+	return scheme + "://" + host
+}
+
+// neoPiOllamaHost is URL.host: the lowercased host, its scheme's default port
+// dropped.
+func neoPiOllamaHost(scheme string, parsed *url.URL) string {
+	host := strings.ToLower(parsed.Hostname())
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port := parsed.Port(); port != "" && port != neoPiOllamaDefaultPort(scheme) {
+		host += ":" + port
+	}
+	return host
+}
+
+func neoPiOllamaDefaultPort(scheme string) string {
+	switch scheme {
+	case "http", "ws":
+		return "80"
+	case "https", "wss":
+		return "443"
+	case "ftp":
+		return "21"
+	}
+	return ""
+}
+
+// neoPiOllamaSpecialScheme reports a WHATWG special scheme, which a URL must
+// give a host.
+func neoPiOllamaSpecialScheme(scheme string) bool {
+	switch strings.ToLower(scheme) {
+	case "http", "https", "ws", "wss", "ftp", "file":
+		return true
+	}
+	return false
+}
+
+// NeoPiOllamaBaseURL is the endpoint an account's rows run on: its server's
+// /v1.
+func NeoPiOllamaBaseURL(configured string, getenv func(string) string) string {
+	return NeoPiOllamaOrigin(configured, getenv) + "/v1"
+}
+
+// neoPiOllamaContextOverride is getOllamaContextLengthOverride: a positive
+// safe integer OLLAMA_CONTEXT_LENGTH, which the registry applies to every
+// discovered row.
+func neoPiOllamaContextOverride(getenv func(string) string) int {
+	value := neoPiJSTrim(getenv("OLLAMA_CONTEXT_LENGTH"))
 	if value == "" {
-		return neoPiOllamaDefaultBase
+		return 0
 	}
-	value = strings.TrimSuffix(value, "/")
-	if strings.HasSuffix(value, "/v1") {
-		return value
+	number, ok := neoPiJSNumber(value)
+	if !ok || number <= 0 || number != math.Trunc(number) || number > 1<<53-1 {
+		return 0
 	}
-	return value + "/v1"
+	return int(number)
 }
 
-// NeoPiOllamaShows is createOllamaMetadataResolver's cache: the /api/show
-// answers that succeeded, kept for the manager's lifetime so a later refresh
-// asks only for models it has no answer for. A failed lookup is asked again
-// next time. Safe for concurrent use.
-type NeoPiOllamaShows struct {
-	mu    sync.Mutex
-	known map[string]neoPiOllamaShow
-}
-
-// NewNeoPiOllamaShows is a fresh metadata cache, one per configured server.
-func NewNeoPiOllamaShows() *NeoPiOllamaShows {
-	return &NeoPiOllamaShows{known: map[string]neoPiOllamaShow{}}
-}
-
-// neoPiOllamaShow is fetchOllamaShowMetadata's answer: a zero contextWindow
-// is none reported; nil reasoning and input mean the answer carried no
-// capabilities list.
-type neoPiOllamaShow struct {
-	contextWindow int
-	reasoning     *bool
-	input         []string
-}
-
-// window is the resolved context window: the reported one, else the fallback.
-func (s neoPiOllamaShow) window() int {
-	if s.contextWindow > 0 {
-		return s.contextWindow
-	}
-	return neoPiOllamaFallbackContext
-}
-
-// resolve answers each id once (a duplicate shares its first lookup), from
-// the cache or one concurrent /api/show per uncached id; an id whose lookup
-// failed answers the zero show (the fallback window, nothing else).
-func (s *NeoPiOllamaShows) resolve(native string, ids []string, do NeoPiOllamaRequest) map[string]neoPiOllamaShow {
-	out := make(map[string]neoPiOllamaShow, len(ids))
-	var pending []string
-	s.mu.Lock()
-	for _, id := range ids {
-		if _, asked := out[id]; asked {
-			continue
+// neoPiJSNumber is Number(text) for a trimmed, non-empty string: decimal or
+// exponent notation, or a 0x/0o/0b integer. Callers reject what is not a
+// positive finite number, so strconv's extra spellings (inf, nan) never pass.
+func neoPiJSNumber(text string) (float64, bool) {
+	if len(text) > 2 && text[0] == '0' {
+		base := 0
+		switch text[1] {
+		case 'x', 'X':
+			base = 16
+		case 'o', 'O':
+			base = 8
+		case 'b', 'B':
+			base = 2
 		}
-		show, cached := s.known[id]
-		out[id] = show
-		if !cached {
-			pending = append(pending, id)
+		if base != 0 {
+			value, err := strconv.ParseUint(text[2:], base, 64)
+			return float64(value), err == nil
 		}
 	}
-	s.mu.Unlock()
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	for _, id := range pending {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			show, ok := neoPiOllamaFetchShow(native, id, do)
-			if !ok {
-				return
+	if lower := strings.ToLower(strings.TrimLeft(text, "+-")); strings.HasPrefix(lower, "0x") {
+		// A signed hex literal is NaN to JavaScript.
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(text, 64)
+	return value, err == nil
+}
+
+// neoPiOllamaPositive is toPositiveNumberOrUndefined: a positive finite
+// number, or a non-blank string that reads as one; 0 for none.
+func neoPiOllamaPositive(value gjson.Result) float64 {
+	switch value.Type {
+	case gjson.Number:
+		if number := value.Float(); number > 0 && !math.IsInf(number, 0) {
+			return number
+		}
+	case gjson.String:
+		if text := neoPiJSTrim(value.Str); text != "" {
+			if number, ok := neoPiJSNumber(text); ok && number > 0 && !math.IsInf(number, 0) {
+				return number
 			}
-			mu.Lock()
-			out[id] = show
-			mu.Unlock()
-			s.mu.Lock()
-			s.known[id] = show
-			s.mu.Unlock()
-		}()
+		}
 	}
-	wg.Wait()
-	return out
+	return 0
 }
 
-// neoPiOllamaFetchShow is fetchOllamaShowMetadata: POST {"model": id} to
-// /api/show, ok false when the server does not answer with readable JSON.
-func neoPiOllamaFetchShow(native, id string, do NeoPiOllamaRequest) (neoPiOllamaShow, bool) {
-	var body bytes.Buffer
-	encoder := json.NewEncoder(&body)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(map[string]string{"model": id}); err != nil {
-		return neoPiOllamaShow{}, false
-	}
-	status, data, err := do(native+"/api/show", bytes.TrimSuffix(body.Bytes(), []byte("\n")), false)
+// neoPiOllamaShow is discoverOllamaModelMetadata's answer for one model.
+type neoPiOllamaShow struct {
+	reasoning     bool
+	input         []string
+	contextWindow float64
+}
+
+// neoPiOllamaFetchShow is discoverOllamaModelMetadata: POST {"model": <id>}
+// to /api/show; nil when the server does not answer with a JSON object.
+func neoPiOllamaFetchShow(origin, token string, do NeoPiOllamaRequest) *neoPiOllamaShow {
+	status, data, err := do(origin+"/api/show", []byte(`{"model":`+token+`}`))
 	if err != nil || status < 200 || status > 299 || !gjson.ValidBytes(data) {
-		return neoPiOllamaShow{}, false
+		return nil
 	}
 	payload := gjson.ParseBytes(data)
-	if payload.Type == gjson.Null {
-		// null.capabilities throws inside NeoPi's guard: a failed lookup.
-		return neoPiOllamaShow{}, false
-	}
-	var show neoPiOllamaShow
 	if !payload.IsObject() {
-		return show, true
+		return nil
 	}
-	if capabilities := payload.Get("capabilities"); capabilities.IsArray() {
-		var thinking, vision bool
+	show := &neoPiOllamaShow{input: []string{"text"}, contextWindow: neoPiOllamaContext(payload)}
+	switch capabilities := payload.Get("capabilities"); {
+	case capabilities.IsArray():
+		var vision bool
 		for _, capability := range capabilities.Array() {
 			if capability.Type != gjson.String {
 				continue
 			}
-			switch capability.Str {
+			switch strings.ToLower(capability.Str) {
 			case "thinking":
-				thinking = true
-			case "vision":
+				show.reasoning = true
+			case "vision", "image":
 				vision = true
 			}
 		}
-		show.reasoning = &thinking
-		show.input = []string{"text"}
 		if vision {
-			show.input = append(show.input, "image")
+			show.input = []string{"text", "image"}
+		}
+	case capabilities.IsObject():
+		show.reasoning = capabilities.Get("thinking").Type == gjson.True
+		if capabilities.Get("vision").Type == gjson.True || capabilities.Get("image").Type == gjson.True {
+			show.input = []string{"text", "image"}
 		}
 	}
-	// getOllamaContextWindow: the first positive number under a key naming
-	// the served window, in the answer's key order.
-	if info := payload.Get("model_info"); info.IsObject() {
-		info.ForEach(func(key, value gjson.Result) bool {
-			if value.Type != gjson.Number || value.Float() <= 0 {
-				return true
-			}
-			name := key.String()
-			if strings.HasSuffix(name, ".context_length") || strings.HasSuffix(name, ".num_ctx") || strings.HasSuffix(name, ".context_window") {
-				show.contextWindow = int(value.Float())
-				return false
-			}
-			return true
-		})
-	}
-	return show, true
+	return show
 }
 
-// NeoPiOllamaListing resolves a local Ollama server at baseURL into the
-// roster NeoPi's model manager produces, fetching through do and caching
-// /api/show answers in shows. When neither the listing nor the native roster
-// answers, or the native roster is unreadable, the error is ErrNeoPiListing;
-// an empty answer is a NeoPiEmptyListing.
-func NeoPiOllamaListing(baseURL string, shows *NeoPiOllamaShows, do NeoPiOllamaRequest) ([]*ModelInfo, error) {
-	base := NeoPiOllamaBaseURL(baseURL)
-	native := strings.TrimSuffix(base, "/v1")
-	listed, ok := neoPiOllamaListed(base, do)
-	if ok && len(listed) > 0 {
-		answers := shows.resolve(native, neoPiOllamaSpecIDs(listed), do)
-		for i := range listed {
-			show := answers[listed[i].id]
-			listed[i].contextWindow = show.window()
-			if show.reasoning != nil {
-				// The effort ladder is rule-owned (providers/ollama.kdl),
-				// derived from the reasoning flag.
-				listed[i].reasoning = *show.reasoning
-				listed[i].thinking, listed[i].thinkingRequiresEffortSet = nil, false
-			}
-			if show.input != nil {
-				listed[i].input = show.input
+// neoPiOllamaContext is extractOllamaContextWindow: the num_ctx the model
+// runs with, else the first positive model_info value under context_length
+// or a key ending in .context_length; 0 for none.
+func neoPiOllamaContext(payload gjson.Result) float64 {
+	if parameters := payload.Get("parameters"); parameters.Type == gjson.String {
+		if match := neoPiOllamaNumCtx.FindStringSubmatch(parameters.Str); match != nil {
+			if number, err := strconv.ParseFloat(match[1], 64); err == nil && number > 0 {
+				return number
 			}
 		}
-		return neoPiMergeListing(NeoPiOllamaProvider, base, listed, false)
 	}
-	fallback, err := neoPiOllamaNative(native, shows, do)
+	var window float64
+	if info := payload.Get("model_info"); info.IsObject() {
+		info.ForEach(func(key, value gjson.Result) bool {
+			name := key.String()
+			if name != "context_length" && !strings.HasSuffix(name, ".context_length") {
+				return true
+			}
+			window = neoPiOllamaPositive(value)
+			return window == 0
+		})
+	}
+	return window
+}
+
+// neoPiOllamaToken is JSON.stringify of an entry's id.
+func neoPiOllamaToken(value gjson.Result) string {
+	if value.Type == gjson.String {
+		var body bytes.Buffer
+		encoder := json.NewEncoder(&body)
+		encoder.SetEscapeHTML(false)
+		_ = encoder.Encode(value.Str)
+		return strings.TrimSuffix(body.String(), "\n")
+	}
+	if value.Type == gjson.Number {
+		return strconv.FormatFloat(value.Float(), 'f', -1, 64)
+	}
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, []byte(value.Raw)); err != nil {
+		return value.Raw
+	}
+	return compact.String()
+}
+
+// NeoPiOllamaListing resolves the Ollama server an account configures (or
+// NeoPi's implicit one) into the rows NeoPi's discovery builds: one per
+// /api/tags entry with an id (its model, else its name; its name, else the
+// id, as the name; JavaScript truthiness), in roster order with duplicates,
+// each enriched by its own /api/show, at the server's /v1 on the Responses
+// API, then OLLAMA_CONTEXT_LENGTH applied. A failed or unreadable roster, or
+// one NeoPi cannot build (a null entry, a non-string id or name), is
+// ErrNeoPiListing; an empty one is a NeoPiEmptyListing.
+func NeoPiOllamaListing(configured string, getenv func(string) string, do NeoPiOllamaRequest) ([]*ModelInfo, error) {
+	origin := NeoPiOllamaOrigin(configured, getenv)
+	specs, err := neoPiOllamaRoster(origin, do)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrNeoPiListing, NeoPiOllamaProvider, err)
 	}
-	if len(fallback) > 0 {
-		return neoPiMergeListing(NeoPiOllamaProvider, base, fallback, false)
+	if override := neoPiOllamaContextOverride(getenv); override > 0 {
+		for i := range specs {
+			specs[i].contextWindow, specs[i].maxTokens = override, min(override, neoPiOllamaDefaultMax)
+		}
 	}
-	if !ok {
-		return nil, fmt.Errorf("%w: %s: neither /v1/models nor /api/tags answered", ErrNeoPiListing, NeoPiOllamaProvider)
-	}
-	// The listing answered with no models: an empty roster.
-	return neoPiMergeListing(NeoPiOllamaProvider, base, nil, false)
+	return neoPiMergeListing(NeoPiOllamaProvider, origin+"/v1", specs, false)
 }
 
-// neoPiOllamaListed is fetchOpenAICompatibleModels over <base>/models on the
-// Responses API: each entry the bundled reference's spec when NeoPi bundles
-// the id, else the listing's id and name with Ollama's default limits; a
-// repeated id keeps its first position and its last entry, and the roster is
-// sorted by id. ok false when the listing fails or is unreadable.
-func neoPiOllamaListed(base string, do NeoPiOllamaRequest) ([]neoPiSpec, bool) {
-	status, data, err := do(base+"/models", nil, true)
-	if err != nil || status < 200 || status > 299 || !gjson.ValidBytes(data) {
-		return nil, false
+// neoPiOllamaRoster is discoverOllamaModels' fetch and mapping.
+func neoPiOllamaRoster(origin string, do NeoPiOllamaRequest) ([]neoPiSpec, error) {
+	status, data, err := do(origin+"/api/tags", nil)
+	if err != nil {
+		return nil, err
 	}
-	entries, ok := neoPiExtractEntries(neoPiJSONParse(string(data)))
-	if !ok {
-		return nil, false
-	}
-	var order []string
-	byID := map[string]neoPiSpec{}
-	for _, entry := range entries {
-		defaults := neoPiDefaultSpec(entry)
-		var spec neoPiSpec
-		if reference := neoPiBundledRow(NeoPiOllamaProvider, defaults.id); reference != nil {
-			spec = neoPiMapWithBundledReference(entry, defaults, reference)
-		} else {
-			spec = defaults
-			spec.name = neoPiModelName(entry.Get("name"), defaults.name)
-			spec.contextWindow, spec.maxTokens = neoPiOllamaFallbackContext, neoPiOllamaDefaultMax
-		}
-		spec.api = neopicompat.APIOpenAIResponses
-		if _, seen := byID[spec.id]; !seen {
-			order = append(order, spec.id)
-		}
-		byID[spec.id] = spec
-	}
-	specs := make([]neoPiSpec, 0, len(order))
-	for _, id := range order {
-		specs = append(specs, byID[id])
-	}
-	neoPiSortStableByLocale(specs, func(spec neoPiSpec) string { return spec.id })
-	return specs, true
-}
-
-// neoPiOllamaNative is fetchOllamaNativeModels: GET <native>/api/tags, one
-// row per entry (its model, else its name, as the id; its name, else the id,
-// as the name), each enriched from /api/show, duplicates kept, sorted by id.
-// nil without error when the server does not answer; an answer NeoPi cannot
-// read (unparsable, null, a non-list models member, a null entry) is an
-// error, after the lookups NeoPi had already started.
-func neoPiOllamaNative(native string, shows *NeoPiOllamaShows, do NeoPiOllamaRequest) ([]neoPiSpec, error) {
-	status, data, err := do(native+"/api/tags", nil, false)
-	if err != nil || status < 200 || status > 299 {
-		return nil, nil
+	if status < 200 || status > 299 {
+		return nil, fmt.Errorf("HTTP %d from %s/api/tags", status, origin)
 	}
 	if !gjson.ValidBytes(data) {
-		return nil, errNeoPiOllamaNative
+		return nil, errNeoPiOllamaRoster
 	}
 	payload := gjson.ParseBytes(data)
 	if payload.Type == gjson.Null {
-		return nil, errNeoPiOllamaNative
+		return nil, errNeoPiOllamaRoster
 	}
-	models := payload.Get("models")
-	if !payload.IsObject() || !models.Exists() || models.Type == gjson.Null {
+	var models gjson.Result
+	if payload.IsObject() {
+		models = payload.Get("models")
+	}
+	if !models.Exists() || models.Type == gjson.Null {
 		return nil, nil
 	}
 	if !models.IsArray() {
-		return nil, errNeoPiOllamaNative
+		return nil, errNeoPiOllamaRoster
 	}
-	var specs []neoPiSpec
-	var failed error
-	for _, entry := range models.Array() {
-		if entry.Type == gjson.Null {
-			failed = errNeoPiOllamaNative
-			break
+	type entry struct{ id, name gjson.Result }
+	var entries []entry
+	for _, item := range models.Array() {
+		if item.Type == gjson.Null {
+			return nil, errNeoPiOllamaRoster
 		}
-		model, name := entry.Get("model"), entry.Get("name")
+		model, name := item.Get("model"), item.Get("name")
 		id := model
-		if !model.Exists() || model.Type == gjson.Null {
+		if !neoPiJSTruthy(model) {
 			id = name
 		}
-		if id.Type != gjson.String || id.Str == "" {
+		if !neoPiJSTruthy(id) {
 			continue
 		}
-		spec := neoPiSpec{id: id.Str, name: id.Str, api: neopicompat.APIOpenAIResponses, maxTokens: neoPiOllamaDefaultMax}
-		if name.Type == gjson.String {
-			spec.name = name.Str
+		if !neoPiJSTruthy(name) {
+			name = id
+		}
+		entries = append(entries, entry{id: id, name: name})
+	}
+	// Every entry's own lookup, concurrently; a repeated id takes its last
+	// lookup's answer, as NeoPi's Map does.
+	shows := make([]*neoPiOllamaShow, len(entries))
+	var wg sync.WaitGroup
+	for i, item := range entries {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			shows[i] = neoPiOllamaFetchShow(origin, neoPiOllamaToken(item.id), do)
+		}()
+	}
+	wg.Wait()
+	byID := make(map[string]*neoPiOllamaShow, len(entries))
+	for i, item := range entries {
+		byID[neoPiOllamaToken(item.id)] = shows[i]
+	}
+	specs := make([]neoPiSpec, 0, len(entries))
+	for _, item := range entries {
+		if item.id.Type != gjson.String || item.name.Type != gjson.String {
+			// buildModel cannot build it, and the whole discovery fails.
+			return nil, errNeoPiOllamaRoster
+		}
+		spec := neoPiSpec{id: item.id.Str, name: item.name.Str, api: neopicompat.APIOpenAIResponses,
+			input: []string{"text"}, contextWindow: neoPiOllamaDefaultContext, maxTokens: neoPiOllamaDefaultMax}
+		if show := byID[neoPiOllamaToken(item.id)]; show != nil {
+			spec.reasoning, spec.input = show.reasoning, show.input
+			if show.contextWindow > 0 {
+				// NeoPi keeps a fractional window; NeoProxy's limits are whole tokens.
+				spec.contextWindow = int(show.contextWindow)
+				spec.maxTokens = min(int(show.contextWindow), neoPiOllamaDefaultMax)
+			}
 		}
 		specs = append(specs, spec)
 	}
-	answers := shows.resolve(native, neoPiOllamaSpecIDs(specs), do)
-	if failed != nil {
-		return nil, failed
-	}
-	kept := specs[:0]
-	for _, spec := range specs {
-		// isModelLike: a spec without a name never builds.
-		if spec.name == "" {
-			continue
-		}
-		show := answers[spec.id]
-		spec.contextWindow = show.window()
-		spec.input = []string{"text"}
-		if show.reasoning != nil {
-			spec.reasoning = *show.reasoning
-		}
-		if show.input != nil {
-			spec.input = show.input
-		}
-		kept = append(kept, spec)
-	}
-	neoPiSortStableByLocale(kept, func(spec neoPiSpec) string { return spec.id })
-	return kept, nil
+	return specs, nil
 }
 
-func neoPiOllamaSpecIDs(specs []neoPiSpec) []string {
-	ids := make([]string, len(specs))
-	for i, spec := range specs {
-		ids[i] = spec.id
+// neoPiJSTruthy is JavaScript truthiness for a JSON value (absent is
+// undefined).
+func neoPiJSTruthy(value gjson.Result) bool {
+	switch value.Type {
+	case gjson.Null, gjson.False:
+		return false
+	case gjson.Number:
+		return value.Float() != 0
+	case gjson.String:
+		return value.Str != ""
 	}
-	return ids
+	return value.Exists()
 }

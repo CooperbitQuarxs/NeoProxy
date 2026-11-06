@@ -36,10 +36,11 @@ func TestOllamaReplaysNeoPiResponsesRequests(t *testing.T) {
 	}))
 	defer server.Close()
 	capture := loadGitHubCopilotCapture(t, "testdata/neopi_ollama/openai-responses.json.gz")
-	infos, err := registry.NeoPiOllamaListing("", registry.NewNeoPiOllamaShows(), func(endpoint string, body []byte, _ bool) (int, []byte, error) {
+	noEnv := func(string) string { return "" }
+	infos, err := registry.NeoPiOllamaListing("", noEnv, func(endpoint string, body []byte) (int, []byte, error) {
 		switch {
-		case strings.HasSuffix(endpoint, "/v1/models"):
-			return 200, []byte(capture.Listing), nil
+		case strings.HasSuffix(endpoint, "/api/tags"):
+			return 200, []byte(capture.Tags), nil
 		case strings.HasSuffix(endpoint, "/api/show"):
 			var request struct {
 				Model string `json:"model"`
@@ -120,8 +121,8 @@ func TestOllamaReplaysNeoPiResponsesRequests(t *testing.T) {
 }
 
 // An account naming its server as Ollama documents it (http://host:11434,
-// without /v1) is asked on /v1, where NeoPi's normalizeOllamaBaseUrl puts
-// every configured base.
+// without /v1) is asked on /v1, where NeoPi's runtime discovery puts every
+// row (its server's origin, then /v1).
 func TestOllamaConfiguredBaseGainsV1(t *testing.T) {
 	var path string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -129,9 +130,10 @@ func TestOllamaConfiguredBaseGainsV1(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 	defer server.Close()
-	infos, err := registry.NeoPiOllamaListing("", registry.NewNeoPiOllamaShows(), func(endpoint string, body []byte, _ bool) (int, []byte, error) {
-		if body == nil && strings.HasSuffix(endpoint, "/v1/models") {
-			return 200, []byte(`{"data":[{"id":"llama3.2:3b"}]}`), nil
+	noEnv := func(string) string { return "" }
+	infos, err := registry.NeoPiOllamaListing("", noEnv, func(endpoint string, body []byte) (int, []byte, error) {
+		if body == nil && strings.HasSuffix(endpoint, "/api/tags") {
+			return 200, []byte(`{"models":[{"model":"llama3.2:3b"}]}`), nil
 		}
 		return 404, []byte("not found"), nil
 	})

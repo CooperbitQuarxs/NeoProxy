@@ -76,7 +76,6 @@ const managers: Record<string, (config: any) => any> = {
 	"cloudflare-ai-gateway": m.cloudflareAiGatewayModelManagerOptions,
 	commandcode: m.commandCodeModelManagerOptions,
 	litellm: m.litellmModelManagerOptions,
-	ollama: m.ollamaModelManagerOptions,
 };
 for (const [id, build] of Object.entries(managers)) if (typeof build !== "function") throw new Error(`no NeoPi manager for ${id}`);
 
@@ -454,10 +453,9 @@ function fireworksPages(bundled: string[]): Reply[] {
 // its scenarios answer each host with its own reply.
 // baseUrl is the provider base an account configures (NeoPi's provider
 // baseUrl override), absent for the manager's default.
-// paths answers a proxy by path and query (LiteLLM's management endpoints,
-// Ollama's listings); any other path answers 404. shows answers Ollama's
-// POST /api/show by the model its body names; any other model answers 404.
-type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string; paths?: Record<string, Reply>; shows?: Record<string, Reply> };
+// paths answers a proxy by path and query (LiteLLM's management endpoints);
+// any other path answers 404.
+type Scenario = { name: string; replies: Reply[]; expectFetchFails?: boolean; roster?: Reply; live?: Reply; apiKey?: string; keyless?: boolean; modelsDev?: Reply; native?: { v0?: Reply; v1?: Reply }; baseUrl?: string; paths?: Record<string, Reply> };
 
 function clinePassScenarios(bundled: string[]): Scenario[] {
 	const pass = [
@@ -633,76 +631,10 @@ function liteLLMScenarios(): Scenario[] {
 	];
 }
 
-// Ollama lists over /v1/models and asks /api/show for each listed model's
-// window, thinking and vision; an empty or failed listing falls back to the
-// native /api/tags roster.
-function ollamaScenarios(): Scenario[] {
-	const listing = json({
-		object: "list",
-		data: [
-			{ id: "qwen3:8b", object: "model", owned_by: "library" },
-			{ id: "llava:7b", name: "LLaVA 7B", object: "model" },
-			{ id: "gemma3:4b", object: "model" },
-			{ id: "embed:1", object: "model" },
-			{ id: "qwen3:8b", name: "Qwen Again", object: "model" },
-			{ id: "Zeta:1", object: "model" },
-			{ id: "", object: "model" },
-			{ id: 7, object: "model" },
-		],
-	});
-	const shows: Record<string, Reply> = {
-		"qwen3:8b": json({ capabilities: ["completion", "tools", "thinking"], model_info: { "general.architecture": "qwen3", "general.parameter_count": 8190735360, "qwen3.context_length": 40960 } }),
-		"llava:7b": json({ capabilities: ["completion", "vision"], model_info: { "llama.context_length": "4096", "clip.num_ctx": 0, "llava.context_window": 32768, "llama.num_ctx": 8192 } }),
-		"gemma3:4b": json({ error: "boom" }, 500),
-		"embed:1": json({ capabilities: ["embedding"] }),
-		"Zeta:1": json({ model_info: { "zeta.context_length": 65536 } }),
-	};
-	const tags = json({
-		models: [
-			{ name: "b:1", model: "b:1" },
-			{ name: "Alpha Pretty", model: "a:1" },
-			{ name: "c:1" },
-			{ model: "d:1" },
-			{ name: "b:1", model: "b:1" },
-			{},
-		],
-	});
-	const nativeShows: Record<string, Reply> = {
-		"a:1": json({ capabilities: ["completion", "thinking", "vision"], model_info: { "a.context_length": 131072 } }),
-		"b:1": json({ capabilities: ["completion"] }),
-		"c:1": { status: 200, body: "oops" },
-		"d:1": json(null),
-	};
-	return [
-		{ name: "listing with show metadata", replies: [], paths: { "/v1/models": listing }, shows },
-		{ name: "listing with show metadata, keyless", keyless: true, replies: [], paths: { "/v1/models": listing }, shows },
-		{ name: "listing, every show fails", replies: [], paths: { "/v1/models": listing } },
-		{ name: "show not an object", replies: [], paths: { "/v1/models": json({ data: [{ id: "n:1" }, { id: "s:1" }, { id: "t:1" }] }) }, shows: { "n:1": json(5), "s:1": json("text"), "t:1": json({ capabilities: "thinking", model_info: [] }) } },
-		{ name: "empty listing, native tags", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": tags }, shows: nativeShows },
-		{ name: "failed listing, native tags", replies: [], paths: { "/v1/models": json({ error: "no" }, 500), "/api/tags": tags }, shows: nativeShows },
-		{ name: "listing not json, native tags without shows", replies: [], paths: { "/v1/models": { status: 200, body: "oops" }, "/api/tags": tags } },
-		{ name: "empty listing, empty native", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ models: [] }) } },
-		{ name: "empty listing, native down", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ error: "x" }, 503) } },
-		// The native answer is read outside NeoPi's guards: an unreadable one
-		// fails the whole discovery rather than returning the empty listing.
-		{ name: "empty listing, native not json", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": { status: 200, body: "oops" } } },
-		{ name: "empty listing, native null", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json(null) } },
-		{ name: "empty listing, native models not a list", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ models: { name: "x:1" } }) } },
-		{ name: "empty listing, native null entry", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ models: [{ name: "x:1" }, null] }) } },
-		{ name: "empty listing, native without models", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ tags: [] }) } },
-		{ name: "empty listing, native odd entries", replies: [], paths: { "/v1/models": json({ data: [] }), "/api/tags": json({ models: [{ model: "", name: "e:1" }, { name: "", model: "f:1" }, { name: null, model: "g:1" }, { model: null, name: "h:1" }, 5] }) }, shows: { "f:1": json({ capabilities: ["vision"] }) } },
-		{ name: "nothing answers", replies: [], paths: {} },
-		{ name: "configured base without v1", baseUrl: "http://box.lan:11434", replies: [], paths: { "/v1/models": json({ data: [{ id: "qwen3:8b" }] }) }, shows },
-		{ name: "configured base with slash", baseUrl: "http://box.lan:11434/v1/", replies: [], paths: { "/v1/models": json({ data: [{ id: "llava:7b" }] }) }, shows },
-		{ name: "configured base subpath", baseUrl: "https://proxy.example/ollama", replies: [], paths: { "/ollama/v1/models": json({ data: [] }), "/ollama/api/tags": tags }, shows: nativeShows },
-	];
-}
-
 function scenarios(provider: string, bundled: string[]): Scenario[] {
 	const list = entries(provider, bundled);
 	if (provider === "cline-pass") return clinePassScenarios(bundled);
 	if (provider === "litellm") return liteLLMScenarios();
-	if (provider === "ollama") return ollamaScenarios();
 	if (provider === "fireworks") {
 		return [
 			{ name: "control-plane pages", replies: fireworksPages(bundled) },
@@ -853,19 +785,14 @@ for (const [provider, build] of Object.entries(managers)) {
 				const reply = scenario.modelsDev ?? { status: 503, body: "unavailable" };
 				return new Response(reply.body, { status: reply.status, headers: { "content-type": "application/json" } });
 			}
-			const body = typeof init?.body === "string" ? init.body : undefined;
 			requests.push({
 				method: init?.method ?? "GET",
 				path: url.pathname,
 				query: Object.fromEntries(url.searchParams),
 				headers: Object.fromEntries(Object.entries(init?.headers ?? {}).map(([k, v]) => [k.toLowerCase(), v])),
-				...(body !== undefined ? { body } : {}),
 			});
 			const nativeKey = provider !== "lm-studio" ? undefined : url.pathname === "/api/v0/models" ? "v0" : url.pathname === "/api/v1/models" ? "v1" : undefined;
-			const shown = scenario.shows !== undefined || provider === "ollama" ? (url.pathname.endsWith("/api/show") ? JSON.parse(body ?? "{}").model : undefined) : undefined;
-			const reply = shown !== undefined
-				? (scenario.shows?.[shown] ?? { status: 404, body: "not found" })
-				: scenario.paths
+			const reply = scenario.paths
 				? (scenario.paths[url.pathname + url.search] ?? { status: 404, body: "not found" })
 				: nativeKey
 					? (scenario.native?.[nativeKey] ?? { status: 404, body: "{}" })
@@ -893,7 +820,6 @@ for (const [provider, build] of Object.entries(managers)) {
 			...(scenario.modelsDev ? { modelsDev: scenario.modelsDev } : {}),
 			...(scenario.native ? { native: scenario.native } : {}),
 			...(scenario.paths ? { paths: scenario.paths } : {}),
-			...(scenario.shows ? { shows: scenario.shows } : {}),
 			...(scenario.roster ? { roster: scenario.roster, live: scenario.live } : {}),
 			requests,
 			source: resolved.source,
