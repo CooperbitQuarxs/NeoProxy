@@ -379,6 +379,10 @@
 		},
 		"litellm": {
 			"name": "LiteLLM"
+		},
+		"ollama": {
+			"name": "Ollama (Local OpenAI-compatible)",
+			"emptyFallback": ""
 		}
 	}
 }

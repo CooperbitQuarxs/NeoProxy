@@ -98,6 +98,7 @@ var apiKeyRoutes = map[string]route{
 	"vllm":                  {target: "vllm"},
 	"lm-studio":             {target: "lm-studio"},
 	"litellm":               {target: "litellm"},
+	"ollama":                {target: "ollama"},
 	"venice":                {target: "venice"},
 	"wafer-serverless":      {target: "wafer-serverless"},
 	"xiaomi-token-plan-sgp": {target: "xiaomi-token-plan-sgp"},

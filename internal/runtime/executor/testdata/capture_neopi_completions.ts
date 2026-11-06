@@ -106,6 +106,11 @@ const discoveredRosters: Record<string, any[]> = {
 		{ model_group: "all-proxy-models", providers: [] },
 		{ model_group: "zz-proxy-alias", providers: ["bedrock"], mode: "chat", supports_vision: false, max_input_tokens: 64000 },
 	],
+	// Local Ollama: NeoPi's runtime discovers it through coding-agent's
+	// discoverOllamaModels, not this catalog manager, whose listing only
+	// supplies the same endpoint and keyless-discovery flags for the export.
+	// Its rows run on Responses, so nothing else is exported.
+	ollama: [{ id: "qwen3:8b" }],
 };
 
 // LM Studio's native answers (GET /api/v0/models and /api/v1/models).
@@ -333,8 +338,9 @@ for (const provider of providers) {
 	const { list: anthropicCompats, indexOf: anthropicIndexOf } = dedupe();
 	const { list: responsesCompats, indexOf: responsesIndexOf } = dedupe();
 	// The provider's Chat Completions endpoint; a provider NeoPi serves only
-	// over Anthropic Messages (MiniMax) keeps its bundled rows' endpoint.
-	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl;
+	// over Anthropic Messages (MiniMax) keeps its bundled rows' endpoint, one
+	// whose discovered rows all run on Responses (Ollama) theirs.
+	const baseUrl = completions[0]?.baseUrl ?? exported[0]?.baseUrl ?? listed[0]?.baseUrl;
 	const rows = exported.map((model: any) => ({
 		id: model.id,
 		name: model.name,
