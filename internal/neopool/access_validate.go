@@ -169,7 +169,15 @@ func listUpstreamModels(ctx context.Context, style, base, key string) ([]string,
 // (see modelRoutes). Providers NeoProxy serves through NeoPi's own provider
 // check their keys the way NeoPi's sign-in does (see validateNeoPiKey).
 func validateCatalogKey(ctx context.Context, info ProviderInfo, base string, preferred regionChoice, key string) (string, []string, map[string]modelRoute, error) {
-	if registry.ResponsesProviderForBaseURL(base) != "" {
+	switch registry.ResponsesProviderForBaseURL(base) {
+	case "":
+	case registry.ResponsesBedrockMantle:
+		// NeoPi's bedrock-mantle auth rule has no validate hook: the key (or
+		// its absence) is kept as entered. The account keeps the endpoint of
+		// the region the server's AWS settings select (resolveAwsRegion), a
+		// valid address wherever the account's base URL is read.
+		return registry.BedrockMantleBaseURL(base), nil, nil, nil
+	default:
 		return base, nil, nil, validateResponsesKey(ctx, base, key)
 	}
 	if info.ID == "zai" {

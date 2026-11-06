@@ -10,8 +10,12 @@ type responsesProfilesFixture struct {
 	Seeds     map[string][]NeoPiModel `json:"seeds"`
 	Excluded  map[string]map[string]bool
 	Discovery []struct {
-		Provider  string `json:"provider"`
-		Name      string `json:"name"`
+		Provider string `json:"provider"`
+		Name     string `json:"name"`
+		// Source is the model manager's result source: "provider" when it
+		// fetched the roster, otherwise discovery was skipped (Bedrock Mantle
+		// without a bearer) and the seed is the result.
+		Source    string `json:"source"`
 		RosterRaw []struct {
 			ID                  string `json:"id"`
 			Name                string `json:"name"`
@@ -68,9 +72,12 @@ func TestResponsesDiscoveryMatchesNeoPi(t *testing.T) {
 	}
 	for _, scenario := range fixture.Discovery {
 		t.Run(scenario.Provider+"/"+scenario.Name, func(t *testing.T) {
-			listed := []DiscoveredResponsesModel{}
-			for _, entry := range scenario.RosterRaw {
-				listed = append(listed, DiscoveredResponsesModel{ID: entry.ID, Name: entry.Name, ContextLength: entry.ContextLength, MaxCompletionTokens: entry.MaxCompletionTokens})
+			var listed []DiscoveredResponsesModel
+			if scenario.Source == "provider" {
+				listed = []DiscoveredResponsesModel{}
+				for _, entry := range scenario.RosterRaw {
+					listed = append(listed, DiscoveredResponsesModel{ID: entry.ID, Name: entry.Name, ContextLength: entry.ContextLength, MaxCompletionTokens: entry.MaxCompletionTokens})
+				}
 			}
 			got := ResponsesNeoPiModels(scenario.Provider, listed)
 			if len(got) != len(scenario.Models) {

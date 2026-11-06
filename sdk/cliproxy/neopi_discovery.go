@@ -85,10 +85,12 @@ var (
 	museCodeDiscovery = newResponsesDiscovery(registry.ResponsesMuseCode, "meta")
 	// metaAPIKeyDiscovery lists a Meta Model API key's models.
 	metaAPIKeyDiscovery = newResponsesDiscovery(registry.ResponsesMeta, "meta")
-	// sakanaDiscovery and abliterationDiscovery list the openai-compatibility
-	// keys at those gateways, NeoPi's authoritative `/v1/models` managers.
-	sakanaDiscovery       = newResponsesDiscovery(registry.ResponsesSakana, "")
-	abliterationDiscovery = newResponsesDiscovery(registry.ResponsesAbliterate, "")
+	// sakanaDiscovery, abliterationDiscovery and bedrockMantleDiscovery list the
+	// openai-compatibility keys at those gateways, NeoPi's authoritative
+	// `/v1/models` managers.
+	sakanaDiscovery        = newResponsesDiscovery(registry.ResponsesSakana, "")
+	abliterationDiscovery  = newResponsesDiscovery(registry.ResponsesAbliterate, "")
+	bedrockMantleDiscovery = newResponsesDiscovery(registry.ResponsesBedrockMantle, "")
 	// googleDiscovery lists GET /v1beta/models; NeoPi keeps its bundled rows and
 	// overlays the listing, so its bundled catalog stays authoritative.
 	googleDiscovery = &neoPiDiscovery{provider: "gemini", ttl: 2 * time.Hour, retry: 5 * time.Minute, timeout: 0,
@@ -119,7 +121,7 @@ var (
 		bundled: neoPiStaticSeed(registry.GitLabDuoAgentSeedModels), fetch: executor.FetchGitLabDuoAgentModels, scope: gitlabDuoAgentDiscoveryScope,
 		entries: map[string]*neoPiDiscoveryEntry{}}
 
-	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, factoryDroidDiscovery, githubCopilotDiscovery, gitlabDuoAgentDiscovery}
+	neoPiDiscoveries = []*neoPiDiscovery{kimiDiscovery, devinDiscovery, cursorDiscovery, googleDiscovery, umansDiscovery, museCodeDiscovery, metaAPIKeyDiscovery, sakanaDiscovery, abliterationDiscovery, bedrockMantleDiscovery, factoryDroidDiscovery, githubCopilotDiscovery, gitlabDuoAgentDiscovery}
 )
 
 // factoryDroidDiscoveryScope is the account scope NeoPi namespaces a Factory
@@ -345,10 +347,10 @@ func metaDiscoveryFor(a *coreauth.Auth) *neoPiDiscovery {
 }
 
 // neoPiResponsesModelsFor replaces the configured model list of an
-// openai-compatibility key at a Sakana or Abliteration address with NeoPi's
-// discovered catalog; any other account keeps fallback.
+// openai-compatibility key at a Sakana, Abliteration or Bedrock Mantle address
+// with NeoPi's discovered catalog; any other account keeps fallback.
 func (s *Service) neoPiResponsesModelsFor(a *coreauth.Auth, fallback []*ModelInfo) []*ModelInfo {
-	for _, d := range []*neoPiDiscovery{sakanaDiscovery, abliterationDiscovery} {
+	for _, d := range []*neoPiDiscovery{sakanaDiscovery, abliterationDiscovery, bedrockMantleDiscovery} {
 		if !d.serves(a) {
 			continue
 		}

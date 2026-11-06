@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -31,6 +32,11 @@ type responsesCapture struct {
 			Provider   string          `json:"provider"`
 			Model      string          `json:"model"`
 			Downstream json.RawMessage `json:"downstream"`
+			// ProviderOptions is what NeoPi's provider transport received beside
+			// the key: bedrock-mantle's region.
+			ProviderOptions struct {
+				Region string `json:"region"`
+			} `json:"providerOptions"`
 		} `json:"scenario"`
 		Requests []struct {
 			Method  string            `json:"method"`
@@ -57,7 +63,7 @@ func bearerFor(provider, credential string) string {
 // TestNeoPiResponsesMatchesNeoPiSource replays the scenarios captured from
 // NeoPi's own streamOpenAIResponses (testdata/capture_responses_npi.ts):
 // method, URL, headers and body bytes of every downstream turn for Meta, Muse
-// Code, Sakana and Abliteration.
+// Code, Sakana, Abliteration and Bedrock Mantle.
 func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 	raw, err := os.ReadFile("testdata/responses_npi_requests.json")
 	if err != nil {
@@ -106,7 +112,7 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 			}
 		}
 	}
-	for _, provider := range []string{"meta", "muse-code", "sakana", "abliteration"} {
+	for _, provider := range []string{"meta", "muse-code", "sakana", "abliteration", "bedrock-mantle"} {
 		for _, suffix := range []string{"explicit-encrypted-include", "image-original", "summary-none", "reconstructed-assistant-history"} {
 			if name := provider + "-" + suffix; !seen[name] {
 				t.Errorf("missing source capture %s", name)
@@ -120,6 +126,16 @@ func TestNeoPiResponsesMatchesNeoPiSource(t *testing.T) {
 			model := registry.ResponsesNeoPiModel(provider, fixture.Scenario.Model, nil)
 			if model == nil {
 				t.Fatalf("model %s/%s missing from the catalog", provider, fixture.Scenario.Model)
+			}
+			if provider == registry.ResponsesBedrockMantle {
+				// NeoPi's providerOptions.region is the region the proxy resolves
+				// from the environment; none resolves to us-east-1.
+				for _, name := range []string{"AWS_DEFAULT_REGION", "AWS_PROFILE", "AWS_SDK_LOAD_CONFIG"} {
+					t.Setenv(name, "")
+				}
+				t.Setenv("AWS_REGION", fixture.Scenario.ProviderOptions.Region)
+				t.Setenv("AWS_CONFIG_FILE", filepath.Join(t.TempDir(), "absent"))
+				model.BaseURL = registry.BedrockMantleBaseURL(model.BaseURL)
 			}
 			ctx, opts := openaiwire.FromResponses(fixture.Scenario.Downstream, model)
 			ctx.ReconstructAssistantHistory = strings.HasSuffix(fixture.Name, "-reconstructed-assistant-history")
@@ -183,7 +199,10 @@ func TestNeoPiResponsesExecuteMatchesNeoPiSource(t *testing.T) {
 			if model == nil {
 				t.Fatalf("model %s/%s missing", provider, fixture.Scenario.Model)
 			}
-			model.BaseURL = server.URL + "/v1"
+			// The loopback serves the source's own path prefix (/v1, Bedrock
+			// Mantle's /openai/v1) so the path compares as sent.
+			base := server.URL + strings.TrimSuffix(fixture.Requests[0].Path, "/responses")
+			model.BaseURL = base
 			info := &registry.ModelInfo{ID: model.ID, NeoPi: model}
 			if model.Reasoning && model.Thinking != nil {
 				info.Thinking = &registry.ThinkingSupport{Levels: model.Thinking.Efforts, ZeroAllowed: true}
@@ -192,7 +211,7 @@ func TestNeoPiResponsesExecuteMatchesNeoPiSource(t *testing.T) {
 			if errSet != nil {
 				t.Fatal(errSet)
 			}
-			auth := &cliproxyauth.Auth{ID: "parity", Provider: "responses-parity", Attributes: map[string]string{"api_key": bearerFor(provider, capture.Credentials[provider]), "base_url": server.URL + "/v1"}}
+			auth := &cliproxyauth.Auth{ID: "parity", Provider: "responses-parity", Attributes: map[string]string{"api_key": bearerFor(provider, capture.Credentials[provider]), "base_url": base}}
 			exec := NewNeoPiResponsesExecutor("responses-parity", &config.Config{})
 			req := cliproxyexecutor.Request{Model: fixture.Scenario.Model, Payload: payload, Metadata: map[string]any{"cliproxy.resolved_api_key_model_info": info}}
 			result, errStream := exec.ExecuteStream(t.Context(), auth, req, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse})
