@@ -147,11 +147,13 @@ func amazonBedrockServer(t *testing.T, replies []amazonBedrockReply) (*httptest.
 }
 
 // amazonBedrockTurn is what a client reads from a chat completion stream:
-// its text, reasoning, tool calls, finish reason, usage, or the error.
+// its text, reasoning, tool calls, finish reason, usage, every chunk (as
+// parsed JSON, without its id and created stamp), or the error.
 type amazonBedrockTurn struct {
 	Content, Reasoning, Finish string
 	ToolCalls                  []string
 	Usage                      string
+	Chunks                     []any
 	Error                      string
 }
 
@@ -162,6 +164,7 @@ func summarizeAmazonBedrockStream(lines []string) amazonBedrockTurn {
 	var order []int64
 	for _, line := range lines {
 		line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "data:"))
+		// The HTTP handler, not the executor, writes the closing [DONE].
 		if line == "" || line == "[DONE]" {
 			continue
 		}
@@ -169,6 +172,12 @@ func summarizeAmazonBedrockStream(lines []string) amazonBedrockTurn {
 		if message := chunk.Get("error.message"); message.Exists() {
 			turn.Error = message.String()
 			continue
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(line), &parsed); err == nil {
+			delete(parsed, "id")
+			delete(parsed, "created")
+			turn.Chunks = append(turn.Chunks, parsed)
 		}
 		for _, choice := range chunk.Get("choices").Array() {
 			delta := choice.Get("delta")
@@ -206,10 +215,14 @@ func summarizeAmazonBedrockStream(lines []string) amazonBedrockTurn {
 	return turn
 }
 
-// runAmazonBedrock streams one turn and returns what the client read.
-func runAmazonBedrock(t *testing.T, exec *AmazonBedrockExecutor, auth *cliproxyauth.Auth, body string) amazonBedrockTurn {
+// runAmazonBedrock streams one turn and returns what the client read. info
+// is the model the auth manager resolved for the attempt, as in production.
+func runAmazonBedrock(t *testing.T, exec *AmazonBedrockExecutor, auth *cliproxyauth.Auth, body string, info *registry.ModelInfo) amazonBedrockTurn {
 	t.Helper()
 	req := cliproxyexecutor.Request{Model: gjson.Get(body, "model").String(), Payload: []byte(body)}
+	if info != nil {
+		req.Metadata = map[string]any{"cliproxy.resolved_api_key_model_info": info}
+	}
 	opts := cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAI, Stream: true}
 	stream, err := exec.ExecuteStream(context.Background(), auth, req, opts)
 	if err != nil {
@@ -274,13 +287,23 @@ func TestAmazonBedrockMatchesNeoPiGateway(t *testing.T) {
 			exec := newAmazonBedrockTestExecutor(&config.Config{}, tc.Env)
 			auth := &cliproxyauth.Auth{ID: "amazon-bedrock-test", Provider: "amazon-bedrock",
 				Attributes: map[string]string{"api_key": capture.APIKey, "base_url": server.URL}}
-			got := runAmazonBedrock(t, exec, auth, tc.Body)
+			modelID := gjson.Get(tc.Body, "model").String()
+			var info *registry.ModelInfo
+			for _, row := range rows {
+				if row.ID == modelID {
+					info = registry.AmazonBedrockModelInfo(row)
+				}
+			}
+			if info == nil {
+				t.Fatalf("no bundled row %s", modelID)
+			}
+			got := runAmazonBedrock(t, exec, auth, tc.Body, info)
 
 			requests := recorded()
 			if len(requests) != len(tc.Upstream) {
 				t.Fatalf("requests = %d, NeoPi sent %d", len(requests), len(tc.Upstream))
 			}
-			modelID := gjson.Get(tc.Body, "model").String()
+
 			for i, request := range requests {
 				want := tc.Upstream[i]
 				wantURL, errURL := url.Parse(want.URL)
@@ -370,6 +393,30 @@ func TestAmazonBedrockBearerPrecedence(t *testing.T) {
 	}
 }
 
+// A chat client that does not ask for stream usage gets no usage chunk, as
+// NeoPi frames it, yet the turn's tokens are still accounted.
+func TestAmazonBedrockAccountsUsageTheClientDeclined(t *testing.T) {
+	reply := amazonBedrockReply{Status: http.StatusOK, Frames: []amazonBedrockFrame{
+		{Event: "messageStart", Payload: json.RawMessage(`{"role":"assistant"}`)},
+		{Event: "contentBlockDelta", Payload: json.RawMessage(`{"contentBlockIndex":0,"delta":{"text":"ok"}}`)},
+		{Event: "messageStop", Payload: json.RawMessage(`{"stopReason":"end_turn"}`)},
+		{Event: "metadata", Payload: json.RawMessage(`{"usage":{"inputTokens":17,"outputTokens":5,"totalTokens":22}}`)},
+	}}
+	server, _ := amazonBedrockServer(t, []amazonBedrockReply{reply})
+	exec := newAmazonBedrockTestExecutor(&config.Config{}, nil)
+	auth := &cliproxyauth.Auth{ID: t.Name(), Provider: "amazon-bedrock", Attributes: map[string]string{"api_key": "key", "base_url": server.URL}}
+	records := neoPiTerminalCaptureUsage(t, auth.ID)
+	body := `{"model":"meta.llama3-1-70b-instruct-v1:0","messages":[{"role":"user","content":"Hi"}],"stream":true}`
+	turn := runAmazonBedrock(t, exec, auth, body, nil)
+	if turn.Error != "" || turn.Content != "ok" || turn.Usage != "" {
+		t.Fatalf("turn = %+v, want text and no usage chunk", turn)
+	}
+	got := records()
+	if len(got) != 1 || got[0].Detail.InputTokens != 17 || got[0].Detail.OutputTokens != 5 || got[0].Detail.TotalTokens != 22 {
+		t.Fatalf("usage records = %+v, want the turn's tokens", got)
+	}
+}
+
 // Configured payload rules are the last word on the Converse body, on the
 // first attempt and on the retry that drops prefix-bound reasoning: an
 // override replaces the thinking fields the request resolved, and nothing
@@ -389,7 +436,7 @@ func TestAmazonBedrockPayloadRulesApplyLast(t *testing.T) {
 	exec := newAmazonBedrockTestExecutor(cfg, nil)
 	auth := &cliproxyauth.Auth{ID: "amazon-bedrock-test", Provider: "amazon-bedrock", Attributes: map[string]string{"api_key": "key", "base_url": server.URL}}
 	body := `{"model":"us.anthropic.claude-opus-5-5","messages":[{"role":"user","content":"Hi"}],"reasoning_effort":"high","stream":true}`
-	if turn := runAmazonBedrock(t, exec, auth, body); turn.Error != "" || turn.Content != "ok" {
+	if turn := runAmazonBedrock(t, exec, auth, body, nil); turn.Error != "" || turn.Content != "ok" {
 		t.Fatalf("turn = %+v", turn)
 	}
 	got := recorded()

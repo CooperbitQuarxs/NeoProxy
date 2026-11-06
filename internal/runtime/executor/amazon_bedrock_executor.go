@@ -83,6 +83,10 @@ type amazonBedrockPrepared struct {
 	finalize     func([]byte) []byte
 	headers      http.Header
 	translated   []byte
+	// includeUsage is the chat client's stream_options.include_usage, which
+	// NeoPi's gateway frames its stream by; nil for other client formats,
+	// whose translation needs the usage chunk.
+	includeUsage *bool
 }
 
 // amazonBedrockKey is the account's Amazon Bedrock API key.
@@ -149,12 +153,25 @@ func (e *AmazonBedrockExecutor) prepare(ctx context.Context, auth *cliproxyauth.
 	if err != nil {
 		return nil, err
 	}
+	// NeoPi's gateway fits the client's own effort to the ladder
+	// (normalizeGatewayThinking, in bedrockwire.Effort) and then requires it.
+	// The generic thinking pass remaps an unsupported xhigh to max for a
+	// cross-family model first, so an effort the OpenAI body names itself is
+	// read before that pass; a model suffix, or an effort only that pass
+	// derives from another protocol, keeps its result.
+	var own *cursorwire.Request
+	if gjson.GetBytes(translated, "reasoning_effort").Type == gjson.String && !thinking.ParseSuffix(req.Model).HasSuffix {
+		own, _ = cursorwire.ParseOpenAIChat(translated, opts.Headers.Get)
+	}
 	if translated, err = helps.ApplyRequestThinking(translated, req, opts, opts.SourceFormat.String(), "openai", e.Identifier()); err != nil {
 		return nil, err
 	}
 	parsed, err := cursorwire.ParseOpenAIChat(translated, opts.Headers.Get)
 	if err != nil {
 		return nil, statusErr{code: http.StatusBadRequest, msg: err.Error()}
+	}
+	if own != nil {
+		parsed.Reasoning, parsed.ForceReasoningOff = own.Reasoning, own.ForceReasoningOff
 	}
 	model := amazonBedrockWireModel(row)
 	options := bedrockwire.Options{MaxTokens: parsed.MaxOutputTokens, ToolChoice: bedrockwire.ParseToolChoice(gjson.GetBytes(translated, "tool_choice"))}
@@ -197,6 +214,13 @@ func (e *AmazonBedrockExecutor) prepare(ctx context.Context, auth *cliproxyauth.
 		finalize:   finalize,
 		headers:    amazonBedrockHeaders(ctx, auth, opts.Headers, bearer),
 		translated: translated,
+		includeUsage: func() *bool {
+			if opts.SourceFormat != sdktranslator.FormatOpenAI {
+				return nil
+			}
+			include := parsed.IncludeStreamUsage
+			return &include
+		}(),
 	}, nil
 }
 
@@ -396,16 +420,24 @@ func (e *AmazonBedrockExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 
 	format := cliproxyexecutor.ResponseFormatOrSource(opts)
 	original := helps.ApplyPatchOriginalRequest(req, opts)
-	lines := make(chan []byte, 64)
+	type streamLine struct {
+		data []byte
+		// hidden is a usage chunk the client did not ask for: accounted, not sent.
+		hidden bool
+	}
+	lines := make(chan streamLine, 64)
 	done := make(chan error, 1)
-	encoder := newCursorChunkEncoder(req.Model, func(chunk []byte) error {
+	send := func(line streamLine) error {
 		select {
-		case lines <- chunk:
+		case lines <- line:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-	})
+	}
+	encoder := newCursorChunkEncoder(req.Model, func(chunk []byte) error { return send(streamLine{data: chunk}) })
+	encoder.includeUsage = p.includeUsage
+	encoder.hidden = func(chunk []byte) error { return send(streamLine{data: chunk, hidden: true}) }
 	go func() {
 		output, errRun := e.run(ctx, auth, p, reporter, encoder)
 		if errRun == nil {
@@ -429,10 +461,13 @@ func (e *AmazonBedrockExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 		var state any
 		claudeInput := helps.NewClaudeInputTokenState(opts.SourceFormat, sdktranslator.FormatOpenAI, format, original)
 		helps.InitializeApplyPatchStream(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, p.translated, &state)
-		forward := func(chunk []byte) bool {
-			line := append([]byte("data: "), chunk...)
+		forward := func(item streamLine) bool {
+			line := append([]byte("data: "), item.data...)
 			usage.ObserveOpenAIStream(line)
-			helps.ObserveChatTokenEvent(reporter, chunk)
+			if item.hidden {
+				return true
+			}
+			helps.ObserveChatTokenEvent(reporter, item.data)
 			for _, translated := range helps.TranslateStreamWithClaudeInputTokens(ctx, sdktranslator.FormatOpenAI, format, req.Model, original, p.translated, line, &state, claudeInput) {
 				select {
 				case out <- cliproxyexecutor.StreamChunk{Payload: bytes.Clone(translated)}:

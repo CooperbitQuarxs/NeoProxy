@@ -146,6 +146,13 @@ const scenarios: Scenario[] = [
 	{ name: "region eu ambient with global profile", env: { AWS_REGION: "eu-central-1" }, body: chat(HAIKU, [user("Hi")]), replies: [hello] },
 	{ name: "region default region env with bare id", env: { AWS_DEFAULT_REGION: "ap-northeast-1" }, body: chat(LLAMA, [user("Hi")]), replies: [hello] },
 	{ name: "region default for geo", body: chat("apac.anthropic.claude-sonnet-4-20250514-v1:0", [user("Hi")]), replies: [hello] },
+	// A ladder with max but no xhigh: the gateway fits xhigh to the nearest tier below.
+	{ name: "xhigh on a max ladder capped", body: chat(OPUS46, [user("Hi")], { reasoning_effort: "xhigh", max_tokens: 1000 }), replies: [hello] },
+	{ name: "xhigh on opus 4.7 capped", body: chat("us.anthropic.claude-opus-4-7", [user("Hi")], { reasoning_effort: "xhigh", max_tokens: 1000 }), replies: [hello] },
+	{ name: "max on an xhigh ladder", body: chat(OPUS45, [user("Hi")], { reasoning_effort: "max" }), replies: [hello] },
+	// Usage framing follows stream_options.include_usage.
+	{ name: "usage not requested", body: chat(OPUS, [user("Hi")], { stream_options: undefined }), replies: [hello] },
+	{ name: "usage declined", body: chat(OPUS, [user("Hi")], { stream_options: { include_usage: false } }), replies: [hello] },
 ];
 
 const results: any[] = [];
